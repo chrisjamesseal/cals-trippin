@@ -124,11 +124,11 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--g2); outline-off
 
 /* ---------- toast ---------- */
 #toast{
-  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(120%);
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(calc(100% + 40px));
   background:var(--ink); color:var(--paper); padding:12px 22px; font-weight:700; font-size:.85rem;
-  z-index:200; transition:transform .2s; max-width:90vw; text-align:center;
+  z-index:200; transition:transform .2s, visibility .2s; max-width:90vw; text-align:center; visibility:hidden;
 }
-#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.show{transform:translateX(-50%) translateY(0); visibility:visible;}
 
 /* ---------- misc components ---------- */
 .list-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--g2);}
