@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cal's Trippin'</title>
+<meta name="description" content="One place for your group trip — flights, money, plans and photos.">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --ink:#000; --paper:#fff;
+  --g1:#f5f5f5; --g2:#e8e8e8; --g3:#c9c9c9; --g4:#8a8a8a; --g5:#555;
+  --border:1.5px solid var(--ink);
+  --radius:0px;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+html{font-size:16px;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--paper); color:var(--ink); line-height:1.5;
+  min-height:100vh;
+}
+::selection{background:var(--ink); color:var(--paper);}
+
+/* ---------- layout ---------- */
+.wrap{max-width:920px; margin:0 auto; padding:0 16px 96px;}
+header.top{
+  border-bottom:var(--border); background:var(--paper);
+  position:sticky; top:0; z-index:50;
+}
+.top-inner{max-width:920px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.logo{font-weight:800; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; user-select:none; white-space:nowrap;}
+.logo span{display:inline-block; border:var(--border); padding:0 .35em; margin-right:.4em; background:var(--ink); color:var(--paper);}
+
+/* ---------- type ---------- */
+h1{font-size:1.9rem; font-weight:800; letter-spacing:-.02em; line-height:1.15;}
+h2{font-size:1.15rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:12px;}
+h3{font-size:1rem; font-weight:700;}
+.label{font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:var(--g5); display:block; margin-bottom:4px;}
+.muted{color:var(--g4); font-size:.85rem;}
+.small{font-size:.85rem;}
+a{color:var(--ink);}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  font:inherit; font-weight:700; font-size:.85rem; letter-spacing:.04em;
+  border:var(--border); background:var(--paper); color:var(--ink);
+  padding:10px 18px; cursor:pointer; text-decoration:none; text-transform:uppercase;
+  transition:background .12s,color .12s; user-select:none; border-radius:var(--radius);
+}
+.btn:hover{background:var(--ink); color:var(--paper);}
+.btn.primary{background:var(--ink); color:var(--paper);}
+.btn.primary:hover{background:var(--paper); color:var(--ink);}
+.btn.sm{padding:6px 12px; font-size:.72rem;}
+.btn.ghost{border-color:var(--g3); color:var(--g5);}
+.btn.ghost:hover{background:var(--g1); color:var(--ink); border-color:var(--ink);}
+.btn:disabled{opacity:.35; pointer-events:none;}
+.btn-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+.iconbtn{border:none; background:none; cursor:pointer; font-size:1rem; padding:4px 8px; line-height:1;}
+
+/* ---------- cards & panels ---------- */
+.card{border:var(--border); background:var(--paper); padding:18px; margin-bottom:16px; position:relative;}
+.card.flat{border-color:var(--g3);}
+.panel{border:var(--border); padding:18px; margin-bottom:20px;}
+.divider{border:none; border-top:1px solid var(--g2); margin:14px 0;}
+
+/* ---------- trip list ---------- */
+.trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:18px;}
+.trip-card{border:var(--border); padding:18px; cursor:pointer; transition:transform .08s; background:var(--paper);}
+.trip-card:hover{transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--ink);}
+.trip-card.archived{opacity:.42; filter:grayscale(1);}
+.trip-card h3{font-size:1.2rem; margin-bottom:2px;}
+.badge{display:inline-block; font-size:.62rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; border:1.5px solid var(--ink); padding:2px 8px; margin-left:8px; vertical-align:middle;}
+.badge.inv{background:var(--ink); color:var(--paper);}
+
+/* ---------- tabs ---------- */
+.tabs{
+  display:flex; gap:0; border:var(--border); margin:18px 0 22px;
+  overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{
+  flex:1 0 auto; text-align:center; padding:11px 16px; cursor:pointer;
+  font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em;
+  border-right:1px solid var(--g3); white-space:nowrap; user-select:none;
+}
+.tab:last-child{border-right:none;}
+.tab.active{background:var(--ink); color:var(--paper);}
+
+/* ---------- forms ---------- */
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=url],input[type=tel],select,textarea{
+  font:inherit; width:100%; padding:10px 12px; border:var(--border); background:var(--paper);
+  color:var(--ink); border-radius:0; -webkit-appearance:none; appearance:none;
+}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:32px;}
+textarea{min-height:90px; resize:vertical;}
+input:focus,select:focus,textarea:focus{outline:3px solid var(--g2); outline-offset:0;}
+.field{margin-bottom:14px;}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
+@media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr;}}
+.check{display:flex; align-items:center; gap:8px; font-size:.9rem; cursor:pointer; padding:4px 0;}
+.check input{width:auto; accent-color:#000;}
+.chips{display:flex; flex-wrap:wrap; gap:8px;}
+.chip{border:1.5px solid var(--ink); padding:4px 10px; font-size:.8rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;}
+.chip button{border:none; background:none; cursor:pointer; font-weight:800; font-size:.9rem; padding:0; line-height:1;}
+.chip.pick{cursor:pointer; border-color:var(--g3); color:var(--g5); user-select:none;}
+.chip.pick.on{border-color:var(--ink); color:var(--ink); background:var(--g1); font-weight:700;}
+
+/* ---------- modal ---------- */
+.modal-bg{
+  position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100;
+  display:flex; align-items:flex-start; justify-content:center; padding:24px 12px; overflow-y:auto;
+}
+.modal{
+  background:var(--paper); border:2px solid var(--ink); width:100%; max-width:560px;
+  padding:22px; margin:auto 0; position:relative; animation:pop .14s ease-out;
+}
+@keyframes pop{from{transform:scale(.96); opacity:0;} to{transform:scale(1); opacity:1;}}
+.modal .close-x{position:absolute; top:10px; right:10px; font-size:1.2rem; font-weight:800;}
+.modal h2{padding-right:30px;}
+
+/* ---------- toast ---------- */
+#toast{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(120%);
+  background:var(--ink); color:var(--paper); padding:12px 22px; font-weight:700; font-size:.85rem;
+  z-index:200; transition:transform .2s; max-width:90vw; text-align:center;
+}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ---------- misc components ---------- */
+.list-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--g2);}
+.list-row:last-child{border-bottom:none;}
+.empty{
+  border:1.5px dashed var(--g3); padding:34px 20px; text-align:center; color:var(--g4);
+  font-size:.9rem; margin:14px 0;
+}
+.banner{
+  border:var(--border); background:var(--g1); padding:12px 16px; margin:18px 0;
+  font-size:.85rem; font-weight:600;
+}
+.banner.dark{background:var(--ink); color:var(--paper);}
+.mono{font-variant-numeric:tabular-nums; font-feature-settings:"tnum";}
+.amount{font-weight:800; white-space:nowrap;}
+.flight-strip{border:var(--border); margin-bottom:12px;}
+.flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--g2); background:var(--g1);}
+.flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center;}
+.flight-apt{font-size:1.5rem; font-weight:800; letter-spacing:.02em;}
+.flight-arrow{font-size:1.1rem; text-align:center; color:var(--g4);}
+.flight-meta{padding:0 14px 12px; display:flex; gap:18px; flex-wrap:wrap; font-size:.8rem; color:var(--g5);}
+.mood-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-top:14px;}
+.mood-card{border:var(--border); padding:14px; position:relative; word-break:break-word;}
+.mood-card img{width:100%; display:block; border:1px solid var(--g2); margin-bottom:8px; filter:grayscale(1);}
+.mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--g4); margin-bottom:6px;}
+.mood-del{position:absolute; top:6px; right:6px;}
+.sugg{border:1px solid var(--g3); padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; gap:12px; align-items:flex-start;}
+.settle{border:var(--border); padding:14px; margin-top:14px;}
+.settle-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--g2); font-size:.95rem;}
+.settle-row:last-child{border-bottom:none;}
+.steps{counter-reset:st; list-style:none;}
+.steps li{counter-increment:st; padding:8px 0 8px 40px; position:relative; font-size:.9rem;}
+.steps li::before{
+  content:counter(st); position:absolute; left:0; top:6px; width:26px; height:26px;
+  border:1.5px solid var(--ink); display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:.8rem;
+}
+details{border:var(--border); margin-bottom:12px;}
+details summary{padding:12px 16px; font-weight:700; cursor:pointer; text-transform:uppercase; font-size:.8rem; letter-spacing:.08em; user-select:none;}
+details[open] summary{border-bottom:1px solid var(--g2);}
+details .d-body{padding:14px 16px;}
+.doc-icon{width:42px; height:52px; border:var(--border); display:flex; align-items:center; justify-content:center; font-size:.6rem; font-weight:800; flex-shrink:0;}
+.readonly-note{font-size:.75rem; color:var(--g4); font-style:italic;}
+.section-head{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
+.section-head h2{margin-bottom:0;}
+@media(max-width:560px){
+  h1{font-size:1.5rem;}
+  .wrap{padding:0 12px 80px;}
+  .modal{padding:16px;}
+  .flight-apt{font-size:1.2rem;}
+}
+@media print{.tabs,.btn,header.top{display:none!important;}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="logo" onclick="App.goHome()"><span>CT</span>Cal's Trippin'</div>
+    <div id="header-actions"></div>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<div id="modal-root"></div>
+<div id="toast"></div>
+<script>
+'use strict';
+/* ================= state ================= */
+const LS_KEY = 'calstrippin_v1';
+var DB = load();
+let VIEW_TRIP = null;   // decoded trip when in participant (read-only) mode
+let CUR_TAB = 'info';
+
+function load(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {trips:[]}; }
+  catch(e){ return {trips:[]}; }
+}
+function save(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
+  catch(e){ toast('Storage full — try removing large documents/images'); }
+}
+
+/* ================= utils ================= */
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2,10);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function fmtDate(d){
+  if(!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'});
+}
+function fmtRange(a,b){
+  if(!a && !b) return 'Dates TBC';
+  return (a?fmtDate(a):'?') + ' — ' + (b?fmtDate(b):'?');
+}
+function money(n){ return (n<0?'-':'') + '£' + Math.abs(n).toFixed(2); }
+function isArchived(t){
+  if(!t.endDate) return false;
+  const cut = new Date(t.endDate + 'T00:00:00');
+  cut.setMonth(cut.getMonth()+1);
+  return new Date() > cut;
+}
+function getTrip(id){ return DB.trips.find(t=>t.id===id); }
+function readOnly(t){ return !!VIEW_TRIP || isArchived(t); }
+function fileSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.round(b/1024)+' KB'; }
+
+/* ================= modal ================= */
+function openModal(html){
+  $('#modal-root').innerHTML =
+    `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">
+       <button class="iconbtn close-x" onclick="closeModal()">✕</button>${html}</div></div>`;
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(){ $('#modal-root').innerHTML=''; document.body.style.overflow=''; }
+
+/* ================= router ================= */
+window.addEventListener('hashchange', route);
+window.addEventListener('DOMContentLoaded', route);
+function route(){
+  closeModal();
+  const h = location.hash;
+  VIEW_TRIP = null;
+  if(h.startsWith('#/view/')){
+    try{
+      const json = LZString.decompressFromEncodedURIComponent(h.slice(7));
+      VIEW_TRIP = JSON.parse(json);
+      if(!VIEW_TRIP || !VIEW_TRIP.name) throw 0;
+      renderTrip(VIEW_TRIP);
+    }catch(e){
+      $('#app').innerHTML = `<div class="empty" style="margin-top:40px">This trip link appears to be broken or incomplete.<br>Ask the organiser to send it again.</div>`;
+      $('#header-actions').innerHTML = '';
+    }
+  } else if(h.startsWith('#/trip/')){
+    const t = getTrip(h.slice(7).split('/')[0]);
+    if(t) renderTrip(t); else { location.hash=''; }
+  } else {
+    renderHome();
+  }
+  window.scrollTo(0,0);
+}
+
+const App = {};
+window.App = App;
+App.goHome = () => { if(VIEW_TRIP){ toast("You're viewing a shared trip"); return; } location.hash=''; route(); };
+
+/* ================= home (trip list) ================= */
+function renderHome(){
+  $('#header-actions').innerHTML = `<button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>`;
+  const active = DB.trips.filter(t=>!isArchived(t));
+  const arch  = DB.trips.filter(t=> isArchived(t));
+  const card = t => `
+    <div class="trip-card ${isArchived(t)?'archived':''}" onclick="location.hash='#/trip/${t.id}'">
+      <h3>${esc(t.name)}${isArchived(t)?'<span class="badge">Archived</span>':''}</h3>
+      <div class="muted">${esc(t.destination||'Destination TBC')}</div>
+      <div class="small" style="margin-top:8px">${fmtRange(t.startDate,t.endDate)}</div>
+      <div class="muted small" style="margin-top:4px">${(t.participants||[]).length} people · ${(t.receipts||[]).length} receipts</div>
+    </div>`;
+  $('#app').innerHTML = `
+    <div style="padding-top:28px">
+      <h1>Your trips</h1>
+      <p class="muted" style="margin-top:4px">One organiser runs the trip. Everyone else gets a link.</p>
+      ${DB.trips.length===0 ? `
+        <div class="empty" style="margin-top:24px">
+          No trips yet.<br><br>
+          <button class="btn primary" onclick="App.newTrip()">Create your first trip</button>
+        </div>` : `
+        <div class="trip-grid">${active.map(card).join('')}${arch.map(card).join('')}</div>`}
+    </div>`;
+}
+
+App.newTrip = () => {
+  openModal(`
+    <h2>New trip</h2>
+    <div class="field"><label class="label">Trip name</label><input type="text" id="f-name" placeholder="e.g. Lads in Lisbon 2026"></div>
+    <div class="field"><label class="label">Destination</label><input type="text" id="f-dest" placeholder="e.g. Lisbon, Portugal"></div>
+    <div class="grid2">
+      <div class="field"><label class="label">Start date</label><input type="date" id="f-start"></div>
+      <div class="field"><label class="label">End date</label><input type="date" id="f-end"></div>
+    </div>
+    <div class="field"><label class="label">Your name (organiser)</label><input type="text" id="f-org" placeholder="e.g. Cal"></div>
+    <div class="field"><label class="label">Other people (comma-separated, add more later)</label><input type="text" id="f-ppl" placeholder="e.g. Chris, Sam, Jordan"></div>
+    <button class="btn primary" style="width:100%" onclick="App.createTrip()">Create trip</button>`);
+};
+App.createTrip = () => {
+  const name = $('#f-name').value.trim();
+  if(!name){ toast('Give the trip a name'); return; }
+  const org = $('#f-org').value.trim() || 'Organiser';
+  const others = $('#f-ppl').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const t = {
+    id: uid(), name, destination: $('#f-dest').value.trim(),
+    startDate: $('#f-start').value, endDate: $('#f-end').value,
+    organiser: org, participants: [org, ...others],
+    flights: [], notes: {accom:{}, contacts:[], general:''},
+    documents: [], receipts: [], photoAlbum: {url:'',service:''}, moodBoard: [],
+    createdAt: Date.now()
+  };
+  DB.trips.unshift(t); save(); closeModal();
+  location.hash = '#/trip/' + t.id;
+};
+App.deleteTrip = id => {
+  const t = getTrip(id); if(!t) return;
+  if(!confirm(`Delete "${t.name}" and everything in it? This can't be undone.`)) return;
+  DB.trips = DB.trips.filter(x=>x.id!==id); save(); location.hash='';
+};
+
+/* ================= share link ================= */
+App.share = id => {
+  const t = getTrip(id); if(!t) return;
+  // strip heavy binary data from the payload — links must stay portable
+  const lite = JSON.parse(JSON.stringify(t));
+  lite.documents = lite.documents.map(d=>({...d, dataUrl:null, stripped:true}));
+  lite.moodBoard = lite.moodBoard.map(m=> m.type==='image' ? {...m, dataUrl:null, text:(m.text||'')+' (image not included in shared link)'} : m);
+  const packed = LZString.compressToEncodedURIComponent(JSON.stringify(lite));
+  const url = location.origin + location.pathname + '#/view/' + packed;
+  openModal(`
+    <h2>Invite link</h2>
+    <p class="small" style="margin-bottom:12px">Anyone with this link can <strong>view</strong> the trip — no account, no sign-up. It contains a snapshot of the trip, so after you make changes, share a fresh link.</p>
+    <div class="field"><textarea id="share-url" readonly style="min-height:70px;font-size:.72rem;word-break:break-all">${esc(url)}</textarea></div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="App.copyShare()">Copy link</button>
+      ${navigator.share?`<button class="btn" onclick="App.nativeShare()">Share…</button>`:''}
+    </div>
+    <p class="muted small" style="margin-top:12px">Note: uploaded document files and mood-board images are kept on your device and aren't embedded in the link — their details still appear.</p>`);
+};
+App.copyShare = () => {
+  const el = $('#share-url'); el.select();
+  navigator.clipboard.writeText(el.value).then(()=>toast('Link copied')).catch(()=>{ document.execCommand('copy'); toast('Link copied'); });
+};
+App.nativeShare = () => {
+  navigator.share({title:"Cal's Trippin' — trip invite", url: $('#share-url').value}).catch(()=>{});
+};
+
+/* ================= trip shell ================= */
+function renderTrip(t){
+  const ro = readOnly(t);
+  const arch = isArchived(t);
+  $('#header-actions').innerHTML = VIEW_TRIP ? '' :
+    `<div class="btn-row">
+       <button class="btn sm" onclick="App.share('${t.id}')">Share</button>
+       <button class="btn sm ghost" onclick="App.goHome()">All trips</button>
+     </div>`;
+  const tabs = [['info','Info'],['docs','Docs'],['money','Money'],['photos','Photos'],['mood','Ideas']];
+  $('#app').innerHTML = `
+    ${VIEW_TRIP?`<div class="banner dark">👀 You're viewing this trip as a participant (read-only)</div>`:''}
+    ${arch?`<div class="banner">🗄 This trip is archived — it ended over a month ago and is now read-only.</div>`:''}
+    <div style="padding-top:${VIEW_TRIP||arch?'4px':'26px'}">
+      <h1>${esc(t.name)}${arch?'<span class="badge">Archived</span>':''}</h1>
+      <p class="muted" style="margin-top:2px">${esc(t.destination||'Destination TBC')} · ${fmtRange(t.startDate,t.endDate)}</p>
+    </div>
+    <div class="tabs">
+      ${tabs.map(([k,l])=>`<div class="tab ${CUR_TAB===k?'active':''}" onclick="App.tab('${k}')">${l}</div>`).join('')}
+    </div>
+    <div id="tab-body"></div>
+    ${!VIEW_TRIP?`<div style="margin-top:40px;text-align:right"><button class="btn sm ghost" onclick="App.deleteTrip('${t.id}')">Delete trip</button></div>`:''}`;
+  renderTab(t);
+}
+App.tab = k => {
+  CUR_TAB = k;
+  const t = VIEW_TRIP || getTrip(location.hash.slice(7).split('/')[0]);
+  if(t) renderTrip(t);
+};
+function renderTab(t){
+  const el = $('#tab-body');
+  const ro = readOnly(t);
+  if(CUR_TAB==='info')   el.innerHTML = tabInfo(t,ro);
+  if(CUR_TAB==='docs')   el.innerHTML = tabDocs(t,ro);
+  if(CUR_TAB==='money')  el.innerHTML = tabMoney(t,ro);
+  if(CUR_TAB==='photos') el.innerHTML = tabPhotos(t,ro);
+  if(CUR_TAB==='mood')   el.innerHTML = tabMood(t,ro);
+}
+function rerender(){
+  const t = VIEW_TRIP || getTrip(location.hash.slice(7).split('/')[0]);
+  if(t) renderTrip(t);
+}
+/* ================= TAB: info (flights / notes / people) ================= */
+function tabInfo(t, ro){
+  const n = t.notes || {accom:{},contacts:[],general:''};
+  const flights = (t.flights||[]).map((f,i)=>`
+    <div class="flight-strip">
+      <div class="flight-head">
+        <strong>${esc(f.airline||'Flight')} ${esc(f.flightNo||'')}</strong>
+        <span class="btn-row">
+          <span class="muted small">${f.date?fmtDate(f.date):''}</span>
+          ${!ro?`<button class="iconbtn" title="Edit" onclick="App.flightForm(${i})">✎</button>
+                 <button class="iconbtn" title="Remove" onclick="App.delFlight(${i})">✕</button>`:''}
+        </span>
+      </div>
+      <div class="flight-body">
+        <div><div class="flight-apt">${esc(f.from||'—')}</div><div class="muted small mono">${esc(f.depTime||'')}</div></div>
+        <div class="flight-arrow">✈ →</div>
+        <div style="text-align:right"><div class="flight-apt">${esc(f.to||'—')}</div><div class="muted small mono">${esc(f.arrTime||'')}</div></div>
+      </div>
+      <div class="flight-meta">
+        ${f.seat?`<span>Seat <strong>${esc(f.seat)}</strong></span>`:''}
+        ${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}
+        ${f.note?`<span>${esc(f.note)}</span>`:''}
+      </div>
+    </div>`).join('');
+
+  const contacts = (n.contacts||[]).map((c,i)=>`
+    <div class="list-row">
+      <div><strong>${esc(c.name)}</strong><div class="muted small">${esc(c.rel||'')}</div></div>
+      <div class="btn-row"><a class="mono" href="tel:${esc(c.phone)}">${esc(c.phone)}</a>
+      ${!ro?`<button class="iconbtn" onclick="App.delContact(${i})">✕</button>`:''}</div>
+    </div>`).join('');
+
+  return `
+    <div class="section-head"><h2>Flights</h2>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add flight</button>`:''}</div>
+    ${flights || `<div class="empty">No flights yet.${!ro?' Add one manually, or upload a boarding pass in <strong>Docs</strong> and it will be parsed automatically.':''}</div>`}
+
+    <div class="section-head" style="margin-top:30px"><h2>Accommodation</h2>${!ro?`<button class="btn sm" onclick="App.accomForm()">✎ Edit</button>`:''}</div>
+    ${n.accom && n.accom.name ? `
+      <div class="card">
+        <h3>${esc(n.accom.name)}</h3>
+        ${n.accom.address?`<div class="small" style="margin-top:4px">${esc(n.accom.address)}</div>`:''}
+        <div class="btn-row" style="margin-top:10px">
+          ${n.accom.checkin?`<span class="chip">In: ${fmtDate(n.accom.checkin)}</span>`:''}
+          ${n.accom.checkout?`<span class="chip">Out: ${fmtDate(n.accom.checkout)}</span>`:''}
+          ${n.accom.ref?`<span class="chip">Ref: ${esc(n.accom.ref)}</span>`:''}
+        </div>
+      </div>` : `<div class="empty">No accommodation details yet.</div>`}
+
+    <div class="section-head" style="margin-top:30px"><h2>Emergency contacts</h2>${!ro?`<button class="btn sm" onclick="App.contactForm()">+ Add</button>`:''}</div>
+    ${contacts || `<div class="empty">No emergency contacts yet.</div>`}
+
+    <div class="section-head" style="margin-top:30px"><h2>General info</h2>${!ro?`<button class="btn sm" onclick="App.generalForm()">✎ Edit</button>`:''}</div>
+    ${n.general ? `<div class="card" style="white-space:pre-wrap">${esc(n.general)}</div>` : `<div class="empty">Visas, packing reminders, local tips…</div>`}
+
+    <div class="section-head" style="margin-top:30px"><h2>People</h2>${!ro?`<button class="btn sm" onclick="App.addPerson()">+ Add</button>`:''}</div>
+    <div class="chips">
+      ${(t.participants||[]).map((p,i)=>`<span class="chip">${esc(p)}${p===t.organiser?' ★':''}${!ro && p!==t.organiser?`<button onclick="App.delPerson(${i})">✕</button>`:''}</span>`).join('')}
+    </div>
+    <p class="muted small" style="margin-top:8px">★ organiser</p>`;
+}
+
+/* --- flights --- */
+App.flightForm = (i, prefill) => {
+  const t = getTrip(location.hash.slice(7)); if(!t) return;
+  const f = prefill || (i>=0 ? t.flights[i] : {});
+  openModal(`
+    <h2>${i>=0?'Edit':'Add'} flight</h2>
+    ${prefill?`<div class="banner">Parsed from your document — check & correct before saving.</div>`:''}
+    <div class="grid2">
+      <div class="field"><label class="label">Airline</label><input id="fl-air" type="text" value="${esc(f.airline||'')}" placeholder="British Airways"></div>
+      <div class="field"><label class="label">Flight no.</label><input id="fl-no" type="text" value="${esc(f.flightNo||'')}" placeholder="BA432"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||'')}"></div>
+      <div class="field"><label class="label">From (airport)</label><input id="fl-from" type="text" value="${esc(f.from||'')}" placeholder="LHR"></div>
+      <div class="field"><label class="label">To (airport)</label><input id="fl-to" type="text" value="${esc(f.to||'')}" placeholder="LIS"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label class="label">Departs</label><input id="fl-dep" type="time" value="${esc(f.depTime||'')}"></div>
+      <div class="field"><label class="label">Arrives</label><input id="fl-arr" type="time" value="${esc(f.arrTime||'')}"></div>
+      <div class="field"><label class="label">Seat</label><input id="fl-seat" type="text" value="${esc(f.seat||'')}" placeholder="14C"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label class="label">Booking ref</label><input id="fl-ref" type="text" value="${esc(f.ref||'')}"></div>
+      <div class="field"><label class="label">Note</label><input id="fl-note" type="text" value="${esc(f.note||'')}" placeholder="Whose flight? Terminal?"></div>
+    </div>
+    <button class="btn primary" style="width:100%" onclick="App.saveFlight(${i})">Save flight</button>`);
+};
+App.saveFlight = i => {
+  const t = getTrip(location.hash.slice(7)); if(!t) return;
+  const f = {
+    airline:$('#fl-air').value.trim(), flightNo:$('#fl-no').value.trim().toUpperCase(),
+    date:$('#fl-date').value, from:$('#fl-from').value.trim().toUpperCase(), to:$('#fl-to').value.trim().toUpperCase(),
+    depTime:$('#fl-dep').value, arrTime:$('#fl-arr').value, seat:$('#fl-seat').value.trim().toUpperCase(),
+    ref:$('#fl-ref').value.trim(), note:$('#fl-note').value.trim()
+  };
+  if(i>=0) t.flights[i]=f; else t.flights.push(f);
+  save(); closeModal(); CUR_TAB='info'; rerender(); toast('Flight saved');
+};
+App.delFlight = i => { const t=getTrip(location.hash.slice(7)); t.flights.splice(i,1); save(); rerender(); };
+
+/* --- accommodation / contacts / general / people --- */
+App.accomForm = () => {
+  const t = getTrip(location.hash.slice(7)); const a = t.notes.accom||{};
+  openModal(`
+    <h2>Accommodation</h2>
+    <div class="field"><label class="label">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name"></div>
+    <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}"></div>
+    <div class="grid3">
+      <div class="field"><label class="label">Check-in</label><input id="ac-in" type="date" value="${esc(a.checkin||'')}"></div>
+      <div class="field"><label class="label">Check-out</label><input id="ac-out" type="date" value="${esc(a.checkout||'')}"></div>
+      <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
+    </div>
+    <button class="btn primary" style="width:100%" onclick="App.saveAccom()">Save</button>`);
+};
+App.saveAccom = () => {
+  const t = getTrip(location.hash.slice(7));
+  t.notes.accom = {name:$('#ac-name').value.trim(), address:$('#ac-addr').value.trim(),
+    checkin:$('#ac-in').value, checkout:$('#ac-out').value, ref:$('#ac-ref').value.trim()};
+  save(); closeModal(); rerender();
+};
+App.contactForm = () => {
+  openModal(`
+    <h2>Emergency contact</h2>
+    <div class="field"><label class="label">Name</label><input id="ct-name" type="text"></div>
+    <div class="grid2">
+      <div class="field"><label class="label">Phone</label><input id="ct-phone" type="tel"></div>
+      <div class="field"><label class="label">Relation / role</label><input id="ct-rel" type="text" placeholder="e.g. Hotel reception, Mum"></div>
+    </div>
+    <button class="btn primary" style="width:100%" onclick="App.saveContact()">Add contact</button>`);
+};
+App.saveContact = () => {
+  const t = getTrip(location.hash.slice(7));
+  const name = $('#ct-name').value.trim(); if(!name){toast('Name required');return;}
+  t.notes.contacts.push({name, phone:$('#ct-phone').value.trim(), rel:$('#ct-rel').value.trim()});
+  save(); closeModal(); rerender();
+};
+App.delContact = i => { const t=getTrip(location.hash.slice(7)); t.notes.contacts.splice(i,1); save(); rerender(); };
+App.generalForm = () => {
+  const t = getTrip(location.hash.slice(7));
+  openModal(`
+    <h2>General info</h2>
+    <div class="field"><textarea id="gi-text" style="min-height:160px" placeholder="Visas, packing list, local tips, house rules…">${esc(t.notes.general||'')}</textarea></div>
+    <button class="btn primary" style="width:100%" onclick="App.saveGeneral()">Save</button>`);
+};
+App.saveGeneral = () => {
+  const t = getTrip(location.hash.slice(7));
+  t.notes.general = $('#gi-text').value; save(); closeModal(); rerender();
+};
+App.addPerson = () => {
+  const t = getTrip(location.hash.slice(7));
+  const name = prompt('Name of person to add:'); if(!name||!name.trim()) return;
+  t.participants.push(name.trim()); save(); rerender();
+};
+App.delPerson = i => {
+  const t = getTrip(location.hash.slice(7));
+  const p = t.participants[i];
+  const used = (t.receipts||[]).some(r => r.paidBy===p || (r.sharedWith||[]).includes(p) || (r.items||[]).some(it=>(it.people||[]).includes(p)));
+  if(used){ toast(`${p} is on receipts — remove those first`); return; }
+  t.participants.splice(i,1); save(); rerender();
+};
+
+/* ================= TAB: documents ================= */
+function tabDocs(t, ro){
+  const docs = (t.documents||[]).map((d,i)=>`
+    <div class="list-row">
+      <div style="display:flex;gap:12px;align-items:center;min-width:0">
+        <div class="doc-icon">${d.kind==='pdf'?'PDF':'IMG'}</div>
+        <div style="min-width:0">
+          <strong style="word-break:break-all">${esc(d.name)}</strong>
+          <div class="muted small">${d.size?fileSize(d.size):''} ${d.parsed?'· ✈ parsed':''}</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        ${d.dataUrl?`<button class="btn sm" onclick="App.openDoc('${t.id}',${i})">View</button>`:`<span class="readonly-note">file on organiser's device</span>`}
+        ${!ro?`<button class="iconbtn" onclick="App.delDoc(${i})">✕</button>`:''}
+      </div>
+    </div>`).join('');
+  return `
+    <div class="section-head"><h2>Documents</h2>
+      ${!ro?`<label class="btn sm primary" style="cursor:pointer">+ Upload
+        <input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.upload(this)"></label>`:''}
+    </div>
+    <p class="muted small" style="margin-bottom:10px">Boarding passes, e-tickets and itineraries. PDFs are scanned automatically for flight details, which pre-fill the Flights section for you to confirm.</p>
+    ${docs || `<div class="empty">No documents yet.</div>`}
+    <div id="parse-status"></div>`;
+}
+App.openDoc = (tid,i) => {
+  const t = VIEW_TRIP && VIEW_TRIP.id===tid ? VIEW_TRIP : getTrip(tid);
+  const d = t.documents[i]; if(!d||!d.dataUrl) return;
+  const w = window.open(); if(!w){ toast('Popup blocked'); return; }
+  if(d.kind==='pdf') w.document.write(`<iframe src="${d.dataUrl}" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>`);
+  else w.document.write(`<img src="${d.dataUrl}" style="max-width:100%">`);
+};
+App.delDoc = i => { const t=getTrip(location.hash.slice(7)); t.documents.splice(i,1); save(); rerender(); };
+
+App.upload = input => {
+  const file = input.files[0]; if(!file) return;
+  const t = getTrip(location.hash.slice(7)); if(!t) return;
+  const isPdf = file.type==='application/pdf';
+  if(isPdf){
+    const fr = new FileReader();
+    fr.onload = async e => {
+      if(file.size > 2*1048576){ toast('PDF over 2 MB — stored details only'); }
+      const doc = {id:uid(), name:file.name, kind:'pdf', size:file.size,
+                   dataUrl: file.size<=2*1048576 ? e.target.result : null, parsed:false};
+      t.documents.push(doc); save(); rerender();
+      parsePdf(e.target.result, t, doc);
+    };
+    fr.readAsDataURL(file);
+  } else {
+    // image → downscale to keep localStorage happy
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      const scale = Math.min(1, 1400/Math.max(img.width,img.height));
+      c.width = img.width*scale; c.height = img.height*scale;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      const dataUrl = c.toDataURL('image/jpeg',.72);
+      t.documents.push({id:uid(), name:file.name, kind:'img', size:Math.round(dataUrl.length*.75), dataUrl, parsed:false});
+      save(); rerender();
+      toast('Image saved. Auto-parsing works on PDF text — add flight details manually if needed.');
+    };
+    img.src = URL.createObjectURL(file);
+  }
+  input.value='';
+};
+
+/* --- PDF text extraction + boarding pass heuristics --- */
+async function parsePdf(dataUrl, trip, doc){
+  const status = $('#parse-status');
+  try{
+    if(status) status.innerHTML = `<div class="banner">Scanning PDF for flight details…</div>`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await pdfjsLib.getDocument({url:dataUrl}).promise;
+    let text = '';
+    for(let p=1; p<=Math.min(pdf.numPages,5); p++){
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      text += tc.items.map(it=>it.str).join(' ') + '\n';
+    }
+    const f = extractFlight(text);
+    if(status) status.innerHTML='';
+    if(f && (f.flightNo || (f.from&&f.to))){
+      doc.parsed = true; save();
+      App.flightForm(-1, f);
+      toast('Flight details found — please check them');
+    } else {
+      toast('No flight details recognised — add manually in Info');
+    }
+  }catch(e){
+    if(status) status.innerHTML='';
+    toast('Could not read that PDF — it may be scanned/image-based');
+  }
+}
+const AIRLINES = {BA:'British Airways',EZY:'easyJet',U2:'easyJet',FR:'Ryanair',RYR:'Ryanair',VS:'Virgin Atlantic',
+  EK:'Emirates',QR:'Qatar Airways',LH:'Lufthansa',AF:'Air France',KL:'KLM',IB:'Iberia',VY:'Vueling',
+  TP:'TAP Air Portugal',AA:'American Airlines',DL:'Delta',UA:'United',TK:'Turkish Airlines',EI:'Aer Lingus',
+  LS:'Jet2',W6:'Wizz Air',SN:'Brussels Airlines',LX:'SWISS',AZ:'ITA Airways',SK:'SAS',AY:'Finnair'};
+function extractFlight(text){
+  const f = {};
+  const T = text.replace(/\s+/g,' ');
+  // flight number e.g. BA432, EZY8871, U2 8446, FR 1884
+  const fm = T.match(/\b([A-Z]{2,3}|[A-Z]\d|\d[A-Z])\s?(\d{2,4})\b(?!\s?(?:kg|KG|cm|min))/);
+  if(fm && (AIRLINES[fm[1]] || /^[A-Z]{2}$/.test(fm[1]))){
+    f.flightNo = fm[1]+fm[2];
+    f.airline = AIRLINES[fm[1]] || '';
+  }
+  // airline by name
+  for(const name of Object.values(AIRLINES)){
+    if(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i').test(T)){ f.airline = name; break; }
+  }
+  // route: LHR-LIS / LHR → LIS / LHR to LIS
+  const rm = T.match(/\b([A-Z]{3})\s?(?:-|–|—|→|to|TO|>)\s?([A-Z]{3})\b/);
+  if(rm && rm[1]!==rm[2]){ f.from = rm[1]; f.to = rm[2]; }
+  // times (first two HH:MM found)
+  const times = T.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/g);
+  if(times){ f.depTime = times[0].padStart(5,'0'); if(times[1]) f.arrTime = times[1].padStart(5,'0'); }
+  // seat e.g. 14C / seat 2A
+  const sm = T.match(/\b(?:seat|SEAT|Seat)\s*:?\s*(\d{1,2}\s?[A-K])\b/) || T.match(/\b(\d{1,2}[A-F])\b(?=.*(?:board|gate|zone|Boarding|GATE))/i);
+  if(sm) f.seat = sm[1].replace(/\s/,'');
+  // booking ref: 6-char alphanumeric near "ref/booking/confirmation/PNR"
+  const bm = T.match(/(?:booking|confirmation|reference|ref|PNR|record locator)[^A-Z0-9]{0,12}([A-Z0-9]{6})\b/i);
+  if(bm) f.ref = bm[1].toUpperCase();
+  // date
+  const dm = T.match(/\b(\d{1,2})\s(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s?(\d{4})?\b/i)
+        || T.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if(dm){
+    try{
+      let d;
+      if(dm[0].includes('-')) d = new Date(dm[0]+'T00:00:00');
+      else d = new Date(`${dm[1]} ${dm[2]} ${dm[3]||new Date().getFullYear()}`);
+      if(!isNaN(d)) f.date = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }catch(e){}
+  }
+  return f;
+}
+/* ================= TAB: money ================= */
+function receiptTotal(r){
+  return r.evenSplit ? (+r.amount||0) : (r.items||[]).reduce((s,it)=>s+(+it.amount||0),0);
+}
+function computeBalances(t){
+  const net = {}; (t.participants||[]).forEach(p=>net[p]=0);
+  (t.receipts||[]).forEach(r=>{
+    const total = receiptTotal(r);
+    if(net[r.paidBy]!==undefined) net[r.paidBy] += total;
+    if(r.evenSplit){
+      const ppl = (r.sharedWith&&r.sharedWith.length)?r.sharedWith:t.participants;
+      ppl.forEach(p=>{ if(net[p]!==undefined) net[p] -= total/ppl.length; });
+    } else {
+      (r.items||[]).forEach(it=>{
+        const ppl = (it.people&&it.people.length)?it.people:t.participants;
+        ppl.forEach(p=>{ if(net[p]!==undefined) net[p] -= (+it.amount||0)/ppl.length; });
+      });
+    }
+  });
+  return net;
+}
+function settlements(net){
+  const debt = [], cred = [];
+  Object.entries(net).forEach(([p,v])=>{
+    if(v < -0.005) debt.push({p, v:-v}); else if(v > 0.005) cred.push({p, v});
+  });
+  debt.sort((a,b)=>b.v-a.v); cred.sort((a,b)=>b.v-a.v);
+  const out = [];
+  let i=0, j=0;
+  while(i<debt.length && j<cred.length){
+    const pay = Math.min(debt[i].v, cred[j].v);
+    out.push({from:debt[i].p, to:cred[j].p, amt:pay});
+    debt[i].v -= pay; cred[j].v -= pay;
+    if(debt[i].v < 0.005) i++;
+    if(cred[j].v < 0.005) j++;
+  }
+  return out;
+}
+function tabMoney(t, ro){
+  const receipts = (t.receipts||[]).map((r,i)=>{
+    const total = receiptTotal(r);
+    const detail = r.evenSplit
+      ? `<div class="muted small">Split evenly between ${esc(((r.sharedWith&&r.sharedWith.length)?r.sharedWith:t.participants).join(', '))}</div>`
+      : (r.items||[]).map(it=>`<div class="settle-row"><span>${esc(it.desc)} <span class="muted small">(${esc((it.people||[]).join(', ')||'everyone')})</span></span><span class="amount mono">${money(+it.amount||0)}</span></div>`).join('');
+    return `
+    <div class="card">
+      <div class="section-head" style="margin-bottom:6px">
+        <div><h3>${esc(r.title)}</h3><div class="muted small">${r.date?fmtDate(r.date)+' · ':''}paid by <strong>${esc(r.paidBy)}</strong></div></div>
+        <div class="btn-row"><span class="amount mono" style="font-size:1.15rem">${money(total)}</span>
+        ${!ro?`<button class="iconbtn" onclick="App.delReceipt(${i})">✕</button>`:''}</div>
+      </div>
+      ${detail}
+    </div>`;
+  }).join('');
+
+  const net = computeBalances(t);
+  const stl = settlements(net);
+  return `
+    <div class="section-head"><h2>Receipts</h2>${!ro?`<button class="btn sm primary" onclick="App.receiptForm()">+ Add receipt</button>`:''}</div>
+    ${receipts || `<div class="empty">No shared costs yet.</div>`}
+    ${(t.receipts||[]).length ? `
+      <h2 style="margin-top:30px">Balances</h2>
+      <div class="settle">
+        ${Object.entries(net).map(([p,v])=>`<div class="settle-row"><span>${esc(p)}</span><span class="amount mono">${v>0.005?'is owed '+money(v):v<-0.005?'owes '+money(-v):'all square'}</span></div>`).join('')}
+      </div>
+      <h2 style="margin-top:24px">Who pays whom</h2>
+      <div class="settle">
+        ${stl.length ? stl.map(s=>`<div class="settle-row"><span><strong>${esc(s.from)}</strong> → <strong>${esc(s.to)}</strong></span><span class="amount mono">${money(s.amt)}</span></div>`).join('') : `<div class="muted">Everyone is settled up 🤝</div>`}
+      </div>`:''}`;
+}
+
+/* --- receipt modal (temp state R while open) --- */
+let R = null;
+App.receiptForm = () => {
+  const t = getTrip(location.hash.slice(7)); if(!t) return;
+  R = {title:'', date:'', paidBy:t.organiser, evenSplit:true, amount:'', sharedWith:[...t.participants], items:[{desc:'',amount:'',people:[...t.participants]}]};
+  drawReceiptModal(t);
+};
+function drawReceiptModal(t){
+  const chip = (p, on, fn) => `<span class="chip pick ${on?'on':''}" onclick="${fn}">${esc(p)}</span>`;
+  const body = R.evenSplit ? `
+    <div class="field"><label class="label">Total amount (£)</label><input id="rc-amt" type="number" step="0.01" min="0" value="${esc(R.amount)}" oninput="R.amount=this.value"></div>
+    <div class="field"><label class="label">Split between</label>
+      <div class="chips">${t.participants.map((p,i)=>chip(p, R.sharedWith.includes(p), `App.togglePerson(${i})`)).join('')}</div>
+    </div>` : `
+    <label class="label">Line items</label>
+    ${R.items.map((it,i)=>`
+      <div class="card flat" style="padding:12px;margin-bottom:10px">
+        <div class="grid2" style="margin-bottom:8px">
+          <input type="text" placeholder="Item (e.g. Pizza)" value="${esc(it.desc)}" oninput="R.items[${i}].desc=this.value">
+          <input type="number" step="0.01" min="0" placeholder="£" value="${esc(it.amount)}" oninput="R.items[${i}].amount=this.value">
+        </div>
+        <div class="chips">${t.participants.map((p,pi)=>chip(p, (it.people||[]).includes(p), `App.toggleItemPerson(${i},${pi})`)).join('')}</div>
+        ${R.items.length>1?`<div style="text-align:right;margin-top:6px"><button class="iconbtn" onclick="R.items.splice(${i},1);App.redrawReceipt()">✕ remove item</button></div>`:''}
+      </div>`).join('')}
+    <button class="btn sm" onclick="R.items.push({desc:'',amount:'',people:[]});App.redrawReceipt()">+ Add item</button>
+    <div class="small" style="margin-top:10px">Items total: <strong class="mono">${money(R.items.reduce((s,it)=>s+(+it.amount||0),0))}</strong></div>`;
+  openModal(`
+    <h2>Add receipt</h2>
+    <div class="grid2">
+      <div class="field"><label class="label">What was it?</label><input id="rc-title" type="text" value="${esc(R.title)}" placeholder="Dinner at Tasca" oninput="R.title=this.value"></div>
+      <div class="field"><label class="label">Date</label><input id="rc-date" type="date" value="${esc(R.date)}" oninput="R.date=this.value"></div>
+    </div>
+    <div class="field"><label class="label">Paid by</label>
+      <select onchange="R.paidBy=this.value">${t.participants.map(p=>`<option ${p===R.paidBy?'selected':''}>${esc(p)}</option>`).join('')}</select>
+    </div>
+    <div class="field">
+      <label class="check"><input type="checkbox" ${R.evenSplit?'checked':''} onchange="R.evenSplit=this.checked;App.redrawReceipt()">
+        <strong>Even split</strong>&nbsp;<span class="muted small">— untick to itemise line by line</span></label>
+    </div>
+    ${body}
+    <hr class="divider">
+    <button class="btn primary" style="width:100%" onclick="App.saveReceipt()">Save receipt</button>`);
+}
+App.redrawReceipt = () => { const t = getTrip(location.hash.slice(7)); drawReceiptModal(t); };
+App.togglePerson = pi => {
+  const t = getTrip(location.hash.slice(7)); const p = t.participants[pi];
+  const i = R.sharedWith.indexOf(p);
+  if(i>=0) R.sharedWith.splice(i,1); else R.sharedWith.push(p);
+  App.redrawReceipt();
+};
+App.toggleItemPerson = (idx,pi) => {
+  const t = getTrip(location.hash.slice(7)); const p = t.participants[pi];
+  const it = R.items[idx]; it.people = it.people||[];
+  const i = it.people.indexOf(p);
+  if(i>=0) it.people.splice(i,1); else it.people.push(p);
+  App.redrawReceipt();
+};
+App.saveReceipt = () => {
+  const t = getTrip(location.hash.slice(7)); if(!t||!R) return;
+  if(!R.title.trim()){ toast('Give the receipt a name'); return; }
+  if(R.evenSplit){
+    if(!(+R.amount>0)){ toast('Enter the amount'); return; }
+    if(!R.sharedWith.length){ toast('Pick who shares it'); return; }
+  } else {
+    R.items = R.items.filter(it=>it.desc.trim()||+it.amount>0);
+    if(!R.items.length || !R.items.some(it=>+it.amount>0)){ toast('Add at least one item with an amount'); return; }
+  }
+  t.receipts.push({id:uid(), title:R.title.trim(), date:R.date, paidBy:R.paidBy,
+    evenSplit:R.evenSplit, amount:+R.amount||0, sharedWith:[...R.sharedWith],
+    items:R.items.map(it=>({desc:it.desc.trim()||'Item', amount:+it.amount||0, people:[...(it.people||[])]}))});
+  save(); R=null; closeModal(); rerender(); toast('Receipt added');
+};
+App.delReceipt = i => {
+  const t = getTrip(location.hash.slice(7));
+  if(!confirm('Remove this receipt?')) return;
+  t.receipts.splice(i,1); save(); rerender();
+};
+
+/* ================= TAB: photos ================= */
+function detectAlbumService(url){
+  if(/icloud\.com/i.test(url)) return 'Apple Shared Album';
+  if(/photos\.(app\.goo\.gl|google\.com)|goo\.gl/i.test(url)) return 'Google Photos';
+  return url ? 'Shared album' : '';
+}
+function tabPhotos(t, ro){
+  const a = t.photoAlbum || {url:''};
+  return `
+    <div class="section-head"><h2>Photos</h2></div>
+    <p class="muted small" style="margin-bottom:14px">Cal's Trippin' doesn't host photos — it links to the shared album your group already uses. One album, everyone contributes, nothing gets lost in the chat.</p>
+    ${a.url ? `
+      <div class="card">
+        <div class="mood-type">${esc(detectAlbumService(a.url))}</div>
+        <h3 style="word-break:break-all;margin-bottom:12px">${esc(a.url)}</h3>
+        <div class="btn-row">
+          <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open album ↗</a>
+          ${!ro?`<button class="btn sm ghost" onclick="App.albumForm()">Change link</button>`:''}
+        </div>
+      </div>` : `
+      <div class="empty">No shared album linked yet.
+        ${!ro?`<br><br><button class="btn primary" onclick="App.albumForm()">+ Paste album link</button>`:''}
+      </div>`}
+    ${!ro?`
+    <h2 style="margin-top:30px">How to set one up</h2>
+    <details>
+      <summary> Apple Shared Album (iPhone/iPad/Mac)</summary>
+      <div class="d-body"><ol class="steps">
+        <li>Open <strong>Photos</strong> and go to <strong>Albums</strong>, then tap <strong>+</strong> → <strong>New Shared Album</strong>.</li>
+        <li>Name it after the trip and invite your group (or skip — you can add people later).</li>
+        <li>Open the album → tap the <strong>people icon</strong> → turn on <strong>Public Website</strong>.</li>
+        <li>Copy the <strong>icloud.com link</strong> that appears and paste it here. Anyone with the link can view, even on Android.</li>
+      </ol></div>
+    </details>
+    <details>
+      <summary> Google Photos shared album</summary>
+      <div class="d-body"><ol class="steps">
+        <li>Open <strong>Google Photos</strong> → <strong>Library</strong> → <strong>New album</strong>. Name it after the trip.</li>
+        <li>Tap the <strong>share icon</strong> and choose <strong>Create link</strong>.</li>
+        <li>Turn on <strong>Collaborate</strong> so everyone can add their photos.</li>
+        <li>Copy the link and paste it here.</li>
+      </ol></div>
+    </details>`:''}`;
+}
+App.albumForm = () => {
+  const t = getTrip(location.hash.slice(7));
+  openModal(`
+    <h2>Shared album link</h2>
+    <div class="field"><label class="label">Paste the album URL</label>
+      <input id="al-url" type="url" value="${esc(t.photoAlbum.url||'')}" placeholder="https://www.icloud.com/sharedalbum/…"></div>
+    <button class="btn primary" style="width:100%" onclick="App.saveAlbum()">Save</button>`);
+};
+App.saveAlbum = () => {
+  const t = getTrip(location.hash.slice(7));
+  let url = $('#al-url').value.trim();
+  if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  t.photoAlbum = {url, service:detectAlbumService(url)};
+  save(); closeModal(); rerender();
+};
+/* ================= TAB: mood board ================= */
+function tabMood(t, ro){
+  const cards = (t.moodBoard||[]).map((m,i)=>`
+    <div class="mood-card">
+      ${!ro?`<button class="iconbtn mood-del" onclick="App.delMood(${i})">✕</button>`:''}
+      <div class="mood-type">${m.type}</div>
+      ${m.type==='image' && m.dataUrl ? `<img src="${m.dataUrl}" alt="">` : ''}
+      ${m.title?`<h3 style="margin-bottom:4px">${esc(m.title)}</h3>`:''}
+      ${m.url?`<a href="${esc(m.url)}" target="_blank" rel="noopener" class="small" style="word-break:break-all">${esc(m.url.replace(/^https?:\/\//,'').slice(0,60))} ↗</a>`:''}
+      ${m.text?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(m.text)}</p>`:''}
+    </div>`).join('');
+  return `
+    <div class="section-head"><h2>Mood board</h2>
+      ${!ro?`<div class="btn-row">
+        <button class="btn sm" onclick="App.suggest()">✦ Get ideas</button>
+        <button class="btn sm primary" onclick="App.moodForm()">+ Pin</button>
+      </div>`:''}
+    </div>
+    <p class="muted small">Things to do, places to eat, events on while you're there. Pin links, notes and pictures.</p>
+    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.${!ro?' Try <strong>✦ Get ideas</strong> for suggestions based on your destination.':''}</div>`}`;
+}
+App.moodForm = () => {
+  openModal(`
+    <h2>Pin to board</h2>
+    <div class="field"><label class="label">Title</label><input id="md-title" type="text" placeholder="e.g. Sunset at Miradouro"></div>
+    <div class="field"><label class="label">Link (optional)</label><input id="md-url" type="url" placeholder="https://…"></div>
+    <div class="field"><label class="label">Note (optional)</label><textarea id="md-text" placeholder="Why it's worth doing…"></textarea></div>
+    <div class="field"><label class="label">Image (optional)</label><input id="md-img" type="file" accept="image/*" style="border:none;padding:0"></div>
+    <button class="btn primary" style="width:100%" onclick="App.saveMood()">Pin it</button>`);
+};
+App.saveMood = () => {
+  const t = getTrip(location.hash.slice(7)); if(!t) return;
+  const title = $('#md-title').value.trim();
+  let url = $('#md-url').value.trim();
+  if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  const text = $('#md-text').value.trim();
+  const fileEl = $('#md-img');
+  const pin = extra => {
+    if(!title && !url && !text && !extra.dataUrl){ toast('Add something first'); return; }
+    t.moodBoard.push({id:uid(), type: extra.dataUrl?'image':(url?'link':'note'), title, url, text, ...extra});
+    save(); closeModal(); rerender(); toast('Pinned');
+  };
+  if(fileEl.files[0]){
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      const scale = Math.min(1, 900/Math.max(img.width,img.height));
+      c.width = img.width*scale; c.height = img.height*scale;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      pin({dataUrl: c.toDataURL('image/jpeg',.7)});
+    };
+    img.src = URL.createObjectURL(fileEl.files[0]);
+  } else pin({});
+};
+App.delMood = i => { const t=getTrip(location.hash.slice(7)); t.moodBoard.splice(i,1); save(); rerender(); };
+
+/* --- destination-based suggestions (offline, no live data) --- */
+const SUGG = {
+  lisbon:[['activity','Ride Tram 28 through Alfama early morning to beat the queues'],['activity','Day trip to Sintra — Pena Palace & Quinta da Regaleira'],['food','Pastéis de Belém — the original custard tarts, worth the line'],['food','Time Out Market for a first-night crowd-pleaser dinner'],['activity','Sunset drinks at Miradouro de Santa Catarina'],['tip','Buy a Viva Viagem card and zap it for trams, metro & ferries']],
+  paris:[['activity','Walk Montmartre at sunrise before the crowds'],['activity','Seine picnic — grab cheese & a baguette from a fromagerie'],['food','Bouillon Chartier — classic French food at canteen prices'],['activity','Musée d\'Orsay over the Louvre if you only pick one'],['tip','Book Eiffel Tower / Louvre slots weeks ahead'],['food','Falafel on Rue des Rosiers in Le Marais']],
+  london:[['activity','Borough Market food crawl on Saturday morning'],['activity','Walk the South Bank: Tate Modern → Tower Bridge'],['food','Brick Lane bagels at 2am — a rite of passage'],['activity','Columbia Road Flower Market on Sunday'],['tip','Just tap a contactless card everywhere — no ticket needed'],['activity','Hampstead Heath swim + pub lunch at the Spaniards Inn']],
+  barcelona:[['activity','Book Sagrada Família tickets online — sunset slot for the light'],['food','Tapas crawl in El Born, finish with vermut'],['activity','Bunkers del Carmel for the best free view of the city'],['activity','Morning at Barceloneta, but locals prefer Bogatell beach'],['tip','Watch for pickpockets on Las Ramblas & the metro'],['food','La Boqueria market — go before 11am']],
+  amsterdam:[['activity','Rent bikes and loop the Vondelpark → Jordaan'],['activity','Anne Frank House — book exactly 6 weeks ahead, they sell out'],['food','Stroopwafels fresh & warm from Albert Cuyp Market'],['activity','Evening canal cruise (the small open boats beat the big glass ones)'],['tip','Cyclists have right of way — never walk in the bike lane'],['food','Indonesian rijsttafel — a legacy of Dutch colonial history, and a feast']],
+  rome:[['activity','Colosseum + Forum combined ticket, first entry slot'],['food','Carbonara in Trastevere — Da Enzo al 29 if you can get in'],['activity','Toss a coin in the Trevi at 7am when it\'s empty'],['activity','Aperitivo hour in Monti'],['tip','Tap water from the nasoni street fountains is excellent'],['food','Gelato rule: if it\'s piled high & neon, walk on']],
+  'new york':[['activity','Walk the Brooklyn Bridge at sunrise toward Manhattan'],['food','Katz\'s Deli pastrami — split one, they\'re huge'],['activity','The High Line → Chelsea Market → Little Island'],['activity','Comedy Cellar — book ahead'],['tip','Buy an OMNY-capable card? No — just tap your bank card on the subway'],['food','Dollar(ish) slice after midnight, it\'s the law']],
+  tokyo:[['activity','Tsukiji Outer Market breakfast — go hungry'],['activity','Shibuya Crossing then coffee looking down from Mag\'s Park'],['food','Ichiran ramen solo booths — order from the machine'],['activity','Day trip to Kamakura or Nikko'],['tip','Get a Suica in Apple Wallet before you land'],['tip','Carry cash — plenty of places still don\'t take cards']],
+  ibiza:[['activity','Sunset at Café del Mar or Experimental Beach'],['activity','Boat day to Formentera — Ses Illetes beach'],['food','Bullit de peix (fish stew) at a chiringuito'],['tip','Club tickets are cheaper online than on the door'],['activity','Old Town (Dalt Vila) evening wander before dinner'],['tip','Book taxis well ahead in peak season — or use the disco bus']],
+  dublin:[['activity','Guinness Storehouse — the Gravity Bar view is worth it'],['food','Full Irish at a proper café, not the hotel buffet'],['activity','Howth cliff walk + fish & chips at Beshoff Bros'],['activity','Trad session at The Cobblestone in Smithfield'],['tip','Temple Bar pints are €2 dearer than two streets away'],['activity','Kilmainham Gaol — book ahead, it sells out']],
+  prague:[['activity','Charles Bridge at dawn — genuinely empty at 6am'],['food','Goulash & dumplings at Lokál, plus tank Pilsner'],['activity','Petřín Hill funicular & tower for the view'],['activity','Old Town astronomical clock — watch once, that\'s enough'],['tip','Exchange rate scams: never use the street exchange booths'],['food','Trdelník is for tourists — try koláče instead']],
+  budapest:[['activity','Széchenyi Baths in the morning, Rudas rooftop pool at night'],['food','Lángos at the Great Market Hall'],['activity','Ruin bars in the Jewish Quarter — start at Szimpla Kert'],['activity','Sunset from Fisherman\'s Bastion'],['tip','Validate your metro ticket — inspectors show no mercy'],['food','Chimney cake (kürtőskalács) fresh off the coals']],
+  marbella:[['activity','Old Town orange square (Plaza de los Naranjos) evening drinks'],['food','Espetos — sardines grilled on the beach at a chiringuito'],['activity','Day trip to Ronda and its gorge-spanning bridge'],['activity','Puerto Banús for the boats-and-supercars people-watching'],['tip','August is peak — book restaurants days ahead'],['activity','Hike La Concha early morning before the heat']],
+  athens:[['activity','Acropolis at opening time (8am) — beat heat and crowds'],['food','Souvlaki at O Kostas — cash only, worth it'],['activity','Sunset from Areopagus Hill, cheaper than a rooftop bar'],['activity','Ferry day trip to Aegina or Hydra'],['tip','Taxis: insist on the meter or use FreeNow'],['food','Loukoumades (honey doughnuts) for a mid-walk pick-me-up']],
+};
+const SUGG_GENERIC = [
+  ['activity','Free walking tour on day one — best way to get your bearings'],
+  ['food','Find the main food market and go hungry at lunchtime'],
+  ['activity','Ask a local bartender where THEY eat — never fails'],
+  ['tip','Screenshot key addresses & tickets in case of no signal'],
+  ['activity','One sunrise or sunset viewpoint per trip, minimum'],
+  ['tip','Agree a rough daily budget with the group before you land'],
+];
+App.suggest = () => {
+  const t = getTrip(location.hash.slice(7)); if(!t) return;
+  const dest = (t.destination||'').toLowerCase();
+  let list = null, matched = '';
+  for(const key of Object.keys(SUGG)){
+    if(dest.includes(key)){ list = SUGG[key]; matched = key; break; }
+  }
+  const items = list || SUGG_GENERIC;
+  const label = {activity:'Do', food:'Eat', tip:'Tip'};
+  openModal(`
+    <h2>✦ Ideas${matched?' for '+esc(matched[0].toUpperCase()+matched.slice(1)):''}</h2>
+    <p class="muted small" style="margin-bottom:14px">${list?'Based on your destination'+(t.startDate?' and dates':''):'General trip ideas — set a recognised destination for tailored ones'}. Tap + to pin to the board.</p>
+    ${items.map(([type,text],i)=>`
+      <div class="sugg">
+        <div><span class="badge inv">${label[type]||type}</span><div class="small" style="margin-top:6px">${esc(text)}</div></div>
+        <button class="btn sm" onclick="App.addSugg(${i},'${matched}')">+</button>
+      </div>`).join('')}`);
+};
+App.addSugg = (i, key) => {
+  const t = getTrip(location.hash.slice(7)); if(!t) return;
+  const items = key && SUGG[key] ? SUGG[key] : SUGG_GENERIC;
+  const [type, text] = items[i];
+  t.moodBoard.push({id:uid(), type:'note', title:(type==='food'?'Eat: ':type==='tip'?'Tip: ':'Do: ')+text.split('—')[0].split(',')[0].trim(), text, url:''});
+  save(); toast('Pinned to board');
+};
+</script>
+</body>
+</html>
