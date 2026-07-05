@@ -12,7 +12,7 @@ One place for your group trip — flights, money, plans and photos. One organise
 - **Documents** — upload boarding passes/e-tickets (PDF or photo). Text-based PDFs are scanned client-side (pdf.js) and flight details pre-fill the Flights section for confirmation.
 - **Structured notes** — flights, accommodation, emergency contacts, general info.
 - **Money splitter** — receipts with itemised line-by-line splitting or an even-split toggle, plus a who-pays-whom settlement.
-- **Photos** — links out to an Apple Shared Album or Google Photos album, with setup tutorials.
+- **Photos** — links out to one shared album everyone adds to. **PhotoCircle** is recommended (free, cross-platform, and everyone — iPhone, Android or web — can *add* photos, not just view); Apple Shared Album / Google Photos links also work if you already use them, with in-app notes on each one's limitations.
 - **Mood board** — pin links, notes and images; built-in destination-based idea suggestions.
 - **Auto-archiving** — trips grey out and become read-only one month after the end date.
 

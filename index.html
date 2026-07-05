@@ -236,6 +236,19 @@ details .d-body{padding:14px 16px;}
 .split-sum .left{font-weight:800;}
 .split-sum .left.clear{color:var(--g4); font-weight:700;}
 
+/* ---------- trip dashboard ---------- */
+.dash-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; margin-top:6px;}
+.dash-tile{
+  border:var(--border); background:var(--paper); padding:18px 16px; cursor:pointer;
+  display:flex; flex-direction:column; gap:8px; min-height:130px;
+  transition:transform .08s, box-shadow .08s;
+}
+.dash-tile:hover,.dash-tile:focus-visible{transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--ink); outline:none;}
+.dash-tile svg{width:34px; height:34px; stroke:var(--ink); fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;}
+.dash-tile .dash-label{font-weight:800; text-transform:uppercase; letter-spacing:.06em; font-size:.82rem; margin-top:auto;}
+.dash-tile .dash-sum{color:var(--g5); font-size:.78rem;}
+.tab svg{width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; vertical-align:-2px; margin-right:5px;}
+
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--g2); align-items:baseline;}
 .log-row:last-child{border-bottom:none;}
@@ -543,6 +556,7 @@ function route(){
   window.scrollTo(0,0);
 }
 function openTrip(id){
+  CUR_TAB = 'home';   // opening a trip always lands on the dashboard
   CUR_TRIP_ID = id;
   syncState = cloudEnabled() ? 'ok' : 'local';
   subscribeTrip(id);
@@ -695,7 +709,17 @@ App.nativeShare = () => {
 };
 
 /* ================= trip shell ================= */
-const TABS = [['info','Info'],['docs','Docs'],['money','Money'],['photos','Photos'],['mood','Ideas'],['log','Log']];
+/* monochrome line icons (black & white per spec) */
+const ICONS = {
+  home:'<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
+  info:'<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>',
+  docs:'<svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/><path d="M9 13h6M9 17h5"/></svg>',
+  money:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M5 9v6M19 9v6"/></svg>',
+  photos:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-8 8"/></svg>',
+  mood:'<svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10c.7.7 1 1.3 1 2h6c0-.7.3-1.3 1-2a6 6 0 0 0-4-10z"/></svg>',
+  log:'<svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h11"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>'
+};
+const TABS = [['home','Home'],['info','Info'],['docs','Docs'],['money','Money'],['photos','Photos'],['mood','Ideas'],['log','Log']];
 function renderTrip(t){
   const ro = readOnly(t);
   const arch = isArchived(t);
@@ -705,7 +729,7 @@ function renderTrip(t){
        <button class="btn sm" onclick="App.share('${t.id}')">Share</button>
        <button class="btn sm ghost" onclick="App.goHome()">All trips</button>
      </div>`;
-  if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='info';
+  if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
   $('#app').innerHTML = `
     ${arch?`<div class="banner">🗄 This trip is archived — it ended over a month ago and is now read-only.</div>`:''}
     <div style="padding-top:${arch?'4px':'26px'}">
@@ -715,7 +739,7 @@ function renderTrip(t){
     ${ro?'':`<div class="who-bar" id="who-bar"></div>`}
     <div class="tabs-wrap" id="tabs-wrap">
       <div class="tabs" role="tablist" id="tabs">
-        ${TABS.map(([k,l])=>`<div class="tab ${CUR_TAB===k?'active':''}" role="tab" tabindex="0" aria-selected="${CUR_TAB===k}" onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">${l}</div>`).join('')}
+        ${TABS.map(([k,l])=>`<div class="tab ${CUR_TAB===k?'active':''}" role="tab" tabindex="0" aria-selected="${CUR_TAB===k}" onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">${ICONS[k]||''}${l}</div>`).join('')}
       </div>
     </div>
     <div id="tab-body"></div>
@@ -743,6 +767,7 @@ App.tab = k => {
 function renderTab(t){
   const el = $('#tab-body');
   const ro = readOnly(t);
+  if(CUR_TAB==='home')   el.innerHTML = tabHome(t);
   if(CUR_TAB==='info')   el.innerHTML = tabInfo(t,ro);
   if(CUR_TAB==='docs')   el.innerHTML = tabDocs(t,ro);
   if(CUR_TAB==='money')  el.innerHTML = tabMoney(t,ro);
@@ -753,6 +778,33 @@ function renderTab(t){
 function rerender(){
   const t = getTrip(CUR_TRIP_ID);
   if(t) renderTrip(t);
+}
+/* ================= TAB: home (dashboard) ================= */
+function tabHome(t){
+  const n = t.notes||{accom:{},contacts:[]};
+  const infoParts = [];
+  if((t.flights||[]).length) infoParts.push((t.flights.length)+(t.flights.length===1?' flight':' flights'));
+  if(n.accom && n.accom.name) infoParts.push('stay booked');
+  if((n.contacts||[]).length) infoParts.push((n.contacts.length)+(n.contacts.length===1?' contact':' contacts'));
+  const nDocs = (t.documents||[]).length, nRec = (t.receipts||[]).length,
+        nPins = (t.moodBoard||[]).length, nLog = (t.editLog||[]).length;
+  const album = t.photoAlbum && t.photoAlbum.url ? detectAlbumService(t.photoAlbum.url) : '';
+  const tiles = [
+    ['info','Trip info',  infoParts.length?infoParts.join(' · '):'Flights, stays & contacts'],
+    ['docs','Documents',  nDocs?nDocs+(nDocs===1?' document':' documents'):'Boarding passes & tickets'],
+    ['money','Money',     nRec?nRec+(nRec===1?' receipt':' receipts'):'Split costs & who owes who'],
+    ['photos','Photos',   album?album+' linked':'Link a shared album'],
+    ['mood','Ideas',      nPins?nPins+' pinned':'Plan things to do'],
+    ['log','Activity',    nLog?nLog+(nLog===1?' change':' changes'):'No changes yet']
+  ];
+  const tile = ([k,label,sum]) => `
+    <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)} — ${esc(sum)}"
+         onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">
+      ${ICONS[k]}
+      <span class="dash-label">${label}</span>
+      <span class="dash-sum">${esc(sum)}</span>
+    </div>`;
+  return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
 }
 /* ================= TAB: log (who changed what) ================= */
 function tabLog(t){
@@ -1331,19 +1383,29 @@ App.delReceipt = i => {
 
 /* ================= TAB: photos ================= */
 function detectAlbumService(url){
+  if(/photocircle|circle38/i.test(url)) return 'PhotoCircle';
   if(/icloud\.com/i.test(url)) return 'Apple Shared Album';
   if(/photos\.(app\.goo\.gl|google\.com)|goo\.gl/i.test(url)) return 'Google Photos';
   return url ? 'Shared album' : '';
 }
+/* what everyone can actually do with this kind of album link */
+function albumNote(service){
+  if(service==='PhotoCircle') return 'Everyone with the link can view <strong>and add</strong> photos — iPhone, Android or web.';
+  if(service==='Google Photos') return 'Anyone with the link can view and add photos.';
+  if(service==='Apple Shared Album') return 'iPhone users can add photos in the Photos app. Everyone (incl. Android) can view &amp; download from the link — but can\'t add.';
+  return 'Anyone with the link can open it.';
+}
 function tabPhotos(t, ro){
   const a = t.photoAlbum || {url:''};
+  const service = a.url ? detectAlbumService(a.url) : '';
   return `
     <div class="section-head"><h2>Photos</h2></div>
-    <p class="muted small" style="margin-bottom:14px">Cal's Trippin' doesn't host photos — it links to the shared album your group already uses. One album, everyone contributes, nothing gets lost in the chat.</p>
+    <p class="muted small" style="margin-bottom:14px">Cal's Trippin' doesn't host photos — it links to one shared album your whole group adds to. Nothing gets lost in the chat.</p>
     ${a.url ? `
       <div class="card">
-        <div class="mood-type">${esc(detectAlbumService(a.url))}</div>
-        <h3 style="word-break:break-all;margin-bottom:12px">${esc(a.url)}</h3>
+        <div class="mood-type">${esc(service)}</div>
+        <h3 style="word-break:break-all;margin-bottom:8px">${esc(a.url)}</h3>
+        <p class="muted small" style="margin-bottom:12px">${albumNote(service)}</p>
         <div class="btn-row">
           <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open album ↗</a>
           ${!ro?`<button class="btn sm ghost" onclick="App.albumForm()">Change link</button>`:''}
@@ -1353,32 +1415,32 @@ function tabPhotos(t, ro){
         ${!ro?`<br><br><button class="btn primary" onclick="App.albumForm()">+ Paste album link</button>`:''}
       </div>`}
     ${!ro?`
-    <h2 style="margin-top:30px">How to set one up</h2>
-    <details>
-      <summary> Apple Shared Album (iPhone/iPad/Mac)</summary>
+    <h2 style="margin-top:30px">Set one up</h2>
+    <div class="banner">📸 <strong>PhotoCircle</strong> works best — it's free, cross-platform, and <strong>everyone can add photos</strong> (iPhone, Android or the web), unlike an Apple album where only iPhone users can contribute.</div>
+    <details open>
+      <summary> PhotoCircle (recommended)</summary>
       <div class="d-body"><ol class="steps">
-        <li>Open <strong>Photos</strong> and go to <strong>Albums</strong>, then tap <strong>+</strong> → <strong>New Shared Album</strong>.</li>
-        <li>Name it after the trip and invite your group (or skip — you can add people later).</li>
-        <li>Open the album → tap the <strong>people icon</strong> → turn on <strong>Public Website</strong>.</li>
-        <li>Copy the <strong>icloud.com link</strong> that appears and paste it here. Anyone with the link can view, even on Android.</li>
+        <li>Everyone installs <strong>PhotoCircle</strong> (App Store / Google Play) — or use the web app at photocircleapp.com.</li>
+        <li>Create a <strong>circle</strong> named after the trip.</li>
+        <li>Tap <strong>Share / Invite</strong> to get the <strong>invite link</strong> (or QR code).</li>
+        <li>Paste that invite link here. Anyone who opens it joins the circle and can add their own photos from any device.</li>
       </ol></div>
     </details>
     <details>
-      <summary> Google Photos shared album</summary>
-      <div class="d-body"><ol class="steps">
-        <li>Open <strong>Google Photos</strong> → <strong>Library</strong> → <strong>New album</strong>. Name it after the trip.</li>
-        <li>Tap the <strong>share icon</strong> and choose <strong>Create link</strong>.</li>
-        <li>Turn on <strong>Collaborate</strong> so everyone can add their photos.</li>
-        <li>Copy the link and paste it here.</li>
-      </ol></div>
+      <summary> Already use Apple or Google Photos?</summary>
+      <div class="d-body">
+        <p class="small" style="margin-bottom:10px"><strong>Google Photos:</strong> open the album → <strong>Share</strong> → <strong>Create link</strong>, turn on <strong>Collaborate</strong> so everyone can add, then paste the link. Works on iPhone and Android.</p>
+        <p class="small"><strong>Apple Shared Album:</strong> in Photos, create a <strong>New Shared Album</strong> → turn on <strong>Public Website</strong> → paste the icloud.com link. Note: that link is <strong>view/download only</strong> — only invited iPhone users can add photos, and Android friends can't contribute at all.</p>
+      </div>
     </details>`:''}`;
 }
 App.albumForm = () => {
   const t = getTrip(CUR_TRIP_ID);
   openModal(`
     <h2>Shared album link</h2>
-    <div class="field"><label class="label" for="al-url">Paste the album URL</label>
-      <input id="al-url" type="url" value="${esc(t.photoAlbum.url||'')}" placeholder="https://www.icloud.com/sharedalbum/…"></div>
+    <p class="small" style="margin-bottom:12px">Paste your <strong>PhotoCircle</strong> invite link (recommended), or any Apple/Google album link.</p>
+    <div class="field"><label class="label" for="al-url">Album / invite URL</label>
+      <input id="al-url" type="url" value="${esc(t.photoAlbum.url||'')}" placeholder="https://photocircleapp.com/…"></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveAlbum()">Save</button></div>`);
 };
 App.saveAlbum = () => {
