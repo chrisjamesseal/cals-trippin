@@ -249,6 +249,9 @@ details .d-body{padding:14px 16px;}
 .dash-tile .dash-sum{color:var(--g5); font-size:.78rem;}
 .tab svg{width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; vertical-align:-2px; margin-right:5px;}
 
+/* ---------- backup / restore bar ---------- */
+.backup-bar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px solid var(--g2); margin-top:28px; padding-top:16px;}
+
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--g2); align-items:baseline;}
 .log-row:last-child{border-bottom:none;}
@@ -289,6 +292,7 @@ const SYNC_BLOB_CAP = 200 * 1024; // only sync files/images smaller than this in
 
 /* ================= state ================= */
 const LS_KEY = 'calstrippin_v1';
+const SCHEMA = 1;
 var DB = load();
 let CUR_TAB = 'info';
 let CUR_TRIP_ID = null;      // id of the trip currently open
@@ -298,12 +302,28 @@ let syncState = 'local';     // 'local' | 'ok' | 'busy' | 'off'
 let lastPush = '';           // echo guard for our own writes
 
 function load(){
-  try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {trips:[]}; }
-  catch(e){ return {trips:[]}; }
+  try{
+    const db = JSON.parse(localStorage.getItem(LS_KEY));
+    if(db && Array.isArray(db.trips)){ db.schema = db.schema || SCHEMA; return db; }
+  }catch(e){}
+  return {trips:[], schema:SCHEMA};
 }
+/* persist to localStorage. If storage is full, never lose a trip — drop only the heavy
+   in-browser file/photo previews (they still live in the cloud copy when synced) and keep
+   every trip and all its details. */
 function saveLocal(){
-  try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
-  catch(e){ toast('Storage full — try removing large documents/images'); }
+  DB.schema = SCHEMA;
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); return; }
+  catch(e){}
+  try{
+    let dropped = 0;
+    DB.trips.forEach(t=>{
+      (t.documents||[]).forEach(d=>{ if(d.dataUrl){ d.dataUrl=null; d.stripped=true; dropped++; } });
+      (t.moodBoard||[]).forEach(m=>{ if(m.dataUrl){ m.dataUrl=null; m.stripped=true; dropped++; } });
+    });
+    localStorage.setItem(LS_KEY, JSON.stringify(DB));
+    if(dropped) toast('Storage was full — some file previews were dropped from this device, but your trips are safe.');
+  }catch(e2){ toast("Storage full — couldn't save. Try removing some photos or documents."); }
 }
 /* save() persists locally AND pushes the open trip to the shared store (when enabled) */
 function save(){
@@ -627,8 +647,54 @@ function renderHome(){
           <button class="btn primary" onclick="App.newTrip()">Create your first trip</button>
         </div>` : `
         <div class="trip-grid">${active.map(card).join('')}${arch.map(card).join('')}</div>`}
+      ${DB.trips.length ? `
+        <div class="backup-bar">
+          <span class="muted small">Trips are saved in this browser. Moving to a new phone or browser?</span>
+          <span class="btn-row">
+            <button class="btn sm ghost" onclick="App.exportTrips()">Back up trips</button>
+            <label class="btn sm ghost" style="cursor:pointer">Restore
+              <input type="file" accept="application/json,.json" style="display:none" onchange="App.importTrips(this)"></label>
+          </span>
+        </div>` : `
+        <div style="margin-top:22px;text-align:center">
+          <label class="btn sm ghost" style="cursor:pointer">Restore from a backup
+            <input type="file" accept="application/json,.json" style="display:none" onchange="App.importTrips(this)"></label>
+        </div>`}
     </div>`;
 }
+/* ---- backup / restore: carry trips to another browser without an account ---- */
+App.exportTrips = () => {
+  const blob = new Blob([JSON.stringify({app:'cals-trippin', schema:SCHEMA, exportedAt:Date.now(), trips:DB.trips}, null, 0)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `cals-trippin-backup-${stamp}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast(`Backed up ${DB.trips.length} trip${DB.trips.length===1?'':'s'}`);
+};
+App.importTrips = input => {
+  const file = input.files[0]; input.value=''; if(!file) return;
+  const fr = new FileReader();
+  fr.onload = e => {
+    let data;
+    try{ data = JSON.parse(e.target.result); }catch(err){ toast("That file isn't a valid backup"); return; }
+    const trips = Array.isArray(data) ? data : (data && data.trips);
+    if(!Array.isArray(trips) || !trips.length){ toast('No trips found in that file'); return; }
+    let added=0, updated=0;
+    trips.forEach(t=>{
+      if(!t || !t.id || !t.name) return;
+      const i = DB.trips.findIndex(x=>x.id===t.id);
+      if(i<0){ DB.trips.unshift(t); added++; }
+      else { DB.trips[i] = t; updated++; }        // incoming copy wins on a straight restore
+    });
+    saveLocal();
+    if(fbRoot) trips.forEach(t=>{ if(t && t.id) pushTrip(t); });   // seed the cloud too, if on
+    renderHome();
+    toast(`Restored ${added} new · ${updated} updated`);
+  };
+  fr.readAsText(file);
+};
 
 App.newTrip = () => {
   openModal(`

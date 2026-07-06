@@ -15,6 +15,7 @@ One place for your group trip — flights, money, plans and photos. One organise
 - **Photos** — links out to one shared album everyone adds to. **PhotoCircle** is recommended (free, cross-platform, and everyone — iPhone, Android or web — can *add* photos, not just view); Apple Shared Album / Google Photos links also work if you already use them, with in-app notes on each one's limitations.
 - **Mood board** — pin links, notes and images; built-in destination-based idea suggestions.
 - **Auto-archiving** — trips grey out and become read-only one month after the end date.
+- **Your trips are kept** — trips are saved in the browser and survive app updates. Use **Back up trips** on the home screen to download all your trips as a file and **Restore** them in any other browser or on a new phone (no account needed). With the shared store configured, trips also sync to anyone holding the link.
 
 ## Turning on the shared, permanent link (Firebase)
 
