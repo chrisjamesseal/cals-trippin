@@ -33,7 +33,8 @@ header.top{
 }
 .top-inner{max-width:920px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;}
 .logo{font-weight:800; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; user-select:none; white-space:nowrap;}
-.logo span{display:inline-block; border:var(--border); padding:0 .35em; margin-right:.4em; background:var(--ink); color:var(--paper);}
+.logo .badge-ct{display:inline-block; border:var(--border); padding:0 .35em; margin-right:.4em; background:var(--ink); color:var(--paper);}
+@media(max-width:460px){.logo .word{display:none;} .logo .badge-ct{margin-right:0;}}
 
 /* ---------- type ---------- */
 h1{font-size:1.9rem; font-weight:800; letter-spacing:-.02em; line-height:1.15;}
@@ -205,7 +206,7 @@ details .d-body{padding:14px 16px;}
 /* ---------- tab overflow affordance ---------- */
 .tabs-wrap{position:relative;}
 .tabs-wrap::after{
-  content:""; position:absolute; top:0; right:0; height:100%; width:28px; pointer-events:none;
+  content:""; position:absolute; top:0; right:0; height:100%; width:16px; pointer-events:none;
   background:linear-gradient(to right, rgba(255,255,255,0), var(--paper)); opacity:0; transition:opacity .15s;
 }
 .tabs-wrap.more::after{opacity:1;}
@@ -252,6 +253,21 @@ details .d-body{padding:14px 16px;}
 /* ---------- backup / restore bar ---------- */
 .backup-bar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px solid var(--g2); margin-top:28px; padding-top:16px;}
 
+/* ---------- trip status pill ---------- */
+.status-pill{display:inline-block; font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; border:1.5px solid var(--ink); padding:3px 9px; white-space:nowrap;}
+.status-pill.now{background:var(--ink); color:var(--paper);}
+.status-pill.past,.status-pill.off{border-color:var(--g3); color:var(--g4);}
+
+/* ---------- trip card tap affordance ---------- */
+.trip-card{position:relative;}
+.card-go{position:absolute; top:14px; right:16px; font-size:1.5rem; line-height:1; color:var(--g3); transition:color .1s, transform .1s;}
+.trip-card:hover .card-go,.trip-card:focus-visible .card-go{color:var(--ink); transform:translateX(3px);}
+.trip-card:focus-visible{outline:none; transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--ink);}
+
+/* ---------- personalised balance ---------- */
+.you-balance{border:var(--border); background:var(--ink); color:var(--paper); padding:12px 16px; margin:14px 0 4px; font-size:1rem; font-weight:700;}
+.settle-row.me{font-weight:800;}
+
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--g2); align-items:baseline;}
 .log-row:last-child{border-bottom:none;}
@@ -263,7 +279,7 @@ details .d-body{padding:14px 16px;}
 <body>
 <header class="top">
   <div class="top-inner">
-    <div class="logo" onclick="App.goHome()"><span>CT</span>Cal's Trippin'</div>
+    <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="Home"><span class="badge-ct">CT</span><span class="word">Cal's Trippin'</span></div>
     <div id="header-actions"></div>
   </div>
 </header>
@@ -498,6 +514,27 @@ function isArchived(t){
   return new Date() > cut;
 }
 function getTrip(id){ return DB.trips.find(t=>t.id===id); }
+/* where the trip sits in time — used for at-a-glance status pills */
+function tripStatus(t){
+  if(isArchived(t)) return {label:'Archived', cls:'off'};
+  const day = 86400000, today = new Date(); today.setHours(0,0,0,0);
+  const s = t.startDate ? new Date(t.startDate+'T00:00:00') : null;
+  const e = t.endDate ? new Date(t.endDate+'T00:00:00') : null;
+  if(s && today < s){
+    const n = Math.round((s-today)/day);
+    return {label: n===0?'Starts today':n===1?'Starts tomorrow':'In '+n+' days', cls:'soon'};
+  }
+  if(e && today > e){
+    const n = Math.round((today-e)/day);
+    return {label: n===0?'Just ended':n===1?'Ended yesterday':'Ended '+n+' days ago', cls:'past'};
+  }
+  if(s){
+    if(e){ const d=Math.round((today-s)/day)+1, tot=Math.round((e-s)/day)+1; return {label:'Happening now · day '+d+' of '+tot, cls:'now'}; }
+    return {label:'Happening now', cls:'now'};
+  }
+  return {label:'Dates TBC', cls:''};
+}
+function statusPill(t){ const s = tripStatus(t); return `<span class="status-pill ${s.cls}">${esc(s.label)}</span>`; }
 /* anyone with the link can edit; only archived trips are locked */
 function readOnly(t){ return isArchived(t); }
 function fileSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.round(b/1024)+' KB'; }
@@ -631,11 +668,17 @@ function renderHome(){
   const active = DB.trips.filter(t=>!isArchived(t));
   const arch  = DB.trips.filter(t=> isArchived(t));
   const card = t => `
-    <div class="trip-card ${isArchived(t)?'archived':''}" onclick="location.hash='#/trip/${t.id}'">
-      <h3>${esc(t.name)}${isArchived(t)?'<span class="badge">Archived</span>':''}</h3>
+    <div class="trip-card ${isArchived(t)?'archived':''}" role="button" tabindex="0"
+         onclick="location.hash='#/trip/${t.id}'"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${t.id}'}">
+      <span class="card-go" aria-hidden="true">›</span>
+      <h3>${esc(t.name)}</h3>
       <div class="muted">${esc(t.destination||'Destination TBC')}</div>
       <div class="small" style="margin-top:8px">${fmtRange(t.startDate,t.endDate)}</div>
-      <div class="muted small" style="margin-top:4px">${(t.participants||[]).length} people · ${(t.receipts||[]).length} receipts</div>
+      <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+        ${statusPill(t)}
+        <span class="muted small">${(t.participants||[]).length} people · ${(t.receipts||[]).length} receipts</span>
+      </div>
     </div>`;
   $('#app').innerHTML = `
     <div style="padding-top:28px">
@@ -791,18 +834,18 @@ function renderTrip(t){
   const arch = isArchived(t);
   $('#header-actions').innerHTML =
     `<div class="btn-row" style="gap:8px">
-       <span class="sync-pill" id="sync-pill" title="${cloudEnabled()?'This trip syncs to everyone with the link':'Saved on this device only'}"></span>
-       <button class="btn sm" onclick="App.share('${t.id}')">Share</button>
+       <button class="btn sm primary" onclick="App.share('${t.id}')">Share</button>
        <button class="btn sm ghost" onclick="App.goHome()">All trips</button>
      </div>`;
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
   $('#app').innerHTML = `
     ${arch?`<div class="banner">🗄 This trip is archived — it ended over a month ago and is now read-only.</div>`:''}
     <div style="padding-top:${arch?'4px':'26px'}">
-      <h1>${esc(t.name)}${arch?'<span class="badge">Archived</span>':''}</h1>
+      <h1>${esc(t.name)}</h1>
       <p class="muted" style="margin-top:2px">${esc(t.destination||'Destination TBC')} · ${fmtRange(t.startDate,t.endDate)}</p>
+      <div style="margin-top:10px">${statusPill(t)}</div>
     </div>
-    ${ro?'':`<div class="who-bar" id="who-bar"></div>`}
+    ${ro?`<div style="margin-top:14px"><span class="sync-pill" id="sync-pill"></span></div>`:`<div class="who-bar" id="who-bar"></div>`}
     <div class="tabs-wrap" id="tabs-wrap">
       <div class="tabs" role="tablist" id="tabs">
         ${TABS.map(([k,l])=>`<div class="tab ${CUR_TAB===k?'active':''}" role="tab" tabindex="0" aria-selected="${CUR_TAB===k}" onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">${ICONS[k]||''}${l}</div>`).join('')}
@@ -814,11 +857,15 @@ function renderTrip(t){
   paintSync(); paintWho(); initTabFade();
 }
 function paintWho(){
-  const el = $('#who-bar'); if(!el) return;
+  const el = $('#who-bar'); if(!el){ paintSync(); return; }
   const me = whoAmI(CUR_TRIP_ID);
-  el.innerHTML = me
-    ? `<span>Editing as <strong>${esc(me)}</strong></span><button class="btn ghost sm" onclick="App.changeIdentity()">Change</button>`
-    : `<span class="muted">Changes will be logged — tell us who you are</span><button class="btn sm" onclick="App.changeIdentity()">Set your name</button>`;
+  el.innerHTML = `
+    <span style="display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap">
+      ${me?`<span>Editing as <strong>${esc(me)}</strong></span>`:`<span class="muted">Log changes — add your name</span>`}
+      <span class="sync-pill" id="sync-pill"></span>
+    </span>
+    <button class="btn ghost sm" onclick="App.changeIdentity()">${me?'Change':'Set name'}</button>`;
+  paintSync();
 }
 function initTabFade(){
   const wrap = $('#tabs-wrap'), tabs = $('#tabs'); if(!wrap||!tabs) return;
@@ -1332,13 +1379,17 @@ function tabMoney(t, ro){
 
   const net = computeBalances(t);
   const stl = settlements(net);
+  const me = whoAmI(t.id);
+  const myNet = (me && net[me]!==undefined) ? net[me] : null;
   return `
     <div class="section-head"><h2>Receipts</h2>${!ro?`<button class="btn sm primary" onclick="App.receiptForm()">+ Add receipt</button>`:''}</div>
+    ${myNet!==null && (t.receipts||[]).length ? `
+      <div class="you-balance">${myNet>0.005?`You're owed <strong>${money(myNet)}</strong>`:myNet<-0.005?`You owe <strong>${money(-myNet)}</strong>`:`You're all square 🤝`}</div>`:''}
     ${receipts || `<div class="empty">No shared costs yet.</div>`}
     ${(t.receipts||[]).length ? `
       <h2 style="margin-top:30px">Balances</h2>
       <div class="settle">
-        ${Object.entries(net).map(([p,v])=>`<div class="settle-row"><span>${esc(p)}</span><span class="amount mono">${v>0.005?'is owed '+money(v):v<-0.005?'owes '+money(-v):'all square'}</span></div>`).join('')}
+        ${Object.entries(net).map(([p,v])=>`<div class="settle-row ${p===me?'me':''}"><span>${esc(p)}${p===me?' <span class="muted small">(you)</span>':''}</span><span class="amount mono">${v>0.005?'is owed '+money(v):v<-0.005?'owes '+money(-v):'all square'}</span></div>`).join('')}
       </div>
       <h2 style="margin-top:24px">Who pays whom</h2>
       <div class="settle">
