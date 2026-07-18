@@ -8,7 +8,7 @@ One place for your group trip — flights, money, plans and photos. One organise
 
 - **No accounts.** You start a trip and share one link. Anyone with the link can open it on any device — no sign-up.
 - **Collaborative editing (Milestone 2).** With the shared store switched on (see below), the link is **permanent** and everyone with it can edit — flights, notes, documents, receipts and the mood board — and see each other's changes. Each person picks their name once, so the **edit log** can show who changed what and when (the **Log** tab).
-- **Receipt scanning + splitting.** Snap a photo of a receipt and it's read in your browser into a list of items. Tick who had each item and the app works out what's left to assign and what each person owes. No manual maths, no photo upload — the scan happens on your device.
+- **Receipt scanning + splitting.** Snap a photo of a receipt — or upload an existing image from your library — and it's read in your browser into a list of items. Tick who had each item and the app works out what's left to assign and what each person owes. No manual maths, no server upload — the scan happens on your device.
 - **Documents** — upload boarding passes/e-tickets (PDF or photo). Text-based PDFs are scanned client-side (pdf.js) and flight details pre-fill the Flights section for confirmation.
 - **Structured notes** — flights, accommodation, emergency contacts, general info.
 - **Money splitter** — receipts with itemised line-by-line splitting or an even-split toggle, plus a who-pays-whom settlement.
@@ -47,4 +47,6 @@ The header shows a small **sync status** pill (Synced / Saving… / Offline / On
 - Large uploaded files and mood-board images stay on the uploader's device (only smaller ones sync); their details still appear for everyone.
 - Receipt/PDF scanning accuracy varies with the photo — it's a review-and-correct flow, not magic.
 
-Built from the v1 product spec (`cals_trippin_spec.md`); this release adds **Milestone 2 (collaborative editing + edit log)** and in-browser receipt scanning.
+Inside a trip, everything is reached from the **dashboard tiles** or the **☰ Menu** (icons for Overview, Trip info, Documents, Money, Photos, Ideas and Activity) — no horizontal tab scrolling.
+
+Built from the v1 product spec (`cals_trippin_spec.md`); this release adds **Milestone 2 (collaborative editing + edit log)**, in-browser receipt scanning, and a branded UI refresh (teal/coral palette, "Cal's Trippin'" wordmark, icon menu navigation).
