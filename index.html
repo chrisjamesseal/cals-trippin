@@ -161,18 +161,19 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .chip.pick{cursor:pointer; color:var(--muted); user-select:none;}
 .chip.pick.on{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint); font-weight:700;}
 
-/* ---------- modal ---------- */
-.modal-bg{
-  position:fixed; inset:0; background:rgba(20,40,47,.5); z-index:100;
-  display:flex; align-items:flex-start; justify-content:center; padding:24px 12px; overflow-y:auto;
+/* ---------- full-screen form views (no popups) ---------- */
+.modal-bg{position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; overscroll-behavior:contain;}
+.modal-bg.push{animation:pushIn .22s ease-out;}
+@keyframes pushIn{from{transform:translateX(7vw); opacity:0;} to{transform:none; opacity:1;}}
+.screen-top{max-width:592px; margin:0 auto; padding:10px 12px; position:sticky; top:0; background:var(--bg); z-index:3;}
+.screen-back{
+  display:inline-flex; align-items:center; gap:5px; font:inherit; font-weight:600; font-size:.9rem;
+  color:var(--brand-dark); background:none; border:none; cursor:pointer; padding:7px 14px 7px 8px; border-radius:999px;
 }
-.modal{
-  background:var(--paper); border-radius:16px; box-shadow:var(--shadow-lift); width:100%; max-width:560px;
-  padding:22px; margin:auto 0; position:relative; animation:pop .14s ease-out;
-}
-@keyframes pop{from{transform:scale(.96); opacity:0;} to{transform:scale(1); opacity:1;}}
-.modal .close-x{position:absolute; top:10px; right:10px; font-size:1.2rem; font-weight:800;}
-.modal h2{padding-right:30px; font-size:1.25rem;}
+.screen-back:hover{background:var(--brand-ghost);}
+.screen-back svg{width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+.modal{max-width:592px; margin:0 auto; padding:6px 16px 48px; position:relative;}
+.modal h2{font-size:1.4rem; margin-bottom:14px; letter-spacing:-.02em;}
 
 /* ---------- toast ---------- */
 #toast{
@@ -238,7 +239,7 @@ details .d-body{padding:14px 16px;}
 @media(max-width:560px){
   h1{font-size:1.5rem;}
   .wrap{padding:0 12px 80px;}
-  .modal{padding:16px;}
+  .modal{padding:6px 12px 40px;}
   .flight-apt{font-size:1.2rem;}
 }
 @media print{.btn,.menu-btn,header.top,.sync-pill,.who-bar,.crumb{display:none!important;}}
@@ -261,12 +262,11 @@ details .d-body{padding:14px 16px;}
 .who-bar strong{font-weight:700; color:var(--ink);}
 .who-bar .btn{padding:5px 12px; font-size:.7rem;}
 
-/* ---------- sticky modal footer ---------- */
+/* ---------- sticky screen footer ---------- */
 .modal-actions{
-  position:sticky; bottom:-22px; background:var(--paper); padding:14px 0 2px;
+  position:sticky; bottom:0; background:var(--bg); padding:14px 0 10px;
   margin-top:16px; border-top:1px solid var(--line); z-index:2;
 }
-@media(max-width:560px){.modal-actions{bottom:-16px;}}
 
 /* ---------- inline field errors ---------- */
 .field.err input,.field.err textarea,.field.err select{border-color:var(--accent-dark); box-shadow:0 0 0 3px rgba(232,89,59,.15);}
@@ -580,15 +580,21 @@ function fileSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.rou
 /* ================= modal ================= */
 let _lastFocus = null;
 function modalOpen(){ return !!$('#modal-root').firstChild; }
+/* forms and viewers open as full screens (no popups) — a Back bar returns to the page below */
 function openModal(html, opts){
   opts = opts || {};
-  if(!modalOpen()) _lastFocus = document.activeElement;   // keep original opener across re-renders
-  $('#modal-root').innerHTML =
-    `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal" role="dialog" aria-modal="true">
-       <button class="iconbtn close-x" onclick="closeModal()" aria-label="Close">✕</button>${html}</div></div>`;
+  const root = $('#modal-root');
+  const prev = root.querySelector('.modal-bg');
+  const scrollPos = prev ? prev.scrollTop : 0;
+  if(!prev) _lastFocus = document.activeElement;   // keep original opener across re-renders
+  root.innerHTML =
+    `<div class="modal-bg ${prev?'':'push'}">
+       <div class="screen-top"><button class="screen-back" onclick="closeModal()">${ICONS.back}Back</button></div>
+       <div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
+  if(prev) root.querySelector('.modal-bg').scrollTop = scrollPos;
   document.body.style.overflow = 'hidden';
   // autofocus the first real field for keyboard users (skip on re-renders to avoid focus jumps)
-  if(opts.autofocus !== false){
+  if(opts.autofocus !== false && !prev){
     setTimeout(()=>{ const f = $('#modal-root .modal input:not([type=file]), #modal-root .modal select, #modal-root .modal textarea'); if(f) f.focus(); }, 30);
   }
 }
@@ -1222,9 +1228,12 @@ function tabDocs(t, ro){
 App.openDoc = (tid,i) => {
   const t = getTrip(tid);
   const d = t.documents[i]; if(!d||!d.dataUrl) return;
-  const w = window.open(); if(!w){ toast('Popup blocked'); return; }
-  if(d.kind==='pdf') w.document.write(`<iframe src="${d.dataUrl}" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe>`);
-  else w.document.write(`<img src="${d.dataUrl}" alt="${esc(d.name)}" style="max-width:100%">`);
+  openModal(`
+    <h2 style="word-break:break-all">${esc(d.name)}</h2>
+    ${d.kind==='pdf'
+      ? `<iframe src="${d.dataUrl}" title="${esc(d.name)}" style="border:1px solid var(--line);border-radius:12px;width:100%;height:75vh;background:#fff"></iframe>`
+      : `<img src="${d.dataUrl}" alt="${esc(d.name)}" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">`}`,
+    {autofocus:false});
 };
 App.delDoc = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
