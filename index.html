@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Cal's Trippin'</title>
-<meta name="description" content="One place for your group trip — flights, money, plans and photos.">
+<meta name="description" content="One place for your group trip: flights, money, plans and photos.">
 <meta name="theme-color" content="#0E8577">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -154,6 +154,13 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 @media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr;}}
 .check{display:flex; align-items:center; gap:8px; font-size:.9rem; cursor:pointer; padding:4px 0;}
 .check input{width:auto; accent-color:var(--brand);}
+.switch-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0; cursor:pointer; font-weight:600; color:var(--ink); user-select:none;}
+.switch{position:relative; width:46px; height:26px; flex-shrink:0; display:inline-block;}
+.switch input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+.switch .knob{position:absolute; inset:0; background:var(--line-strong); border-radius:999px; transition:background .15s; pointer-events:none;}
+.switch .knob::after{content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform .15s;}
+.switch input:checked + .knob{background:var(--brand);}
+.switch input:checked + .knob::after{transform:translateX(20px);}
 .chips{display:flex; flex-wrap:wrap; gap:8px;}
 .chip{border:1px solid var(--line-strong); border-radius:999px; padding:4px 12px; font-size:.8rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; color:var(--ink); background:var(--paper);}
 .chip button{border:none; background:none; cursor:pointer; font-weight:800; font-size:.9rem; padding:0; line-height:1; color:var(--muted);}
@@ -216,8 +223,8 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin-bottom:6px;}
 .mood-del{position:absolute; top:6px; right:6px;}
 .sugg{border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--paper); padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; gap:12px; align-items:flex-start;}
-.settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:14px; margin-top:14px;}
-.settle-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
+.settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
+.settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
 .settle-row:last-child{border-bottom:none;}
 .settle-row.me{font-weight:800; color:var(--ink);}
 .steps{counter-reset:st; list-style:none;}
@@ -283,7 +290,7 @@ details .d-body{padding:14px 16px;}
 .dash-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; margin-top:6px;}
 .dash-tile{
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
-  padding:18px 16px; cursor:pointer;
+  padding:18px 16px; cursor:pointer; position:relative;
   display:flex; flex-direction:column; gap:8px; min-height:130px;
   transition:transform .1s, box-shadow .1s, border-color .1s;
 }
@@ -291,6 +298,13 @@ details .d-body{padding:14px 16px;}
 .dash-tile svg{width:34px; height:34px; stroke:var(--brand); fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;}
 .dash-tile .dash-label{font-weight:700; font-size:.92rem; color:var(--ink); margin-top:auto;}
 .dash-tile .dash-sum{color:var(--muted); font-size:.78rem;}
+a.dash-tile{text-decoration:none;}
+.tile-edit{
+  position:absolute; bottom:10px; right:10px; width:32px; height:32px; border-radius:50%;
+  border:1px solid var(--line); background:var(--paper); color:var(--muted); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:.85rem; line-height:1;
+}
+.tile-edit:hover{color:var(--brand-dark); border-color:var(--brand); background:var(--brand-ghost);}
 
 /* ---------- backup / restore bar ---------- */
 .backup-bar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px solid var(--line); margin-top:28px; padding-top:16px;}
@@ -316,7 +330,7 @@ details .d-body{padding:14px 16px;}
 <body>
 <header class="top">
   <div class="top-inner">
-    <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="Cal's Trippin' — home">Cal&#8217;s <span class="lg2">Trippin&#8217;</span></div>
+    <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="Cal's Trippin' home">Cal&#8217;s <span class="lg2">Trippin&#8217;</span></div>
     <div id="header-actions"></div>
   </div>
 </header>
@@ -376,8 +390,8 @@ function saveLocal(){
       (t.moodBoard||[]).forEach(m=>{ if(m.dataUrl){ m.dataUrl=null; m.stripped=true; dropped++; } });
     });
     localStorage.setItem(LS_KEY, JSON.stringify(DB));
-    if(dropped) toast('Storage was full — some file previews were dropped from this device, but your trips are safe.');
-  }catch(e2){ toast("Storage full — couldn't save. Try removing some photos or documents."); }
+    if(dropped) toast('Storage was full. Some file previews were dropped from this device, but your trips are safe.');
+  }catch(e2){ toast("Storage is full and couldn't save. Try removing some photos or documents."); }
 }
 /* save() persists locally AND pushes the open trip to the shared store (when enabled) */
 function save(){
@@ -485,10 +499,10 @@ function identityModal(t, cb){
   const people = (t.participants||[]);
   openModal(`
     <h2>Who are you?</h2>
-    <p class="small" style="margin-bottom:14px">So the trip's edit log can show who changed what. Just for this trip on this device — no account.</p>
+    <p class="small" style="margin-bottom:14px">So the trip's edit log can show who changed what. Just for this trip on this device. No account needed.</p>
     <div class="field"><label class="label" for="who-sel">Pick your name</label>
       <select id="who-sel">
-        <option value="">— choose —</option>
+        <option value="">Choose…</option>
         ${people.map(p=>`<option>${esc(p)}</option>`).join('')}
         <option value="__new">+ Add a new name…</option>
       </select>
@@ -540,9 +554,13 @@ function fmtDate(d){
   const dt = new Date(d + 'T00:00:00');
   return dt.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'});
 }
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function fmtRange(a,b){
   if(!a && !b) return 'Dates TBC';
-  return (a?fmtDate(a):'?') + ' — ' + (b?fmtDate(b):'?');
+  return (a?fmtDate(a):'?') + ' to ' + (b?fmtDate(b):'?');
 }
 function money(n){ return (n<0?'-':'') + '£' + Math.abs(n).toFixed(2); }
 function isArchived(t){
@@ -735,20 +753,20 @@ function renderHome(){
       ${DB.trips.length===0 ? `
         <div class="empty" style="margin-top:24px">
           No trips yet.<br><br>
-          <button class="btn primary" onclick="App.newTrip()">Create your first trip</button>
+          <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
         </div>` : `
         <div class="trip-grid">${active.map(card).join('')}${arch.map(card).join('')}</div>`}
       ${DB.trips.length ? `
         <div class="backup-bar">
           <span class="muted small">Trips are saved in this browser. Moving to a new phone or browser?</span>
           <span class="btn-row">
-            <button class="btn sm ghost" onclick="App.exportTrips()">Back up trips</button>
+            <button class="btn sm ghost" onclick="App.exportTrips()">Back Up Trips</button>
             <label class="btn sm ghost" style="cursor:pointer">Restore
               <input type="file" accept="application/json,.json" style="display:none" onchange="App.importTrips(this)"></label>
           </span>
         </div>` : `
         <div style="margin-top:22px;text-align:center">
-          <label class="btn sm ghost" style="cursor:pointer">Restore from a backup
+          <label class="btn sm ghost" style="cursor:pointer">Restore From a Backup
             <input type="file" accept="application/json,.json" style="display:none" onchange="App.importTrips(this)"></label>
         </div>`}
     </div>`;
@@ -793,12 +811,12 @@ App.newTrip = () => {
     <div class="field"><label class="label">Trip name</label><input type="text" id="f-name" placeholder="e.g. Lads in Lisbon 2026"></div>
     <div class="field"><label class="label">Destination</label><input type="text" id="f-dest" placeholder="e.g. Lisbon, Portugal"></div>
     <div class="grid2">
-      <div class="field"><label class="label">Start date</label><input type="date" id="f-start"></div>
-      <div class="field"><label class="label">End date</label><input type="date" id="f-end"></div>
+      <div class="field"><label class="label">Start date</label><input type="date" id="f-start" value="${todayStr()}"></div>
+      <div class="field"><label class="label">End date</label><input type="date" id="f-end" value="${todayStr()}"></div>
     </div>
     <div class="field"><label class="label">Your name (organiser)</label><input type="text" id="f-org" placeholder="e.g. Cal"></div>
     <div class="field"><label class="label">Other people (comma-separated, add more later)</label><input type="text" id="f-ppl" placeholder="e.g. Chris, Sam, Jordan"></div>
-    <button class="btn primary" style="width:100%" onclick="App.createTrip()">Create trip</button>`);
+    <button class="btn primary" style="width:100%" onclick="App.createTrip()">Create Trip</button>`);
 };
 App.createTrip = () => {
   const name = $('#f-name').value.trim();
@@ -821,7 +839,7 @@ App.createTrip = () => {
 };
 App.deleteTrip = id => {
   const t = getTrip(id); if(!t) return;
-  confirmModal('Delete this trip?', `"${t.name}" and everything in it will be removed for everyone with the link. This can't be undone.`, 'Delete trip', ()=>{
+  confirmModal('Delete this trip?', `"${t.name}" and everything in it will be removed for everyone with the link. This can't be undone.`, 'Delete Trip', ()=>{
     if(fbRoot){ try{ fbRoot.ref('trips/'+id).remove(); }catch(e){} }
     DB.trips = DB.trips.filter(x=>x.id!==id); saveLocal();
     CUR_TRIP_ID = null; stopSub();
@@ -836,7 +854,7 @@ App.share = id => {
   if(cloudEnabled()){
     // one permanent link — everyone edits the same live trip
     url = location.origin + location.pathname + '#/trip/' + id;
-    blurb = `This is the trip's <strong>permanent link</strong>. Anyone you send it to can view and edit — no account, no sign-up — and everyone sees each other's changes. The link never changes, so share it once.`;
+    blurb = `This is the trip's <strong>permanent link</strong>. Anyone you send it to can view and edit with no account or sign-up, and everyone sees each other's changes. The link never changes, so share it once.`;
     note = `Keep it to your group. Anyone with the link can edit.`;
   } else {
     // no shared store configured — fall back to a portable snapshot link
@@ -844,15 +862,15 @@ App.share = id => {
     lite.documents = (lite.documents||[]).map(d=>({...d, dataUrl:null, stripped:true}));
     lite.moodBoard = (lite.moodBoard||[]).map(m=> m.type==='image' ? {...m, dataUrl:null, text:(m.text||'')+' (image not included in shared link)'} : m);
     url = location.origin + location.pathname + '#/view/' + LZString.compressToEncodedURIComponent(JSON.stringify(lite));
-    blurb = `This link contains a <strong>snapshot</strong> of the trip. (Set up the app's shared store to get one permanent live link instead — see the README.) After you make changes, share a fresh link.`;
-    note = `Uploaded files and mood-board images stay on your device and aren't embedded — their details still appear.`;
+    blurb = `This link contains a <strong>snapshot</strong> of the trip. Set up the app's shared store for one permanent live link instead (see the README). After you make changes, share a fresh link.`;
+    note = `Uploaded files and mood-board images stay on your device and aren't embedded. Their details still appear.`;
   }
   openModal(`
     <h2>Invite link</h2>
     <p class="small" style="margin-bottom:12px">${blurb}</p>
     <div class="field"><textarea id="share-url" readonly aria-label="Invite link" style="min-height:70px;font-size:.72rem;word-break:break-all">${esc(url)}</textarea></div>
     <div class="btn-row">
-      <button class="btn primary" onclick="App.copyShare()">Copy link</button>
+      <button class="btn primary" onclick="App.copyShare()">Copy Link</button>
       ${navigator.share?`<button class="btn" onclick="App.nativeShare()">Share…</button>`:''}
     </div>
     <p class="muted small" style="margin-top:12px">${note}</p>`);
@@ -862,7 +880,7 @@ App.copyShare = () => {
   navigator.clipboard.writeText(el.value).then(()=>toast('Link copied')).catch(()=>{ document.execCommand('copy'); toast('Link copied'); });
 };
 App.nativeShare = () => {
-  navigator.share({title:"Cal's Trippin' — trip invite", url: $('#share-url').value}).catch(()=>{});
+  navigator.share({title:"Cal's Trippin' trip invite", url: $('#share-url').value}).catch(()=>{});
 };
 
 /* ================= trip shell ================= */
@@ -892,7 +910,7 @@ function renderTrip(t){
      </div>`;
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
   $('#app').innerHTML = `
-    ${arch?`<div class="banner">🗄 This trip is archived — it ended over a month ago and is now read-only.</div>`:''}
+    ${arch?`<div class="banner">🗄 This trip ended over a month ago and is now archived and read-only.</div>`:''}
     <div style="padding-top:${arch?'4px':'26px'}">
       <h1>${esc(t.name)}</h1>
       <p class="muted" style="margin-top:2px">${esc(t.destination||'Destination TBC')} · ${fmtRange(t.startDate,t.endDate)}</p>
@@ -905,7 +923,7 @@ function renderTrip(t){
       <span class="crumb-here">${ICONS[CUR_TAB]||''}${esc((TABS.find(x=>x[0]===CUR_TAB)||[])[1]||'')}</span>
     </div>`}
     <div id="tab-body"></div>
-    <div style="margin-top:40px;text-align:right"><button class="btn sm ghost" onclick="App.deleteTrip('${t.id}')">Delete trip</button></div>`;
+    <div style="margin-top:40px;text-align:right"><button class="btn sm ghost" onclick="App.deleteTrip('${t.id}')">Delete Trip</button></div>`;
   renderTab(t);
   paintSync(); paintWho();
 }
@@ -914,10 +932,10 @@ function paintWho(){
   const me = whoAmI(CUR_TRIP_ID);
   el.innerHTML = `
     <span style="display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap">
-      ${me?`<span>Editing as <strong>${esc(me)}</strong></span>`:`<span class="muted">Log changes — add your name</span>`}
+      ${me?`<span>Editing as <strong>${esc(me)}</strong></span>`:`<span class="muted">Add your name to log changes</span>`}
       <span class="sync-pill" id="sync-pill"></span>
     </span>
-    <button class="btn ghost sm" onclick="App.changeIdentity()">${me?'Change':'Set name'}</button>`;
+    <button class="btn ghost sm" onclick="App.changeIdentity()">${me?'Change':'Set Name'}</button>`;
   paintSync();
 }
 /* ---- slide-in section menu (replaces the old scrolling tab strip) ---- */
@@ -982,22 +1000,34 @@ function tabHome(t){
   if((n.contacts||[]).length) infoParts.push((n.contacts.length)+(n.contacts.length===1?' contact':' contacts'));
   const nDocs = (t.documents||[]).length, nRec = (t.receipts||[]).length,
         nPins = (t.moodBoard||[]).length, nLog = (t.editLog||[]).length;
-  const album = t.photoAlbum && t.photoAlbum.url ? detectAlbumService(t.photoAlbum.url) : '';
+  const albumUrl = t.photoAlbum && t.photoAlbum.url || '';
+  const album = albumUrl ? detectAlbumService(albumUrl) : '';
   const tiles = [
     ['info','Trip info',  infoParts.length?infoParts.join(' · '):'Flights, stays & contacts'],
     ['docs','Documents',  nDocs?nDocs+(nDocs===1?' document':' documents'):'Boarding passes & tickets'],
     ['money','Money',     nRec?nRec+(nRec===1?' receipt':' receipts'):'Split costs & who owes who'],
-    ['photos','Photos',   album?album+' linked':'Link a shared album'],
+    ['photos','Photos',   album?'Open '+album:'Link a shared album'],
     ['mood','Ideas',      nPins?nPins+' pinned':'Plan things to do'],
     ['log','Activity',    nLog?nLog+(nLog===1?' change':' changes'):'No changes yet']
   ];
-  const tile = ([k,label,sum]) => `
-    <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)} — ${esc(sum)}"
+  const tile = ([k,label,sum]) => {
+    // the Photos tile opens the linked album directly; the pencil manages the link
+    if(k==='photos' && albumUrl) return `
+    <a class="dash-tile" href="${esc(albumUrl)}" target="_blank" rel="noopener" aria-label="Open the shared photo album">
+      ${ICONS[k]}
+      <span class="dash-label">${label}</span>
+      <span class="dash-sum">${esc(sum)}</span>
+      <button class="tile-edit" aria-label="Photo album settings" title="Album settings"
+              onclick="event.preventDefault();event.stopPropagation();App.tab('photos')">✎</button>
+    </a>`;
+    return `
+    <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)}: ${esc(sum)}"
          onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">
       ${ICONS[k]}
       <span class="dash-label">${label}</span>
       <span class="dash-sum">${esc(sum)}</span>
     </div>`;
+  };
   return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
 }
 /* ================= TAB: log (who changed what) ================= */
@@ -1027,9 +1057,9 @@ function tabInfo(t, ro){
         </span>
       </div>
       <div class="flight-body">
-        <div><div class="flight-apt">${esc(f.from||'—')}</div><div class="muted small mono">${esc(f.depTime||'')}</div></div>
+        <div><div class="flight-apt">${esc(f.from||'TBC')}</div><div class="muted small mono">${esc(f.depTime||'')}</div></div>
         <div class="flight-arrow">✈ →</div>
-        <div style="text-align:right"><div class="flight-apt">${esc(f.to||'—')}</div><div class="muted small mono">${esc(f.arrTime||'')}</div></div>
+        <div style="text-align:right"><div class="flight-apt">${esc(f.to||'TBC')}</div><div class="muted small mono">${esc(f.arrTime||'')}</div></div>
       </div>
       <div class="flight-meta">
         ${f.seat?`<span>Seat <strong>${esc(f.seat)}</strong></span>`:''}
@@ -1046,10 +1076,10 @@ function tabInfo(t, ro){
     </div>`).join('');
 
   return `
-    <div class="section-head"><h2>Flights</h2>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add flight</button>`:''}</div>
-    ${flights || `<div class="empty">No flights yet.${!ro?' Add one manually, or upload a boarding pass in <strong>Docs</strong> and it will be parsed automatically.':''}</div>`}
+    <div class="section-head"><h2>Flights</h2>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
+    ${flights || `<div class="empty">No flights yet.${!ro?' Add one manually, or upload a boarding pass in <strong>Documents</strong> and it will be parsed automatically.':''}</div>`}
 
-    <div class="section-head" style="margin-top:30px"><h2>Accommodation</h2>${!ro?`<button class="btn sm" onclick="App.accomForm()">✎ Edit</button>`:''}</div>
+    <div class="section-head" style="margin-top:30px"><h2>Accommodation</h2>${!ro?`<button class="btn sm" onclick="App.accomForm()">Edit</button>`:''}</div>
     ${n.accom && n.accom.name ? `
       <div class="card">
         <h3>${esc(n.accom.name)}</h3>
@@ -1064,7 +1094,7 @@ function tabInfo(t, ro){
     <div class="section-head" style="margin-top:30px"><h2>Emergency contacts</h2>${!ro?`<button class="btn sm" onclick="App.contactForm()">+ Add</button>`:''}</div>
     ${contacts || `<div class="empty">No emergency contacts yet.</div>`}
 
-    <div class="section-head" style="margin-top:30px"><h2>General info</h2>${!ro?`<button class="btn sm" onclick="App.generalForm()">✎ Edit</button>`:''}</div>
+    <div class="section-head" style="margin-top:30px"><h2>General info</h2>${!ro?`<button class="btn sm" onclick="App.generalForm()">Edit</button>`:''}</div>
     ${n.general ? `<div class="card" style="white-space:pre-wrap">${esc(n.general)}</div>` : `<div class="empty">Visas, packing reminders, local tips…</div>`}
 
     <div class="section-head" style="margin-top:30px"><h2>People</h2>${!ro?`<button class="btn sm" onclick="App.addPerson()">+ Add</button>`:''}</div>
@@ -1080,13 +1110,13 @@ App.flightForm = (i, prefill) => {
   const f = prefill || (i>=0 ? t.flights[i] : {});
   openModal(`
     <h2>${i>=0?'Edit':'Add'} flight</h2>
-    ${prefill?`<div class="banner">Parsed from your document — check & correct before saving.</div>`:''}
+    ${prefill?`<div class="banner">Parsed from your document. Check and correct before saving.</div>`:''}
     <div class="grid2">
       <div class="field"><label class="label">Airline</label><input id="fl-air" type="text" value="${esc(f.airline||'')}" placeholder="British Airways"></div>
       <div class="field"><label class="label">Flight no.</label><input id="fl-no" type="text" value="${esc(f.flightNo||'')}" placeholder="BA432"></div>
     </div>
     <div class="grid3">
-      <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||'')}"></div>
+      <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||todayStr())}"></div>
       <div class="field"><label class="label">From (airport)</label><input id="fl-from" type="text" value="${esc(f.from||'')}" placeholder="LHR"></div>
       <div class="field"><label class="label">To (airport)</label><input id="fl-to" type="text" value="${esc(f.to||'')}" placeholder="LIS"></div>
     </div>
@@ -1099,7 +1129,7 @@ App.flightForm = (i, prefill) => {
       <div class="field"><label class="label">Booking ref</label><input id="fl-ref" type="text" value="${esc(f.ref||'')}"></div>
       <div class="field"><label class="label">Note</label><input id="fl-note" type="text" value="${esc(f.note||'')}" placeholder="Whose flight? Terminal?"></div>
     </div>
-    <button class="btn primary" style="width:100%" onclick="App.saveFlight(${i})">Save flight</button>`);
+    <button class="btn primary" style="width:100%" onclick="App.saveFlight(${i})">Save Flight</button>`);
 };
 App.saveFlight = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -1130,8 +1160,8 @@ App.accomForm = () => {
     <div class="field"><label class="label">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name"></div>
     <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}"></div>
     <div class="grid3">
-      <div class="field"><label class="label">Check-in</label><input id="ac-in" type="date" value="${esc(a.checkin||'')}"></div>
-      <div class="field"><label class="label">Check-out</label><input id="ac-out" type="date" value="${esc(a.checkout||'')}"></div>
+      <div class="field"><label class="label">Check-in</label><input id="ac-in" type="date" value="${esc(a.checkin||todayStr())}"></div>
+      <div class="field"><label class="label">Check-out</label><input id="ac-out" type="date" value="${esc(a.checkout||todayStr())}"></div>
       <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
     </div>
     <button class="btn primary" style="width:100%" onclick="App.saveAccom()">Save</button>`);
@@ -1140,7 +1170,7 @@ App.saveAccom = () => {
   const t = getTrip(CUR_TRIP_ID);
   t.notes.accom = {name:$('#ac-name').value.trim(), address:$('#ac-addr').value.trim(),
     checkin:$('#ac-in').value, checkout:$('#ac-out').value, ref:$('#ac-ref').value.trim()};
-  logEdit('Accommodation', t.notes.accom.name?('updated accommodation — '+t.notes.accom.name):'updated accommodation');
+  logEdit('Accommodation', t.notes.accom.name?('updated accommodation: '+t.notes.accom.name):'updated accommodation');
   save(); closeModal(); rerender();
 };
 App.contactForm = () => {
@@ -1151,7 +1181,7 @@ App.contactForm = () => {
       <div class="field"><label class="label">Phone</label><input id="ct-phone" type="tel"></div>
       <div class="field"><label class="label">Relation / role</label><input id="ct-rel" type="text" placeholder="e.g. Hotel reception, Mum"></div>
     </div>
-    <button class="btn primary" style="width:100%" onclick="App.saveContact()">Add contact</button>`);
+    <button class="btn primary" style="width:100%" onclick="App.saveContact()">Add Contact</button>`);
 };
 App.saveContact = () => {
   const t = getTrip(CUR_TRIP_ID);
@@ -1195,7 +1225,7 @@ App.delPerson = i => {
   const t = getTrip(CUR_TRIP_ID);
   const p = t.participants[i];
   const used = (t.receipts||[]).some(r => r.paidBy===p || (r.sharedWith||[]).includes(p) || (r.items||[]).some(it=>(it.people||[]).includes(p)));
-  if(used){ toast(`${p} is on receipts — remove those first`); return; }
+  if(used){ toast(`${p} is on receipts. Remove those first.`); return; }
   t.participants.splice(i,1); logEdit('People','removed '+p); save(); rerender();
   toast(p+' removed', ()=>{ t.participants.splice(Math.min(i,t.participants.length),0,p); logEdit('People','restored '+p); save(); rerender(); });
 };
@@ -1249,7 +1279,7 @@ App.upload = input => {
   if(isPdf){
     const fr = new FileReader();
     fr.onload = async e => {
-      if(file.size > 2*1048576){ toast('PDF over 2 MB — stored details only'); }
+      if(file.size > 2*1048576){ toast('PDF is over 2 MB, so only its details were stored.'); }
       const doc = {id:uid(), name:file.name, kind:'pdf', size:file.size,
                    dataUrl: file.size<=2*1048576 ? e.target.result : null, parsed:false};
       t.documents.push(doc); logEdit('Documents','uploaded '+file.name); save(); rerender();
@@ -1267,7 +1297,7 @@ App.upload = input => {
       const dataUrl = c.toDataURL('image/jpeg',.72);
       t.documents.push({id:uid(), name:file.name, kind:'img', size:Math.round(dataUrl.length*.75), dataUrl, parsed:false});
       logEdit('Documents','uploaded '+file.name); save(); rerender();
-      toast('Image saved. Auto-parsing works on PDF text — add flight details manually if needed.');
+      toast('Image saved. Auto-parsing works on PDF text, so add flight details manually if needed.');
     };
     img.src = URL.createObjectURL(file);
   }
@@ -1292,13 +1322,13 @@ async function parsePdf(dataUrl, trip, doc){
     if(f && (f.flightNo || (f.from&&f.to))){
       doc.parsed = true; save();
       App.flightForm(-1, f);
-      toast('Flight details found — please check them');
+      toast('Flight details found. Please check them.');
     } else {
-      toast('No flight details recognised — add manually in Info');
+      toast('No flight details recognised. Add them in Trip info.');
     }
   }catch(e){
     if(status) status.innerHTML='';
-    toast('Could not read that PDF — it may be scanned/image-based');
+    toast("Couldn't read that PDF. It may be a scanned image.");
   }
 }
 const AIRLINES = {BA:'British Airways',EZY:'easyJet',U2:'easyJet',FR:'Ryanair',RYR:'Ryanair',VS:'Virgin Atlantic',
@@ -1386,22 +1416,22 @@ App.scanReceipt = input => {
   R.evenSplit = false; R._scanning = true; R._scanMsg = '';
   App.redrawReceipt();
   downscaleToDataURL(file, 1600, 0.85, dataUrl => {
-    if(!dataUrl){ R._scanning=false; R._scanMsg="Couldn't read that image — add items by hand."; App.redrawReceipt(); return; }
+    if(!dataUrl){ R._scanning=false; R._scanMsg="Couldn't read that image. Add items by hand."; App.redrawReceipt(); return; }
     ensureTesseract(err => {
-      if(err || !window.Tesseract){ R._scanning=false; R._scanMsg="Couldn't load the scanner (are you online?) — add items by hand."; App.redrawReceipt(); return; }
+      if(err || !window.Tesseract){ R._scanning=false; R._scanMsg="Couldn't load the scanner. Check you're online, or add items by hand."; App.redrawReceipt(); return; }
       window.Tesseract.recognize(dataUrl, 'eng')
         .then(({data}) => {
           const items = parseReceiptText(data && data.text || '');
           if(items.length){
             R.items = items;
-            R._scanMsg = `Found ${items.length} item${items.length>1?'s':''} — check them, fix anything wrong, then tick who had each.`;
+            R._scanMsg = `Found ${items.length} item${items.length>1?'s':''}. Check them, then tick who had each.`;
           } else {
             if(!R.items.length) R.items = [{desc:'',amount:'',people:[]}];
-            R._scanMsg = "Couldn't pick out items from that photo — add them by hand.";
+            R._scanMsg = "Couldn't pick out items from that photo. Add them by hand.";
           }
           R._scanning=false; App.redrawReceipt();
         })
-        .catch(() => { R._scanning=false; R._scanMsg='Scan failed — add items by hand.'; App.redrawReceipt(); });
+        .catch(() => { R._scanning=false; R._scanMsg='Scan failed. Add items by hand.'; App.redrawReceipt(); });
     });
   });
 };
@@ -1466,7 +1496,7 @@ function tabMoney(t, ro){
   const me = whoAmI(t.id);
   const myNet = (me && net[me]!==undefined) ? net[me] : null;
   return `
-    <div class="section-head"><h2>Receipts</h2>${!ro?`<button class="btn sm primary" onclick="App.receiptForm()">+ Add receipt</button>`:''}</div>
+    <div class="section-head"><h2>Receipts</h2>${!ro?`<button class="btn sm primary" onclick="App.receiptForm()">+ Add Receipt</button>`:''}</div>
     ${myNet!==null && (t.receipts||[]).length ? `
       <div class="you-balance">${myNet>0.005?`You're owed <strong>${money(myNet)}</strong>`:myNet<-0.005?`You owe <strong>${money(-myNet)}</strong>`:`You're all square 🤝`}</div>`:''}
     ${receipts || `<div class="empty">No shared costs yet.</div>`}
@@ -1485,7 +1515,7 @@ function tabMoney(t, ro){
 let R = null;
 App.receiptForm = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  R = {title:'', date:'', paidBy:t.organiser, evenSplit:true, amount:'', sharedWith:[...t.participants], items:[{desc:'',amount:'',people:[]}], _scanning:false, _scanMsg:''};
+  R = {title:'', date:todayStr(), paidBy:t.organiser, evenSplit:true, amount:'', sharedWith:[...t.participants], items:[{desc:'',amount:'',people:[]}], _scanning:false, _scanMsg:''};
   drawReceiptModal(t);
 };
 /* the live "who owes what / what's left to pay" panel — recomputed on every change */
@@ -1496,7 +1526,7 @@ function splitSummaryInner(t){
   R.items.forEach(it=>{ const amt=+it.amount||0; if(!amt) return; const ppl=(it.people&&it.people.length)?it.people:t.participants; ppl.forEach(p=>{ if(per[p]!==undefined) per[p]+=amt/ppl.length; }); });
   return `
       <div class="row"><span>Items total</span><span class="mono">${money(itemsTotal)}</span></div>
-      <div class="row"><span class="left ${unassigned<0.005?'clear':''}">${unassigned<0.005?'✓ Everything assigned':'Not ticked to anyone — shared by all'}</span><span class="mono">${money(unassigned)}</span></div>
+      <div class="row"><span class="left ${unassigned<0.005?'clear':''}">${unassigned<0.005?'✓ Everything assigned':'Not ticked to anyone, shared by all'}</span><span class="mono">${money(unassigned)}</span></div>
       ${t.participants.some(p=>per[p]>0.005)?`<hr class="divider" style="margin:8px 0">${t.participants.map(p=>per[p]>0.005?`<div class="row"><span>${esc(p)} pays</span><span class="mono">${money(per[p])}</span></div>`:'').join('')}`:''}`;
 }
 App.updateSplitSum = () => { const el = $('.split-sum'); const t = getTrip(CUR_TRIP_ID); if(el && t) el.innerHTML = splitSummaryInner(t); };
@@ -1508,7 +1538,7 @@ function drawReceiptModal(t){
     <div class="field"><label class="label">Split between</label>
       <div class="chips">${t.participants.map((p,i)=>chip(p, R.sharedWith.includes(p), `App.togglePerson(${i})`)).join('')}</div>
     </div>` : `
-    <label class="label">Line items — tick who had each</label>
+    <label class="label">Line items: tick who had each</label>
     ${R.items.map((it,i)=>`
       <div class="card flat" style="padding:12px;margin-bottom:10px">
         <div class="grid2" style="margin-bottom:8px">
@@ -1516,19 +1546,19 @@ function drawReceiptModal(t){
           <input type="number" aria-label="Item price" step="0.01" min="0" placeholder="£" value="${esc(it.amount)}" oninput="R.items[${i}].amount=this.value;App.updateSplitSum()">
         </div>
         <div class="chips">${t.participants.map((p,pi)=>chip(p, (it.people||[]).includes(p), `App.toggleItemPerson(${i},${pi})`)).join('')}</div>
-        ${R.items.length>1?`<div style="text-align:right;margin-top:6px"><button class="iconbtn" aria-label="Remove item" onclick="R.items.splice(${i},1);App.redrawReceipt()">✕ remove item</button></div>`:''}
+        ${R.items.length>1?`<div style="text-align:right;margin-top:6px"><button class="iconbtn" aria-label="Remove item" onclick="R.items.splice(${i},1);App.redrawReceipt()">✕ Remove Item</button></div>`:''}
       </div>`).join('')}
-    <button class="btn sm" onclick="R.items.push({desc:'',amount:'',people:[]});App.redrawReceipt()">+ Add item</button>
+    <button class="btn sm" onclick="R.items.push({desc:'',amount:'',people:[]});App.redrawReceipt()">+ Add Item</button>
     ${summary}`;
   openModal(`
     <h2>Add receipt</h2>
     <div class="grid2" style="gap:10px">
-      <label class="btn" style="cursor:pointer" aria-label="Take a photo of the receipt">${ICONS.camera} Take a photo
+      <label class="btn" style="cursor:pointer" aria-label="Take a photo of the receipt">${ICONS.camera} Take a Photo
         <input type="file" accept="image/*" capture="environment" style="display:none" onchange="App.scanReceipt(this)"></label>
-      <label class="btn" style="cursor:pointer" aria-label="Upload a receipt image">${ICONS.upload} Upload an image
+      <label class="btn" style="cursor:pointer" aria-label="Upload a receipt image">${ICONS.upload} Upload an Image
         <input type="file" accept="image/*" style="display:none" onchange="App.scanReceipt(this)"></label>
     </div>
-    <p class="muted small" style="margin:8px 0 12px;text-align:center">Snap or upload the receipt and we'll list the items — then just tick who had what</p>
+    <p class="muted small" style="margin:8px 0 12px;text-align:center">Snap or upload the receipt and we'll list the items, then tick who had what.</p>
     ${R._scanning?`<div class="banner">⏳ Reading the receipt… this can take a few seconds.</div>`:''}
     ${R._scanMsg?`<div class="banner">${esc(R._scanMsg)}</div>`:''}
     <hr class="divider">
@@ -1540,11 +1570,12 @@ function drawReceiptModal(t){
       <select id="rc-paid" onchange="R.paidBy=this.value">${t.participants.map(p=>`<option ${p===R.paidBy?'selected':''}>${esc(p)}</option>`).join('')}</select>
     </div>
     <div class="field">
-      <label class="check"><input type="checkbox" ${R.evenSplit?'checked':''} onchange="R.evenSplit=this.checked;App.redrawReceipt()">
-        <strong>Even split</strong>&nbsp;<span class="muted small">— untick to itemise line by line</span></label>
+      <label class="switch-row"><span>Even split</span>
+        <span class="switch"><input type="checkbox" ${R.evenSplit?'checked':''} onchange="R.evenSplit=this.checked;App.redrawReceipt()"><span class="knob"></span></span>
+      </label>
     </div>
     ${body}
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveReceipt()">Save receipt</button></div>`,
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveReceipt()">Save Receipt</button></div>`,
     {autofocus:false});
 }
 App.redrawReceipt = () => { const t = getTrip(CUR_TRIP_ID); if(t) drawReceiptModal(t); };
@@ -1595,9 +1626,9 @@ function detectAlbumService(url){
 }
 /* what everyone can actually do with this kind of album link */
 function albumNote(service){
-  if(service==='PhotoCircle') return 'Everyone with the link can view <strong>and add</strong> photos — iPhone, Android or web.';
+  if(service==='PhotoCircle') return 'Everyone with the link can view <strong>and add</strong> photos on iPhone, Android or the web.';
   if(service==='Google Photos') return 'Anyone with the link can view and add photos.';
-  if(service==='Apple Shared Album') return 'iPhone users can add photos in the Photos app. Everyone (incl. Android) can view &amp; download from the link — but can\'t add.';
+  if(service==='Apple Shared Album') return 'iPhone users can add photos in the Photos app. Everyone, including Android, can view and download from the link but can\'t add.';
   return 'Anyone with the link can open it.';
 }
 function tabPhotos(t, ro){
@@ -1605,40 +1636,48 @@ function tabPhotos(t, ro){
   const service = a.url ? detectAlbumService(a.url) : '';
   return `
     <div class="section-head"><h2>Photos</h2></div>
-    <p class="muted small" style="margin-bottom:14px">Cal's Trippin' doesn't host photos — it links to one shared album your whole group adds to. Nothing gets lost in the chat.</p>
+    <p class="muted small" style="margin-bottom:14px">Cal's Trippin' doesn't host photos. It links to one shared album your whole group adds to, so nothing gets lost in the chat.</p>
     ${a.url ? `
       <div class="card">
         <div class="mood-type">${esc(service)}</div>
         <h3 style="word-break:break-all;margin-bottom:8px">${esc(a.url)}</h3>
         <p class="muted small" style="margin-bottom:12px">${albumNote(service)}</p>
         <div class="btn-row">
-          <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open album ↗</a>
-          ${!ro?`<button class="btn sm ghost" onclick="App.albumForm()">Change link</button>`:''}
+          <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open Album</a>
+          ${!ro?`<button class="btn sm ghost" onclick="App.removeAlbum()">Remove Link</button>`:''}
         </div>
       </div>` : `
       <div class="empty">No shared album linked yet.
-        ${!ro?`<br><br><button class="btn primary" onclick="App.albumForm()">+ Paste album link</button>`:''}
-      </div>`}
-    ${!ro?`
-    <h2 style="margin-top:30px">Set one up</h2>
-    <div class="banner">📸 <strong>PhotoCircle</strong> works best — it's free, cross-platform, and <strong>everyone can add photos</strong> (iPhone, Android or the web), unlike an Apple album where only iPhone users can contribute.</div>
-    <details open>
-      <summary> PhotoCircle (recommended)</summary>
-      <div class="d-body"><ol class="steps">
-        <li>Everyone installs <strong>PhotoCircle</strong> (App Store / Google Play) — or use the web app at photocircleapp.com.</li>
-        <li>Create a <strong>circle</strong> named after the trip.</li>
-        <li>Tap <strong>Share / Invite</strong> to get the <strong>invite link</strong> (or QR code).</li>
-        <li>Paste that invite link here. Anyone who opens it joins the circle and can add their own photos from any device.</li>
-      </ol></div>
-    </details>
-    <details>
-      <summary> Already use Apple or Google Photos?</summary>
-      <div class="d-body">
-        <p class="small" style="margin-bottom:10px"><strong>Google Photos:</strong> open the album → <strong>Share</strong> → <strong>Create link</strong>, turn on <strong>Collaborate</strong> so everyone can add, then paste the link. Works on iPhone and Android.</p>
-        <p class="small"><strong>Apple Shared Album:</strong> in Photos, create a <strong>New Shared Album</strong> → turn on <strong>Public Website</strong> → paste the icloud.com link. Note: that link is <strong>view/download only</strong> — only invited iPhone users can add photos, and Android friends can't contribute at all.</p>
+        ${!ro?`<br><br><button class="btn primary" onclick="App.albumForm()">+ Add Album Link</button>`:''}
       </div>
-    </details>`:''}`;
+      ${!ro?`
+      <h2 style="margin-top:30px">Set one up</h2>
+      <div class="banner">📸 <strong>PhotoCircle</strong> works best. It's free, cross-platform, and <strong>everyone can add photos</strong> from iPhone, Android or the web.</div>
+      <details open>
+        <summary> PhotoCircle (recommended)</summary>
+        <div class="d-body"><ol class="steps">
+          <li>Everyone installs <strong>PhotoCircle</strong> (App Store / Google Play), or uses the web app at photocircleapp.com.</li>
+          <li>Create a <strong>circle</strong> named after the trip.</li>
+          <li>Tap <strong>Share / Invite</strong> to get the <strong>invite link</strong> (or QR code).</li>
+          <li>Paste that invite link here. Anyone who opens it joins the circle and can add photos from any device.</li>
+        </ol></div>
+      </details>
+      <details>
+        <summary> Already use Apple or Google Photos?</summary>
+        <div class="d-body">
+          <p class="small" style="margin-bottom:10px"><strong>Google Photos:</strong> open the album, tap <strong>Share</strong>, then <strong>Create link</strong>. Turn on <strong>Collaborate</strong> so everyone can add, then paste the link here. Works on iPhone and Android.</p>
+          <p class="small"><strong>Apple Shared Album:</strong> in Photos, create a <strong>New Shared Album</strong>, turn on <strong>Public Website</strong> and paste the icloud.com link here. That link is view and download only. Invited iPhone users can add photos, but Android friends can't.</p>
+        </div>
+      </details>`:''}`}`;
 }
+App.removeAlbum = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  confirmModal('Remove the album link?', 'The link will be removed for everyone on this trip. The album itself is not affected.', 'Remove Link', ()=>{
+    t.photoAlbum = {url:'', service:''};
+    logEdit('Photos','removed the photo album link');
+    save(); rerender();
+  });
+};
 App.albumForm = () => {
   const t = getTrip(CUR_TRIP_ID);
   openModal(`
@@ -1670,12 +1709,12 @@ function tabMood(t, ro){
   return `
     <div class="section-head"><h2>Mood board</h2>
       ${!ro?`<div class="btn-row">
-        <button class="btn sm" onclick="App.suggest()">✦ Get ideas</button>
+        <button class="btn sm" onclick="App.suggest()">✦ Get Ideas</button>
         <button class="btn sm primary" onclick="App.moodForm()">+ Pin</button>
       </div>`:''}
     </div>
     <p class="muted small">Things to do, places to eat, events on while you're there. Pin links, notes and pictures.</p>
-    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.${!ro?' Try <strong>✦ Get ideas</strong> for suggestions based on your destination.':''}</div>`}`;
+    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.${!ro?' Try <strong>✦ Get Ideas</strong> for suggestions based on your destination.':''}</div>`}`;
 }
 App.moodForm = () => {
   openModal(`
@@ -1684,7 +1723,7 @@ App.moodForm = () => {
     <div class="field"><label class="label" for="md-url">Link (optional)</label><input id="md-url" type="url" placeholder="https://…"></div>
     <div class="field"><label class="label" for="md-text">Note (optional)</label><textarea id="md-text" placeholder="Why it's worth doing…"></textarea></div>
     <div class="field"><label class="label" for="md-img">Image (optional)</label><input id="md-img" type="file" accept="image/*" style="border:none;padding:0"></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveMood()">Pin it</button></div>`);
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveMood()">Pin It</button></div>`);
 };
 App.saveMood = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -1720,25 +1759,25 @@ App.delMood = i => {
 
 /* --- destination-based suggestions (offline, no live data) --- */
 const SUGG = {
-  lisbon:[['activity','Ride Tram 28 through Alfama early morning to beat the queues'],['activity','Day trip to Sintra — Pena Palace & Quinta da Regaleira'],['food','Pastéis de Belém — the original custard tarts, worth the line'],['food','Time Out Market for a first-night crowd-pleaser dinner'],['activity','Sunset drinks at Miradouro de Santa Catarina'],['tip','Buy a Viva Viagem card and zap it for trams, metro & ferries']],
-  paris:[['activity','Walk Montmartre at sunrise before the crowds'],['activity','Seine picnic — grab cheese & a baguette from a fromagerie'],['food','Bouillon Chartier — classic French food at canteen prices'],['activity','Musée d\'Orsay over the Louvre if you only pick one'],['tip','Book Eiffel Tower / Louvre slots weeks ahead'],['food','Falafel on Rue des Rosiers in Le Marais']],
-  london:[['activity','Borough Market food crawl on Saturday morning'],['activity','Walk the South Bank: Tate Modern → Tower Bridge'],['food','Brick Lane bagels at 2am — a rite of passage'],['activity','Columbia Road Flower Market on Sunday'],['tip','Just tap a contactless card everywhere — no ticket needed'],['activity','Hampstead Heath swim + pub lunch at the Spaniards Inn']],
-  barcelona:[['activity','Book Sagrada Família tickets online — sunset slot for the light'],['food','Tapas crawl in El Born, finish with vermut'],['activity','Bunkers del Carmel for the best free view of the city'],['activity','Morning at Barceloneta, but locals prefer Bogatell beach'],['tip','Watch for pickpockets on Las Ramblas & the metro'],['food','La Boqueria market — go before 11am']],
-  amsterdam:[['activity','Rent bikes and loop the Vondelpark → Jordaan'],['activity','Anne Frank House — book exactly 6 weeks ahead, they sell out'],['food','Stroopwafels fresh & warm from Albert Cuyp Market'],['activity','Evening canal cruise (the small open boats beat the big glass ones)'],['tip','Cyclists have right of way — never walk in the bike lane'],['food','Indonesian rijsttafel — a legacy of Dutch colonial history, and a feast']],
-  rome:[['activity','Colosseum + Forum combined ticket, first entry slot'],['food','Carbonara in Trastevere — Da Enzo al 29 if you can get in'],['activity','Toss a coin in the Trevi at 7am when it\'s empty'],['activity','Aperitivo hour in Monti'],['tip','Tap water from the nasoni street fountains is excellent'],['food','Gelato rule: if it\'s piled high & neon, walk on']],
-  'new york':[['activity','Walk the Brooklyn Bridge at sunrise toward Manhattan'],['food','Katz\'s Deli pastrami — split one, they\'re huge'],['activity','The High Line → Chelsea Market → Little Island'],['activity','Comedy Cellar — book ahead'],['tip','Buy an OMNY-capable card? No — just tap your bank card on the subway'],['food','Dollar(ish) slice after midnight, it\'s the law']],
-  tokyo:[['activity','Tsukiji Outer Market breakfast — go hungry'],['activity','Shibuya Crossing then coffee looking down from Mag\'s Park'],['food','Ichiran ramen solo booths — order from the machine'],['activity','Day trip to Kamakura or Nikko'],['tip','Get a Suica in Apple Wallet before you land'],['tip','Carry cash — plenty of places still don\'t take cards']],
-  ibiza:[['activity','Sunset at Café del Mar or Experimental Beach'],['activity','Boat day to Formentera — Ses Illetes beach'],['food','Bullit de peix (fish stew) at a chiringuito'],['tip','Club tickets are cheaper online than on the door'],['activity','Old Town (Dalt Vila) evening wander before dinner'],['tip','Book taxis well ahead in peak season — or use the disco bus']],
-  dublin:[['activity','Guinness Storehouse — the Gravity Bar view is worth it'],['food','Full Irish at a proper café, not the hotel buffet'],['activity','Howth cliff walk + fish & chips at Beshoff Bros'],['activity','Trad session at The Cobblestone in Smithfield'],['tip','Temple Bar pints are €2 dearer than two streets away'],['activity','Kilmainham Gaol — book ahead, it sells out']],
-  prague:[['activity','Charles Bridge at dawn — genuinely empty at 6am'],['food','Goulash & dumplings at Lokál, plus tank Pilsner'],['activity','Petřín Hill funicular & tower for the view'],['activity','Old Town astronomical clock — watch once, that\'s enough'],['tip','Exchange rate scams: never use the street exchange booths'],['food','Trdelník is for tourists — try koláče instead']],
-  budapest:[['activity','Széchenyi Baths in the morning, Rudas rooftop pool at night'],['food','Lángos at the Great Market Hall'],['activity','Ruin bars in the Jewish Quarter — start at Szimpla Kert'],['activity','Sunset from Fisherman\'s Bastion'],['tip','Validate your metro ticket — inspectors show no mercy'],['food','Chimney cake (kürtőskalács) fresh off the coals']],
-  marbella:[['activity','Old Town orange square (Plaza de los Naranjos) evening drinks'],['food','Espetos — sardines grilled on the beach at a chiringuito'],['activity','Day trip to Ronda and its gorge-spanning bridge'],['activity','Puerto Banús for the boats-and-supercars people-watching'],['tip','August is peak — book restaurants days ahead'],['activity','Hike La Concha early morning before the heat']],
-  athens:[['activity','Acropolis at opening time (8am) — beat heat and crowds'],['food','Souvlaki at O Kostas — cash only, worth it'],['activity','Sunset from Areopagus Hill, cheaper than a rooftop bar'],['activity','Ferry day trip to Aegina or Hydra'],['tip','Taxis: insist on the meter or use FreeNow'],['food','Loukoumades (honey doughnuts) for a mid-walk pick-me-up']],
+  lisbon:[['activity','Ride Tram 28 through Alfama early morning to beat the queues'],['activity','Day trip to Sintra, Pena Palace & Quinta da Regaleira'],['food','Pastéis de Belém, the original custard tarts, worth the line'],['food','Time Out Market for a first-night crowd-pleaser dinner'],['activity','Sunset drinks at Miradouro de Santa Catarina'],['tip','Buy a Viva Viagem card and zap it for trams, metro & ferries']],
+  paris:[['activity','Walk Montmartre at sunrise before the crowds'],['activity','Seine picnic, grab cheese & a baguette from a fromagerie'],['food','Bouillon Chartier, classic French food at canteen prices'],['activity','Musée d\'Orsay over the Louvre if you only pick one'],['tip','Book Eiffel Tower / Louvre slots weeks ahead'],['food','Falafel on Rue des Rosiers in Le Marais']],
+  london:[['activity','Borough Market food crawl on Saturday morning'],['activity','Walk the South Bank: Tate Modern → Tower Bridge'],['food','Brick Lane bagels at 2am, a rite of passage'],['activity','Columbia Road Flower Market on Sunday'],['tip','Just tap a contactless card everywhere, no ticket needed'],['activity','Hampstead Heath swim + pub lunch at the Spaniards Inn']],
+  barcelona:[['activity','Book Sagrada Família tickets online, sunset slot for the light'],['food','Tapas crawl in El Born, finish with vermut'],['activity','Bunkers del Carmel for the best free view of the city'],['activity','Morning at Barceloneta, but locals prefer Bogatell beach'],['tip','Watch for pickpockets on Las Ramblas & the metro'],['food','La Boqueria market, go before 11am']],
+  amsterdam:[['activity','Rent bikes and loop the Vondelpark → Jordaan'],['activity','Anne Frank House, book exactly 6 weeks ahead, they sell out'],['food','Stroopwafels fresh & warm from Albert Cuyp Market'],['activity','Evening canal cruise (the small open boats beat the big glass ones)'],['tip','Cyclists have right of way, never walk in the bike lane'],['food','Indonesian rijsttafel, a legacy of Dutch colonial history, and a feast']],
+  rome:[['activity','Colosseum + Forum combined ticket, first entry slot'],['food','Carbonara in Trastevere, Da Enzo al 29 if you can get in'],['activity','Toss a coin in the Trevi at 7am when it\'s empty'],['activity','Aperitivo hour in Monti'],['tip','Tap water from the nasoni street fountains is excellent'],['food','Gelato rule: if it\'s piled high & neon, walk on']],
+  'new york':[['activity','Walk the Brooklyn Bridge at sunrise toward Manhattan'],['food','Katz\'s Deli pastrami, split one, they\'re huge'],['activity','The High Line → Chelsea Market → Little Island'],['activity','Comedy Cellar, book ahead'],['tip','Buy an OMNY-capable card? No, just tap your bank card on the subway'],['food','Dollar(ish) slice after midnight, it\'s the law']],
+  tokyo:[['activity','Tsukiji Outer Market breakfast, go hungry'],['activity','Shibuya Crossing then coffee looking down from Mag\'s Park'],['food','Ichiran ramen solo booths, order from the machine'],['activity','Day trip to Kamakura or Nikko'],['tip','Get a Suica in Apple Wallet before you land'],['tip','Carry cash, plenty of places still don\'t take cards']],
+  ibiza:[['activity','Sunset at Café del Mar or Experimental Beach'],['activity','Boat day to Formentera, Ses Illetes beach'],['food','Bullit de peix (fish stew) at a chiringuito'],['tip','Club tickets are cheaper online than on the door'],['activity','Old Town (Dalt Vila) evening wander before dinner'],['tip','Book taxis well ahead in peak season, or use the disco bus']],
+  dublin:[['activity','Guinness Storehouse, the Gravity Bar view is worth it'],['food','Full Irish at a proper café, not the hotel buffet'],['activity','Howth cliff walk + fish & chips at Beshoff Bros'],['activity','Trad session at The Cobblestone in Smithfield'],['tip','Temple Bar pints are €2 dearer than two streets away'],['activity','Kilmainham Gaol, book ahead, it sells out']],
+  prague:[['activity','Charles Bridge at dawn, genuinely empty at 6am'],['food','Goulash & dumplings at Lokál, plus tank Pilsner'],['activity','Petřín Hill funicular & tower for the view'],['activity','Old Town astronomical clock, watch once, that\'s enough'],['tip','Exchange rate scams: never use the street exchange booths'],['food','Trdelník is for tourists, try koláče instead']],
+  budapest:[['activity','Széchenyi Baths in the morning, Rudas rooftop pool at night'],['food','Lángos at the Great Market Hall'],['activity','Ruin bars in the Jewish Quarter, start at Szimpla Kert'],['activity','Sunset from Fisherman\'s Bastion'],['tip','Validate your metro ticket, inspectors show no mercy'],['food','Chimney cake (kürtőskalács) fresh off the coals']],
+  marbella:[['activity','Old Town orange square (Plaza de los Naranjos) evening drinks'],['food','Espetos, sardines grilled on the beach at a chiringuito'],['activity','Day trip to Ronda and its gorge-spanning bridge'],['activity','Puerto Banús for the boats-and-supercars people-watching'],['tip','August is peak, book restaurants days ahead'],['activity','Hike La Concha early morning before the heat']],
+  athens:[['activity','Acropolis at opening time (8am), beat heat and crowds'],['food','Souvlaki at O Kostas, cash only, worth it'],['activity','Sunset from Areopagus Hill, cheaper than a rooftop bar'],['activity','Ferry day trip to Aegina or Hydra'],['tip','Taxis: insist on the meter or use FreeNow'],['food','Loukoumades (honey doughnuts) for a mid-walk pick-me-up']],
 };
 const SUGG_GENERIC = [
-  ['activity','Free walking tour on day one — best way to get your bearings'],
+  ['activity','Free walking tour on day one, best way to get your bearings'],
   ['food','Find the main food market and go hungry at lunchtime'],
-  ['activity','Ask a local bartender where THEY eat — never fails'],
+  ['activity','Ask a local bartender where THEY eat, never fails'],
   ['tip','Screenshot key addresses & tickets in case of no signal'],
   ['activity','One sunrise or sunset viewpoint per trip, minimum'],
   ['tip','Agree a rough daily budget with the group before you land'],
@@ -1754,7 +1793,7 @@ App.suggest = () => {
   const label = {activity:'Do', food:'Eat', tip:'Tip'};
   openModal(`
     <h2>✦ Ideas${matched?' for '+esc(matched[0].toUpperCase()+matched.slice(1)):''}</h2>
-    <p class="muted small" style="margin-bottom:14px">${list?'Based on your destination'+(t.startDate?' and dates':''):'General trip ideas — set a recognised destination for tailored ones'}. Tap + to pin to the board.</p>
+    <p class="muted small" style="margin-bottom:14px">${list?'Based on your destination'+(t.startDate?' and dates':''):'General trip ideas. Set a recognised destination for tailored ones'}. Tap + to pin to the board.</p>
     ${items.map(([type,text],i)=>`
       <div class="sugg">
         <div><span class="badge inv">${label[type]||type}</span><div class="small" style="margin-top:6px">${esc(text)}</div></div>
@@ -1765,7 +1804,7 @@ App.addSugg = (i, key) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const items = key && SUGG[key] ? SUGG[key] : SUGG_GENERIC;
   const [type, text] = items[i];
-  const title = (type==='food'?'Eat: ':type==='tip'?'Tip: ':'Do: ')+text.split('—')[0].split(',')[0].trim();
+  const title = (type==='food'?'Eat: ':type==='tip'?'Tip: ':'Do: ')+text.split(',')[0].trim();
   t.moodBoard.push({id:uid(), type:'note', title, text, url:''});
   logEdit('Ideas','pinned suggestion '+title);
   save(); toast('Pinned to board');
