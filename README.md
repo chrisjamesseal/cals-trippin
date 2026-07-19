@@ -48,6 +48,6 @@ The header shows a small **sync status** pill (Synced / Saving… / Offline / On
 - Large uploaded files and mood-board images stay on the uploader's device (only smaller ones sync); their details still appear for everyone.
 - Receipt/PDF scanning accuracy varies with the photo — it's a review-and-correct flow, not magic.
 
-Inside a trip, everything is reached from the **dashboard tiles** or the **☰ Menu** (icons for Overview, Trip info, Documents, Money, Photos, Ideas and Activity) — no horizontal tab scrolling.
+Inside a trip, everything is reached from the **dashboard tiles** or the **☰ Menu**, each with its own icon: Overview, Travel (flights, ferries, car hire), Accommodation, Itinerary, Money, Photos, Ideas, Emergency Contacts, Documents, Notes and Activity — no horizontal tab scrolling. Countries and people are managed from **Edit Trip** on the Overview.
 
 Built from the v1 product spec (`cals_trippin_spec.md`); this release adds **Milestone 2 (collaborative editing + edit log)**, in-browser receipt scanning, and a branded UI refresh (teal/coral palette, "Cal's Trippin'" wordmark, icon menu navigation).
