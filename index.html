@@ -167,6 +167,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .chip button:hover{color:var(--accent-dark);}
 .chip.pick{cursor:pointer; color:var(--muted); user-select:none;}
 .chip.pick.on{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint); font-weight:700;}
+.chip.country{padding:5px 12px;}
+.chip.country .flag{font-size:1.05rem; line-height:1;}
+.trip-flags{font-size:1.05rem; letter-spacing:.08em;}
 
 /* ---------- full-screen form views (no popups) ---------- */
 .modal-bg{position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; overscroll-behavior:contain;}
@@ -453,7 +456,7 @@ function subscribeTrip(id){
     const remote = snap.val();
     if(!remote) return;
     // normalise arrays (Firebase can return objects for sparse/keyed data)
-    ['flights','documents','receipts','moodBoard','participants','editLog']
+    ['flights','documents','receipts','moodBoard','participants','editLog','countries']
       .forEach(k=>{ if(remote[k] && !Array.isArray(remote[k])) remote[k]=Object.values(remote[k]); });
     if(remote.notes && remote.notes.contacts && !Array.isArray(remote.notes.contacts))
       remote.notes.contacts = Object.values(remote.notes.contacts);
@@ -594,6 +597,30 @@ function statusPill(t){ const s = tripStatus(t); return `<span class="status-pil
 /* anyone with the link can edit; only archived trips are locked */
 function readOnly(t){ return isArchived(t); }
 function fileSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.round(b/1024)+' KB'; }
+
+/* ================= countries ================= */
+/* ISO 3166-1 alpha-2 codes; names come from Intl.DisplayNames, flags from regional indicators */
+const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CK CL CM CN CO CR CU CV CW CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FK FM FO FR GA GB GD GE GG GH GI GL GM GN GQ GR GT GW GY HK HN HR HT HU ID IE IL IM IN IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MO MQ MR MS MT MU MV MW MX MY MZ NA NC NE NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PR PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WS YE ZA ZM ZW').split(' ');
+const flagEmoji = c => c.replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
+const COUNTRIES = (()=>{
+  let dn = null;
+  try{ dn = new Intl.DisplayNames(['en'], {type:'region'}); }catch(e){}
+  return COUNTRY_CODES
+    .map(c => ({code:c, name:(dn && dn.of(c)) || c, flag:flagEmoji(c)}))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+})();
+const countryByName = n => COUNTRIES.find(c=>c.name.toLowerCase()===String(n||'').trim().toLowerCase());
+const countryByCode = c => COUNTRIES.find(x=>x.code===String(c||'').toUpperCase());
+function countryDatalist(){ return `<datalist id="country-list">${COUNTRIES.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist>`; }
+function countryPills(codes, removable, fnName){
+  return (codes||[]).map((c,i)=>{
+    const co = countryByCode(c); if(!co) return '';
+    return `<span class="chip country"><span class="flag">${co.flag}</span>${esc(co.name)}${removable?`<button aria-label="Remove ${esc(co.name)}" onclick="${fnName}(${i})">✕</button>`:''}</span>`;
+  }).join('');
+}
+function tripFlags(t){
+  return (t.countries||[]).map(c=>{ const co=countryByCode(c); return co?co.flag:''; }).filter(Boolean).join(' ');
+}
 
 /* ================= modal ================= */
 let _lastFocus = null;
@@ -739,7 +766,7 @@ function renderHome(){
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${t.id}'}">
       <span class="card-go" aria-hidden="true">›</span>
       <h3>${esc(t.name)}</h3>
-      <div class="muted">${esc(t.destination||'Destination TBC')}</div>
+      <div class="muted">${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span> `:''}${esc(t.destination||'Destination TBC')}</div>
       <div class="small" style="margin-top:8px">${fmtRange(t.startDate,t.endDate)}</div>
       <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap">
         ${statusPill(t)}
@@ -805,11 +832,22 @@ App.importTrips = input => {
   fr.readAsText(file);
 };
 
+let NT_COUNTRIES = [];   // codes picked while the New Trip screen is open
 App.newTrip = () => {
+  NT_COUNTRIES = [];
   openModal(`
     <h2>New trip</h2>
     <div class="field"><label class="label">Trip name</label><input type="text" id="f-name" placeholder="e.g. Lads in Lisbon 2026"></div>
     <div class="field"><label class="label">Destination</label><input type="text" id="f-dest" placeholder="e.g. Lisbon, Portugal"></div>
+    <div class="field"><label class="label">Countries</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="f-country" list="country-list" placeholder="e.g. Portugal" style="flex:1"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();App.addTripCountry()}">
+        <button class="btn" type="button" onclick="App.addTripCountry()">+ Add</button>
+      </div>
+      ${countryDatalist()}
+      <div class="chips" id="f-country-pills" style="margin-top:10px"></div>
+    </div>
     <div class="grid2">
       <div class="field"><label class="label">Start date</label><input type="date" id="f-start" value="${todayStr()}"></div>
       <div class="field"><label class="label">End date</label><input type="date" id="f-end" value="${todayStr()}"></div>
@@ -818,6 +856,21 @@ App.newTrip = () => {
     <div class="field"><label class="label">Other people (comma-separated, add more later)</label><input type="text" id="f-ppl" placeholder="e.g. Chris, Sam, Jordan"></div>
     <button class="btn primary" style="width:100%" onclick="App.createTrip()">Create Trip</button>`);
 };
+/* pills update in place so the other New Trip fields keep their values */
+function drawNTCountries(){
+  const el = $('#f-country-pills');
+  if(el) el.innerHTML = countryPills(NT_COUNTRIES, true, 'App.delTripCountry');
+}
+App.addTripCountry = () => {
+  const inp = $('#f-country'); if(!inp) return;
+  const co = countryByName(inp.value);
+  if(!co) return markErr('#f-country','Pick a country from the list');
+  if(NT_COUNTRIES.includes(co.code)) return markErr('#f-country','Already added');
+  NT_COUNTRIES.push(co.code);
+  inp.value=''; inp.focus();
+  drawNTCountries();
+};
+App.delTripCountry = i => { NT_COUNTRIES.splice(i,1); drawNTCountries(); };
 App.createTrip = () => {
   const name = $('#f-name').value.trim();
   if(!name){ toast('Give the trip a name'); return; }
@@ -825,6 +878,7 @@ App.createTrip = () => {
   const others = $('#f-ppl').value.split(',').map(s=>s.trim()).filter(Boolean);
   const t = {
     id: uid(), name, destination: $('#f-dest').value.trim(),
+    countries: [...NT_COUNTRIES],
     startDate: $('#f-start').value, endDate: $('#f-end').value,
     organiser: org, participants: [org, ...others],
     flights: [], notes: {accom:{}, contacts:[], general:''},
@@ -913,7 +967,7 @@ function renderTrip(t){
     ${arch?`<div class="banner">🗄 This trip ended over a month ago and is now archived and read-only.</div>`:''}
     <div style="padding-top:${arch?'4px':'26px'}">
       <h1>${esc(t.name)}</h1>
-      <p class="muted" style="margin-top:2px">${esc(t.destination||'Destination TBC')} · ${fmtRange(t.startDate,t.endDate)}</p>
+      <p class="muted" style="margin-top:2px">${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span> `:''}${esc(t.destination||'Destination TBC')} · ${fmtRange(t.startDate,t.endDate)}</p>
       <div style="margin-top:10px">${statusPill(t)}</div>
     </div>
     ${ro?`<div style="margin-top:14px"><span class="sync-pill" id="sync-pill"></span></div>`:`<div class="who-bar" id="who-bar"></div>`}
@@ -1076,7 +1130,12 @@ function tabInfo(t, ro){
     </div>`).join('');
 
   return `
-    <div class="section-head"><h2>Flights</h2>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
+    <div class="section-head"><h2>Countries</h2>${!ro?`<button class="btn sm" onclick="App.countryForm()">+ Add Country</button>`:''}</div>
+    ${(t.countries||[]).length
+      ? `<div class="chips">${countryPills(t.countries, !ro, 'App.delCountry')}</div>`
+      : `<div class="empty">No countries added yet.</div>`}
+
+    <div class="section-head" style="margin-top:30px"><h2>Flights</h2>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
     ${flights || `<div class="empty">No flights yet.${!ro?' Add one manually, or upload a boarding pass in <strong>Documents</strong> and it will be parsed automatically.':''}</div>`}
 
     <div class="section-head" style="margin-top:30px"><h2>Accommodation</h2>${!ro?`<button class="btn sm" onclick="App.accomForm()">Edit</button>`:''}</div>
@@ -1103,6 +1162,36 @@ function tabInfo(t, ro){
     </div>
     <p class="muted small" style="margin-top:8px">★ organiser</p>`;
 }
+
+/* --- countries --- */
+App.countryForm = () => {
+  openModal(`
+    <h2>Add a country</h2>
+    <div class="field"><label class="label" for="cn-name">Country</label>
+      <input id="cn-name" type="text" list="country-list" placeholder="Start typing, e.g. Portugal"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();App.saveCountry()}">
+      ${countryDatalist()}
+    </div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveCountry()">Add Country</button></div>`);
+};
+App.saveCountry = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const co = countryByName($('#cn-name').value);
+  if(!co) return markErr('#cn-name','Pick a country from the list');
+  t.countries = t.countries||[];
+  if(t.countries.includes(co.code)) return markErr('#cn-name','Already added');
+  t.countries.push(co.code);
+  logEdit('Trip info','added country '+co.name);
+  save(); closeModal(); rerender(); toast(co.flag+' '+co.name+' added');
+};
+App.delCountry = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t || !t.countries) return;
+  const code = t.countries[i];
+  const co = countryByCode(code);
+  const name = co ? co.name : 'Country';
+  t.countries.splice(i,1); logEdit('Trip info','removed country '+name); save(); rerender();
+  toast(name+' removed', ()=>{ t.countries.splice(Math.min(i,t.countries.length),0,code); logEdit('Trip info','restored country '+name); save(); rerender(); });
+};
 
 /* --- flights --- */
 App.flightForm = (i, prefill) => {
