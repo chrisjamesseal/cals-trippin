@@ -225,6 +225,8 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .mood-card img{width:100%; display:block; border-radius:var(--radius-sm); margin-bottom:8px;}
 .mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin-bottom:6px;}
 .mood-del{position:absolute; top:6px; right:6px;}
+.mood-map{display:inline-block; margin-top:8px; font-weight:600; text-decoration:none; color:var(--brand-dark);}
+.mood-map:hover{text-decoration:underline;}
 .sugg{border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--paper); padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; gap:12px; align-items:flex-start;}
 .settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
 .settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
@@ -243,6 +245,7 @@ details summary{padding:12px 16px; font-weight:700; cursor:pointer; font-size:.9
 details[open] summary{border-bottom:1px solid var(--line);}
 details .d-body{padding:14px 16px;}
 .doc-icon{width:42px; height:52px; border-radius:var(--radius-sm); background:var(--brand-tint); color:var(--brand-dark); display:flex; align-items:center; justify-content:center; font-size:.6rem; font-weight:800; flex-shrink:0;}
+.doc-icon svg{width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;}
 .readonly-note{font-size:.75rem; color:var(--muted); font-style:italic;}
 .section-head{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
 .section-head h2{margin-bottom:0;}
@@ -321,6 +324,11 @@ a.dash-tile{text-decoration:none;}
 /* ---------- personalised balance ---------- */
 .you-balance{border-radius:var(--radius); background:linear-gradient(120deg,var(--brand),var(--brand-dark)); color:#fff; padding:13px 18px; margin:14px 0 4px; font-size:1rem; font-weight:600; box-shadow:var(--shadow);}
 .you-balance strong{font-weight:800;}
+
+/* ---------- itinerary ---------- */
+.plan-day{margin:24px 0 10px; font-size:.95rem; font-weight:800; color:var(--brand-dark);}
+.plan-time{font-weight:800; color:var(--brand-dark); white-space:nowrap;}
+.plan-map{width:100%; height:180px; border:1px solid var(--line); border-radius:var(--radius-sm); display:block; margin-bottom:8px; background:var(--bg);}
 
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
@@ -456,7 +464,7 @@ function subscribeTrip(id){
     const remote = snap.val();
     if(!remote) return;
     // normalise arrays (Firebase can return objects for sparse/keyed data)
-    ['flights','documents','receipts','moodBoard','participants','editLog','countries']
+    ['flights','documents','receipts','moodBoard','participants','editLog','countries','itinerary','docLinks']
       .forEach(k=>{ if(remote[k] && !Array.isArray(remote[k])) remote[k]=Object.values(remote[k]); });
     if(remote.notes && remote.notes.contacts && !Array.isArray(remote.notes.contacts))
       remote.notes.contacts = Object.values(remote.notes.contacts);
@@ -882,7 +890,8 @@ App.createTrip = () => {
     startDate: $('#f-start').value, endDate: $('#f-end').value,
     organiser: org, participants: [org, ...others],
     flights: [], notes: {accom:{}, contacts:[], general:''},
-    documents: [], receipts: [], photoAlbum: {url:'',service:''}, moodBoard: [],
+    documents: [], docLinks: [], itinerary: [],
+    receipts: [], photoAlbum: {url:'',service:''}, moodBoard: [],
     createdAt: Date.now()
   };
   setMe(t.id, org);              // the creator is identified straight away
@@ -947,13 +956,16 @@ const ICONS = {
   photos:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-8 8"/></svg>',
   mood:'<svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10c.7.7 1 1.3 1 2h6c0-.7.3-1.3 1-2a6 6 0 0 0-4-10z"/></svg>',
   log:'<svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h11"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  plan:'<svg viewBox="0 0 24 24"><path d="M9 4L4 6v14l5-2 6 2 5-2V4l-5 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  pin:'<svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-11a7 7 0 0 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  link:'<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 .4l3-3a4 4 0 0 0-5.6-5.6l-1.7 1.7"/><path d="M14 10a4 4 0 0 0-6-.4l-3 3a4 4 0 0 0 5.6 5.6l1.7-1.7"/></svg>',
   menu:'<svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
   share:'<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="17.5" cy="5.5" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="M8.3 10.8l7-4M8.3 13.2l7 4"/></svg>',
   back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
   camera:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   upload:'<svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></svg>'
 };
-const TABS = [['home','Overview'],['info','Trip info'],['docs','Documents'],['money','Money'],['photos','Photos'],['mood','Ideas'],['log','Activity']];
+const TABS = [['home','Overview'],['info','Trip info'],['plan','Itinerary'],['docs','Documents'],['money','Money'],['photos','Photos'],['mood','Ideas'],['log','Activity']];
 function renderTrip(t){
   const ro = readOnly(t);
   const arch = isArchived(t);
@@ -1035,6 +1047,7 @@ function renderTab(t){
   const ro = readOnly(t);
   if(CUR_TAB==='home')   el.innerHTML = tabHome(t);
   if(CUR_TAB==='info')   el.innerHTML = tabInfo(t,ro);
+  if(CUR_TAB==='plan')   el.innerHTML = tabPlan(t,ro);
   if(CUR_TAB==='docs')   el.innerHTML = tabDocs(t,ro);
   if(CUR_TAB==='money')  el.innerHTML = tabMoney(t,ro);
   if(CUR_TAB==='photos') el.innerHTML = tabPhotos(t,ro);
@@ -1052,16 +1065,30 @@ function tabHome(t){
   if((t.flights||[]).length) infoParts.push((t.flights.length)+(t.flights.length===1?' flight':' flights'));
   if(n.accom && n.accom.name) infoParts.push('stay booked');
   if((n.contacts||[]).length) infoParts.push((n.contacts.length)+(n.contacts.length===1?' contact':' contacts'));
-  const nDocs = (t.documents||[]).length, nRec = (t.receipts||[]).length,
+  const nDocs = (t.documents||[]).length, nLinks = (t.docLinks||[]).length,
+        nRec = (t.receipts||[]).length, nStops = (t.itinerary||[]).length,
         nPins = (t.moodBoard||[]).length, nLog = (t.editLog||[]).length;
   const albumUrl = t.photoAlbum && t.photoAlbum.url || '';
   const album = albumUrl ? detectAlbumService(albumUrl) : '';
+  const docParts = [];
+  if(nLinks) docParts.push(nLinks+(nLinks===1?' link':' links'));
+  if(nDocs) docParts.push(nDocs+(nDocs===1?' file':' files'));
+  // the Money tile leads with your own balance, like Tricount
+  const me = whoAmI(t.id);
+  const net = nRec ? computeBalances(t) : null;
+  const myNet = net && me && net[me]!==undefined ? net[me] : null;
+  const moneySum = !nRec ? 'Split costs & who owes who'
+    : myNet===null ? nRec+(nRec===1?' receipt':' receipts')
+    : myNet>0.005 ? "You're owed "+money(myNet)
+    : myNet<-0.005 ? 'You owe '+money(-myNet)
+    : 'All square';
   const tiles = [
     ['info','Trip info',  infoParts.length?infoParts.join(' · '):'Flights, stays & contacts'],
-    ['docs','Documents',  nDocs?nDocs+(nDocs===1?' document':' documents'):'Boarding passes & tickets'],
-    ['money','Money',     nRec?nRec+(nRec===1?' receipt':' receipts'):'Split costs & who owes who'],
+    ['plan','Itinerary',  nStops?nStops+(nStops===1?' stop':' stops')+' planned':'Plan out the days'],
+    ['docs','Documents',  docParts.length?docParts.join(' · '):'Link tickets & bookings'],
+    ['money','Money',     moneySum],
     ['photos','Photos',   album?'Open '+album:'Link a shared album'],
-    ['mood','Ideas',      nPins?nPins+' pinned':'Plan things to do'],
+    ['mood','Ideas',      nPins?nPins+' pinned':'Things worth doing'],
     ['log','Activity',    nLog?nLog+(nLog===1?' change':' changes'):'No changes yet']
   ];
   const tile = ([k,label,sum]) => {
@@ -1097,6 +1124,91 @@ function tabLog(t){
         <span class="log-when">${timeAgo(e.when)}</span>
       </div>`).join('') : `<div class="empty">No changes logged yet.</div>`}`;
 }
+/* ================= TAB: itinerary (day-by-day plan with maps) ================= */
+const PLAN_TYPES = ['Sight','Food','Drink','Activity','Night Out','Beach','Travel','Other'];
+function mapQuery(t, name){
+  const extra = t.destination || ((t.countries||[]).length ? (countryByCode(t.countries[0])||{}).name : '') || '';
+  return encodeURIComponent(name + (extra ? ', '+extra : ''));
+}
+function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
+function tabPlan(t, ro){
+  const items = (t.itinerary||[]);
+  const groups = {};
+  items.forEach((s,i)=>{ const k = s.date||''; (groups[k]=groups[k]||[]).push({...s, _i:i}); });
+  const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
+  const dayLabel = k => {
+    if(!k) return 'Anytime';
+    let n = '';
+    if(t.startDate){
+      const d = Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1;
+      if(d>0) n = 'Day '+d+' · ';
+    }
+    return n + fmtDate(k);
+  };
+  const card = s => `
+    <div class="card">
+      <div class="section-head" style="margin-bottom:4px">
+        <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;min-width:0">
+          ${s.time?`<span class="plan-time mono">${esc(s.time)}</span>`:''}
+          <h3>${esc(s.name)}</h3>
+          <span class="badge inv">${esc(s.type||'Stop')}</span>
+        </div>
+        ${!ro?`<span class="btn-row">
+          <button class="iconbtn" title="Edit" aria-label="Edit stop" onclick="App.planForm(${s._i})">✎</button>
+          <button class="iconbtn" title="Remove" aria-label="Remove stop" onclick="App.delPlan(${s._i})">✕</button></span>`:''}
+      </div>
+      ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
+      <iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+              src="https://maps.google.com/maps?q=${mapQuery(t, s.name)}&z=15&output=embed"
+              title="Map of ${esc(s.name)}"></iframe>
+      <a class="small" href="${mapsSearchUrl(t, s.name)}" target="_blank" rel="noopener">Open in Google Maps</a>
+    </div>`;
+  return `
+    <div class="section-head"><h2>Itinerary</h2>${!ro?`<button class="btn sm primary" onclick="App.planForm(-1)">+ Add Stop</button>`:''}</div>
+    <p class="muted small" style="margin-bottom:10px">Plan out the days. Add a place by name and it appears on a map with its time, type and why it made the list.</p>
+    ${items.length ? keys.map(k=>`
+      <h3 class="plan-day">${dayLabel(k)}</h3>
+      ${groups[k].sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')).map(card).join('')}`).join('')
+    : `<div class="empty">Nothing planned yet.${!ro?' Add your first stop, or collect places in <strong>Ideas</strong> first.':''}</div>`}`;
+}
+App.planForm = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const s = i>=0 ? (t.itinerary||[])[i] || {} : {};
+  openModal(`
+    <h2>${i>=0?'Edit':'Add'} stop</h2>
+    <div class="field"><label class="label" for="pl-name">Place name</label>
+      <input id="pl-name" type="text" value="${esc(s.name||'')}" placeholder="e.g. Time Out Market"></div>
+    <div class="grid3">
+      <div class="field"><label class="label" for="pl-type">Type</label>
+        <select id="pl-type">${PLAN_TYPES.map(x=>`<option ${x===(s.type||'Sight')?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label class="label" for="pl-date">Date</label>
+        <input id="pl-date" type="date" value="${esc(s.date || t.startDate || todayStr())}"></div>
+      <div class="field"><label class="label" for="pl-time">Time</label>
+        <input id="pl-time" type="time" value="${esc(s.time||'')}"></div>
+    </div>
+    <div class="field"><label class="label" for="pl-notes">Why go?</label>
+      <textarea id="pl-notes" placeholder="Why it's worth it, booking notes, cost…">${esc(s.notes||'')}</textarea></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePlan(${i})">Save Stop</button></div>`);
+};
+App.savePlan = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const name = $('#pl-name').value.trim();
+  if(!name) return markErr('#pl-name','Give the stop a place name');
+  const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name,
+             type:$('#pl-type').value, date:$('#pl-date').value, time:$('#pl-time').value,
+             notes:$('#pl-notes').value.trim()};
+  t.itinerary = t.itinerary||[];
+  if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
+  logEdit('Itinerary', (i>=0?'edited ':'added ')+name);
+  save(); closeModal(); CUR_TAB='plan'; rerender(); toast('Stop saved');
+};
+App.delPlan = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const removed = t.itinerary[i];
+  t.itinerary.splice(i,1); logEdit('Itinerary','removed '+(removed.name||'a stop')); save(); rerender();
+  toast('Stop removed', ()=>{ t.itinerary.splice(Math.min(i,t.itinerary.length),0,removed); logEdit('Itinerary','restored '+(removed.name||'a stop')); save(); rerender(); });
+};
+
 /* ================= TAB: info (flights / notes / people) ================= */
 function tabInfo(t, ro){
   const n = t.notes || {accom:{},contacts:[],general:''};
@@ -1319,8 +1431,22 @@ App.delPerson = i => {
   toast(p+' removed', ()=>{ t.participants.splice(Math.min(i,t.participants.length),0,p); logEdit('People','restored '+p); save(); rerender(); });
 };
 
-/* ================= TAB: documents ================= */
+/* ================= TAB: documents (links first, files second) ================= */
 function tabDocs(t, ro){
+  const links = (t.docLinks||[]).map((l,i)=>`
+    <div class="list-row">
+      <div style="display:flex;gap:12px;align-items:center;min-width:0">
+        <div class="doc-icon">${ICONS.link}</div>
+        <div style="min-width:0">
+          <strong>${esc(l.name)}</strong>
+          <div class="muted small" style="word-break:break-all">${esc(l.url.replace(/^https?:\/\//,'').slice(0,45))}</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <a class="btn sm" href="${esc(l.url)}" target="_blank" rel="noopener">Open</a>
+        ${!ro?`<button class="iconbtn" aria-label="Remove link" title="Remove" onclick="App.delLink(${i})">✕</button>`:''}
+      </div>
+    </div>`).join('');
   const docs = (t.documents||[]).map((d,i)=>`
     <div class="list-row">
       <div style="display:flex;gap:12px;align-items:center;min-width:0">
@@ -1337,13 +1463,43 @@ function tabDocs(t, ro){
     </div>`).join('');
   return `
     <div class="section-head"><h2>Documents</h2>
-      ${!ro?`<label class="btn sm primary" style="cursor:pointer">+ Upload
-        <input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.upload(this)"></label>`:''}
+      ${!ro?`<span class="btn-row">
+        <button class="btn sm primary" onclick="App.linkForm()">+ Add Link</button>
+        <label class="btn sm" style="cursor:pointer">Upload File
+          <input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.upload(this)"></label></span>`:''}
     </div>
-    <p class="muted small" style="margin-bottom:10px">Boarding passes, e-tickets and itineraries. PDFs are scanned automatically for flight details, which pre-fill the Flights section for you to confirm.</p>
-    ${docs || `<div class="empty">No documents yet.</div>`}
+    <p class="muted small" style="margin-bottom:10px">Boarding passes and bookings usually live in other apps. Link them here so everyone knows where to look. Uploading a PDF still reads flight details into Trip info for you.</p>
+    ${links || `<div class="empty">No links yet.${!ro?' Add your airline app, booking confirmation or check-in page.':''}</div>`}
+    ${docs ? `<h3 style="margin:20px 0 4px">Uploaded files</h3>${docs}` : ''}
     <div id="parse-status"></div>`;
 }
+App.linkForm = () => {
+  openModal(`
+    <h2>Add a link</h2>
+    <div class="field"><label class="label" for="lk-name">What is it?</label>
+      <input id="lk-name" type="text" placeholder="e.g. easyJet boarding passes"></div>
+    <div class="field"><label class="label" for="lk-url">Link</label>
+      <input id="lk-url" type="url" placeholder="https://…"></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveLink()">Add Link</button></div>`);
+};
+App.saveLink = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const name = $('#lk-name').value.trim();
+  if(!name) return markErr('#lk-name','Say what the link is');
+  let url = $('#lk-url').value.trim();
+  if(!url) return markErr('#lk-url','Paste the link');
+  if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  t.docLinks = t.docLinks||[];
+  t.docLinks.push({id:uid(), name, url});
+  logEdit('Documents','linked '+name);
+  save(); closeModal(); rerender(); toast('Link added');
+};
+App.delLink = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const removed = t.docLinks[i];
+  t.docLinks.splice(i,1); logEdit('Documents','removed link '+(removed.name||'')); save(); rerender();
+  toast('Link removed', ()=>{ t.docLinks.splice(Math.min(i,t.docLinks.length),0,removed); logEdit('Documents','restored link '+(removed.name||'')); save(); rerender(); });
+};
 App.openDoc = (tid,i) => {
   const t = getTrip(tid);
   const d = t.documents[i]; if(!d||!d.dataUrl) return;
@@ -1595,6 +1751,7 @@ function tabMoney(t, ro){
         ${Object.entries(net).map(([p,v])=>`<div class="settle-row ${p===me?'me':''}"><span>${esc(p)}${p===me?' <span class="muted small">(you)</span>':''}</span><span class="amount mono">${v>0.005?'is owed '+money(v):v<-0.005?'owes '+money(-v):'all square'}</span></div>`).join('')}
       </div>
       <h2 style="margin-top:24px">Who pays whom</h2>
+      <p class="muted small" style="margin-bottom:8px">Debts are combined into the fewest possible payments, so one transfer can settle several people at once.</p>
       <div class="settle">
         ${stl.length ? stl.map(s=>`<div class="settle-row"><span><strong>${esc(s.from)}</strong> → <strong>${esc(s.to)}</strong></span><span class="amount mono">${money(s.amt)}</span></div>`).join('') : `<div class="muted">Everyone is settled up 🤝</div>`}
       </div>`:''}`;
@@ -1794,6 +1951,7 @@ function tabMood(t, ro){
       ${m.title?`<h3 style="margin-bottom:4px">${esc(m.title)}</h3>`:''}
       ${m.url?`<a href="${esc(m.url)}" target="_blank" rel="noopener" class="small" style="word-break:break-all">${esc(m.url.replace(/^https?:\/\//,'').slice(0,60))} ↗</a>`:''}
       ${m.text?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(m.text)}</p>`:''}
+      ${m.title?`<a class="small mood-map" href="${mapsSearchUrl(t, m.title.replace(/^(Do|Eat|Tip):\s*/,''))}" target="_blank" rel="noopener">📍 Open in Maps</a>`:''}
     </div>`).join('');
   return `
     <div class="section-head"><h2>Mood board</h2>
@@ -1896,7 +2054,7 @@ App.addSugg = (i, key) => {
   const title = (type==='food'?'Eat: ':type==='tip'?'Tip: ':'Do: ')+text.split(',')[0].trim();
   t.moodBoard.push({id:uid(), type:'note', title, text, url:''});
   logEdit('Ideas','pinned suggestion '+title);
-  save(); toast('Pinned to board');
+  save(); rerender(); toast('Pinned to board');
 };
 </script>
 </body>
