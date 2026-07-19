@@ -81,14 +81,14 @@ a{color:var(--brand-dark);}
 .iconbtn{border:none; background:none; cursor:pointer; font-size:1rem; padding:4px 8px; line-height:1; color:var(--muted); border-radius:8px;}
 .iconbtn:hover{color:var(--ink); background:var(--bg);}
 .iconbtn.edit, .iconbtn.del{
-  border-radius:50%; width:38px; height:38px; padding:0; flex-shrink:0;
+  width:36px; height:36px; padding:0; flex-shrink:0; background:none;
   display:inline-flex; align-items:center; justify-content:center;
 }
-.iconbtn.edit svg, .iconbtn.del svg{width:21px; height:21px; fill:currentColor; stroke:none;}
-.iconbtn.edit{background:var(--brand); color:#fff;}
-.iconbtn.edit:hover{background:var(--brand-dark); color:#fff;}
-.iconbtn.del{background:#FCEBE9; color:#C0392B;}
-.iconbtn.del:hover{background:#F8DAD6; color:#A93226;}
+.iconbtn.edit svg, .iconbtn.del svg{width:19px; height:19px; fill:currentColor; stroke:none;}
+.iconbtn.edit{color:var(--brand);}
+.iconbtn.edit:hover{color:var(--brand-dark); background:var(--brand-ghost);}
+.iconbtn.del{color:#C0392B;}
+.iconbtn.del:hover{color:#A93226; background:#FCEBE9;}
 svg.solid{fill:currentColor; stroke:none;}
 
 /* ---------- cards & panels ---------- */
@@ -143,14 +143,10 @@ svg.solid{fill:currentColor; stroke:none;}
 
 /* ---------- breadcrumb back to overview ---------- */
 .crumb{display:flex; flex-direction:column; align-items:flex-start; gap:2px; margin:14px 0 18px;}
-.crumb-back{
-  display:inline-flex; align-items:center; gap:5px; font:inherit; font-weight:600; font-size:.85rem;
-  color:var(--brand-dark); background:none; border:none; cursor:pointer; padding:6px 12px 6px 6px; border-radius:999px;
-}
-.crumb-back:hover{background:var(--brand-ghost);}
-.crumb-back svg{width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
-.crumb-here{display:inline-flex; align-items:center; gap:10px; font-weight:800; font-size:1.5rem; letter-spacing:-.02em; color:var(--ink); min-width:0;}
-.crumb-here svg{width:24px; height:24px; stroke:var(--brand); fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0;}
+.crumb-here{display:inline-flex; align-items:center; gap:6px; font-weight:800; font-size:1.5rem; letter-spacing:-.02em; color:var(--ink); min-width:0;}
+.crumb-backbtn{display:inline-flex; align-items:center; justify-content:center; background:none; border:none; cursor:pointer; padding:4px; margin-left:-4px; border-radius:50%; color:var(--brand); flex-shrink:0;}
+.crumb-backbtn:hover{background:var(--brand-ghost);}
+.crumb-here svg{width:26px; height:26px; stroke:var(--brand); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0;}
 .crumb-titlerow{display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; flex-wrap:wrap;}
 .crumb-action{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
 .fav{width:20px; height:20px; border-radius:5px; vertical-align:-4px; margin-right:7px; background:var(--bg);}
@@ -233,10 +229,16 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .amount{font-weight:800; white-space:nowrap; color:var(--ink);}
 .flight-strip{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden;}
 .flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--brand-ghost);}
-.flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center;}
+.flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
 .flight-apt{font-size:1.5rem; font-weight:800; letter-spacing:.02em; color:var(--ink);}
-.flight-arrow{font-size:1.1rem; text-align:center; color:var(--accent);}
-.flight-meta{padding:0 14px 12px; display:flex; gap:18px; flex-wrap:wrap; font-size:.8rem; color:var(--muted);}
+.apt-name{font-size:.72rem; color:var(--muted); margin-top:1px; line-height:1.2;}
+.flight-arrow{align-self:center; color:var(--g3,#c9d5d5);}
+.flight-arrow svg{width:26px; height:20px; fill:none; stroke:var(--line-strong); stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;}
+.flight-meta{padding:0 14px 12px; display:flex; gap:8px 18px; flex-wrap:wrap; font-size:.8rem; color:var(--muted); align-items:center;}
+.incl-chips{display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 12px;}
+.incl-chip{font-size:.7rem; font-weight:600; color:var(--brand-dark); background:var(--brand-tint); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:4px;}
+.doc-attach{display:inline-flex; align-items:center; gap:6px; font-size:.78rem; font-weight:600; color:var(--brand-dark); text-decoration:none;}
+.doc-attach svg{width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.7;}
 .mood-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-top:14px;}
 .mood-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:14px; position:relative; word-break:break-word;}
 .mood-card img{width:100%; display:block; border-radius:var(--radius-sm); margin-bottom:8px;}
@@ -350,6 +352,7 @@ a.dash-tile{text-decoration:none;}
 .plan-day{margin:24px 0 10px; font-size:.95rem; font-weight:800; color:var(--brand-dark);}
 .plan-time{font-weight:800; color:var(--brand-dark); white-space:nowrap;}
 .plan-map{width:100%; height:180px; border:1px solid var(--line); border-radius:var(--radius-sm); display:block; margin-bottom:8px; background:var(--bg);}
+.plan-img{width:100%; max-height:220px; object-fit:cover; border-radius:var(--radius-sm); display:block; margin-bottom:10px;}
 
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
@@ -452,6 +455,14 @@ function stripForCloud(t){
     d.dataUrl && d.dataUrl.length > SYNC_BLOB_CAP ? {...d, dataUrl:null, stripped:true} : d);
   c.moodBoard = (c.moodBoard||[]).map(m=>
     m.dataUrl && m.dataUrl.length > SYNC_BLOB_CAP ? {...m, dataUrl:null, stripped:true} : m);
+  // strip large boarding-pass / itinerary attachments from the shared copy too
+  ['flights','ferries','carHire','itinerary'].forEach(k=>{
+    c[k] = (c[k]||[]).map(x=>{
+      if(x.doc && x.doc.dataUrl && x.doc.dataUrl.length > SYNC_BLOB_CAP) x = {...x, doc:{...x.doc, dataUrl:null, stripped:true}};
+      if(x.image && x.image.length > SYNC_BLOB_CAP) x = {...x, image:null, imageStripped:true};
+      return x;
+    });
+  });
   return c;
 }
 function pushTrip(t){
@@ -674,6 +685,56 @@ function countryPills(codes, removable, fnName){
 }
 function tripFlags(t){
   return (t.countries||[]).map(c=>{ const co=countryByCode(c); return co?co.flag:''; }).filter(Boolean).join(' ');
+}
+
+/* ================= airports ================= */
+/* code → airport name, for autocomplete + showing the name in grey under the code */
+const AIRPORTS = {
+  LHR:'London Heathrow', LGW:'London Gatwick', STN:'London Stansted', LTN:'London Luton', LCY:'London City',
+  MAN:'Manchester', BHX:'Birmingham', EDI:'Edinburgh', GLA:'Glasgow', BRS:'Bristol', NCL:'Newcastle',
+  LPL:'Liverpool', LBA:'Leeds Bradford', BFS:'Belfast Intl', DUB:'Dublin', ORK:'Cork',
+  CDG:'Paris Charles de Gaulle', ORY:'Paris Orly', NCE:'Nice', LYS:'Lyon', MRS:'Marseille', TLS:'Toulouse',
+  AMS:'Amsterdam Schiphol', BRU:'Brussels', CRL:'Brussels Charleroi', LUX:'Luxembourg',
+  FRA:'Frankfurt', MUC:'Munich', BER:'Berlin Brandenburg', DUS:'Düsseldorf', HAM:'Hamburg', CGN:'Cologne', STR:'Stuttgart',
+  MAD:'Madrid', BCN:'Barcelona', AGP:'Málaga', PMI:'Palma de Mallorca', IBZ:'Ibiza', ALC:'Alicante', VLC:'Valencia',
+  SVQ:'Seville', BIO:'Bilbao', TFS:'Tenerife South', LPA:'Gran Canaria', ACE:'Lanzarote', FUE:'Fuerteventura',
+  LIS:'Lisbon', OPO:'Porto', FAO:'Faro', FNC:'Funchal Madeira',
+  FCO:'Rome Fiumicino', CIA:'Rome Ciampino', MXP:'Milan Malpensa', LIN:'Milan Linate', BGY:'Bergamo',
+  VCE:'Venice', NAP:'Naples', BLQ:'Bologna', PSA:'Pisa', CTA:'Catania', PMO:'Palermo', CAG:'Cagliari', BRI:'Bari',
+  ATH:'Athens', SKG:'Thessaloniki', HER:'Heraklion Crete', CHQ:'Chania Crete', RHO:'Rhodes', CFU:'Corfu',
+  JMK:'Mykonos', JTR:'Santorini', KGS:'Kos', ZTH:'Zakynthos', PVK:'Preveza', KVA:'Kavala',
+  TIA:'Tirana', SUF:'Lamezia Terme',
+  VIE:'Vienna', ZRH:'Zurich', GVA:'Geneva', PRG:'Prague', BUD:'Budapest', WAW:'Warsaw', KRK:'Kraków',
+  CPH:'Copenhagen', ARN:'Stockholm Arlanda', OSL:'Oslo', HEL:'Helsinki', KEF:'Reykjavík',
+  IST:'Istanbul', SAW:'Istanbul Sabiha', AYT:'Antalya', DLM:'Dalaman', BJV:'Bodrum',
+  DXB:'Dubai', AUH:'Abu Dhabi', DOH:'Doha', CAI:'Cairo', RAK:'Marrakesh', TUN:'Tunis',
+  JFK:'New York JFK', EWR:'Newark', LGA:'New York LaGuardia', LAX:'Los Angeles', SFO:'San Francisco',
+  MIA:'Miami', ORD:'Chicago O\'Hare', BOS:'Boston', LAS:'Las Vegas', MCO:'Orlando',
+  YYZ:'Toronto', YVR:'Vancouver', BKK:'Bangkok', SIN:'Singapore', HKG:'Hong Kong', NRT:'Tokyo Narita',
+  HND:'Tokyo Haneda', DPS:'Bali Denpasar', SYD:'Sydney', MEL:'Melbourne', AKL:'Auckland'
+};
+const airportName = code => AIRPORTS[String(code||'').toUpperCase()] || '';
+function airportDatalist(){
+  return `<datalist id="airport-list">${Object.entries(AIRPORTS).sort((a,b)=>a[1].localeCompare(b[1])).map(([c,n])=>`<option value="${c} · ${esc(n)}">`).join('')}</datalist>`;
+}
+/* accept "LHR", "London Heathrow", or "LHR · London Heathrow" → 3-letter code */
+function parseAirport(v){
+  v = (v||'').trim(); if(!v) return '';
+  const codeM = v.match(/\b([A-Za-z]{3})\b/);
+  if(codeM && AIRPORTS[codeM[1].toUpperCase()]) return codeM[1].toUpperCase();
+  const hit = Object.entries(AIRPORTS).find(([c,n])=>n.toLowerCase()===v.toLowerCase());
+  if(hit) return hit[0];
+  return v.toUpperCase().slice(0,3);
+}
+const airportInputVal = code => code ? (airportName(code) ? code+' · '+airportName(code) : code) : '';
+/* code prominent, name in grey underneath */
+function airportBlock(code, time, right){
+  const nm = airportName(code);
+  return `<div style="${right?'text-align:right':''}">
+    <div class="flight-apt">${esc(code||'TBC')}</div>
+    ${nm?`<div class="apt-name">${esc(nm)}</div>`:''}
+    ${time?`<div class="muted small mono">${esc(time)}</div>`:''}
+  </div>`;
 }
 
 /* ================= modal ================= */
@@ -1010,11 +1071,11 @@ const ICONS = {
   camera:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   upload:'<svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></svg>',
   download:'<svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 16v4h16v-4"/></svg>',
-  travel:'<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>',
+  travel:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.4 2.5 2.4 15 0 18c-2.4-3-2.4-15.5 0-18z"/></svg>',
   flight:'<svg viewBox="0 0 24 24"><path d="M10.5 3.5a1.5 1.5 0 0 1 3 0V9l7 4v2l-7-2v4l2 1.5V21l-3.5-1L8.5 21v-1.5L10.5 18v-4l-7 2v-2l7-4V3.5z"/></svg>',
   ferry:'<svg viewBox="0 0 24 24"><path d="M4 14l1.6-4.2A2 2 0 0 1 7.5 8.5h9a2 2 0 0 1 1.9 1.3L20 14"/><path d="M9 8.5V5h4l2.5 3.5"/><path d="M2.5 18c1.2 0 1.8 1 3 1s1.8-1 3-1 1.8 1 3 1 1.8-1 3-1 1.8 1 3 1 1.8-1 3-1"/></svg>',
   car:'<svg viewBox="0 0 24 24"><path d="M4.5 16l1.6-5.3A2 2 0 0 1 8 9.2h8a2 2 0 0 1 1.9 1.5L19.5 16"/><rect x="3" y="16" width="18" height="4" rx="1.2"/><circle cx="7.5" cy="20" r="1.4"/><circle cx="16.5" cy="20" r="1.4"/></svg>',
-  stay:'<svg viewBox="0 0 24 24"><path d="M3 19v-8a2 2 0 0 1 2-2h9a3 3 0 0 1 3 3v3M3 15h14M21 19v-5"/><path d="M6.5 11V9.5A1.5 1.5 0 0 1 8 8h2a1.5 1.5 0 0 1 1.5 1.5V11"/></svg>',
+  stay:'<svg viewBox="0 0 24 24"><path d="M3 8v12M3 14h18v6M21 20v-4a3 3 0 0 0-3-3H8"/><path d="M6 13v-2.2A1.8 1.8 0 0 1 7.8 9h3.4A1.8 1.8 0 0 1 13 10.8V13"/></svg>',
   contacts:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="15" height="18" rx="2"/><circle cx="11.5" cy="10" r="2.3"/><path d="M8 16c0-1.8 1.7-2.7 3.5-2.7S15 14.2 15 16"/><path d="M2.5 8h1.5M2.5 12h1.5M2.5 16h1.5"/></svg>',
   notes:'<svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/></svg>',
   edit:'<svg viewBox="0 0 24 24" class="solid"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
@@ -1050,10 +1111,9 @@ function renderTrip(t){
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
       <p class="muted" style="margin-top:4px">${fmtRangeLong(t.startDate,t.endDate)}${phrase?` (${phrase})`:''}</p>
     </div>` : `
-    <div class="crumb" style="margin-top:18px">
-      <button class="crumb-back" onclick="App.tab('home')">${ICONS.back}Overview</button>
+    <div class="crumb" style="margin-top:26px">
       <div class="crumb-titlerow">
-        <span class="crumb-here">${ICONS[CUR_TAB]||''}${esc((TABS.find(x=>x[0]===CUR_TAB)||[])[1]||'')}</span>
+        <span class="crumb-here"><button class="crumb-backbtn" onclick="App.tab('home')" aria-label="Back to overview">${ICONS.back}</button>${esc((TABS.find(x=>x[0]===CUR_TAB)||[])[1]||'')}</span>
         <span class="crumb-action">${ro?'':crumbAction(t)}</span>
       </div>
     </div>`}
@@ -1092,6 +1152,8 @@ App.tripForm = () => {
       <div class="chips" id="et-person-pills" style="margin-top:10px"></div>
       <p class="muted small" style="margin-top:6px">★ organiser</p>
     </div>
+    <div class="field"><label class="label" for="et-album">Shared photo album link <span class="muted small">— PhotoCircle, Google Photos…</span></label>
+      <input id="et-album" type="url" value="${esc((t.photoAlbum&&t.photoAlbum.url)||'')}" placeholder="https://photocircleapp.com/…"></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveTrip()">Save</button></div>`);
   drawETPills();
 };
@@ -1146,6 +1208,13 @@ App.saveTrip = () => {
   const name = $('#et-name').value.trim();
   if(!name) return markErr('#et-name','Give the trip a name');
   t.name = name; t.startDate = $('#et-start').value; t.endDate = $('#et-end').value;
+  let album = ($('#et-album').value||'').trim();
+  if(album && !/^https?:\/\//i.test(album)) album = 'https://' + album;
+  const prevAlbum = (t.photoAlbum&&t.photoAlbum.url)||'';
+  if(album !== prevAlbum){
+    t.photoAlbum = {url:album, service:detectAlbumService(album)};
+    logEdit('Photos', album?('linked '+(detectAlbumService(album)||'a photo album')):'removed the photo album link');
+  }
   logEdit('Trip info','updated the trip details');
   save(); closeModal(); rerender();
 };
@@ -1213,7 +1282,6 @@ function crumbAction(t){
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'docs':   return `<label class="btn sm" style="cursor:pointer">${ICONS.upload} Upload<input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.upload(this)"></label><button class="btn sm primary" onclick="App.linkForm()">+ Add Link</button>`;
     case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm()">Edit</button>`;
-    case 'notes':  return `<button class="btn sm primary" onclick="App.generalForm()">Edit</button>`;
     default:       return '';
   }
 }
@@ -1238,43 +1306,41 @@ function tabHome(t){
   if((t.flights||[]).length) travParts.push((t.flights.length)+(t.flights.length===1?' flight':' flights'));
   if((t.ferries||[]).length) travParts.push((t.ferries.length)+(t.ferries.length===1?' ferry':' ferries'));
   if((t.carHire||[]).length) travParts.push('car hire');
-  // the Money tile leads with your own balance, like Tricount
+  // the Money tile shows your balance in brackets on the title, like Tricount
   const me = whoAmI(t.id);
   const net = nRec ? computeBalances(t) : null;
   const myNet = net && me && net[me]!==undefined ? net[me] : null;
-  const moneySum = !nRec ? 'Split costs & who owes who'
-    : myNet===null ? nRec+(nRec===1?' receipt':' receipts')
-    : myNet>0.005 ? "You're owed "+money(myNet)
-    : myNet<-0.005 ? 'You owe '+money(-myNet)
-    : 'All square';
+  const moneyLabel = 'Money' + (
+    !nRec || myNet===null ? '' :
+    myNet>0.005 ? ` (owed ${money(myNet)})` :
+    myNet<-0.005 ? ` (owe ${money(-myNet)})` :
+    ' (settled)');
   const tiles = [
-    ['travel','Travel',   nTravel?travParts.join(' · '):'Flights, ferries & car hire'],
-    ['stay','Accommodation', n.accom&&n.accom.name?n.accom.name:'Where you\'re staying'],
-    ['plan','Itinerary',  nStops?nStops+(nStops===1?' stop':' stops')+' planned':'Plan out the days'],
-    ['money','Money',     moneySum],
-    ['photos','Photos',   album?'Open '+album:'Link a shared album'],
-    ['mood','Ideas',      nPins?nPins+' pinned':'Things worth doing'],
-    ['contacts','Emergency Contacts', nContacts?nContacts+(nContacts===1?' contact':' contacts'):'Who to call in a pinch'],
-    ['docs','Documents',  docParts.length?docParts.join(' · '):'Link tickets & bookings'],
-    ['notes','Notes',     n.general?'Tap to read':'Visas, tips & reminders'],
-    ['log','Activity',    nLog?nLog+(nLog===1?' change':' changes'):'No changes yet']
+    ['travel','Travel'],
+    ['stay','Accommodation'],
+    ['plan','Itinerary'],
+    ['money', moneyLabel],
+    ['photos','Photos'],
+    ['mood','Ideas'],
+    ['contacts','Emergency Contacts'],
+    ['docs','Documents'],
+    ['notes','Notes'],
+    ['log','Activity']
   ];
-  const tile = ([k,label,sum]) => {
+  const tile = ([k,label]) => {
     // the Photos tile opens the linked album directly; the pencil manages the link
     if(k==='photos' && albumUrl) return `
     <a class="dash-tile" href="${esc(albumUrl)}" target="_blank" rel="noopener" aria-label="Open the shared photo album">
       ${ICONS[k]}
       <span class="dash-label">${label}</span>
-      <span class="dash-sum">${esc(sum)}</span>
       <button class="tile-edit" aria-label="Photo album settings" title="Album settings"
               onclick="event.preventDefault();event.stopPropagation();App.tab('photos')">${ICONS.edit}</button>
     </a>`;
     return `
-    <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)}: ${esc(sum)}"
+    <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)}"
          onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">
       ${ICONS[k]}
       <span class="dash-label">${label}</span>
-      <span class="dash-sum">${esc(sum)}</span>
     </div>`;
   };
   return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
@@ -1292,7 +1358,6 @@ function tabLog(t){
       </div>`).join('') : `<div class="empty">No changes logged yet.</div>`}`;
 }
 /* ================= TAB: itinerary (day-by-day plan with maps) ================= */
-const PLAN_TYPES = ['Sight','Food','Drink','Activity','Night Out','Beach','Travel','Other'];
 function mapQuery(t, name){
   const extra = t.destination || ((t.countries||[]).length ? (countryByCode(t.countries[0])||{}).name : '') || '';
   return encodeURIComponent(name + (extra ? ', '+extra : ''));
@@ -1318,20 +1383,20 @@ function tabPlan(t, ro){
         <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;min-width:0">
           ${s.time?`<span class="plan-time mono">${esc(s.time)}</span>`:''}
           <h3>${esc(s.name)}</h3>
-          <span class="badge inv">${esc(s.type||'Stop')}</span>
         </div>
         ${!ro?`<span class="btn-row">
           <button class="iconbtn edit" title="Edit" aria-label="Edit stop" onclick="App.planForm(${s._i})">${ICONS.edit}</button>
           <button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="App.delPlan(${s._i})">${ICONS.trash}</button></span>`:''}
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
-      <iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
-              src="https://maps.google.com/maps?q=${mapQuery(t, s.name)}&z=15&output=embed"
-              title="Map of ${esc(s.name)}"></iframe>
-      <a class="small" href="${mapsSearchUrl(t, s.name)}" target="_blank" rel="noopener">Open in Google Maps</a>
+      ${s.image?`<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">`:''}
+      ${s.location?`<iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+              src="https://maps.google.com/maps?q=${mapQuery(t, s.location)}&z=15&output=embed"
+              title="Map of ${esc(s.location)}"></iframe>
+      <a class="small" href="${mapsSearchUrl(t, s.location)}" target="_blank" rel="noopener">Open in Google Maps</a>`:''}
     </div>`;
   return `
-    <p class="muted small" style="margin-bottom:10px">Plan out the days. Add a place by name and it appears on a map with its time, type and why it made the list.</p>
+    <p class="muted small" style="margin-bottom:10px">Plan out the days. Add a time, a note on why it's worth it, and a location to pin it on a map.</p>
     ${items.length ? keys.map(k=>`
       <h3 class="plan-day">${dayLabel(k)}</h3>
       ${groups[k].sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')).map(card).join('')}`).join('')
@@ -1339,34 +1404,50 @@ function tabPlan(t, ro){
         <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
         <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`}`;
 }
+let PLAN_IMG = null;   // pending stop image while the form is open
+App.attachPlanImg = input => {
+  const file = input.files[0]; input.value=''; if(!file) return;
+  downscaleToDataURL(file, 1200, 0.7, dataUrl => { PLAN_IMG = dataUrl; const el=$('#pl-img-status'); if(el) el.innerHTML = planImgStatus(); });
+};
+App.clearPlanImg = () => { PLAN_IMG = null; const el=$('#pl-img-status'); if(el) el.innerHTML = planImgStatus(); };
+function planImgStatus(){
+  return PLAN_IMG
+    ? `<img src="${PLAN_IMG}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px"> <button type="button" class="btn sm ghost" onclick="App.clearPlanImg()">Remove</button>`
+    : `<span class="muted small">No photo added</span>`;
+}
 App.planForm = (i, prefill) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const s = prefill || (i>=0 ? (t.itinerary||[])[i] || {} : {});
+  PLAN_IMG = (i>=0 && t.itinerary[i] && t.itinerary[i].image) || (prefill && prefill.image) || null;
   openModal(`
     <h2>${i>=0?'Edit Stop':'Add Stop'}</h2>
     <div class="field"><label class="label" for="pl-name">Place name</label>
       <input id="pl-name" type="text" value="${esc(s.name||'')}" placeholder="e.g. Time Out Market"></div>
-    <div class="grid3">
-      <div class="field"><label class="label" for="pl-type">Type</label>
-        <select id="pl-type">${PLAN_TYPES.map(x=>`<option ${x===(s.type||'Sight')?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="grid2">
       <div class="field"><label class="label" for="pl-date">Date</label>
         <input id="pl-date" type="date" value="${esc(s.date || t.startDate || todayStr())}"></div>
       <div class="field"><label class="label" for="pl-time">Time</label>
         <input id="pl-time" type="time" value="${esc(s.time||'')}"></div>
     </div>
+    <div class="field"><label class="label" for="pl-loc">Location <span class="muted small">— optional, adds a map</span></label>
+      <input id="pl-loc" type="text" value="${esc(s.location||'')}" placeholder="e.g. Blue Eye Spring, Saranda"></div>
     <div class="field"><label class="label" for="pl-notes">Why go?</label>
       <textarea id="pl-notes" placeholder="Why it's worth it, booking notes, cost…">${esc(s.notes||'')}</textarea></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePlan(${i})">Save Stop</button></div>`);
+    <div class="field"><label class="label">Photo <span class="muted small">— optional</span></label>
+      <div id="pl-img-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">${planImgStatus()}</div>
+      <label class="btn sm" style="cursor:pointer">${ICONS.upload} ${PLAN_IMG?'Replace photo':'Add photo'}<input type="file" accept="image/*" style="display:none" onchange="App.attachPlanImg(this)"></label></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePlan(${i})">Save Stop</button></div>`, {autofocus:false});
 };
 App.savePlan = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const name = $('#pl-name').value.trim();
   if(!name) return markErr('#pl-name','Give the stop a place name');
   const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name,
-             type:$('#pl-type').value, date:$('#pl-date').value, time:$('#pl-time').value,
-             notes:$('#pl-notes').value.trim()};
+             date:$('#pl-date').value, time:$('#pl-time').value,
+             location:$('#pl-loc').value.trim(), notes:$('#pl-notes').value.trim(), image:PLAN_IMG};
   t.itinerary = t.itinerary||[];
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
+  PLAN_IMG = null;
   logEdit('Itinerary', (i>=0?'edited ':'added ')+name);
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast('Stop saved');
 };
@@ -1375,8 +1456,7 @@ App.planFromIdea = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const m = (t.moodBoard||[])[i]; if(!m) return;
   const name = (m.title||'').replace(/^(Do|Eat|Tip):\s*/,'');
-  const type = /^Eat:/.test(m.title||'') ? 'Food' : /^Do:/.test(m.title||'') ? 'Activity' : 'Sight';
-  App.planForm(-1, {name, type, notes: m.text||''});
+  App.planForm(-1, {name, notes: m.text||'', location: name, image: m.dataUrl||null});
 };
 App.delPlan = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -1391,6 +1471,10 @@ function tabTravel(t, ro){
     <button class="iconbtn edit" title="Edit" aria-label="Edit" onclick="${editFn}">${ICONS.edit}</button>
     <button class="iconbtn del" title="Remove" aria-label="Remove" onclick="${delFn}">${ICONS.trash}</button>` : '';
 
+  const docLink = (arr, i, d) => d ? (d.dataUrl
+      ? `<a class="doc-attach" href="#" onclick="event.preventDefault();App.viewTravelDoc('${arr}',${i})">${ICONS.docs}${esc(d.name||'Document')}</a>`
+      : `<span class="readonly-note">${esc(d.name||'Document')} (on uploader's device)</span>`) : '';
+
   const flights = (t.flights||[]).map((f,i)=>`
     <div class="flight-strip">
       <div class="flight-head">
@@ -1401,15 +1485,12 @@ function tabTravel(t, ro){
         </span>
       </div>
       <div class="flight-body">
-        <div><div class="flight-apt">${esc(f.from||'TBC')}</div><div class="muted small mono">${esc(f.depTime||'')}</div></div>
-        <div class="flight-arrow">✈ →</div>
-        <div style="text-align:right"><div class="flight-apt">${esc(f.to||'TBC')}</div><div class="muted small mono">${esc(f.arrTime||'')}</div></div>
+        ${airportBlock(f.from, f.depTime, false)}
+        <div class="flight-arrow"><span style="display:inline-block;transform:rotate(90deg)">${ICONS.flight}</span></div>
+        ${airportBlock(f.to, f.arrTime, true)}
       </div>
-      <div class="flight-meta">
-        ${f.seat?`<span>Seat <strong>${esc(f.seat)}</strong></span>`:''}
-        ${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}
-        ${f.note?`<span>${esc(f.note)}</span>`:''}
-      </div>
+      ${(f.includes||[]).length?`<div class="incl-chips">${f.includes.map(x=>`<span class="incl-chip">✓ ${esc(x)}</span>`).join('')}</div>`:''}
+      ${(f.ref||f.doc)?`<div class="flight-meta">${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}${docLink('flights',i,f.doc)}</div>`:''}
     </div>`).join('');
 
   const ferries = (t.ferries||[]).map((f,i)=>`
@@ -1423,13 +1504,10 @@ function tabTravel(t, ro){
       </div>
       <div class="flight-body">
         <div><div class="flight-apt">${esc(f.from||'TBC')}</div><div class="muted small mono">${esc(f.depTime||'')}</div></div>
-        <div class="flight-arrow">⛴ →</div>
+        <div class="flight-arrow">${ICONS.ferry}</div>
         <div style="text-align:right"><div class="flight-apt">${esc(f.to||'TBC')}</div><div class="muted small mono">${esc(f.arrTime||'')}</div></div>
       </div>
-      <div class="flight-meta">
-        ${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}
-        ${f.note?`<span>${esc(f.note)}</span>`:''}
-      </div>
+      ${(f.ref||f.note||f.doc)?`<div class="flight-meta">${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}${f.note?`<span>${esc(f.note)}</span>`:''}${docLink('ferries',i,f.doc)}</div>`:''}
     </div>`).join('');
 
   const cars = (t.carHire||[]).map((c,i)=>`
@@ -1445,12 +1523,13 @@ function tabTravel(t, ro){
         <span>Drop-off <strong>${esc(c.dropoffLoc||c.pickupLoc||'TBC')}</strong>${c.dropoffDate?' · '+fmtDate(c.dropoffDate):''}${c.dropoffTime?' '+esc(c.dropoffTime):''}</span>
         ${c.ref?`<span>Ref <strong>${esc(c.ref)}</strong></span>`:''}
         ${c.note?`<span>${esc(c.note)}</span>`:''}
+        ${docLink('carHire',i,c.doc)}
       </div>
     </div>`).join('');
 
   return `
     <div class="section-head" style="margin-top:6px"><h3>${ICONS.flight} Flights</h3>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
-    ${flights || `<div class="empty">No flights yet.${!ro?' Add one manually, or upload a boarding pass in <strong>Documents</strong> and it will be parsed automatically.':''}</div>`}
+    ${flights || `<div class="empty">No flights yet.${!ro?' Add one and attach the boarding pass.':''}</div>`}
 
     <div class="section-head" style="margin-top:30px"><h3>${ICONS.ferry} Ferries</h3>${!ro?`<button class="btn sm" onclick="App.ferryForm(-1)">+ Add Ferry</button>`:''}</div>
     ${ferries || `<div class="empty">No ferries yet.</div>`}
@@ -1498,15 +1577,51 @@ function tabContacts(t, ro){
 /* ================= TAB: notes ================= */
 function tabNotes(t, ro){
   const g = (t.notes && t.notes.general) || '';
-  return g
-    ? `<div class="card" style="white-space:pre-wrap">${esc(g)}</div>`
-    : `<div class="empty">Visas, packing reminders, house rules, local tips…${!ro?'<br><br><button class="btn primary" onclick="App.generalForm()">+ Add Notes</button>':''}</div>`;
+  if(!g) return `<div class="empty">Nothing noted yet.${!ro?'<br><br><button class="btn primary" onclick="App.generalForm()">+ Add Notes</button>':''}</div>`;
+  return `<div class="card" style="white-space:pre-wrap${ro?'':';cursor:pointer'}" ${ro?'':`role="button" tabindex="0" onclick="App.generalForm()" onkeydown="if(event.key==='Enter'){App.generalForm()}"`}>${esc(g)}</div>
+    ${ro?'':`<p class="muted small" style="margin-top:8px">Tap the note to edit.</p>`}`;
 }
 
+/* --- shared attachment handling for travel items (boarding passes / docs) --- */
+let FORM_DOC = null;   // pending {name,kind,dataUrl,size} while a travel form is open
+function docStatusHTML(){
+  return FORM_DOC
+    ? `<span class="doc-attach">${ICONS.docs}${esc(FORM_DOC.name)}</span> <button type="button" class="btn sm ghost" onclick="App.clearFormDoc()">Remove</button>`
+    : `<span class="muted small">No file attached</span>`;
+}
+function paintDocStatus(){ const el = $('#doc-status'); if(el) el.innerHTML = docStatusHTML(); }
+App.clearFormDoc = () => { FORM_DOC = null; paintDocStatus(); };
+App.attachDoc = input => {
+  const file = input.files[0]; input.value=''; if(!file) return;
+  if(file.type==='application/pdf'){
+    const fr = new FileReader();
+    fr.onload = e => { FORM_DOC = {name:file.name, kind:'pdf', size:file.size, dataUrl: file.size<=2*1048576 ? e.target.result : null}; paintDocStatus(); if(file.size>2*1048576) toast('PDF over 2 MB — details stored, file kept on this device'); };
+    fr.readAsDataURL(file);
+  } else {
+    downscaleToDataURL(file, 1500, 0.7, dataUrl => { FORM_DOC = {name:file.name, kind:'img', size:dataUrl?Math.round(dataUrl.length*.75):0, dataUrl}; paintDocStatus(); });
+  }
+};
+function attachField(){
+  return `<div class="field"><label class="label">Boarding pass / document</label>
+    <div id="doc-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">${docStatusHTML()}</div>
+    <label class="btn sm" style="cursor:pointer">${ICONS.upload} ${FORM_DOC?'Replace file':'Attach file'}<input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.attachDoc(this)"></label></div>`;
+}
+/* open an attached travel document full-screen */
+App.viewTravelDoc = (arr, i) => {
+  const t = getTrip(CUR_TRIP_ID); const d = t && (t[arr]||[])[i] && t[arr][i].doc;
+  if(!d || !d.dataUrl){ toast("File kept on the uploader's device"); return; }
+  openModal(`<h2 style="word-break:break-all">${esc(d.name)}</h2>${d.kind==='pdf'
+    ? `<iframe src="${d.dataUrl}" title="${esc(d.name)}" style="border:1px solid var(--line);border-radius:12px;width:100%;height:75vh;background:#fff"></iframe>`
+    : `<img src="${d.dataUrl}" alt="${esc(d.name)}" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">`}`, {autofocus:false});
+};
+
 /* --- flights --- */
+const FLIGHT_INCLUDES = ['Cabin bag','Checked bag','Priority boarding','Allocated seat','Meal'];
 App.flightForm = (i, prefill) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const f = prefill || (i>=0 ? t.flights[i] : {});
+  FORM_DOC = (i>=0 && t.flights[i] && t.flights[i].doc) || null;
+  const inc = f.includes || [];
   openModal(`
     <h2>${i>=0?'Edit Flight':'Add Flight'}</h2>
     ${prefill?`<div class="banner">Parsed from your document. Check and correct before saving.</div>`:''}
@@ -1514,33 +1629,36 @@ App.flightForm = (i, prefill) => {
       <div class="field"><label class="label">Airline</label><input id="fl-air" type="text" value="${esc(f.airline||'')}" placeholder="British Airways"></div>
       <div class="field"><label class="label">Flight no.</label><input id="fl-no" type="text" value="${esc(f.flightNo||'')}" placeholder="BA432"></div>
     </div>
-    <div class="grid3">
-      <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||todayStr())}"></div>
-      <div class="field"><label class="label">From (airport)</label><input id="fl-from" type="text" value="${esc(f.from||'')}" placeholder="LHR"></div>
-      <div class="field"><label class="label">To (airport)</label><input id="fl-to" type="text" value="${esc(f.to||'')}" placeholder="LIS"></div>
+    <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||todayStr())}"></div>
+    <div class="grid2">
+      <div class="field"><label class="label">From (airport)</label><input id="fl-from" type="text" list="airport-list" value="${esc(airportInputVal(f.from))}" placeholder="Start typing a city or code"></div>
+      <div class="field"><label class="label">To (airport)</label><input id="fl-to" type="text" list="airport-list" value="${esc(airportInputVal(f.to))}" placeholder="Start typing a city or code"></div>
     </div>
-    <div class="grid3">
+    ${airportDatalist()}
+    <div class="grid2">
       <div class="field"><label class="label">Departs</label><input id="fl-dep" type="time" value="${esc(f.depTime||'')}"></div>
       <div class="field"><label class="label">Arrives</label><input id="fl-arr" type="time" value="${esc(f.arrTime||'')}"></div>
-      <div class="field"><label class="label">Seat</label><input id="fl-seat" type="text" value="${esc(f.seat||'')}" placeholder="14C"></div>
     </div>
-    <div class="grid2">
-      <div class="field"><label class="label">Booking ref</label><input id="fl-ref" type="text" value="${esc(f.ref||'')}"></div>
-      <div class="field"><label class="label">Note</label><input id="fl-note" type="text" value="${esc(f.note||'')}" placeholder="Whose flight? Terminal?"></div>
+    <div class="field"><label class="label">Booking ref</label><input id="fl-ref" type="text" value="${esc(f.ref||'')}"></div>
+    <div class="field"><label class="label">Included with the ticket</label>
+      <div class="chips">${FLIGHT_INCLUDES.map(x=>`<label class="chip pick ${inc.includes(x)?'on':''}" style="cursor:pointer"><input type="checkbox" class="fl-inc" value="${esc(x)}" ${inc.includes(x)?'checked':''} style="display:none" onchange="this.closest('.chip').classList.toggle('on',this.checked)">${esc(x)}</label>`).join('')}</div>
     </div>
-    <button class="btn primary" style="width:100%" onclick="App.saveFlight(${i})">Save Flight</button>`);
+    ${attachField()}
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveFlight(${i})">Save Flight</button></div>`, {autofocus:false});
 };
 App.saveFlight = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const includes = Array.from(document.querySelectorAll('.fl-inc')).filter(c=>c.checked).map(c=>c.value);
   const f = {
     airline:$('#fl-air').value.trim(), flightNo:$('#fl-no').value.trim().toUpperCase(),
-    date:$('#fl-date').value, from:$('#fl-from').value.trim().toUpperCase(), to:$('#fl-to').value.trim().toUpperCase(),
-    depTime:$('#fl-dep').value, arrTime:$('#fl-arr').value, seat:$('#fl-seat').value.trim().toUpperCase(),
-    ref:$('#fl-ref').value.trim(), note:$('#fl-note').value.trim()
+    date:$('#fl-date').value, from:parseAirport($('#fl-from').value), to:parseAirport($('#fl-to').value),
+    depTime:$('#fl-dep').value, arrTime:$('#fl-arr').value,
+    ref:$('#fl-ref').value.trim(), includes, doc:FORM_DOC
   };
   if(!f.airline && !f.flightNo && !f.from && !f.to) return markErr('#fl-air','Add at least an airline or a route');
   const label = (f.airline||'flight')+(f.flightNo?' '+f.flightNo:'')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
   if(i>=0) t.flights[i]=f; else t.flights.push(f);
+  FORM_DOC = null;
   logEdit('Travel', (i>=0?'edited ':'added ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Flight saved');
 };
@@ -1555,6 +1673,7 @@ App.delFlight = i => {
 App.ferryForm = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const f = (i>=0 && (t.ferries||[])[i]) || {};
+  FORM_DOC = (i>=0 && t.ferries[i] && t.ferries[i].doc) || null;
   openModal(`
     <h2>${i>=0?'Edit Ferry':'Add Ferry'}</h2>
     <div class="field"><label class="label">Operator</label><input id="fy-op" type="text" value="${esc(f.operator||'')}" placeholder="e.g. Blue Star Ferries"></div>
@@ -1569,17 +1688,19 @@ App.ferryForm = i => {
       <div class="field"><label class="label">Booking ref</label><input id="fy-ref" type="text" value="${esc(f.ref||'')}"></div>
     </div>
     <div class="field"><label class="label">Note</label><input id="fy-note" type="text" value="${esc(f.note||'')}" placeholder="Foot passenger? Vehicle?"></div>
-    <button class="btn primary" style="width:100%" onclick="App.saveFerry(${i})">Save Ferry</button>`);
+    ${attachField()}
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveFerry(${i})">Save Ferry</button></div>`, {autofocus:false});
 };
 App.saveFerry = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const f = {operator:$('#fy-op').value.trim(), date:$('#fy-date').value,
     from:$('#fy-from').value.trim(), to:$('#fy-to').value.trim(),
-    depTime:$('#fy-dep').value, arrTime:$('#fy-arr').value, ref:$('#fy-ref').value.trim(), note:$('#fy-note').value.trim()};
+    depTime:$('#fy-dep').value, arrTime:$('#fy-arr').value, ref:$('#fy-ref').value.trim(), note:$('#fy-note').value.trim(), doc:FORM_DOC};
   if(!f.operator && !f.from && !f.to) return markErr('#fy-op','Add an operator or a route');
   t.ferries = t.ferries||[];
   const label = (f.operator||'ferry')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
   if(i>=0) t.ferries[i]=f; else t.ferries.push(f);
+  FORM_DOC = null;
   logEdit('Travel',(i>=0?'edited ':'added ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Ferry saved');
 };
@@ -1594,6 +1715,7 @@ App.delFerry = i => {
 App.carForm = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const c = (i>=0 && (t.carHire||[])[i]) || {};
+  FORM_DOC = (i>=0 && t.carHire[i] && t.carHire[i].doc) || null;
   openModal(`
     <h2>${i>=0?'Edit Car Hire':'Add Car Hire'}</h2>
     <div class="field"><label class="label">Company</label><input id="cr-co" type="text" value="${esc(c.company||'')}" placeholder="e.g. Hertz"></div>
@@ -1611,18 +1733,20 @@ App.carForm = i => {
       <div class="field"><label class="label">Booking ref</label><input id="cr-ref" type="text" value="${esc(c.ref||'')}"></div>
       <div class="field"><label class="label">Note</label><input id="cr-note" type="text" value="${esc(c.note||'')}" placeholder="Driver? Insurance?"></div>
     </div>
-    <button class="btn primary" style="width:100%" onclick="App.saveCar(${i})">Save Car Hire</button>`);
+    ${attachField()}
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveCar(${i})">Save Car Hire</button></div>`, {autofocus:false});
 };
 App.saveCar = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const c = {company:$('#cr-co').value.trim(), pickupLoc:$('#cr-ploc').value.trim(),
     pickupDate:$('#cr-pdate').value, pickupTime:$('#cr-ptime').value,
     dropoffLoc:$('#cr-dloc').value.trim(), dropoffDate:$('#cr-ddate').value, dropoffTime:$('#cr-dtime').value,
-    ref:$('#cr-ref').value.trim(), note:$('#cr-note').value.trim()};
+    ref:$('#cr-ref').value.trim(), note:$('#cr-note').value.trim(), doc:FORM_DOC};
   if(!c.company && !c.pickupLoc) return markErr('#cr-co','Add a company or pick-up location');
   t.carHire = t.carHire||[];
   const label = c.company||'car hire';
   if(i>=0) t.carHire[i]=c; else t.carHire.push(c);
+  FORM_DOC = null;
   logEdit('Travel',(i>=0?'edited ':'added ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Car hire saved');
 };
