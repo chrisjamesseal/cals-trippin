@@ -394,8 +394,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 const CHANGELOG = [
+  {version:'1.7.0', notes:['Ideas: TikTok/Instagram links are now a clickable thumbnail instead of a live embed, and the map icon only shows up when you\'ve actually added a maps link.', 'Removed the sync status pill from the header.', 'Dashboard tiles are back to two per row.']},
   {version:'1.6.0', notes:['Added this version number and changelog, next to the logo.']},
   {version:'1.5.0', notes:['Ideas: replaced the "Nearby" suggestions with the ability to add TikTok or Instagram links, which embed right in the page, plus an optional Google Maps link per idea.']},
   {version:'1.4.0', notes:["Fixed Undo silently failing on itinerary, travel, accommodation, contacts, documents, links, receipts and Ideas after cloud sync was on.", 'Made destructive/outlined buttons consistent throughout the app.']},
