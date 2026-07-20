@@ -395,8 +395,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.12.0';
 const CHANGELOG = [
+  {version:'1.12.0', notes:['Itinerary: ferries and car hire (pick-up/drop-off) now show up alongside flights and check-in/out, each with the same icon + "Label - Time" tag for consistency.', 'Travel leg delete moved inside its edit screen instead of a trash icon on the card.', 'Fixed stop cards hiding their "Open in Google Maps" link whenever a photo was also set.', 'Travel leg duration dropdowns now show their units (e.g. "1 h", "30 m").']},
   {version:'1.11.0', notes:['Itinerary: removed the manual reorder arrows — instead, a same-day Check In always sorts after its Flight and a Check Out always sorts before one, automatically, since a check-in time is usually just the property\'s standard time rather than your actual arrival.', 'Fixed itinerary stops silently dropping the Google Maps link from the idea they were created from; stops now have their own Google Maps link field too.', 'Travel leg duration is now an hour/minute dropdown instead of free text.']},
   {version:'1.10.0', notes:['Itinerary: reorder stops and travel legs with up/down arrows (manual order overrides time sort until you hit Reset Order), moved the time to after the name with a dash (e.g. "Flight - 16:05"), and gave Check In/Check Out their own distinct icons.', 'Itinerary: added the ability to manually add a travel leg between two places (mode, from, to, optional duration) — no maps API, just what you type in.']},
   {version:'1.9.0', notes:['Dashboard tile summaries rewritten for consistent Title Case copy (e.g. "2 Flights, 1 Ferry", "1 Contact Logged"), and Notes now shows a line count based on how many sentences you\'ve written.', 'Every text field and textarea in the app now has a small × button to clear it once you\'ve typed something.']},
@@ -1508,20 +1509,17 @@ function itineraryItemLabel(s){
   if(s.kind==='travel') return (s.from||s.to) ? `${s.from||'?'} → ${s.to||'?'}` : 'a travel leg';
   return s.name || 'a stop';
 }
-/* auto flight/check-in/check-out cards always stay anchored to their real time. Manual
-   stops/travel legs sort by a persisted `order` once reordered, falling back to time
-   otherwise — comparing a stop against an auto card still falls through to time, so
-   manually-ordered items still land in a sane spot relative to real-time bookings */
-/* auto flight/check-in/check-out cards are sorted by time, except against each other: a
-   check-in's recorded time is usually just the property's standard check-in time, not your
-   actual arrival, so it can't be trusted to order correctly against a same-day flight — force
-   checkout, then flight, then check-in regardless of what the individual times say */
+/* auto flight/ferry/car/check-in/check-out cards are sorted by time, except flight vs
+   check-in/check-out: a check-in's recorded time is usually just the property's standard
+   check-in time, not your actual arrival, so it can't be trusted to order correctly against
+   a same-day flight — force checkout, then flight, then check-in regardless of what the
+   individual times say */
 function planCompare(a, b){
-  const aAuto = !!(a._autoFlight || a._autoStay), bAuto = !!(b._autoFlight || b._autoStay);
-  if(aAuto && bAuto){
-    const rank = x => x._autoStay==='checkout' ? 0 : x._autoFlight ? 1 : 2;
+  const isAuto = x => !!(x._autoFlight || x._autoFerry || x._autoCar || x._autoStay);
+  if(isAuto(a) && isAuto(b)){
+    const rank = x => x._autoStay==='checkout' ? 0 : x._autoFlight ? 1 : x._autoStay==='checkin' ? 2 : null;
     const ra = rank(a), rb = rank(b);
-    if(ra!==rb) return ra-rb;
+    if(ra!=null && rb!=null && ra!==rb) return ra-rb;
   }
   return itineraryTimeKey(a).localeCompare(itineraryTimeKey(b));
 }
@@ -1534,6 +1532,14 @@ function tabPlan(t, ro){
   (t.flights||[]).forEach((f,fi)=>{
     const k = f.date||'';
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
+  });
+  (t.ferries||[]).forEach((f,fi)=>{
+    const k = f.date||'';
+    (groups[k]=groups[k]||[]).push({_autoFerry:1, time:f.depTime||'', f, fi});
+  });
+  (t.carHire||[]).forEach((c,ci)=>{
+    if(c.pickupDate) (groups[c.pickupDate]=groups[c.pickupDate]||[]).push({_autoCar:'pickup', time:c.pickupTime||'', c, ci});
+    if(c.dropoffDate) (groups[c.dropoffDate]=groups[c.dropoffDate]||[]).push({_autoCar:'dropoff', time:c.dropoffTime||'', c, ci});
   });
   (t.accommodations||[]).forEach((ac,aci)=>{
     if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.checkinTime||'', ac, aci});
@@ -1559,6 +1565,16 @@ function tabPlan(t, ro){
       ${autoTag(ICONS.flight, 'Flight', s.time)}
       ${flightStripHTML(s.f, s.fi, '')}
     </div>`;
+  const autoFerryCard = s => `
+    <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.ferryForm(${s.fi})`)}>
+      ${autoTag(ICONS.ferry, 'Ferry', s.time)}
+      ${ferryStripHTML(s.f, s.fi, '')}
+    </div>`;
+  const autoCarCard = s => `
+    <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.carForm(${s.ci})`)}>
+      ${autoTag(s._autoCar==='pickup'?ICONS.checkin:ICONS.checkout, s._autoCar==='pickup'?'Pick Up':'Drop Off', s.time)}
+      ${carStripHTML(s.c, s.ci, '')}
+    </div>`;
   const autoStayCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
       ${autoTag(s._autoStay==='checkin'?ICONS.checkin:ICONS.checkout, s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
@@ -1575,13 +1591,14 @@ function tabPlan(t, ro){
           <span class="plan-travel-icon">${mode.icon}</span>
           <h3>${title}</h3>
         </div>
-        ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove travel leg" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
       ${duration?`<p class="small muted">${esc(duration)}</p>`:''}
     </div>`;
   };
   const card = s => {
     if(s._autoFlight) return autoFlightCard(s);
+    if(s._autoFerry) return autoFerryCard(s);
+    if(s._autoCar) return autoCarCard(s);
     if(s._autoStay) return autoStayCard(s);
     if(s.kind==='travel') return travelCard(s);
     return `
@@ -1593,12 +1610,11 @@ function tabPlan(t, ro){
         ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
-      ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">`
-        : s.mapsUrl ? `<a class="doc-attach" href="${esc(s.mapsUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>`
-        : s.location ? `<iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+      ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
+      ${!s.image && !s.mapsUrl && s.location ? `<iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
               src="https://maps.google.com/maps?q=${mapQuery(t, s.location)}&z=15&output=embed"
-              title="Map of ${esc(s.location)}"></iframe>
-      <a class="doc-attach" href="${mapsSearchUrl(t, s.location)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>` : ''}
+              title="Map of ${esc(s.location)}"></iframe>` : ''}
+      ${s.mapsUrl || s.location ? `<a class="doc-attach" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>` : ''}
     </div>`;
   };
   return `
@@ -1719,9 +1735,9 @@ App.travelLegForm = i => {
     .map(m=>`<option value="${String(m).padStart(2,'0')}" ${m===initMin?'selected':''}>${String(m).padStart(2,'0')}</option>`).join('');
   const modeOpts = Object.keys(TRAVEL_MODES).map(k=>`<option value="${k}" ${((s.mode||'drive')===k)?'selected':''}>${TRAVEL_MODES[k].label}</option>`).join('');
   const durHourOpts = Array.from({length:24}, (_,h)=>h)
-    .map(h=>`<option value="${h}" ${h===(s.durationH||0)?'selected':''}>${h}</option>`).join('');
+    .map(h=>`<option value="${h}" ${h===(s.durationH||0)?'selected':''}>${h} h</option>`).join('');
   const durMinOpts = [0,15,30,45]
-    .map(m=>`<option value="${m}" ${m===(s.durationM||0)?'selected':''}>${m}</option>`).join('');
+    .map(m=>`<option value="${m}" ${m===(s.durationM||0)?'selected':''}>${m} m</option>`).join('');
   openModal(`
     <h2>${i>=0?'Edit Travel':'Add Travel'}</h2>
     <div class="field"><label class="label" for="tv-mode">Mode</label>
@@ -1755,8 +1771,12 @@ App.travelLegForm = i => {
         <select id="tv-dur-h" aria-label="Duration hours">${durHourOpts}</select>
         <select id="tv-dur-m" aria-label="Duration minutes">${durMinOpts}</select>
       </div></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveTravelLeg(${i})">${i>=0?'Save':'Add Travel'}</button></div>`, {autofocus:false});
+    <div class="modal-actions">
+      <button class="btn primary" style="width:100%" onclick="App.saveTravelLeg(${i})">${i>=0?'Save':'Add Travel'}</button>
+      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteTravelFromForm(${i})">Delete Travel</button>`:''}
+    </div>`, {autofocus:false});
 };
+App.deleteTravelFromForm = i => { closeModal(); App.delPlan(i); };
 App.saveTravelLeg = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const from = $('#tv-from').value.trim(), to = $('#tv-to').value.trim();
@@ -1838,20 +1858,14 @@ function flightStripHTML(f, i, actionsHTML){
       ${(f.ref||f.doc||f.flightNo)?`<div class="flight-meta">${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}${travelDocLink('flights',i,f.doc)}${flightTrackLink(f)}</div>`:''}
     </div>`;
 }
-function tabTravel(t, ro){
-  const editDel = (editFn, delFn) => !ro ? `
-    <button class="iconbtn edit" title="Edit" aria-label="Edit" onclick="${editFn}">${ICONS.edit}</button>
-    <button class="iconbtn del" title="Remove" aria-label="Remove" onclick="${delFn}">${ICONS.trash}</button>` : '';
-
-  const flights = (t.flights||[]).map((f,i)=>flightStripHTML(f, i, editDel(`App.flightForm(${i})`, `App.delFlight(${i})`))).join('');
-
-  const ferries = (t.ferries||[]).map((f,i)=>`
+function ferryStripHTML(f, i, actionsHTML){
+  return `
     <div class="flight-strip">
       <div class="flight-head">
         <strong>${esc(f.operator||'Ferry')}</strong>
-        <span class="btn-row" style="align-items:center">
+        <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
           <span class="muted small">${f.date?fmtDate(f.date):''}</span>
-          ${editDel(`App.ferryForm(${i})`, `App.delFerry(${i})`)}
+          ${actionsHTML||''}
         </span>
       </div>
       <div class="flight-body">
@@ -1860,15 +1874,14 @@ function tabTravel(t, ro){
         <div style="text-align:right"><div class="flight-apt">${esc(f.to||'TBC')}</div><div class="muted small mono">${esc(f.arrTime||'')}</div></div>
       </div>
       ${(f.ref||f.note||f.doc)?`<div class="flight-meta">${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}${f.note?`<span>${esc(f.note)}</span>`:''}${travelDocLink('ferries',i,f.doc)}</div>`:''}
-    </div>`).join('');
-
-  const cars = (t.carHire||[]).map((c,i)=>`
+    </div>`;
+}
+function carStripHTML(c, i, actionsHTML){
+  return `
     <div class="flight-strip">
       <div class="flight-head">
         <strong>${esc(c.company||'Car hire')}</strong>
-        <span class="btn-row" style="align-items:center">
-          ${editDel(`App.carForm(${i})`, `App.delCar(${i})`)}
-        </span>
+        <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">${actionsHTML||''}</span>
       </div>
       <div class="flight-meta" style="padding-top:12px">
         <span>Pick-up <strong>${esc(c.pickupLoc||'TBC')}</strong>${c.pickupDate?' · '+fmtDate(c.pickupDate):''}${c.pickupTime?' '+esc(c.pickupTime):''}</span>
@@ -1877,7 +1890,16 @@ function tabTravel(t, ro){
         ${c.note?`<span>${esc(c.note)}</span>`:''}
         ${travelDocLink('carHire',i,c.doc)}
       </div>
-    </div>`).join('');
+    </div>`;
+}
+function tabTravel(t, ro){
+  const editDel = (editFn, delFn) => !ro ? `
+    <button class="iconbtn edit" title="Edit" aria-label="Edit" onclick="${editFn}">${ICONS.edit}</button>
+    <button class="iconbtn del" title="Remove" aria-label="Remove" onclick="${delFn}">${ICONS.trash}</button>` : '';
+
+  const flights = (t.flights||[]).map((f,i)=>flightStripHTML(f, i, editDel(`App.flightForm(${i})`, `App.delFlight(${i})`))).join('');
+  const ferries = (t.ferries||[]).map((f,i)=>ferryStripHTML(f, i, editDel(`App.ferryForm(${i})`, `App.delFerry(${i})`))).join('');
+  const cars = (t.carHire||[]).map((c,i)=>carStripHTML(c, i, editDel(`App.carForm(${i})`, `App.delCar(${i})`))).join('');
 
   return `
     <div class="section-head" style="margin-top:6px"><h3>${ICONS.flight} Flights</h3>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
