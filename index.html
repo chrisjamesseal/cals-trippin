@@ -246,9 +246,13 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .mood-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-top:14px;}
 .mood-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:14px; word-break:break-word;}
 .mood-card img{width:100%; display:block; border-radius:var(--radius-sm); margin-bottom:8px;}
-.video-embed{width:100%; border-radius:var(--radius-sm); margin-bottom:8px; overflow:hidden; background:#000;}
-.video-embed-tiktok{aspect-ratio:9/16;}
-.video-embed-instagram{height:560px;}
+.video-thumb{position:relative; display:block; width:100%; aspect-ratio:9/16; max-height:420px; border-radius:var(--radius-sm);
+  margin-bottom:8px; overflow:hidden; background:#111 center/cover no-repeat; text-decoration:none;}
+.video-thumb-tiktok{background-color:#000;}
+.video-thumb-instagram{background-image:linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4);}
+.video-thumb-fallback{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:2.6rem; color:#fff; opacity:.85;}
+.video-thumb-play{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:48px; height:48px; border-radius:50%;
+  background:rgba(0,0,0,.55); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.1rem;}
 .mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin-bottom:6px;}
 .mood-actions{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;}
 .mood-map{color:var(--brand-dark);}
@@ -281,19 +285,7 @@ details .d-body{padding:14px 16px;}
   .modal{padding:6px 12px 40px;}
   .flight-apt{font-size:1.2rem;}
 }
-@media print{.btn,.menu-btn,header.top,.sync-pill,.crumb{display:none!important;}}
-
-/* ---------- sync status + identity ---------- */
-.sync-pill{
-  display:inline-flex; align-items:center; gap:6px; font-size:.62rem; font-weight:800;
-  letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--line-strong); border-radius:999px;
-  color:var(--muted); padding:3px 10px; white-space:nowrap; background:var(--paper);
-}
-.sync-pill .dot{width:8px; height:8px; border-radius:50%; background:var(--line-strong); flex-shrink:0;}
-.sync-pill.ok{border-color:var(--brand); color:var(--brand-dark);} .sync-pill.ok .dot{background:var(--brand);}
-.sync-pill.busy .dot{background:#E8A13B; animation:blink 1s steps(2) infinite;}
-.sync-pill.off{border-style:dashed;} .sync-pill.off .dot{background:var(--accent);}
-@keyframes blink{50%{opacity:.25;}}
+@media print{.btn,.menu-btn,header.top,.crumb{display:none!important;}}
 
 /* ---------- sticky screen footer ---------- */
 .modal-actions{
@@ -313,10 +305,10 @@ details .d-body{padding:14px 16px;}
 .split-sum .left.clear{color:var(--brand-dark); font-weight:700;}
 
 /* ---------- trip dashboard ---------- */
-.dash-grid{display:flex; flex-direction:column; gap:10px; margin-top:6px;}
+.dash-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:6px;}
 .dash-tile{
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
-  padding:14px 16px; cursor:pointer; position:relative;
+  padding:14px 16px; cursor:pointer; position:relative; min-width:0;
   display:flex; align-items:center; gap:14px;
   transition:transform .1s, box-shadow .1s, border-color .1s;
 }
@@ -402,8 +394,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 const CHANGELOG = [
+  {version:'1.7.0', notes:['Ideas: TikTok/Instagram links are now a clickable thumbnail instead of a live embed, and the map icon only shows up when you\'ve actually added a maps link.', 'Removed the sync status pill from the header.', 'Dashboard tiles are back to two per row.']},
   {version:'1.6.0', notes:['Added this version number and changelog, next to the logo.']},
   {version:'1.5.0', notes:['Ideas: replaced the "Nearby" suggestions with the ability to add TikTok or Instagram links, which embed right in the page, plus an optional Google Maps link per idea.']},
   {version:'1.4.0', notes:["Fixed Undo silently failing on itinerary, travel, accommodation, contacts, documents, links, receipts and Ideas after cloud sync was on.", 'Made destructive/outlined buttons consistent throughout the app.']},
@@ -468,7 +461,7 @@ function syncErrorHint(err){
 }
 function reportSyncError(err){
   console.error("Cal's Trippin' — cloud sync error:", err);
-  syncState='off'; paintSync();
+  syncState='off';
   if(!_syncErrorToasted){ _syncErrorToasted = true; toast(syncErrorHint(err)); }
 }
 function initCloud(){
@@ -477,7 +470,7 @@ function initCloud(){
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     fbRoot = firebase.database();
     firebase.database().ref('.info/connected').on('value', s=>{
-      if(CUR_TRIP_ID){ syncState = s.val() ? 'ok' : 'off'; paintSync(); }
+      if(CUR_TRIP_ID){ syncState = s.val() ? 'ok' : 'off'; }
     }, reportSyncError);
   }catch(e){ fbRoot = null; syncState='local'; console.error("Cal's Trippin' — Firebase failed to initialise:", e); }
 }
@@ -505,9 +498,9 @@ function pushTrip(t){
   const json = JSON.stringify(clean);
   if(json === lastPush) return;
   lastPush = json;
-  syncState='busy'; paintSync();
+  syncState='busy';
   fbRoot.ref('trips/'+t.id).set(clean)
-    .then(()=>{ syncState='ok'; _syncErrorToasted=false; paintSync(); })
+    .then(()=>{ syncState='ok'; _syncErrorToasted=false; })
     .catch(reportSyncError);
 }
 /* keep any locally-held blobs that the shared copy dropped */
@@ -542,7 +535,6 @@ function subscribeTrip(id){
     saveLocal();
     syncState='ok';
     if(!echo && CUR_TRIP_ID===id && !modalOpen()) renderTrip(merged);
-    else paintSync();
   };
   ref.on('value', cb, reportSyncError);
   tripSub = {id, ref, cb};
@@ -551,18 +543,6 @@ function fetchTripOnce(id, done){
   if(!fbRoot){ done(null); return; }
   fbRoot.ref('trips/'+id).get()
     .then(s=>done(s.exists()?s.val():null)).catch(err=>{ reportSyncError(err); done(null); });
-}
-function paintSync(){
-  const el = document.getElementById('sync-pill'); if(!el) return;
-  const map = {
-    local:['', 'On this device'],
-    ok:['ok','Synced'],
-    busy:['busy','Saving…'],
-    off:['off','Offline']
-  };
-  const [cls,label] = map[syncState] || map.local;
-  el.className = 'sync-pill '+cls;
-  el.innerHTML = `<span class="dot"></span>${label}`;
 }
 
 /* ================= identity (who is editing) ================= */
@@ -1222,11 +1202,9 @@ function renderTrip(t){
   const arch = isArchived(t);
   $('#header-actions').innerHTML =
     `<div class="btn-row" style="gap:8px">
-       ${cloudEnabled()?`<span id="sync-pill" class="sync-pill"><span class="dot"></span></span>`:''}
        <button class="btn sm primary" onclick="App.share('${t.id}')">Share</button>
        <button class="menu-btn" onclick="App.openMenu()" aria-label="Trip menu" aria-haspopup="true">${ICONS.menu}<span>Menu</span></button>
      </div>`;
-  if(cloudEnabled()) paintSync();
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
   const phrase = statusPhrase(t);
   $('#app').innerHTML = `
@@ -2686,26 +2664,53 @@ App.saveAlbum = () => {
 };
 /* ================= TAB: mood board ================= */
 function fab(name){ return `<i class="icon fa-brands fa-${name}"></i>`; }
-/* TikTok/Instagram share links become a lightweight iframe embed via each platform's own
-   public embed endpoint — just the link the user already has, no SDK script and no API key */
 function detectVideoEmbed(url){
   if(!url) return null;
-  let m = url.match(/tiktok\.com\/.*\/video\/(\d+)/i);
-  if(m) return {provider:'tiktok', embedUrl:'https://www.tiktok.com/embed/v2/'+m[1]};
-  m = url.match(/instagram\.com\/(reel|reels|p)\/([A-Za-z0-9_-]+)/i);
-  if(m) return {provider:'instagram', embedUrl:'https://www.instagram.com/'+m[1]+'/'+m[2]+'/embed'};
+  if(/tiktok\.com\//i.test(url)) return {provider:'tiktok'};
+  if(/instagram\.com\/(reel|reels|p)\//i.test(url)) return {provider:'instagram'};
   return null;
+}
+let VIDEO_THUMB = {}; // videoUrl -> {status:'loading'|'ok'|'error', thumb}
+/* TikTok's oEmbed endpoint is public and CORS-open (no key needed) and returns a real
+   thumbnail for the specific video. Instagram's oEmbed now requires an authenticated
+   Facebook app token we don't have, so Instagram gets a branded placeholder instead of
+   a real per-post thumbnail — both are just a clickable card that opens the real post. */
+function loadVideoThumb(url){
+  if(VIDEO_THUMB[url]) return;
+  VIDEO_THUMB[url] = {status:'loading'};
+  fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(url))
+    .then(r=>r.json())
+    .then(data=>{ VIDEO_THUMB[url] = {status:'ok', thumb:(data&&data.thumbnail_url)||null}; if(CUR_TAB==='mood') rerender(); })
+    .catch(err=>{
+      console.error('TikTok thumbnail fetch failed for', url, err);
+      VIDEO_THUMB[url] = {status:'error'};
+      if(CUR_TAB==='mood') rerender();
+    });
+}
+function videoThumbHTML(embed, url){
+  if(embed.provider==='tiktok'){
+    loadVideoThumb(url);
+    const entry = VIDEO_THUMB[url];
+    const thumb = entry && entry.status==='ok' ? entry.thumb : null;
+    return `<a class="video-thumb video-thumb-tiktok" href="${esc(url)}" target="_blank" rel="noopener" aria-label="Watch on TikTok"${thumb?` style="background-image:url('${esc(thumb)}')"`:''}>
+      ${!thumb?`<span class="video-thumb-fallback">${fab('tiktok')}</span>`:''}
+      <span class="video-thumb-play">${fa('play')}</span>
+    </a>`;
+  }
+  return `<a class="video-thumb video-thumb-instagram" href="${esc(url)}" target="_blank" rel="noopener" aria-label="Watch on Instagram">
+    <span class="video-thumb-fallback">${fab('instagram')}</span>
+    <span class="video-thumb-play">${fa('play')}</span>
+  </a>`;
 }
 function tabMood(t, ro){
   const cards = (t.moodBoard||[]).map((m,i)=>{
     const embed = detectVideoEmbed(m.videoUrl);
-    const mapsHref = m.mapsUrl || m.url || (m.title ? mapsSearchUrl(t, m.title.replace(/^(Do|Eat|Tip):\s*/,'')) : '');
-    const watchLabel = embed && embed.provider==='tiktok' ? 'Watch on TikTok' : 'Watch on Instagram';
+    const mapsHref = m.mapsUrl || m.url || '';
     const inItinerary = m.itineraryId && (t.itinerary||[]).some(s=>s.id===m.itineraryId);
     return `
     <div class="mood-card">
       ${embed
-        ? `<div class="video-embed video-embed-${embed.provider}"><iframe src="${esc(embed.embedUrl)}" loading="lazy" allowfullscreen scrolling="${embed.provider==='instagram'?'yes':'no'}" allow="autoplay; encrypted-media" style="width:100%;height:100%;border:0"></iframe></div>`
+        ? videoThumbHTML(embed, m.videoUrl)
         : (m.dataUrl ? `<img src="${m.dataUrl}" alt="${esc(m.title||'Idea image')}">` : '')}
       ${m.title?`<h3 style="margin-bottom:4px">${esc(m.title)}</h3>`:''}
       ${m.text?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(m.text)}</p>`:''}
@@ -2715,7 +2720,6 @@ function tabMood(t, ro){
           :`<button class="btn sm" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}</span>
         <span class="btn-row">
           ${!ro?`<button class="iconbtn edit" aria-label="Edit idea" title="Edit" onclick="App.moodForm(${i})">${ICONS.edit}</button>`:''}
-          ${embed?`<a class="iconbtn mood-map" href="${esc(m.videoUrl)}" target="_blank" rel="noopener" aria-label="${watchLabel}" title="${watchLabel}">${fab(embed.provider)}</a>`:''}
           ${mapsHref?`<a class="iconbtn mood-map" href="${esc(mapsHref)}" target="_blank" rel="noopener" aria-label="Open map" title="Open map">${ICONS.pin}</a>`:''}
         </span>
       </div>
