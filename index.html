@@ -392,7 +392,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "592178714380",
   appId: "1:592178714380:web:bd541ed796f428fdbc9b29"
 };
-const SYNC_BLOB_CAP = 200 * 1024; // only sync files/images smaller than this inline
+const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* ================= state ================= */
 const LS_KEY = 'calstrippin_v1';
@@ -595,22 +595,40 @@ function logEdit(section, summary){
 const $ = s => document.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2,10);
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* queued so a toast that shows up mid-window (e.g. an async sync error, which lands well
+   after the triggering click) can never silently wipe out an undo button before it's seen */
+let _toastQueue = [];
+let _toastBusy = false;
 function toast(msg, undoFn){
+  _toastQueue.push({msg, undoFn});
+  if(!_toastBusy) drainToastQueue();
+}
+function drainToastQueue(){
+  if(!_toastQueue.length){ _toastBusy = false; return; }
+  _toastBusy = true;
+  const {msg, undoFn} = _toastQueue.shift();
   const t = $('#toast');
   t.innerHTML = `<span class="toast-msg">${esc(msg)}</span>` + (undoFn?`<button class="toast-undo" type="button">Undo</button>`:'');
   t.classList.add('show');
   clearTimeout(t._h);
+  const dismiss = () => { t.classList.remove('show'); setTimeout(drainToastQueue, 200); };
   if(undoFn){
-    t.querySelector('.toast-undo').onclick = () => { clearTimeout(t._h); t.classList.remove('show'); undoFn(); };
-    t._h = setTimeout(()=>t.classList.remove('show'), 6000);
+    t.querySelector('.toast-undo').onclick = () => { clearTimeout(t._h); dismiss(); undoFn(); };
+    t._h = setTimeout(dismiss, 6000);
   } else {
-    t._h = setTimeout(()=>t.classList.remove('show'), 2600);
+    t._h = setTimeout(dismiss, 2600);
   }
 }
 function fmtDate(d){
   if(!d) return '';
   const dt = new Date(d + 'T00:00:00');
   return dt.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'});
+}
+/* compact numeric date for tight one-line ranges, e.g. "23/9/26" */
+function fmtShortDate(d){
+  if(!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+String(dt.getFullYear()).slice(-2);
 }
 function todayStr(){
   const d = new Date();
@@ -1490,7 +1508,7 @@ function locationDatalist(t){
 let PLAN_IMG = null;   // pending stop image while the form is open
 App.attachPlanImg = input => {
   const file = input.files[0]; input.value=''; if(!file) return;
-  downscaleToDataURL(file, 1200, 0.7, dataUrl => { PLAN_IMG = dataUrl; const el=$('#pl-img-status'); if(el) el.innerHTML = planImgStatus(); });
+  downscaleToDataURL(file, 1800, 0.85, dataUrl => { PLAN_IMG = dataUrl; const el=$('#pl-img-status'); if(el) el.innerHTML = planImgStatus(); });
 };
 App.clearPlanImg = () => { PLAN_IMG = null; const el=$('#pl-img-status'); if(el) el.innerHTML = planImgStatus(); };
 function planImgStatus(){
@@ -1498,10 +1516,28 @@ function planImgStatus(){
     ? `<img src="${PLAN_IMG}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px"> <button type="button" class="iconbtn del" aria-label="Remove photo" title="Remove photo" onclick="App.clearPlanImg()">${ICONS.trash}</button>`
     : `<span class="muted small">No photo added</span>`;
 }
+/* round an existing HH:MM to the nearest quarter hour, for prefilling the hour/minute selects */
+function roundToQuarterHour(timeStr){
+  if(!timeStr) return {h:9, m:0};
+  let [h,m] = timeStr.split(':').map(Number);
+  m = Math.round(m/15)*15;
+  if(m===60){ m=0; h=(h+1)%24; }
+  return {h, m};
+}
+App.planWhenChange = () => {
+  const wrap = $('#pl-time-wrap'); if(!wrap) return;
+  wrap.style.display = $('#pl-when').value==='time' ? 'grid' : 'none';
+};
 App.planForm = (i, prefill) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const s = prefill || (i>=0 ? (t.itinerary||[])[i] || {} : {});
   PLAN_IMG = (i>=0 && t.itinerary[i] && t.itinerary[i].image) || (prefill && prefill.image) || null;
+  const initWhen = s.time ? 'time' : (s.period || 'morning');
+  const {h:initHour, m:initMin} = roundToQuarterHour(s.time);
+  const hourOpts = Array.from({length:24}, (_,h)=>h)
+    .map(h=>`<option value="${String(h).padStart(2,'0')}" ${h===initHour?'selected':''}>${String(h).padStart(2,'0')}</option>`).join('');
+  const minOpts = [0,15,30,45]
+    .map(m=>`<option value="${String(m).padStart(2,'0')}" ${m===initMin?'selected':''}>${String(m).padStart(2,'0')}</option>`).join('');
   openModal(`
     <h2>${i>=0?'Edit Stop':'Add Stop'}</h2>
     <div class="field"><label class="label" for="pl-name">Place name</label>
@@ -1509,16 +1545,20 @@ App.planForm = (i, prefill) => {
     <div class="grid2">
       <div class="field"><label class="label" for="pl-date">Date</label>
         <input id="pl-date" type="date" value="${esc(s.date || t.startDate || todayStr())}"></div>
-      <div class="field"><label class="label" for="pl-time">Time</label>
-        <input id="pl-time" type="time" value="${esc(s.time||'')}"></div>
+      <div class="field"><label class="label" for="pl-when">When</label>
+        <select id="pl-when" onchange="App.planWhenChange()">
+          <option value="morning" ${initWhen==='morning'?'selected':''}>Morning</option>
+          <option value="afternoon" ${initWhen==='afternoon'?'selected':''}>Afternoon</option>
+          <option value="evening" ${initWhen==='evening'?'selected':''}>Evening</option>
+          <option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>
+        </select></div>
     </div>
-    <div class="field"><label class="label" for="pl-period">No set time? Pick a slot instead</label>
-      <select id="pl-period">
-        <option value="">—</option>
-        <option value="morning" ${s.period==='morning'?'selected':''}>Morning</option>
-        <option value="afternoon" ${s.period==='afternoon'?'selected':''}>Afternoon</option>
-        <option value="evening" ${s.period==='evening'?'selected':''}>Evening</option>
-      </select></div>
+    <div class="grid2" id="pl-time-wrap" style="${initWhen==='time'?'':'display:none'}">
+      <div class="field"><label class="label" for="pl-hour">Hour</label>
+        <select id="pl-hour">${hourOpts}</select></div>
+      <div class="field"><label class="label" for="pl-min">Minute</label>
+        <select id="pl-min">${minOpts}</select></div>
+    </div>
     <div class="field"><label class="label" for="pl-loc">Location</label>
       <input id="pl-loc" type="text" list="loc-list" value="${esc(s.location||'')}" placeholder="e.g. Blue Eye Spring, Saranda"></div>
     ${locationDatalist(t)}
@@ -1533,8 +1573,11 @@ App.savePlan = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const name = $('#pl-name').value.trim();
   if(!name) return markErr('#pl-name','Give the stop a place name');
+  const when = $('#pl-when').value;
+  const time = when==='time' ? $('#pl-hour').value+':'+$('#pl-min').value : '';
+  const period = when==='time' ? '' : when;
   const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name,
-             date:$('#pl-date').value, time:$('#pl-time').value, period:$('#pl-period').value,
+             date:$('#pl-date').value, time, period,
              location:$('#pl-loc').value.trim(), notes:$('#pl-notes').value.trim(), image:PLAN_IMG};
   t.itinerary = t.itinerary||[];
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
@@ -1650,22 +1693,25 @@ function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&que
    section), showDates (hide the check-in/out chips when the itinerary already shows the time) */
 function accomCardHTML(a, opts){
   opts = opts || {};
+  const stayRange = a.checkin && a.checkout
+    ? `${fmtShortDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''} - ${fmtShortDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
+    : a.checkin ? `${fmtShortDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}`
+    : a.checkout ? `${fmtShortDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
+    : '';
   return `
     <div class="card">
-      <div class="section-head" style="margin-bottom:${a.address?'4px':'0'}">
+      <div class="section-head" style="margin-bottom:0">
         <h3>${esc(a.name||'Accommodation')}</h3>
         ${opts.headerActions?`<span class="btn-row" onclick="event.stopPropagation()">${opts.headerActions}</span>`:''}
       </div>
-      ${a.address?`<div class="small" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span>${esc(a.address)}</span>
-        <a class="doc-attach" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open in Google Maps" aria-label="Open in Google Maps">${ICONS.pin}Map</a>
-      </div>`:''}
       ${opts.showDates!==false ? `<div class="btn-row" style="margin-top:12px">
-        ${a.checkin?`<span class="chip">Check-in: ${fmtDate(a.checkin)}${a.checkinTime?' · '+esc(a.checkinTime):''}</span>`:''}
-        ${a.checkout?`<span class="chip">Check-out: ${fmtDate(a.checkout)}${a.checkoutTime?' · '+esc(a.checkoutTime):''}</span>`:''}
+        ${stayRange?`<span class="chip">${esc(stayRange)}</span>`:''}
         ${a.ref?`<span class="chip">Ref: ${esc(a.ref)}</span>`:''}
       </div>` : (a.ref?`<div class="btn-row" style="margin-top:12px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:'')}
-      ${a.bookingUrl?`<div style="margin-top:14px"><a class="btn" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking ${ICONS.ext}</a></div>`:''}
+      ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px">
+        ${a.bookingUrl?`<a class="btn" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking ${ICONS.ext}</a>`:''}
+        ${a.address?`<a class="btn" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICONS.pin}Open Map ${ICONS.ext}</a>`:''}
+      </div>`:''}
       ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
     </div>`;
 }
@@ -1712,10 +1758,10 @@ App.attachDoc = input => {
   const file = input.files[0]; input.value=''; if(!file) return;
   if(file.type==='application/pdf'){
     const fr = new FileReader();
-    fr.onload = e => { FORM_DOC = {name:file.name, kind:'pdf', size:file.size, dataUrl: file.size<=2*1048576 ? e.target.result : null}; paintDocStatus(); if(file.size>2*1048576) toast('PDF over 2 MB — details stored, file kept on this device'); };
+    fr.onload = e => { FORM_DOC = {name:file.name, kind:'pdf', size:file.size, dataUrl: file.size<=5*1048576 ? e.target.result : null}; paintDocStatus(); if(file.size>5*1048576) toast('PDF over 5 MB — details stored, file kept on this device'); };
     fr.readAsDataURL(file);
   } else {
-    downscaleToDataURL(file, 1500, 0.7, dataUrl => { FORM_DOC = {name:file.name, kind:'img', size:dataUrl?Math.round(dataUrl.length*.75):0, dataUrl}; paintDocStatus(); });
+    downscaleToDataURL(file, 1800, 0.85, dataUrl => { FORM_DOC = {name:file.name, kind:'img', size:dataUrl?Math.round(dataUrl.length*.75):0, dataUrl}; paintDocStatus(); });
   }
 };
 function attachField(){
@@ -1920,7 +1966,7 @@ App.accomForm = i => {
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…"></div>
     <div class="modal-actions">
       <button class="btn primary" style="width:100%" onclick="App.saveAccom(${i})">Save</button>
-      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteAccomFromForm(${i})">Delete Accommodation</button>`:''}
+      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.delAccom(${i})">Delete Accommodation</button>`:''}
     </div>`);
 };
 App.saveAccom = i => {
@@ -1939,12 +1985,16 @@ App.saveAccom = i => {
   logEdit('Accommodation', (i>=0?'updated ':'added ')+(name||'accommodation'));
   save(); closeModal(); rerender();
 };
-App.deleteAccomFromForm = i => { closeModal(); App.delAccom(i); };
+/* accommodation holds a lot of detail (address, dates, ref, booking link) — confirm before
+   losing it, on top of the usual undo toast */
 App.delAccom = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t || !t.accommodations) return;
-  const removed = t.accommodations[i]; const label = removed.name||'accommodation';
-  t.accommodations.splice(i,1); logEdit('Accommodation','removed '+label); save(); rerender();
-  toast('Accommodation removed', ()=>{ t.accommodations.splice(Math.min(i,t.accommodations.length),0,removed); logEdit('Accommodation','restored '+label); save(); rerender(); });
+  const removed = t.accommodations[i]; if(!removed) return;
+  const label = removed.name||'this accommodation';
+  confirmModal('Remove Accommodation?', `"${label}" and its details — address, dates, booking info — will be removed.`, 'Remove', ()=>{
+    t.accommodations.splice(i,1); logEdit('Accommodation','removed '+label); save(); rerender();
+    toast('Accommodation removed', ()=>{ t.accommodations.splice(Math.min(i,t.accommodations.length),0,removed); logEdit('Accommodation','restored '+label); save(); rerender(); });
+  });
 };
 App.contactForm = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -2091,22 +2141,22 @@ App.upload = input => {
   if(isPdf){
     const fr = new FileReader();
     fr.onload = e => {
-      if(file.size > 2*1048576){ toast('PDF is over 2 MB, so only its details were stored.'); }
+      if(file.size > 5*1048576){ toast('PDF is over 5 MB, so only its details were stored.'); }
       t.documents.push({id:uid(), name:file.name, kind:'pdf', size:file.size,
-                        dataUrl: file.size<=2*1048576 ? e.target.result : null});
+                        dataUrl: file.size<=5*1048576 ? e.target.result : null});
       logEdit('Documents','uploaded '+file.name); save(); rerender();
       toast('File uploaded. Tap the pencil to rename it.');
     };
     fr.readAsDataURL(file);
   } else {
-    // image → downscale to keep localStorage happy
+    // image → downscale, keeping plenty of quality for a personal, small-group trip
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
-      const scale = Math.min(1, 1400/Math.max(img.width,img.height));
+      const scale = Math.min(1, 2000/Math.max(img.width,img.height));
       c.width = img.width*scale; c.height = img.height*scale;
       c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-      const dataUrl = c.toDataURL('image/jpeg',.72);
+      const dataUrl = c.toDataURL('image/jpeg',.85);
       t.documents.push({id:uid(), name:file.name, kind:'img', size:Math.round(dataUrl.length*.75), dataUrl});
       logEdit('Documents','uploaded '+file.name); save(); rerender();
       toast('Image uploaded. Tap the pencil to rename it.');
@@ -2509,10 +2559,10 @@ App.attachMoodImg = input => {
   const img = new Image();
   img.onload = () => {
     const c = document.createElement('canvas');
-    const scale = Math.min(1, 900/Math.max(img.width,img.height));
+    const scale = Math.min(1, 1600/Math.max(img.width,img.height));
     c.width = img.width*scale; c.height = img.height*scale;
     c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-    MOOD_IMG = c.toDataURL('image/jpeg',.7);
+    MOOD_IMG = c.toDataURL('image/jpeg',.85);
     const el=$('#md-img-status'); if(el) el.innerHTML = moodImgStatus();
   };
   img.src = URL.createObjectURL(file);
