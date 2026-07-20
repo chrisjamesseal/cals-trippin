@@ -242,18 +242,12 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .mood-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-top:14px;}
 .mood-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:14px; word-break:break-word;}
 .mood-card img{width:100%; display:block; border-radius:var(--radius-sm); margin-bottom:8px;}
+.video-embed{width:100%; border-radius:var(--radius-sm); margin-bottom:8px; overflow:hidden; background:#000;}
+.video-embed-tiktok{aspect-ratio:9/16;}
+.video-embed-instagram{height:560px;}
 .mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin-bottom:6px;}
 .mood-actions{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;}
 .mood-map{color:var(--brand-dark);}
-.nearby-acc{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); margin-top:16px; overflow:hidden;}
-.nearby-acc summary{list-style:none; cursor:pointer; padding:14px; font-weight:700; display:flex; align-items:center; gap:8px;}
-.nearby-acc summary::-webkit-details-marker{display:none;}
-.nearby-acc summary::after{content:'\25BE'; margin-left:auto; opacity:.6; transition:transform .15s;}
-.nearby-acc[open] summary::after{transform:rotate(180deg);}
-.nearby-acc-body{padding:0 14px 14px;}
-.nearby-list{display:flex; flex-direction:column;}
-.nearby-item{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);}
-.nearby-item:last-child{border-bottom:none;}
 .settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
 .settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
 .settle-row:last-child{border-bottom:none;}
@@ -1106,7 +1100,7 @@ App.share = id => {
     // no shared store configured — fall back to a portable snapshot link
     const lite = JSON.parse(JSON.stringify(t));
     lite.documents = (lite.documents||[]).map(d=>({...d, dataUrl:null, stripped:true}));
-    lite.moodBoard = (lite.moodBoard||[]).map(m=> m.type==='image' ? {...m, dataUrl:null, text:(m.text||'')+' (image not included in shared link)'} : m);
+    lite.moodBoard = (lite.moodBoard||[]).map(m=> m.dataUrl ? {...m, dataUrl:null, text:(m.text?m.text+' ':'')+'(image not included in shared link)'} : m);
     url = location.origin + location.pathname + '#/view/' + LZString.compressToEncodedURIComponent(JSON.stringify(lite));
     blurb = `This link contains a <strong>snapshot</strong> of the trip. Set up the app's shared store for one permanent live link instead (see the README). After you make changes, share a fresh link.`;
     note = `Uploaded files and mood-board images stay on your device and aren't embedded. Their details still appear.`;
@@ -1156,7 +1150,6 @@ const ICONS = {
   car: fa('car'),
   stay: fa('bed'),
   ext: fa('up-right-from-square'),
-  compass: fa('compass'),
   contacts: fa('address-book'),
   notes: fa('note-sticky'),
   edit: fa('pen'),
@@ -1363,7 +1356,7 @@ function renderTab(t){
 function crumbAction(t){
   switch(CUR_TAB){
     case 'plan':   return `<button class="btn sm" onclick="App.tab('mood')">From Ideas</button><button class="btn sm primary" onclick="App.planForm(-1)">+ Add Stop</button>`;
-    case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ Pin</button>`;
+    case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm(-1)">+ Add</button>`;
     default:       return '';
@@ -1749,158 +1742,6 @@ function autoAccomName(url, address){
   if(service) return service;
   if(city) return 'Stay in '+city;
   return '';
-}
-/* ================= nearby ideas (Wikivoyage "Do" listings) =================
-   Wikipedia geosearch (the original source here) only surfaces places notable
-   enough for an encyclopedia — castles, monasteries, museums — which reads as
-   "generic landmarks", not "fun things to do". Wikivoyage is a travel guide:
-   its "Do" section is written for travelers (nightlife, tours, watersports...).
-   Same free/keyless/CORS-friendly MediaWiki API as before, no API key baked
-   into this public page and no CORS proxy needed. Tradeoff: Wikivoyage articles
-   are one page per destination, not one page per place, so there's no photo
-   per suggestion — just a single hero image for the destination. */
-let NEARBY = {}; // city -> {status:'loading'|'ok'|'error', title, hero, items:[{name,desc}]}
-function tripNearbyCities(t){
-  const cities = [];
-  (t.accommodations||[]).forEach(a=>{
-    const c = guessCityFromAddress(a.address);
-    if(c && !cities.includes(c)) cities.push(c);
-  });
-  if(!cities.length && t.destination && t.destination.trim()) cities.push(t.destination.trim());
-  return cities;
-}
-function wikivoyageApi(params){
-  const qs = new URLSearchParams(Object.assign({format:'json', origin:'*'}, params)).toString();
-  return fetch('https://en.wikivoyage.org/w/api.php?'+qs).then(r=>r.json());
-}
-const wvUrl = title => 'https://en.wikivoyage.org/wiki/'+encodeURIComponent(title.replace(/ /g,'_'));
-/* a small village address (e.g. "Palaiokastritsa") often has no dedicated Wikivoyage
-   article — fall back to a title search so close/partial matches still resolve */
-function resolveWikivoyageTitle(city){
-  return wikivoyageApi({action:'query', titles:city, redirects:1})
-    .then(data=>{
-      const pages = data.query && data.query.pages;
-      const page = pages && Object.values(pages)[0];
-      if(page && !page.missing) return page.title;
-      return wikivoyageApi({action:'query', list:'search', srsearch:city, srlimit:1})
-        .then(s=>{
-          const hit = s.query && s.query.search && s.query.search[0];
-          if(!hit) throw new Error('no Wikivoyage article found for '+city);
-          return hit.title;
-        });
-    });
-}
-/* Wikivoyage's "listing" template renders each place as a block with a
-   listingname-ish bolded title followed by a description — but small/older
-   articles sometimes just use plain bullet points, so fall back to splitting
-   each <li> on its first colon/dash if no listing markup is found */
-function parseWikivoyageDoSection(html){
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  let nodes = Array.from(doc.querySelectorAll('.listing'));
-  if(!nodes.length) nodes = Array.from(doc.querySelectorAll('li'));
-  const items = nodes.map(el=>{
-    const nameEl = el.querySelector('.listingname, b, strong');
-    const descEl = el.querySelector('.listingdescription');
-    const full = el.textContent.trim();
-    let name = nameEl ? nameEl.textContent.trim() : '';
-    // prefer the dedicated description span — the address/phone/hours block that Wikivoyage's
-    // listing template puts between the name and description isn't real prose, so splitting on
-    // "first sentence" over the raw combined text mistakes an abbreviation like "St." for the end
-    let desc = descEl ? descEl.textContent.trim() : '';
-    if(!name){
-      const m = full.match(/^(.{2,60}?)[:\-–—]\s*(.+)$/);
-      if(m){ name = m[1].trim(); if(!desc) desc = m[2].trim(); }
-      else { name = full.split(/\s+/).slice(0,6).join(' '); if(!desc) desc = full; }
-    } else if(!desc){
-      desc = full.slice(full.indexOf(name)+name.length).replace(/^[\s:.\-–—]+/, '').trim();
-    }
-    desc = (desc.split(/(?<=[.!?])\s/)[0] || '').trim();
-    return {name, desc};
-  }).filter(x=>x.name && x.name.length>1);
-  const seen = new Set();
-  return items.filter(x=>{ const k=x.name.toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,5);
-}
-function loadNearby(city){
-  if(NEARBY[city]) return; // already loading, loaded, or errored — use App.retryNearby to force
-  NEARBY[city] = {status:'loading', items:[]};
-  resolveWikivoyageTitle(city)
-    .then(title => wikivoyageApi({action:'parse', page:title, prop:'sections'})
-      .then(secData=>{
-        const sections = (secData.parse && secData.parse.sections) || [];
-        const doSection = sections.find(s=>(s.line||'').trim().toLowerCase()==='do');
-        const heroP = wikivoyageApi({action:'query', titles:title, prop:'pageimages', pithumbsize:500, redirects:1})
-          .then(imgData=>{
-            const pages = imgData.query && imgData.query.pages;
-            const p = pages && Object.values(pages)[0];
-            return (p && p.thumbnail && p.thumbnail.source) || null;
-          }).catch(()=>null);
-        if(!doSection) return heroP.then(hero=>({title, hero, items:[]}));
-        return Promise.all([heroP, wikivoyageApi({action:'parse', page:title, section:doSection.index, prop:'text'})])
-          .then(([hero, txtData])=>{
-            const html = (txtData.parse && txtData.parse.text && txtData.parse.text['*']) || '';
-            return {title, hero, items:parseWikivoyageDoSection(html)};
-          });
-      }))
-    .then(({title, hero, items})=>{ NEARBY[city] = {status:'ok', title, hero, items}; if(CUR_TAB==='mood') rerender(); })
-    .catch(err=>{
-      console.error('Nearby ideas fetch failed for', city, err);
-      NEARBY[city] = {status:'error', items:[]};
-      if(CUR_TAB==='mood') rerender();
-    });
-}
-App.retryNearby = ci => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const city = tripNearbyCities(t)[ci]; if(!city) return;
-  delete NEARBY[city];
-  rerender();
-};
-App.pinNearby = (ci, ni) => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const city = tripNearbyCities(t)[ci]; if(!city) return;
-  const entry = NEARBY[city]; const item = entry && entry.items[ni]; if(!item) return;
-  t.moodBoard = t.moodBoard||[];
-  t.moodBoard.push({id:uid(), title:item.name, text:item.desc, url:wvUrl(entry.title)});
-  logEdit('Ideas','pinned '+item.name+' (nearby suggestion)');
-  save(); rerender(); toast('Pinned');
-};
-let NEARBY_OPEN = {}; // per-city accordion open state, so it survives the rerender() a pin/retry triggers
-App.toggleNearbyOpen = (ci, isOpen) => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const city = tripNearbyCities(t)[ci]; if(!city) return;
-  NEARBY_OPEN[city] = isOpen;
-};
-function nearbySectionHTML(t, ro){
-  const cities = tripNearbyCities(t);
-  if(!cities.length) return '';
-  return cities.map((city, ci) => {
-    loadNearby(city);
-    const entry = NEARBY[city] || {status:'loading', items:[]};
-    let body;
-    if(entry.status==='loading'){
-      body = `<div class="muted small" style="padding:8px 0"><i class="icon fa-solid fa-spinner fa-spin"></i> Loading things to do…</div>`;
-    } else if(entry.status==='error'){
-      body = `<div class="muted small" style="padding:8px 0">Couldn't load nearby ideas for ${esc(city)}.
-        <button class="btn sm" type="button" onclick="App.retryNearby(${ci})">Try again</button></div>`;
-    } else if(!entry.items.length){
-      body = `<div class="muted small" style="padding:8px 0">No activities listed for ${esc(city)} on Wikivoyage yet.</div>`;
-    } else {
-      body = `
-        ${entry.hero?`<img src="${esc(entry.hero)}" alt="${esc(entry.title)}" style="width:100%;display:block;border-radius:var(--radius-sm);margin-bottom:10px">`:''}
-        <div class="nearby-list">${entry.items.map((n,ni)=>`
-          <div class="nearby-item">
-            <div style="min-width:0">
-              <strong>${esc(n.name)}</strong>
-              ${n.desc?`<p class="small" style="margin-top:2px">${esc(n.desc)}</p>`:''}
-            </div>
-            ${!ro?`<button class="btn sm" style="flex-shrink:0;white-space:nowrap" onclick="App.pinNearby(${ci},${ni})">+ Pin It</button>`:''}
-          </div>`).join('')}</div>
-        <a class="doc-attach" href="${esc(wvUrl(entry.title))}" target="_blank" rel="noopener" style="margin-top:10px">${ICONS.ext} Full guide on Wikivoyage</a>`;
-    }
-    return `<details class="nearby-acc"${NEARBY_OPEN[city]?' open':''} ontoggle="App.toggleNearbyOpen(${ci},this.open)">
-      <summary>${ICONS.compass} Nearby ${esc(city)}</summary>
-      <div class="nearby-acc-body">${body}</div>
-    </details>`;
-  }).join('');
 }
 /* the full accommodation card — shared by Accommodation and, read-only, by the Itinerary.
    opts: headerActions (edit/delete, top-right), footerActions (e.g. a link back to this
@@ -2797,13 +2638,28 @@ App.saveAlbum = () => {
   save(); closeModal(); rerender();
 };
 /* ================= TAB: mood board ================= */
+function fab(name){ return `<i class="icon fa-brands fa-${name}"></i>`; }
+/* TikTok/Instagram share links become a lightweight iframe embed via each platform's own
+   public embed endpoint — just the link the user already has, no SDK script and no API key */
+function detectVideoEmbed(url){
+  if(!url) return null;
+  let m = url.match(/tiktok\.com\/.*\/video\/(\d+)/i);
+  if(m) return {provider:'tiktok', embedUrl:'https://www.tiktok.com/embed/v2/'+m[1]};
+  m = url.match(/instagram\.com\/(reel|reels|p)\/([A-Za-z0-9_-]+)/i);
+  if(m) return {provider:'instagram', embedUrl:'https://www.instagram.com/'+m[1]+'/'+m[2]+'/embed'};
+  return null;
+}
 function tabMood(t, ro){
   const cards = (t.moodBoard||[]).map((m,i)=>{
-    const linkHref = m.url || (m.title ? mapsSearchUrl(t, m.title.replace(/^(Do|Eat|Tip):\s*/,'')) : '');
+    const embed = detectVideoEmbed(m.videoUrl);
+    const mapsHref = m.mapsUrl || m.url || (m.title ? mapsSearchUrl(t, m.title.replace(/^(Do|Eat|Tip):\s*/,'')) : '');
+    const watchLabel = embed && embed.provider==='tiktok' ? 'Watch on TikTok' : 'Watch on Instagram';
     const inItinerary = m.itineraryId && (t.itinerary||[]).some(s=>s.id===m.itineraryId);
     return `
     <div class="mood-card">
-      ${m.type==='image' && m.dataUrl ? `<img src="${m.dataUrl}" alt="${esc(m.title||'Pinned image')}">` : ''}
+      ${embed
+        ? `<div class="video-embed video-embed-${embed.provider}"><iframe src="${esc(embed.embedUrl)}" loading="lazy" allowfullscreen scrolling="${embed.provider==='instagram'?'yes':'no'}" allow="autoplay; encrypted-media" style="width:100%;height:100%;border:0"></iframe></div>`
+        : (m.dataUrl ? `<img src="${m.dataUrl}" alt="${esc(m.title||'Idea image')}">` : '')}
       ${m.title?`<h3 style="margin-bottom:4px">${esc(m.title)}</h3>`:''}
       ${m.text?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(m.text)}</p>`:''}
       <div class="mood-actions">
@@ -2811,15 +2667,15 @@ function tabMood(t, ro){
           ?`<button class="btn sm" onclick="App.removeIdeaFromItinerary(${i})">Remove from Itinerary</button>`
           :`<button class="btn sm" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}</span>
         <span class="btn-row">
-          ${!ro?`<button class="iconbtn edit" aria-label="Edit pin" title="Edit" onclick="App.moodForm(${i})">${ICONS.edit}</button>`:''}
-          ${linkHref?`<a class="iconbtn mood-map" href="${esc(linkHref)}" target="_blank" rel="noopener" aria-label="Open link" title="Open link">${ICONS.pin}</a>`:''}
+          ${!ro?`<button class="iconbtn edit" aria-label="Edit idea" title="Edit" onclick="App.moodForm(${i})">${ICONS.edit}</button>`:''}
+          ${embed?`<a class="iconbtn mood-map" href="${esc(m.videoUrl)}" target="_blank" rel="noopener" aria-label="${watchLabel}" title="${watchLabel}">${fab(embed.provider)}</a>`:''}
+          ${mapsHref?`<a class="iconbtn mood-map" href="${esc(mapsHref)}" target="_blank" rel="noopener" aria-label="Open map" title="Open map">${ICONS.pin}</a>`:''}
         </span>
       </div>
     </div>`;
   }).join('');
   return `
-    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.</div>`}
-    ${nearbySectionHTML(t, ro)}`;
+    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">No ideas yet.</div>`}`;
 }
 let MOOD_IMG = null;   // pending pin image while the form is open
 function moodImgStatus(){
@@ -2846,41 +2702,42 @@ App.moodForm = i => {
   const m = (i>=0 && (t.moodBoard||[])[i]) || {};
   MOOD_IMG = m.dataUrl || null;
   openModal(`
-    <h2>${i>=0?'Edit Pin':'Pin to Board'}</h2>
+    <h2>${i>=0?'Edit Idea':'New Idea'}</h2>
     <div class="field"><label class="label" for="md-title">Title</label><input id="md-title" type="text" value="${esc(m.title||'')}" placeholder="e.g. Sunset at Miradouro"></div>
-    <div class="field"><label class="label" for="md-url">Link</label><input id="md-url" type="url" value="${esc(m.url||'')}" placeholder="https://…"></div>
-    <div class="field"><label class="label" for="md-text">Note</label><textarea id="md-text" placeholder="Why it's worth doing…">${esc(m.text||'')}</textarea></div>
+    <div class="field"><label class="label" for="md-video">TikTok or Instagram link</label><input id="md-video" type="url" value="${esc(m.videoUrl||'')}" placeholder="https://www.tiktok.com/@user/video/…"></div>
+    <div class="field"><label class="label" for="md-maps">Google Maps link</label><input id="md-maps" type="url" value="${esc(m.mapsUrl||'')}" placeholder="https://maps.google.com/…"></div>
     <div class="field"><label class="label">Image</label>
       <div id="md-img-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">${moodImgStatus()}</div>
       <label class="btn sm" style="cursor:pointer">${ICONS.upload} ${MOOD_IMG?'Replace image':'Add image'}<input type="file" accept="image/*" style="display:none" onchange="App.attachMoodImg(this)"></label>
     </div>
     <div class="modal-actions">
-      <button class="btn primary" style="width:100%" onclick="App.saveMood(${i>=0?i:-1})">${i>=0?'Save':'Pin It'}</button>
-      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteMoodFromForm(${i})">Delete Pin</button>`:''}
+      <button class="btn primary" style="width:100%" onclick="App.saveMood(${i>=0?i:-1})">${i>=0?'Save':'Add Idea'}</button>
+      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteMoodFromForm(${i})">Delete Idea</button>`:''}
     </div>`, {autofocus:false});
 };
 App.saveMood = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const title = $('#md-title').value.trim();
-  let url = $('#md-url').value.trim();
-  if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
-  const text = $('#md-text').value.trim();
-  if(!title && !url && !text && !MOOD_IMG) return markErr('#md-title','Add a title, link, note or image');
+  let videoUrl = $('#md-video').value.trim();
+  if(videoUrl && !/^https?:\/\//i.test(videoUrl)) videoUrl = 'https://' + videoUrl;
+  let mapsUrl = $('#md-maps').value.trim();
+  if(mapsUrl && !/^https?:\/\//i.test(mapsUrl)) mapsUrl = 'https://' + mapsUrl;
+  if(!title && !videoUrl && !mapsUrl && !MOOD_IMG) return markErr('#md-title','Add a title, video link, maps link or image');
   t.moodBoard = t.moodBoard||[];
-  const pin = {id: i>=0 && t.moodBoard[i] ? t.moodBoard[i].id : uid(),
-    type: MOOD_IMG?'image':(url?'link':'note'), title, url, text, ...(MOOD_IMG?{dataUrl:MOOD_IMG}:{})};
-  if(i>=0) t.moodBoard[i]=pin; else t.moodBoard.push(pin);
+  const idea = {id: i>=0 && t.moodBoard[i] ? t.moodBoard[i].id : uid(),
+    title, videoUrl, mapsUrl, ...(MOOD_IMG?{dataUrl:MOOD_IMG}:{})};
+  if(i>=0) t.moodBoard[i]=idea; else t.moodBoard.push(idea);
   MOOD_IMG = null;
-  logEdit('Ideas', (i>=0?'edited ':'pinned ')+(title||url||'an idea'));
-  save(); closeModal(); rerender(); toast(i>=0?'Pin updated':'Pinned');
+  logEdit('Ideas', (i>=0?'edited ':'added ')+(title||videoUrl||'an idea'));
+  save(); closeModal(); rerender(); toast(i>=0?'Idea updated':'Idea added');
 };
 App.deleteMoodFromForm = i => { closeModal(); App.delMood(i); };
 App.delMood = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
-  const removed = t.moodBoard[i]; const label = removed.title||removed.url||'a pin';
+  const removed = t.moodBoard[i]; const label = removed.title||removed.videoUrl||'an idea';
   t.moodBoard.splice(i,1); logEdit('Ideas','removed '+label); save(); rerender();
-  toast('Pin removed', ()=>{
+  toast('Idea removed', ()=>{
     const t2=getTrip(tripId); if(!t2) return;
     t2.moodBoard = t2.moodBoard||[];
     t2.moodBoard.splice(Math.min(i,t2.moodBoard.length),0,removed);
