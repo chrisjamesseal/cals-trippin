@@ -325,18 +325,8 @@ details .d-body{padding:14px 16px;}
 .dash-tile .dash-label{font-weight:700; font-size:.95rem; color:var(--ink);}
 .dash-tile .dash-sum{color:var(--muted); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 a.dash-tile{text-decoration:none;}
-.dash-side{margin-left:auto; display:flex; align-items:center; gap:4px; flex-shrink:0;}
-.dash-ext{display:inline-flex; color:var(--muted);}
-.dash-ext svg{width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
 .dash-tile .dash-go{margin-left:auto; font-size:1.3rem; line-height:1; color:var(--line-strong); flex-shrink:0;}
 .dash-tile:hover .dash-go{color:var(--brand);}
-.tile-edit{
-  width:34px; height:34px; border-radius:8px;
-  border:none; background:none; color:var(--brand); cursor:pointer;
-  display:flex; align-items:center; justify-content:center; line-height:1;
-}
-.tile-edit:hover{background:var(--brand-ghost); color:var(--brand-dark);}
-.tile-edit svg{width:19px; height:19px; fill:currentColor; stroke:none;}
 
 /* ---------- backup / restore bar ---------- */
 .backup-bar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px solid var(--line); margin-top:28px; padding-top:16px;}
@@ -358,13 +348,17 @@ a.dash-tile{text-decoration:none;}
 .plan-time{font-weight:800; color:var(--brand-dark); white-space:nowrap;}
 .plan-map{width:100%; height:180px; border:1px solid var(--line); border-radius:var(--radius-sm); display:block; margin-bottom:8px; background:var(--bg);}
 .plan-img{width:100%; max-height:220px; object-fit:cover; border-radius:var(--radius-sm); display:block; margin-bottom:10px;}
+.auto-card{display:flex; align-items:center; gap:10px; cursor:pointer; background:var(--brand-ghost);}
+.auto-card svg{width:19px; height:19px; stroke:var(--brand-dark); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0;}
+.auto-card h3{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.95rem;}
+.auto-card .auto-status{flex-shrink:0; max-width:38%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
 .log-row:last-child{border-bottom:none;}
-.log-who{font-weight:700; color:var(--ink); white-space:nowrap;}
-.log-what{flex:1; min-width:0;}
-.log-when{color:var(--muted); font-size:.75rem; white-space:nowrap;}
+.log-who{font-weight:700; color:var(--ink); white-space:nowrap; flex-shrink:0;}
+.log-what{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.log-when{color:var(--muted); font-size:.75rem; white-space:nowrap; flex-shrink:0; margin-left:auto;}
 </style>
 </head>
 <body>
@@ -1108,9 +1102,9 @@ const TABS = [
   ['travel','Travel'],
   ['stay','Accommodation'],
   ['plan','Itinerary'],
+  ['mood','Ideas'],
   ['money','Money'],
   ['photos','Photos'],
-  ['mood','Ideas'],
   ['contacts','Emergency Contacts'],
   ['docs','Documents'],
   ['notes','Notes'],
@@ -1279,6 +1273,7 @@ App.tab = k => {
   CUR_TAB = k;
   const t = getTrip(CUR_TRIP_ID);
   if(t) renderTrip(t);
+  window.scrollTo(0,0);
 };
 function renderTab(t){
   const el = $('#tab-body');
@@ -1342,40 +1337,27 @@ function tabHome(t){
     ['travel','Travel', travParts.join(' · ') || 'Nothing booked yet'],
     ['stay','Accommodation', accom.name || 'Not added yet'],
     ['plan','Itinerary', nStops ? nStops+(nStops===1?' stop planned':' stops planned') : 'Nothing planned yet'],
+    ['mood','Ideas', nPins ? nPins+(nPins===1?' idea pinned':' ideas pinned') : 'Nothing pinned yet'],
     ['money','Money', moneySum],
     ['photos','Photos', album || 'No shared album yet'],
-    ['mood','Ideas', nPins ? nPins+(nPins===1?' idea pinned':' ideas pinned') : 'Nothing pinned yet'],
     ['contacts','Emergency Contacts', nContacts ? nContacts+(nContacts===1?' contact':' contacts') : 'None added yet'],
     ['docs','Documents', docParts.join(' · ') || 'Nothing saved yet'],
     ['notes','Notes', (n.general||'').trim() ? 'Notes added' : 'No notes yet'],
     ['log','Activity', nLog ? nLog+(nLog===1?' change logged':' changes logged') : 'No changes yet']
   ];
-  const tile = ([k,label,sum]) => {
-    const inner = `${ICONS[k]}<span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum">${esc(sum)}</span></span>`;
-    // the Photos tile opens the linked album in its own app/tab; the pencil manages the link
-    if(k==='photos' && albumUrl) return `
-    <a class="dash-tile" href="${esc(albumUrl)}" target="_blank" rel="noopener" aria-label="Open the shared photo album (opens in a new tab)">
-      ${inner}
-      <span class="dash-side">
-        <span class="dash-ext" aria-hidden="true" title="Opens in a new tab">${ICONS.ext}</span>
-        <button class="tile-edit" aria-label="Photo album settings" title="Album settings"
-                onclick="event.preventDefault();event.stopPropagation();App.tab('photos')">${ICONS.edit}</button>
-      </span>
-    </a>`;
-    return `
+  // every tile — including Photos — opens its own tab first; the tab itself links out to the album
+  const tile = ([k,label,sum]) => `
     <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)}"
          onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">
-      ${inner}
+      ${ICONS[k]}<span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum">${esc(sum)}</span></span>
       <span class="dash-go" aria-hidden="true">›</span>
     </div>`;
-  };
   return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
 }
 /* ================= TAB: log (who changed what) ================= */
 function tabLog(t){
   const log = (t.editLog||[]).slice().sort((a,b)=>b.when-a.when);
   return `
-    <p class="muted small" style="margin-bottom:12px">Every change to this trip, and who made it. ${cloudEnabled()?'Shared with everyone on the link.':'Recorded on this device.'}</p>
     ${log.length ? log.map(e=>`
       <div class="log-row">
         <span class="log-who">${esc(e.who)}</span>
@@ -1389,18 +1371,23 @@ function mapQuery(t, name){
   return encodeURIComponent(name + (extra ? ', '+extra : ''));
 }
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
+const PLAN_PERIODS = {morning:['Morning','06:00'], afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
 function tabPlan(t, ro){
   const items = (t.itinerary||[]);
   const groups = {};
   items.forEach((s,i)=>{ const k = s.date||''; (groups[k]=groups[k]||[]).push({...s, _i:i}); });
-  // fold travel + accommodation into the schedule so the whole trip reads in one place
+  // fold travel + accommodation into the schedule, as their own single-line entries, so the
+  // whole trip reads in one place — each still lives and is edited in its own section
   (t.flights||[]).forEach(f=>{
     const k = f.date||'';
-    (groups[k]=groups[k]||[]).push({_auto:'flight', time:f.depTime||'', f});
+    const route = (f.from||f.to) ? `${f.from||'?'} → ${f.to||'?'}` : '';
+    const label = ((f.airline||'Flight')+(f.flightNo?' '+f.flightNo:'')).trim();
+    (groups[k]=groups[k]||[]).push({_auto:1, time:f.depTime||'', icon:ICONS.flight, title:label, status:route, tab:'travel'});
+    if(f.arrTime) (groups[k]=groups[k]||[]).push({_auto:1, time:f.arrTime, icon:ICONS.flight, title:'Lands · '+(f.to||label), status:f.flightNo||f.airline||'', tab:'travel'});
   });
   const ac = (t.notes && t.notes.accom) || {};
-  if(ac.checkin){ const k=ac.checkin; (groups[k]=groups[k]||[]).push({_auto:'checkin', time:ac.checkinTime||'', ac}); }
-  if(ac.checkout){ const k=ac.checkout; (groups[k]=groups[k]||[]).push({_auto:'checkout', time:ac.checkoutTime||'', ac}); }
+  if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_auto:1, time:ac.checkinTime||'', icon:ICONS.stay, title:'Check in', status:ac.name||'', tab:'stay'});
+  if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_auto:1, time:ac.checkoutTime||'', icon:ICONS.stay, title:'Check out', status:ac.name||'', tab:'stay'});
   const hasAny = Object.keys(groups).length > 0;
   const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
   const dayLabel = k => {
@@ -1412,40 +1399,20 @@ function tabPlan(t, ro){
     }
     return n + fmtDate(k);
   };
-  /* travel + stay entries pulled in automatically — edited from their own sections */
-  const autoCard = s => {
-    if(s._auto==='flight'){
-      const f = s.f;
-      const title = `${esc(f.airline||'Flight')} ${esc(f.flightNo||'')}`.trim() + (f.from||f.to?` · ${esc(f.from||'?')} → ${esc(f.to||'?')}`:'');
-      return `
-    <div class="card" style="background:var(--brand-ghost)">
-      <div class="section-head" style="margin-bottom:0">
-        <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;min-width:0">
-          ${s.time?`<span class="plan-time mono">${esc(s.time)}</span>`:''}
-          <h3>${ICONS.flight} ${title}</h3>
-        </div>
-        <button class="btn sm ghost" onclick="App.tab('travel')">View</button>
-      </div>
-      ${f.arrTime?`<p class="muted small" style="margin-top:4px">Lands ${esc(f.arrTime)}</p>`:''}
+  const timeKey = s => s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][1]) || '99:99';
+  const timeBadge = s => s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][0]) || '';
+  const autoCard = s => `
+    <div class="card auto-card" role="button" tabindex="0" onclick="App.tab('${s.tab}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${s.tab}')}">
+      ${s.time?`<span class="plan-time mono">${esc(s.time)}</span>`:''}
+      ${s.icon}
+      <h3>${esc(s.title)}</h3>
+      ${s.status?`<span class="muted small mono auto-status">${esc(s.status)}</span>`:''}
     </div>`;
-    }
-    const a = s.ac, inOut = s._auto==='checkin' ? 'Check in' : 'Check out';
-    return `
-    <div class="card" style="background:var(--brand-ghost)">
-      <div class="section-head" style="margin-bottom:0">
-        <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;min-width:0">
-          ${s.time?`<span class="plan-time mono">${esc(s.time)}</span>`:''}
-          <h3>${ICONS.stay} ${inOut}${a.name?' · '+esc(a.name):''}</h3>
-        </div>
-        <button class="btn sm ghost" onclick="App.tab('stay')">View</button>
-      </div>
-    </div>`;
-  };
   const card = s => s._auto ? autoCard(s) : `
     <div class="card">
       <div class="section-head" style="margin-bottom:4px">
         <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;min-width:0">
-          ${s.time?`<span class="plan-time mono">${esc(s.time)}</span>`:''}
+          ${timeBadge(s)?`<span class="plan-time mono">${esc(timeBadge(s))}</span>`:''}
           <h3>${esc(s.name)}</h3>
         </div>
         ${!ro?`<span class="btn-row">
@@ -1460,13 +1427,18 @@ function tabPlan(t, ro){
       <a class="small" href="${mapsSearchUrl(t, s.location)}" target="_blank" rel="noopener">Open in Google Maps</a>`:''}
     </div>`;
   return `
-    <p class="muted small" style="margin-bottom:10px">The full schedule: flights and accommodation appear automatically, and you add the stops in between.</p>
     ${hasAny ? keys.map(k=>`
       <h3 class="plan-day">${dayLabel(k)}</h3>
-      ${groups[k].sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')).map(card).join('')}`).join('')
+      ${groups[k].sort((a,b)=>timeKey(a).localeCompare(timeKey(b))).map(card).join('')}`).join('')
     : `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
         <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
         <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`}`;
+}
+function locationDatalist(t){
+  const set = new Set();
+  (t.itinerary||[]).forEach(s=>{ if(s.location) set.add(s.location); });
+  (t.moodBoard||[]).forEach(m=>{ if(m.title) set.add(m.title.replace(/^(Do|Eat|Tip):\s*/,'')); });
+  return `<datalist id="loc-list">${[...set].map(l=>`<option value="${esc(l)}">`).join('')}</datalist>`;
 }
 let PLAN_IMG = null;   // pending stop image while the form is open
 App.attachPlanImg = input => {
@@ -1493,8 +1465,16 @@ App.planForm = (i, prefill) => {
       <div class="field"><label class="label" for="pl-time">Time</label>
         <input id="pl-time" type="time" value="${esc(s.time||'')}"></div>
     </div>
-    <div class="field"><label class="label" for="pl-loc">Location <span class="muted small">— optional, adds a map</span></label>
-      <input id="pl-loc" type="text" value="${esc(s.location||'')}" placeholder="e.g. Blue Eye Spring, Saranda"></div>
+    <div class="field"><label class="label" for="pl-period">No set time? Pick a slot instead</label>
+      <select id="pl-period">
+        <option value="">—</option>
+        <option value="morning" ${s.period==='morning'?'selected':''}>Morning</option>
+        <option value="afternoon" ${s.period==='afternoon'?'selected':''}>Afternoon</option>
+        <option value="evening" ${s.period==='evening'?'selected':''}>Evening</option>
+      </select></div>
+    <div class="field"><label class="label" for="pl-loc">Location</label>
+      <input id="pl-loc" type="text" list="loc-list" value="${esc(s.location||'')}" placeholder="e.g. Blue Eye Spring, Saranda"></div>
+    ${locationDatalist(t)}
     <div class="field"><label class="label" for="pl-notes">Why go?</label>
       <textarea id="pl-notes" placeholder="Why it's worth it, booking notes, cost…">${esc(s.notes||'')}</textarea></div>
     <div class="field"><label class="label">Photo <span class="muted small">— optional</span></label>
@@ -1507,7 +1487,7 @@ App.savePlan = i => {
   const name = $('#pl-name').value.trim();
   if(!name) return markErr('#pl-name','Give the stop a place name');
   const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name,
-             date:$('#pl-date').value, time:$('#pl-time').value,
+             date:$('#pl-date').value, time:$('#pl-time').value, period:$('#pl-period').value,
              location:$('#pl-loc').value.trim(), notes:$('#pl-notes').value.trim(), image:PLAN_IMG};
   t.itinerary = t.itinerary||[];
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
@@ -1634,11 +1614,10 @@ function tabContacts(t, ro){
     <div class="list-row">
       <div><strong>${esc(c.name)}</strong><div class="muted small">${esc(c.rel||'')}</div></div>
       <div class="btn-row" style="align-items:center"><a class="mono" href="tel:${esc(c.phone)}">${esc(c.phone)}</a>
-      ${!ro?`<button class="iconbtn del" aria-label="Remove contact" title="Remove" onclick="App.delContact(${i})">${ICONS.trash}</button>`:''}</div>
+      ${!ro?`<button class="iconbtn edit" aria-label="Edit contact" title="Edit" onclick="App.contactForm(${i})">${ICONS.edit}</button>
+             <button class="iconbtn del" aria-label="Remove contact" title="Remove" onclick="App.delContact(${i})">${ICONS.trash}</button>`:''}</div>
     </div>`).join('');
-  return `
-    <p class="muted small" style="margin-bottom:12px">Who to call in a pinch: hotel reception, a local emergency number, family back home.</p>
-    ${contacts || `<div class="empty">No emergency contacts yet.</div>`}`;
+  return contacts || `<div class="empty">No emergency contacts yet.</div>`;
 }
 
 /* ================= TAB: notes ================= */
@@ -1875,21 +1854,24 @@ App.saveAccom = () => {
   logEdit('Accommodation', t.notes.accom.name?('updated accommodation: '+t.notes.accom.name):'updated accommodation');
   save(); closeModal(); CUR_TAB='stay'; rerender();
 };
-App.contactForm = () => {
+App.contactForm = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const c = (i>=0 && (t.notes.contacts||[])[i]) || {};
   openModal(`
-    <h2>Emergency Contact</h2>
-    <div class="field"><label class="label">Name</label><input id="ct-name" type="text"></div>
+    <h2>${i>=0?'Edit Contact':'Emergency Contact'}</h2>
+    <div class="field"><label class="label">Name</label><input id="ct-name" type="text" value="${esc(c.name||'')}"></div>
     <div class="grid2">
-      <div class="field"><label class="label">Phone</label><input id="ct-phone" type="tel"></div>
-      <div class="field"><label class="label">Relation / role</label><input id="ct-rel" type="text" placeholder="e.g. Hotel reception, Mum"></div>
+      <div class="field"><label class="label">Phone</label><input id="ct-phone" type="tel" value="${esc(c.phone||'')}"></div>
+      <div class="field"><label class="label">Relation / role</label><input id="ct-rel" type="text" value="${esc(c.rel||'')}" placeholder="e.g. Hotel reception, Mum"></div>
     </div>
-    <button class="btn primary" style="width:100%" onclick="App.saveContact()">Add Contact</button>`);
+    <button class="btn primary" style="width:100%" onclick="App.saveContact(${i>=0?i:-1})">${i>=0?'Save':'Add Contact'}</button>`);
 };
-App.saveContact = () => {
+App.saveContact = i => {
   const t = getTrip(CUR_TRIP_ID);
   const name = $('#ct-name').value.trim(); if(!name) return markErr('#ct-name','Enter a name');
-  t.notes.contacts.push({name, phone:$('#ct-phone').value.trim(), rel:$('#ct-rel').value.trim()});
-  logEdit('Emergency contacts','added contact '+name);
+  const contact = {name, phone:$('#ct-phone').value.trim(), rel:$('#ct-rel').value.trim()};
+  if(i>=0 && t.notes.contacts[i]){ t.notes.contacts[i]=contact; logEdit('Emergency contacts','edited contact '+name); }
+  else { t.notes.contacts.push(contact); logEdit('Emergency contacts','added contact '+name); }
   save(); closeModal(); CUR_TAB='contacts'; rerender();
 };
 App.delContact = i => {
@@ -1942,7 +1924,6 @@ function tabDocs(t, ro){
       </div>
     </div>`).join('');
   return `
-    <p class="muted small" style="margin-bottom:10px">Keep the trip's shared paperwork in one place: booking confirmations, tickets, insurance, links to other apps.</p>
     ${links || `<div class="empty">No links yet.${!ro?' Add your booking confirmation or check-in page.':''}</div>`}
     ${docs ? `<h3 style="margin:20px 0 4px">Uploaded Files</h3>${docs}` : ''}`;
 }
@@ -2340,7 +2321,6 @@ function tabPhotos(t, ro){
   const a = t.photoAlbum || {url:''};
   const service = a.url ? detectAlbumService(a.url) : '';
   return `
-    <p class="muted small" style="margin-bottom:14px">Cal's Trippin' doesn't host photos. It links to one shared album your whole group adds to, so nothing gets lost in the chat.</p>
     ${a.url ? `
       <div class="card">
         <div class="mood-type">${esc(service)}</div>
@@ -2413,7 +2393,6 @@ function tabMood(t, ro){
       ${m.title?`<a class="mood-map" href="${mapsSearchUrl(t, m.title.replace(/^(Do|Eat|Tip):\s*/,''))}" target="_blank" rel="noopener" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}</a>`:''}
     </div>`).join('');
   return `
-    <p class="muted small">Things to do, places to eat, events on while you're there. Pin links, notes and pictures.</p>
     ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.${!ro?' Try <strong>✦ Get Ideas</strong> for suggestions based on your destination.':''}</div>`}`;
 }
 App.moodForm = () => {
