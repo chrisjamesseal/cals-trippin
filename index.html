@@ -74,7 +74,7 @@ a{color:var(--brand-dark);}
 .btn.ghost{border-color:transparent; background:none; color:var(--muted);}
 .btn.ghost:hover{background:var(--bg); color:var(--ink); border-color:transparent;}
 .btn:disabled{opacity:.4; pointer-events:none;}
-.btn.danger{background:#FCEBE9; border-color:#FCEBE9; color:#C0392B; border-radius:var(--radius);}
+.btn.danger{background:#FCEBE9; border-color:#FCEBE9; color:#C0392B;}
 .btn.danger:hover{background:#F8DAD6; border-color:#F8DAD6; color:#A93226;}
 .btn .icon{font-size:.95rem; flex-shrink:0;}
 .btn-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
@@ -107,8 +107,6 @@ a{color:var(--brand-dark);}
 .trip-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 .trip-card.archived{opacity:.55; filter:grayscale(1);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
-.badge{display:inline-block; font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--line-strong); border-radius:999px; padding:2px 9px; margin-left:8px; vertical-align:middle; color:var(--muted);}
-.badge.inv{background:var(--brand); border-color:var(--brand); color:#fff;}
 .card-go{position:absolute; top:14px; right:16px; font-size:1.5rem; line-height:1; color:var(--line-strong); transition:color .1s, transform .1s;}
 .trip-card:hover .card-go,.trip-card:focus-visible .card-go{color:var(--brand); transform:translateX(3px);}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
@@ -247,7 +245,6 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin-bottom:6px;}
 .mood-actions{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;}
 .mood-map{color:var(--brand-dark);}
-.sugg{border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--paper); padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; gap:12px; align-items:flex-start;}
 .settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
 .settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
 .settle-row:last-child{border-bottom:none;}
@@ -838,7 +835,7 @@ function confirmModal(title, body, confirmLabel, onYes){
     <p class="small" style="margin-bottom:16px">${esc(body)}</p>
     <div class="modal-actions btn-row" style="justify-content:flex-end">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn primary" id="confirm-yes">${esc(confirmLabel||'Confirm')}</button>
+      <button class="btn danger" id="confirm-yes">${esc(confirmLabel||'Confirm')}</button>
     </div>`);
   $('#confirm-yes').onclick = () => { closeModal(); onYes(); };
 }
@@ -1154,9 +1151,9 @@ const ICONS = {
 };
 const TABS = [
   ['home','Overview'],
+  ['plan','Itinerary'],
   ['travel','Travel'],
   ['stay','Accommodation'],
-  ['plan','Itinerary'],
   ['mood','Ideas'],
   ['money','Money'],
   ['photos','Photos'],
@@ -1351,7 +1348,7 @@ function renderTab(t){
 function crumbAction(t){
   switch(CUR_TAB){
     case 'plan':   return `<button class="btn sm ghost" onclick="App.tab('mood')">From Ideas</button><button class="btn sm primary" onclick="App.planForm(-1)">+ Add Stop</button>`;
-    case 'mood':   return `<button class="btn sm ghost" onclick="App.suggest()">✦ Get Ideas</button><button class="btn sm primary" onclick="App.moodForm()">+ Pin</button>`;
+    case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ Pin</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm(-1)">+ Add</button>`;
     default:       return '';
@@ -1393,9 +1390,9 @@ function tabHome(t){
     accoms.length+' stays added';
   const notesAdded = (n.general||'').trim();
   const tiles = [
+    ['plan','Itinerary', nStops ? nStops+(nStops===1?' stop planned':' stops planned') : 'Nothing planned yet', !nStops],
     ['travel','Travel', travParts.join(' · ') || 'Nothing booked yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
-    ['plan','Itinerary', nStops ? nStops+(nStops===1?' stop planned':' stops planned') : 'Nothing planned yet', !nStops],
     ['mood','Ideas', nPins ? nPins+(nPins===1?' idea pinned':' ideas pinned') : 'Nothing pinned yet', !nPins],
     ['money','Money', moneySum, !nRec],
     ['photos','Photos', album || 'No shared album yet', !album],
@@ -1484,11 +1481,11 @@ function tabPlan(t, ro){
         ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
-      ${s.image?`<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">`:''}
-      ${s.location?`<iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+      ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">`
+        : s.location ? `<iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
               src="https://maps.google.com/maps?q=${mapQuery(t, s.location)}&z=15&output=embed"
               title="Map of ${esc(s.location)}"></iframe>
-      <a class="doc-attach" href="${mapsSearchUrl(t, s.location)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>`:''}
+      <a class="doc-attach" href="${mapsSearchUrl(t, s.location)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>` : ''}
     </div>`;
   };
   return `
@@ -1528,7 +1525,7 @@ App.planWhenChange = () => {
   const wrap = $('#pl-time-wrap'); if(!wrap) return;
   wrap.style.display = $('#pl-when').value==='time' ? 'grid' : 'none';
 };
-App.planForm = (i, prefill) => {
+App.planForm = (i, prefill, moodIndex) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const s = prefill || (i>=0 ? (t.itinerary||[])[i] || {} : {});
   PLAN_IMG = (i>=0 && t.itinerary[i] && t.itinerary[i].image) || (prefill && prefill.image) || null;
@@ -1567,9 +1564,9 @@ App.planForm = (i, prefill) => {
     <div class="field"><label class="label">Photo</label>
       <div id="pl-img-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">${planImgStatus()}</div>
       <label class="btn sm" style="cursor:pointer">${ICONS.upload} ${PLAN_IMG?'Replace photo':'Add photo'}<input type="file" accept="image/*" style="display:none" onchange="App.attachPlanImg(this)"></label></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePlan(${i})">Save Stop</button></div>`, {autofocus:false});
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePlan(${i}, ${moodIndex!=null?moodIndex:'null'})">Save Stop</button></div>`, {autofocus:false});
 };
-App.savePlan = i => {
+App.savePlan = (i, moodIndex) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const name = $('#pl-name').value.trim();
   if(!name) return markErr('#pl-name','Give the stop a place name');
@@ -1581,16 +1578,30 @@ App.savePlan = i => {
              location:$('#pl-loc').value.trim(), notes:$('#pl-notes').value.trim(), image:PLAN_IMG};
   t.itinerary = t.itinerary||[];
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
+  if(moodIndex!=null && t.moodBoard && t.moodBoard[moodIndex]) t.moodBoard[moodIndex].itineraryId = s.id;
   PLAN_IMG = null;
   logEdit('Itinerary', (i>=0?'edited ':'added ')+name);
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast('Stop saved');
 };
-/* send an Ideas pin straight into the itinerary, pre-filled */
+/* send an Ideas pin straight into the itinerary, pre-filled — linked back to the pin so it
+   can be toggled to Remove from Itinerary instead of being addable again */
 App.planFromIdea = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const m = (t.moodBoard||[])[i]; if(!m) return;
   const name = (m.title||'').replace(/^(Do|Eat|Tip):\s*/,'');
-  App.planForm(-1, {name, notes: m.text||'', location: name, image: m.dataUrl||null});
+  App.planForm(-1, {name, notes: m.text||'', location: name, image: m.dataUrl||null}, i);
+};
+App.removeIdeaFromItinerary = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const m = t.moodBoard && t.moodBoard[i]; if(!m || !m.itineraryId) return;
+  const si = (t.itinerary||[]).findIndex(s=>s.id===m.itineraryId);
+  if(si>=0){
+    const removedStop = t.itinerary[si];
+    t.itinerary.splice(si,1);
+    logEdit('Itinerary','removed '+(removedStop.name||'a stop'));
+  }
+  m.itineraryId = null;
+  save(); rerender(); toast('Removed from itinerary');
 };
 App.delPlan = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -1688,6 +1699,33 @@ function faviconFor(url){
   catch(e){ return ''; }
 }
 function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
+/* best-effort town/city out of a full address — drop a trailing postcode-looking segment,
+   then take the last comma-separated part, e.g. "1 Rua X, Lisbon, 1000-001" -> "Lisbon" */
+function guessCityFromAddress(address){
+  if(!address) return '';
+  const parts = address.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!parts.length) return '';
+  const looksLikePostcode = /\d/.test(parts[parts.length-1]) && parts[parts.length-1].length<=10;
+  if(looksLikePostcode && parts.length>1) parts.pop();
+  return parts[parts.length-1] || '';
+}
+function detectBookingService(url){
+  if(!url) return '';
+  if(/airbnb\./i.test(url)) return 'Airbnb';
+  if(/booking\.com/i.test(url)) return 'Booking.com';
+  if(/vrbo\.com/i.test(url)) return 'Vrbo';
+  if(/expedia\./i.test(url)) return 'Expedia';
+  if(/hotels\.com/i.test(url)) return 'Hotels.com';
+  return '';
+}
+function autoAccomName(url, address){
+  const service = detectBookingService(url);
+  const city = guessCityFromAddress(address);
+  if(service && city) return service+' in '+city;
+  if(service) return service;
+  if(city) return 'Stay in '+city;
+  return '';
+}
 /* the full accommodation card — shared by Accommodation and, read-only, by the Itinerary.
    opts: headerActions (edit/delete, top-right), footerActions (e.g. a link back to this
    section), showDates (hide the check-in/out chips when the itinerary already shows the time) */
@@ -1708,9 +1746,9 @@ function accomCardHTML(a, opts){
         ${stayRange?`<span class="chip">${esc(stayRange)}</span>`:''}
         ${a.ref?`<span class="chip">Ref: ${esc(a.ref)}</span>`:''}
       </div>` : (a.ref?`<div class="btn-row" style="margin-top:12px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:'')}
-      ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px">
-        ${a.bookingUrl?`<a class="btn" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking ${ICONS.ext}</a>`:''}
-        ${a.address?`<a class="btn" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICONS.pin}Open Map ${ICONS.ext}</a>`:''}
+      ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">
+        ${a.bookingUrl?`<a class="btn" style="flex:1;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking ${ICONS.ext}</a>`:''}
+        ${a.address?`<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICONS.pin}Open Map ${ICONS.ext}</a>`:''}
       </div>`:''}
       ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
     </div>`;
@@ -1952,8 +1990,9 @@ App.accomForm = i => {
   const a = (i>=0 && t.accommodations[i]) || {};
   openModal(`
     <h2>${i>=0?'Edit Accommodation':'Add Accommodation'}</h2>
-    <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name"></div>
-    <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}"></div>
+    <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…" oninput="App.accomAutoName()"></div>
+    <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name — fills in automatically once you add a link or address"></div>
+    <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}" oninput="App.accomAutoName()"></div>
     <div class="grid2">
       <div class="field"><label class="label">Check-in date</label><input id="ac-in" type="date" value="${esc(a.checkin||todayStr())}"></div>
       <div class="field"><label class="label">Check-in time</label><input id="ac-in-time" type="time" value="${esc(a.checkinTime||'')}"></div>
@@ -1963,19 +2002,29 @@ App.accomForm = i => {
       <div class="field"><label class="label">Check-out time</label><input id="ac-out-time" type="time" value="${esc(a.checkoutTime||'')}"></div>
     </div>
     <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
-    <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…"></div>
     <div class="modal-actions">
       <button class="btn primary" style="width:100%" onclick="App.saveAccom(${i})">Save</button>
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.delAccom(${i})">Delete Accommodation</button>`:''}
     </div>`);
 };
+/* live-suggest a name from the link/address, but stop the moment the user types their own —
+   only touch the field while its value still matches our own last suggestion */
+App.accomAutoName = () => {
+  const nameEl = $('#ac-name'); if(!nameEl) return;
+  const current = nameEl.value.trim();
+  if(current && current !== nameEl.dataset.auto) return;
+  const auto = autoAccomName($('#ac-url').value.trim(), $('#ac-addr').value.trim());
+  nameEl.value = auto;
+  nameEl.dataset.auto = auto;
+};
 App.saveAccom = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   t.accommodations = t.accommodations||[];
-  const name = $('#ac-name').value.trim(), address = $('#ac-addr').value.trim();
-  if(!name && !address) return markErr('#ac-name','Give it a name or address');
   let url = $('#ac-url').value.trim();
   if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  const address = $('#ac-addr').value.trim();
+  const name = $('#ac-name').value.trim() || autoAccomName(url, address);
+  if(!name && !address) return markErr('#ac-name','Give it a name or address');
   const a = {id: i>=0 && t.accommodations[i] ? t.accommodations[i].id : uid(),
     name, address,
     checkin:$('#ac-in').value, checkinTime:$('#ac-in-time').value,
@@ -2070,9 +2119,9 @@ function tabDocs(t, ro){
     </div>`).join('');
   return `
     <div class="section-head"><h2>Documents</h2>${!ro?`<label class="btn sm primary" style="cursor:pointer">${ICONS.upload} Upload<input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.upload(this)"></label>`:''}</div>
-    ${docs || `<div class="empty">No documents yet.${!ro?' Upload a booking confirmation, ticket or insurance PDF.':''}</div>`}
+    ${docs || `<div class="empty">No documents yet.</div>`}
     <div class="section-head" style="margin-top:30px"><h2>Links</h2>${!ro?`<button class="btn sm primary" onclick="App.linkForm()">+ Add Link</button>`:''}</div>
-    ${links || `<div class="empty">No links yet.${!ro?' Add your booking confirmation or check-in page.':''}</div>`}`;
+    ${links || `<div class="empty">No links yet.</div>`}`;
 }
 App.linkForm = () => {
   openModal(`
@@ -2470,8 +2519,7 @@ function tabPhotos(t, ro){
   return `
     ${a.url ? `
       <div class="card">
-        <div class="mood-type">${esc(service)}</div>
-        <h3 style="word-break:break-all;margin-bottom:8px">${esc(a.url)}</h3>
+        <h3 style="margin-bottom:8px">${esc(service)}</h3>
         <p class="muted small" style="margin-bottom:12px">${albumNote(service)}</p>
         <div class="btn-row">
           <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open Album ${ICONS.ext}</a>
@@ -2530,13 +2578,16 @@ App.saveAlbum = () => {
 function tabMood(t, ro){
   const cards = (t.moodBoard||[]).map((m,i)=>{
     const linkHref = m.url || (m.title ? mapsSearchUrl(t, m.title.replace(/^(Do|Eat|Tip):\s*/,'')) : '');
+    const inItinerary = m.itineraryId && (t.itinerary||[]).some(s=>s.id===m.itineraryId);
     return `
     <div class="mood-card">
       ${m.type==='image' && m.dataUrl ? `<img src="${m.dataUrl}" alt="${esc(m.title||'Pinned image')}">` : ''}
       ${m.title?`<h3 style="margin-bottom:4px">${esc(m.title)}</h3>`:''}
       ${m.text?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(m.text)}</p>`:''}
       <div class="mood-actions">
-        <span>${m.title && !ro?`<button class="btn sm" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`:''}</span>
+        <span>${m.title && !ro?(inItinerary
+          ?`<button class="btn sm ghost" onclick="App.removeIdeaFromItinerary(${i})">Remove from Itinerary</button>`
+          :`<button class="btn sm" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}</span>
         <span class="btn-row">
           ${!ro?`<button class="iconbtn edit" aria-label="Edit pin" title="Edit" onclick="App.moodForm(${i})">${ICONS.edit}</button>`:''}
           ${linkHref?`<a class="iconbtn mood-map" href="${esc(linkHref)}" target="_blank" rel="noopener" aria-label="Open link" title="Open link">${ICONS.pin}</a>`:''}
@@ -2545,7 +2596,7 @@ function tabMood(t, ro){
     </div>`;
   }).join('');
   return `
-    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.${!ro?' Try <strong>✦ Get Ideas</strong> for suggestions based on your destination.':''}</div>`}`;
+    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.</div>`}`;
 }
 let MOOD_IMG = null;   // pending pin image while the form is open
 function moodImgStatus(){
@@ -2608,58 +2659,6 @@ App.delMood = i => {
   toast('Pin removed', ()=>{ t.moodBoard.splice(Math.min(i,t.moodBoard.length),0,removed); logEdit('Ideas','restored '+label); save(); rerender(); });
 };
 
-/* --- destination-based suggestions (offline, no live data) --- */
-const SUGG = {
-  lisbon:[['activity','Ride Tram 28 through Alfama early morning to beat the queues'],['activity','Day trip to Sintra, Pena Palace & Quinta da Regaleira'],['food','Pastéis de Belém, the original custard tarts, worth the line'],['food','Time Out Market for a first-night crowd-pleaser dinner'],['activity','Sunset drinks at Miradouro de Santa Catarina'],['tip','Buy a Viva Viagem card and zap it for trams, metro & ferries']],
-  paris:[['activity','Walk Montmartre at sunrise before the crowds'],['activity','Seine picnic, grab cheese & a baguette from a fromagerie'],['food','Bouillon Chartier, classic French food at canteen prices'],['activity','Musée d\'Orsay over the Louvre if you only pick one'],['tip','Book Eiffel Tower / Louvre slots weeks ahead'],['food','Falafel on Rue des Rosiers in Le Marais']],
-  london:[['activity','Borough Market food crawl on Saturday morning'],['activity','Walk the South Bank: Tate Modern → Tower Bridge'],['food','Brick Lane bagels at 2am, a rite of passage'],['activity','Columbia Road Flower Market on Sunday'],['tip','Just tap a contactless card everywhere, no ticket needed'],['activity','Hampstead Heath swim + pub lunch at the Spaniards Inn']],
-  barcelona:[['activity','Book Sagrada Família tickets online, sunset slot for the light'],['food','Tapas crawl in El Born, finish with vermut'],['activity','Bunkers del Carmel for the best free view of the city'],['activity','Morning at Barceloneta, but locals prefer Bogatell beach'],['tip','Watch for pickpockets on Las Ramblas & the metro'],['food','La Boqueria market, go before 11am']],
-  amsterdam:[['activity','Rent bikes and loop the Vondelpark → Jordaan'],['activity','Anne Frank House, book exactly 6 weeks ahead, they sell out'],['food','Stroopwafels fresh & warm from Albert Cuyp Market'],['activity','Evening canal cruise (the small open boats beat the big glass ones)'],['tip','Cyclists have right of way, never walk in the bike lane'],['food','Indonesian rijsttafel, a legacy of Dutch colonial history, and a feast']],
-  rome:[['activity','Colosseum + Forum combined ticket, first entry slot'],['food','Carbonara in Trastevere, Da Enzo al 29 if you can get in'],['activity','Toss a coin in the Trevi at 7am when it\'s empty'],['activity','Aperitivo hour in Monti'],['tip','Tap water from the nasoni street fountains is excellent'],['food','Gelato rule: if it\'s piled high & neon, walk on']],
-  'new york':[['activity','Walk the Brooklyn Bridge at sunrise toward Manhattan'],['food','Katz\'s Deli pastrami, split one, they\'re huge'],['activity','The High Line → Chelsea Market → Little Island'],['activity','Comedy Cellar, book ahead'],['tip','Buy an OMNY-capable card? No, just tap your bank card on the subway'],['food','Dollar(ish) slice after midnight, it\'s the law']],
-  tokyo:[['activity','Tsukiji Outer Market breakfast, go hungry'],['activity','Shibuya Crossing then coffee looking down from Mag\'s Park'],['food','Ichiran ramen solo booths, order from the machine'],['activity','Day trip to Kamakura or Nikko'],['tip','Get a Suica in Apple Wallet before you land'],['tip','Carry cash, plenty of places still don\'t take cards']],
-  ibiza:[['activity','Sunset at Café del Mar or Experimental Beach'],['activity','Boat day to Formentera, Ses Illetes beach'],['food','Bullit de peix (fish stew) at a chiringuito'],['tip','Club tickets are cheaper online than on the door'],['activity','Old Town (Dalt Vila) evening wander before dinner'],['tip','Book taxis well ahead in peak season, or use the disco bus']],
-  dublin:[['activity','Guinness Storehouse, the Gravity Bar view is worth it'],['food','Full Irish at a proper café, not the hotel buffet'],['activity','Howth cliff walk + fish & chips at Beshoff Bros'],['activity','Trad session at The Cobblestone in Smithfield'],['tip','Temple Bar pints are €2 dearer than two streets away'],['activity','Kilmainham Gaol, book ahead, it sells out']],
-  prague:[['activity','Charles Bridge at dawn, genuinely empty at 6am'],['food','Goulash & dumplings at Lokál, plus tank Pilsner'],['activity','Petřín Hill funicular & tower for the view'],['activity','Old Town astronomical clock, watch once, that\'s enough'],['tip','Exchange rate scams: never use the street exchange booths'],['food','Trdelník is for tourists, try koláče instead']],
-  budapest:[['activity','Széchenyi Baths in the morning, Rudas rooftop pool at night'],['food','Lángos at the Great Market Hall'],['activity','Ruin bars in the Jewish Quarter, start at Szimpla Kert'],['activity','Sunset from Fisherman\'s Bastion'],['tip','Validate your metro ticket, inspectors show no mercy'],['food','Chimney cake (kürtőskalács) fresh off the coals']],
-  marbella:[['activity','Old Town orange square (Plaza de los Naranjos) evening drinks'],['food','Espetos, sardines grilled on the beach at a chiringuito'],['activity','Day trip to Ronda and its gorge-spanning bridge'],['activity','Puerto Banús for the boats-and-supercars people-watching'],['tip','August is peak, book restaurants days ahead'],['activity','Hike La Concha early morning before the heat']],
-  athens:[['activity','Acropolis at opening time (8am), beat heat and crowds'],['food','Souvlaki at O Kostas, cash only, worth it'],['activity','Sunset from Areopagus Hill, cheaper than a rooftop bar'],['activity','Ferry day trip to Aegina or Hydra'],['tip','Taxis: insist on the meter or use FreeNow'],['food','Loukoumades (honey doughnuts) for a mid-walk pick-me-up']],
-};
-const SUGG_GENERIC = [
-  ['activity','Free walking tour on day one, best way to get your bearings'],
-  ['food','Find the main food market and go hungry at lunchtime'],
-  ['activity','Ask a local bartender where THEY eat, never fails'],
-  ['tip','Screenshot key addresses & tickets in case of no signal'],
-  ['activity','One sunrise or sunset viewpoint per trip, minimum'],
-  ['tip','Agree a rough daily budget with the group before you land'],
-];
-App.suggest = () => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const dest = ((t.destination||'')+' '+t.name+' '+(t.countries||[]).map(c=>(countryByCode(c)||{}).name||'').join(' ')).toLowerCase();
-  let list = null, matched = '';
-  for(const key of Object.keys(SUGG)){
-    if(dest.includes(key)){ list = SUGG[key]; matched = key; break; }
-  }
-  const items = list || SUGG_GENERIC;
-  const label = {activity:'Do', food:'Eat', tip:'Tip'};
-  openModal(`
-    <h2>✦ Ideas${matched?' for '+esc(matched[0].toUpperCase()+matched.slice(1)):''}</h2>
-    <p class="muted small" style="margin-bottom:14px">${list?'Picked for your trip':'General trip ideas. Put a well-known city in the trip name for tailored ones'}. Tap + to pin to the board.</p>
-    ${items.map(([type,text],i)=>`
-      <div class="sugg">
-        <div><span class="badge inv">${label[type]||type}</span><div class="small" style="margin-top:6px">${esc(text)}</div></div>
-        <button class="btn sm" onclick="App.addSugg(${i},'${matched}')">+</button>
-      </div>`).join('')}`);
-};
-App.addSugg = (i, key) => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const items = key && SUGG[key] ? SUGG[key] : SUGG_GENERIC;
-  const [type, text] = items[i];
-  const title = (type==='food'?'Eat: ':type==='tip'?'Tip: ':'Do: ')+text.split(',')[0].trim();
-  t.moodBoard.push({id:uid(), type:'note', title, text, url:''});
-  logEdit('Ideas','pinned suggestion '+title);
-  save(); rerender(); toast('Pinned to board');
-};
 </script>
 </body>
 </html>
