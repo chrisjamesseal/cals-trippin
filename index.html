@@ -242,17 +242,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .doc-attach{display:inline-flex; align-items:center; gap:6px; font-size:.78rem; font-weight:600; color:var(--brand-dark); text-decoration:none;}
 .doc-attach .icon{font-size:.85rem;}
 .mood-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-top:14px;}
-.mood-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:14px; position:relative; word-break:break-word;}
+.mood-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:14px; word-break:break-word;}
 .mood-card img{width:100%; display:block; border-radius:var(--radius-sm); margin-bottom:8px;}
 .mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin-bottom:6px;}
-.mood-del{position:absolute; top:6px; right:6px;}
-.mood-card.has-map{padding-bottom:52px;}
-.mood-map{
-  position:absolute; bottom:10px; right:10px; width:34px; height:34px; border-radius:50%;
-  background:var(--brand-tint); color:var(--brand-dark); display:flex; align-items:center; justify-content:center;
-}
-.mood-map .icon{font-size:1.05rem;}
-.mood-map:hover{background:var(--brand); color:#fff;}
+.mood-actions{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;}
+.mood-map{color:var(--brand-dark);}
 .sugg{border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--paper); padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; gap:12px; align-items:flex-start;}
 .settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
 .settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
@@ -357,6 +351,9 @@ a.dash-tile{text-decoration:none;}
 .plan-auto-tag .icon{font-size:.95rem;}
 .plan-auto-tag .plan-time{margin-left:auto; font-size:.8rem; text-transform:none; letter-spacing:normal;}
 .plan-auto .flight-strip,.plan-auto .card{margin-bottom:0;}
+.plan-click{cursor:pointer;}
+.plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,.card.plan-click:hover{border-color:var(--brand);}
+.plan-auto.plan-click:focus-visible .flight-strip,.plan-auto.plan-click:focus-visible .card,.card.plan-click:focus-visible{outline:none; border-color:var(--brand);}
 
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
@@ -441,6 +438,19 @@ function save(){
 
 /* ================= cloud sync ================= */
 function cloudEnabled(){ return !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL); }
+/* surface *why* sync failed instead of a silent Offline pill — permission-denied (locked
+   database rules) is by far the most common cause when it's freshly configured */
+let _syncErrorToasted = false;
+function syncErrorHint(err){
+  const code = (err && (err.code||err.message||err)||'').toString();
+  if(/permission[_-]?denied/i.test(code)) return "Sync is blocked by the database rules. Open the Firebase console → Realtime Database → Rules and allow read/write.";
+  return 'Sync failed: '+code;
+}
+function reportSyncError(err){
+  console.error("Cal's Trippin' — cloud sync error:", err);
+  syncState='off'; paintSync();
+  if(!_syncErrorToasted){ _syncErrorToasted = true; toast(syncErrorHint(err)); }
+}
 function initCloud(){
   if(!cloudEnabled() || typeof firebase==='undefined'){ syncState='local'; return; }
   try{
@@ -448,8 +458,8 @@ function initCloud(){
     fbRoot = firebase.database();
     firebase.database().ref('.info/connected').on('value', s=>{
       if(CUR_TRIP_ID){ syncState = s.val() ? 'ok' : 'off'; paintSync(); }
-    });
-  }catch(e){ fbRoot = null; syncState='local'; }
+    }, reportSyncError);
+  }catch(e){ fbRoot = null; syncState='local'; console.error("Cal's Trippin' — Firebase failed to initialise:", e); }
 }
 /* strip heavy blobs so the shared document stays small & portable */
 function stripForCloud(t){
@@ -477,8 +487,8 @@ function pushTrip(t){
   lastPush = json;
   syncState='busy'; paintSync();
   fbRoot.ref('trips/'+t.id).set(clean)
-    .then(()=>{ syncState='ok'; paintSync(); })
-    .catch(()=>{ syncState='off'; paintSync(); });
+    .then(()=>{ syncState='ok'; _syncErrorToasted=false; paintSync(); })
+    .catch(reportSyncError);
 }
 /* keep any locally-held blobs that the shared copy dropped */
 function mergeRemote(local, remote){
@@ -514,13 +524,13 @@ function subscribeTrip(id){
     if(!echo && CUR_TRIP_ID===id && !modalOpen()) renderTrip(merged);
     else paintSync();
   };
-  ref.on('value', cb);
+  ref.on('value', cb, reportSyncError);
   tripSub = {id, ref, cb};
 }
 function fetchTripOnce(id, done){
   if(!fbRoot){ done(null); return; }
   fbRoot.ref('trips/'+id).get()
-    .then(s=>done(s.exists()?s.val():null)).catch(()=>done(null));
+    .then(s=>done(s.exists()?s.val():null)).catch(err=>{ reportSyncError(err); done(null); });
 }
 function paintSync(){
   const el = document.getElementById('sync-pill'); if(!el) return;
@@ -938,7 +948,7 @@ function renderHome(){
         <div class="trip-grid">${active.map(card).join('')}${arch.map(card).join('')}</div>`}
       ${DB.trips.length ? `
         <div class="backup-bar">
-          <span class="muted small">Trips are saved in this browser. Moving to a new phone or browser?</span>
+          <span class="muted small">${cloudEnabled()?'Trips sync automatically and stay backed up in the cloud.':'Trips are saved in this browser. Moving to a new phone or browser?'}</span>
           <span class="btn-row">
             <button class="btn sm" onclick="App.exportTrips()">${ICONS.download} Back Up Trips</button>
             <label class="btn sm" style="cursor:pointer">${ICONS.upload} Restore
@@ -1413,9 +1423,9 @@ function tabPlan(t, ro){
     const k = f.date||'';
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
-  (t.accommodations||[]).forEach(ac=>{
-    if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.checkinTime||'', ac});
-    if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac});
+  (t.accommodations||[]).forEach((ac,aci)=>{
+    if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.checkinTime||'', ac, aci});
+    if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac, aci});
   });
   const hasAny = Object.keys(groups).length > 0;
   const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
@@ -1432,36 +1442,35 @@ function tabPlan(t, ro){
   const timeBadge = s => s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][0]) || '';
   const autoTag = (icon, label, time) => `
     <div class="plan-auto-tag">${icon}<strong>${esc(label)}</strong>${time?`<span class="plan-time mono">${esc(time)}</span>`:''}</div>`;
+  const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
   const autoFlightCard = s => `
-    <div class="plan-auto">
+    <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
       ${autoTag(ICONS.flight, 'Flight', s.time)}
-      ${flightStripHTML(s.f, s.fi, `<button class="btn sm ghost" onclick="App.tab('travel')">Edit in Travel</button>`)}
+      ${flightStripHTML(s.f, s.fi, '')}
     </div>`;
   const autoStayCard = s => `
-    <div class="plan-auto">
+    <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
       ${autoTag(ICONS.stay, s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
-      ${accomCardHTML(s.ac, {showDates:false, footerActions:`<button class="btn sm ghost" onclick="App.tab('stay')">Edit in Accommodation</button>`})}
+      ${accomCardHTML(s.ac, {showDates:false})}
     </div>`;
   const card = s => {
     if(s._autoFlight) return autoFlightCard(s);
     if(s._autoStay) return autoStayCard(s);
     return `
-    <div class="card">
+    <div class="card${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       <div class="section-head" style="margin-bottom:4px">
         <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;min-width:0">
           ${timeBadge(s)?`<span class="plan-time mono">${esc(timeBadge(s))}</span>`:''}
           <h3>${esc(s.name)}</h3>
         </div>
-        ${!ro?`<span class="btn-row">
-          <button class="iconbtn edit" title="Edit" aria-label="Edit stop" onclick="App.planForm(${s._i})">${ICONS.edit}</button>
-          <button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="App.delPlan(${s._i})">${ICONS.trash}</button></span>`:''}
+        ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${s.image?`<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">`:''}
       ${s.location?`<iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
               src="https://maps.google.com/maps?q=${mapQuery(t, s.location)}&z=15&output=embed"
               title="Map of ${esc(s.location)}"></iframe>
-      <a class="small" href="${mapsSearchUrl(t, s.location)}" target="_blank" rel="noopener">Open in Google Maps</a>`:''}
+      <a class="doc-attach" href="${mapsSearchUrl(t, s.location)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>`:''}
     </div>`;
   };
   return `
@@ -1515,7 +1524,7 @@ App.planForm = (i, prefill) => {
     ${locationDatalist(t)}
     <div class="field"><label class="label" for="pl-notes">Why go?</label>
       <textarea id="pl-notes" placeholder="Why it's worth it, booking notes, cost…">${esc(s.notes||'')}</textarea></div>
-    <div class="field"><label class="label">Photo <span class="muted small">— optional</span></label>
+    <div class="field"><label class="label">Photo</label>
       <div id="pl-img-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">${planImgStatus()}</div>
       <label class="btn sm" style="cursor:pointer">${ICONS.upload} ${PLAN_IMG?'Replace photo':'Add photo'}<input type="file" accept="image/*" style="display:none" onchange="App.attachPlanImg(this)"></label></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePlan(${i})">Save Stop</button></div>`, {autofocus:false});
@@ -1550,21 +1559,21 @@ App.delPlan = i => {
 /* ================= TAB: travel (flights / ferries / car hire) ================= */
 function travelDocLink(arr, i, d){
   return d ? (d.dataUrl
-      ? `<a class="doc-attach" href="#" onclick="event.preventDefault();App.viewTravelDoc('${arr}',${i})">${ICONS.docs}${esc(d.name||'Document')}</a>`
+      ? `<a class="doc-attach" href="#" onclick="event.preventDefault();event.stopPropagation();App.viewTravelDoc('${arr}',${i})">${ICONS.docs}${esc(d.name||'Document')}</a>`
       : `<span class="doc-attach" style="opacity:.55">${ICONS.docs}${esc(d.name||'Document')}</span>`) : '';
 }
 function flightTrackLink(f){
   return f.flightNo
-      ? `<a class="doc-attach" href="https://www.google.com/search?q=${encodeURIComponent(f.flightNo+' flight status')}" target="_blank" rel="noopener" title="Live flight status">${ICONS.ext}Track Flight</a>`
+      ? `<a class="doc-attach" href="https://www.google.com/search?q=${encodeURIComponent(f.flightNo+' flight status')}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Live flight status">${ICONS.ext}Track Flight</a>`
       : '';
 }
-/* the full flight card — shared by Travel and, read-only, by the Itinerary */
+/* the full flight card — shared by Travel and, read-only (whole card opens the edit form), by the Itinerary */
 function flightStripHTML(f, i, actionsHTML){
   return `
     <div class="flight-strip">
       <div class="flight-head">
         <strong>${esc(f.airline||'Flight')} ${esc(f.flightNo||'')}</strong>
-        <span class="btn-row" style="align-items:center">
+        <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
           <span class="muted small">${f.date?fmtDate(f.date):''}</span>
           ${actionsHTML||''}
         </span>
@@ -1645,19 +1654,19 @@ function accomCardHTML(a, opts){
     <div class="card">
       <div class="section-head" style="margin-bottom:${a.address?'4px':'0'}">
         <h3>${esc(a.name||'Accommodation')}</h3>
-        ${opts.headerActions?`<span class="btn-row">${opts.headerActions}</span>`:''}
+        ${opts.headerActions?`<span class="btn-row" onclick="event.stopPropagation()">${opts.headerActions}</span>`:''}
       </div>
       ${a.address?`<div class="small" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span>${esc(a.address)}</span>
-        <a class="doc-attach" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" title="Open in Google Maps" aria-label="Open in Google Maps">${ICONS.pin}Map</a>
+        <a class="doc-attach" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open in Google Maps" aria-label="Open in Google Maps">${ICONS.pin}Map</a>
       </div>`:''}
       ${opts.showDates!==false ? `<div class="btn-row" style="margin-top:12px">
         ${a.checkin?`<span class="chip">Check-in: ${fmtDate(a.checkin)}${a.checkinTime?' · '+esc(a.checkinTime):''}</span>`:''}
         ${a.checkout?`<span class="chip">Check-out: ${fmtDate(a.checkout)}${a.checkoutTime?' · '+esc(a.checkoutTime):''}</span>`:''}
         ${a.ref?`<span class="chip">Ref: ${esc(a.ref)}</span>`:''}
       </div>` : (a.ref?`<div class="btn-row" style="margin-top:12px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:'')}
-      ${a.bookingUrl?`<div style="margin-top:14px"><a class="btn" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener">${faviconFor(a.bookingUrl)}View Booking ${ICONS.ext}</a></div>`:''}
-      ${opts.footerActions?`<div style="margin-top:12px">${opts.footerActions}</div>`:''}
+      ${a.bookingUrl?`<div style="margin-top:14px"><a class="btn" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking ${ICONS.ext}</a></div>`:''}
+      ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
     </div>`;
 }
 function tabStay(t, ro){
@@ -1773,7 +1782,10 @@ App.flightForm = i => {
       <div class="chips">${FLIGHT_INCLUDES.map(x=>`<label class="chip pick ${inc.includes(x)?'on':''}" style="cursor:pointer"><input type="checkbox" class="fl-inc" value="${esc(x)}" ${inc.includes(x)?'checked':''} style="display:none" onchange="this.closest('.chip').classList.toggle('on',this.checked)">${esc(x)}</label>`).join('')}</div>
     </div>
     ${attachField()}
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveFlight(${i})">Save Flight</button></div>`, {autofocus:false});
+    <div class="modal-actions">
+      <button class="btn primary" style="width:100%" onclick="App.saveFlight(${i})">Save Flight</button>
+      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteFlightFromForm(${i})">Delete Flight</button>`:''}
+    </div>`, {autofocus:false});
 };
 App.saveFlight = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -1789,8 +1801,9 @@ App.saveFlight = i => {
   if(i>=0) t.flights[i]=f; else t.flights.push(f);
   FORM_DOC = null;
   logEdit('Travel', (i>=0?'edited ':'added ')+label);
-  save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Flight saved');
+  save(); closeModal(); rerender(); toast('Flight saved');
 };
+App.deleteFlightFromForm = i => { closeModal(); App.delFlight(i); };
 App.delFlight = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
   const removed = t.flights[i]; const label=((removed.airline||'flight')+' '+(removed.flightNo||'')).trim();
@@ -1905,7 +1918,10 @@ App.accomForm = i => {
     </div>
     <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…"></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveAccom(${i})">Save</button></div>`);
+    <div class="modal-actions">
+      <button class="btn primary" style="width:100%" onclick="App.saveAccom(${i})">Save</button>
+      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteAccomFromForm(${i})">Delete Accommodation</button>`:''}
+    </div>`);
 };
 App.saveAccom = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -1921,8 +1937,9 @@ App.saveAccom = i => {
     ref:$('#ac-ref').value.trim(), bookingUrl:url};
   if(i>=0) t.accommodations[i]=a; else t.accommodations.push(a);
   logEdit('Accommodation', (i>=0?'updated ':'added ')+(name||'accommodation'));
-  save(); closeModal(); CUR_TAB='stay'; rerender();
+  save(); closeModal(); rerender();
 };
+App.deleteAccomFromForm = i => { closeModal(); App.delAccom(i); };
 App.delAccom = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t || !t.accommodations) return;
   const removed = t.accommodations[i]; const label = removed.name||'accommodation';
@@ -2461,54 +2478,79 @@ App.saveAlbum = () => {
 };
 /* ================= TAB: mood board ================= */
 function tabMood(t, ro){
-  const cards = (t.moodBoard||[]).map((m,i)=>`
-    <div class="mood-card ${m.title?'has-map':''}">
-      ${!ro?`<button class="iconbtn del mood-del" aria-label="Remove pin" title="Remove" onclick="App.delMood(${i})">${ICONS.trash}</button>`:''}
-      <div class="mood-type">${m.type}</div>
+  const cards = (t.moodBoard||[]).map((m,i)=>{
+    const linkHref = m.url || (m.title ? mapsSearchUrl(t, m.title.replace(/^(Do|Eat|Tip):\s*/,'')) : '');
+    return `
+    <div class="mood-card">
       ${m.type==='image' && m.dataUrl ? `<img src="${m.dataUrl}" alt="${esc(m.title||'Pinned image')}">` : ''}
       ${m.title?`<h3 style="margin-bottom:4px">${esc(m.title)}</h3>`:''}
-      ${m.url?`<a href="${esc(m.url)}" target="_blank" rel="noopener" class="small" style="word-break:break-all">${esc(m.url.replace(/^https?:\/\//,'').slice(0,60))} ↗</a>`:''}
       ${m.text?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(m.text)}</p>`:''}
-      ${m.title && !ro?`<div style="margin-top:10px"><button class="btn sm" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button></div>`:''}
-      ${m.title?`<a class="mood-map" href="${mapsSearchUrl(t, m.title.replace(/^(Do|Eat|Tip):\s*/,''))}" target="_blank" rel="noopener" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}</a>`:''}
-    </div>`).join('');
+      <div class="mood-actions">
+        <span>${m.title && !ro?`<button class="btn sm" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`:''}</span>
+        <span class="btn-row">
+          ${!ro?`<button class="iconbtn edit" aria-label="Edit pin" title="Edit" onclick="App.moodForm(${i})">${ICONS.edit}</button>`:''}
+          ${linkHref?`<a class="iconbtn mood-map" href="${esc(linkHref)}" target="_blank" rel="noopener" aria-label="Open link" title="Open link">${ICONS.pin}</a>`:''}
+        </span>
+      </div>
+    </div>`;
+  }).join('');
   return `
     ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.${!ro?' Try <strong>✦ Get Ideas</strong> for suggestions based on your destination.':''}</div>`}`;
 }
-App.moodForm = () => {
-  openModal(`
-    <h2>Pin to Board</h2>
-    <div class="field"><label class="label" for="md-title">Title</label><input id="md-title" type="text" placeholder="e.g. Sunset at Miradouro"></div>
-    <div class="field"><label class="label" for="md-url">Link (optional)</label><input id="md-url" type="url" placeholder="https://…"></div>
-    <div class="field"><label class="label" for="md-text">Note (optional)</label><textarea id="md-text" placeholder="Why it's worth doing…"></textarea></div>
-    <div class="field"><label class="label" for="md-img">Image (optional)</label><input id="md-img" type="file" accept="image/*" style="border:none;padding:0"></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveMood()">Pin It</button></div>`);
+let MOOD_IMG = null;   // pending pin image while the form is open
+function moodImgStatus(){
+  return MOOD_IMG
+    ? `<img src="${MOOD_IMG}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px"> <button type="button" class="iconbtn del" aria-label="Remove image" title="Remove image" onclick="App.clearMoodImg()">${ICONS.trash}</button>`
+    : `<span class="muted small">No image added</span>`;
+}
+App.clearMoodImg = () => { MOOD_IMG = null; const el=$('#md-img-status'); if(el) el.innerHTML = moodImgStatus(); };
+App.attachMoodImg = input => {
+  const file = input.files[0]; input.value=''; if(!file) return;
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    const scale = Math.min(1, 900/Math.max(img.width,img.height));
+    c.width = img.width*scale; c.height = img.height*scale;
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    MOOD_IMG = c.toDataURL('image/jpeg',.7);
+    const el=$('#md-img-status'); if(el) el.innerHTML = moodImgStatus();
+  };
+  img.src = URL.createObjectURL(file);
 };
-App.saveMood = () => {
+App.moodForm = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const m = (i>=0 && (t.moodBoard||[])[i]) || {};
+  MOOD_IMG = m.dataUrl || null;
+  openModal(`
+    <h2>${i>=0?'Edit Pin':'Pin to Board'}</h2>
+    <div class="field"><label class="label" for="md-title">Title</label><input id="md-title" type="text" value="${esc(m.title||'')}" placeholder="e.g. Sunset at Miradouro"></div>
+    <div class="field"><label class="label" for="md-url">Link</label><input id="md-url" type="url" value="${esc(m.url||'')}" placeholder="https://…"></div>
+    <div class="field"><label class="label" for="md-text">Note</label><textarea id="md-text" placeholder="Why it's worth doing…">${esc(m.text||'')}</textarea></div>
+    <div class="field"><label class="label">Image</label>
+      <div id="md-img-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">${moodImgStatus()}</div>
+      <label class="btn sm" style="cursor:pointer">${ICONS.upload} ${MOOD_IMG?'Replace image':'Add image'}<input type="file" accept="image/*" style="display:none" onchange="App.attachMoodImg(this)"></label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" style="width:100%" onclick="App.saveMood(${i>=0?i:-1})">${i>=0?'Save':'Pin It'}</button>
+      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteMoodFromForm(${i})">Delete Pin</button>`:''}
+    </div>`, {autofocus:false});
+};
+App.saveMood = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const title = $('#md-title').value.trim();
   let url = $('#md-url').value.trim();
   if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
   const text = $('#md-text').value.trim();
-  const fileEl = $('#md-img');
-  const pin = extra => {
-    if(!title && !url && !text && !extra.dataUrl) return markErr('#md-title','Add a title, link, note or image');
-    t.moodBoard.push({id:uid(), type: extra.dataUrl?'image':(url?'link':'note'), title, url, text, ...extra});
-    logEdit('Ideas','pinned '+(title||url||'an idea'));
-    save(); closeModal(); rerender(); toast('Pinned');
-  };
-  if(fileEl.files[0]){
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      const scale = Math.min(1, 900/Math.max(img.width,img.height));
-      c.width = img.width*scale; c.height = img.height*scale;
-      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-      pin({dataUrl: c.toDataURL('image/jpeg',.7)});
-    };
-    img.src = URL.createObjectURL(fileEl.files[0]);
-  } else pin({});
+  if(!title && !url && !text && !MOOD_IMG) return markErr('#md-title','Add a title, link, note or image');
+  t.moodBoard = t.moodBoard||[];
+  const pin = {id: i>=0 && t.moodBoard[i] ? t.moodBoard[i].id : uid(),
+    type: MOOD_IMG?'image':(url?'link':'note'), title, url, text, ...(MOOD_IMG?{dataUrl:MOOD_IMG}:{})};
+  if(i>=0) t.moodBoard[i]=pin; else t.moodBoard.push(pin);
+  MOOD_IMG = null;
+  logEdit('Ideas', (i>=0?'edited ':'pinned ')+(title||url||'an idea'));
+  save(); closeModal(); rerender(); toast(i>=0?'Pin updated':'Pinned');
 };
+App.deleteMoodFromForm = i => { closeModal(); App.delMood(i); };
 App.delMood = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
   const removed = t.moodBoard[i]; const label = removed.title||removed.url||'a pin';
