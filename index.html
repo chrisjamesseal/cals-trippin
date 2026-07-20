@@ -245,6 +245,12 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin-bottom:6px;}
 .mood-actions{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;}
 .mood-map{color:var(--brand-dark);}
+.nearby-acc{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); margin-top:16px; overflow:hidden;}
+.nearby-acc summary{list-style:none; cursor:pointer; padding:14px; font-weight:700; display:flex; align-items:center; gap:8px;}
+.nearby-acc summary::-webkit-details-marker{display:none;}
+.nearby-acc summary::after{content:'\25BE'; margin-left:auto; opacity:.6; transition:transform .15s;}
+.nearby-acc[open] summary::after{transform:rotate(180deg);}
+.nearby-acc-body{padding:0 14px 14px;}
 .settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
 .settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
 .settle-row:last-child{border-bottom:none;}
@@ -1720,6 +1726,8 @@ function guessCityFromAddress(address){
   if(!parts.length) return '';
   const looksLikePostcode = /\d/.test(parts[parts.length-1]) && parts[parts.length-1].length<=10;
   if(looksLikePostcode && parts.length>1) parts.pop();
+  // "Saranda, Albania" shouldn't guess the country as the city — drop it and use the town
+  if(parts.length>1 && countryByName(parts[parts.length-1])) parts.pop();
   return parts[parts.length-1] || '';
 }
 function detectBookingService(url){
@@ -1758,6 +1766,10 @@ function wikiApi(params){
   const qs = new URLSearchParams(Object.assign({format:'json', origin:'*'}, params)).toString();
   return fetch('https://en.wikipedia.org/w/api.php?'+qs).then(r=>r.json());
 }
+/* administrative places (towns, airports, etc.) aren't "things to do" — filter them out
+   using Wikidata's short description ("town in Albania", "international airport"...),
+   which is far more reliable than guessing from the article text */
+const NEARBY_NOT_ACTIVITY = /\b(city|town|village|municipality|municipal|comune|community|hamlet|borough|district|county|province|prefecture|department|commune|parish|region|state|country|capital|census|unincorporated|airport|aerodrome)\b/i;
 function loadNearby(city){
   if(NEARBY[city]) return; // already loading, loaded, or errored — use App.retryNearby to force
   NEARBY[city] = {status:'loading', items:[]};
@@ -1767,20 +1779,22 @@ function loadNearby(city){
       const page = pages && Object.values(pages)[0];
       const coord = page && page.coordinates && page.coordinates[0];
       if(!coord) throw new Error('no coordinates found for '+city);
-      return wikiApi({action:'query', list:'geosearch', gscoord:coord.lat+'|'+coord.lon, gsradius:10000, gslimit:16})
+      return wikiApi({action:'query', list:'geosearch', gscoord:coord.lat+'|'+coord.lon, gsradius:10000, gslimit:35})
         .then(geo=>{
           const results = ((geo.query && geo.query.geosearch) || []).filter(g=>g.pageid!==page.pageid);
           if(!results.length) return [];
           return wikiApi({action:'query', pageids:results.map(g=>g.pageid).join('|'),
-              prop:'pageimages|extracts', exintro:1, explaintext:1, exchars:220, pithumbsize:400})
+              prop:'pageimages|extracts|pageterms', exintro:1, explaintext:1, exsentences:1, pithumbsize:400, wbptterms:'description'})
             .then(det=>{
               const dpages = (det.query && det.query.pages) || {};
               return results.map(g=>{
                 const d = dpages[g.pageid];
                 if(!d || !d.thumbnail) return null;
+                const desc = (d.terms && d.terms.description && d.terms.description[0]) || '';
+                if(NEARBY_NOT_ACTIVITY.test(desc) || NEARBY_NOT_ACTIVITY.test(d.title)) return null;
                 return {title:d.title, extract:(d.extract||'').trim(), thumb:d.thumbnail.source,
                         url:'https://en.wikipedia.org/wiki/'+encodeURIComponent(d.title.replace(/ /g,'_'))};
-              }).filter(Boolean).slice(0,9);
+              }).filter(Boolean).slice(0,5);
             });
         });
     })
@@ -1805,6 +1819,12 @@ App.pinNearby = (ci, ni) => {
   t.moodBoard.push({id:uid(), type:'image', title:item.title, text:item.extract, url:item.url, dataUrl:item.thumb});
   logEdit('Ideas','pinned '+item.title+' (nearby suggestion)');
   save(); rerender(); toast('Pinned');
+};
+let NEARBY_OPEN = {}; // per-city accordion open state, so it survives the rerender() a pin/retry triggers
+App.toggleNearbyOpen = (ci, isOpen) => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const city = tripNearbyCities(t)[ci]; if(!city) return;
+  NEARBY_OPEN[city] = isOpen;
 };
 function nearbySectionHTML(t, ro){
   const cities = tripNearbyCities(t);
@@ -1832,7 +1852,10 @@ function nearbySectionHTML(t, ro){
           </div>
         </div>`).join('')}</div>`;
     }
-    return `<div class="section-head" style="margin-top:22px"><h3>${ICONS.compass} Nearby ${esc(city)}</h3></div>${body}`;
+    return `<details class="nearby-acc"${NEARBY_OPEN[city]?' open':''} ontoggle="App.toggleNearbyOpen(${ci},this.open)">
+      <summary>${ICONS.compass} Nearby ${esc(city)}</summary>
+      <div class="nearby-acc-body">${body}</div>
+    </details>`;
   }).join('');
 }
 /* the full accommodation card — shared by Accommodation and, read-only, by the Itinerary.
