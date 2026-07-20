@@ -1147,6 +1147,7 @@ const ICONS = {
   car: fa('car'),
   stay: fa('bed'),
   ext: fa('up-right-from-square'),
+  compass: fa('compass'),
   contacts: fa('address-book'),
   notes: fa('note-sticky'),
   edit: fa('pen'),
@@ -1737,6 +1738,102 @@ function autoAccomName(url, address){
   if(service) return service;
   if(city) return 'Stay in '+city;
   return '';
+}
+/* ================= nearby ideas (Wikipedia GeoSearch) =================
+   No API key needed and Wikipedia's action API explicitly supports
+   cross-origin calls via origin=*, which is why it's the source here
+   instead of a places API that would need a key baked into this public
+   static page, or a CORS proxy (unreliable, see the booking-link decision). */
+let NEARBY = {}; // city -> {status:'loading'|'ok'|'error', items:[{title,extract,thumb,url}]}
+function tripNearbyCities(t){
+  const cities = [];
+  (t.accommodations||[]).forEach(a=>{
+    const c = guessCityFromAddress(a.address);
+    if(c && !cities.includes(c)) cities.push(c);
+  });
+  if(!cities.length && t.destination && t.destination.trim()) cities.push(t.destination.trim());
+  return cities;
+}
+function wikiApi(params){
+  const qs = new URLSearchParams(Object.assign({format:'json', origin:'*'}, params)).toString();
+  return fetch('https://en.wikipedia.org/w/api.php?'+qs).then(r=>r.json());
+}
+function loadNearby(city){
+  if(NEARBY[city]) return; // already loading, loaded, or errored — use App.retryNearby to force
+  NEARBY[city] = {status:'loading', items:[]};
+  wikiApi({action:'query', titles:city, prop:'coordinates', redirects:1})
+    .then(data=>{
+      const pages = data.query && data.query.pages;
+      const page = pages && Object.values(pages)[0];
+      const coord = page && page.coordinates && page.coordinates[0];
+      if(!coord) throw new Error('no coordinates found for '+city);
+      return wikiApi({action:'query', list:'geosearch', gscoord:coord.lat+'|'+coord.lon, gsradius:10000, gslimit:16})
+        .then(geo=>{
+          const results = ((geo.query && geo.query.geosearch) || []).filter(g=>g.pageid!==page.pageid);
+          if(!results.length) return [];
+          return wikiApi({action:'query', pageids:results.map(g=>g.pageid).join('|'),
+              prop:'pageimages|extracts', exintro:1, explaintext:1, exchars:220, pithumbsize:400})
+            .then(det=>{
+              const dpages = (det.query && det.query.pages) || {};
+              return results.map(g=>{
+                const d = dpages[g.pageid];
+                if(!d || !d.thumbnail) return null;
+                return {title:d.title, extract:(d.extract||'').trim(), thumb:d.thumbnail.source,
+                        url:'https://en.wikipedia.org/wiki/'+encodeURIComponent(d.title.replace(/ /g,'_'))};
+              }).filter(Boolean).slice(0,9);
+            });
+        });
+    })
+    .then(items=>{ NEARBY[city] = {status:'ok', items}; if(CUR_TAB==='mood') rerender(); })
+    .catch(err=>{
+      console.error('Nearby ideas fetch failed for', city, err);
+      NEARBY[city] = {status:'error', items:[]};
+      if(CUR_TAB==='mood') rerender();
+    });
+}
+App.retryNearby = ci => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const city = tripNearbyCities(t)[ci]; if(!city) return;
+  delete NEARBY[city];
+  rerender();
+};
+App.pinNearby = (ci, ni) => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const city = tripNearbyCities(t)[ci]; if(!city) return;
+  const entry = NEARBY[city]; const item = entry && entry.items[ni]; if(!item) return;
+  t.moodBoard = t.moodBoard||[];
+  t.moodBoard.push({id:uid(), type:'image', title:item.title, text:item.extract, url:item.url, dataUrl:item.thumb});
+  logEdit('Ideas','pinned '+item.title+' (nearby suggestion)');
+  save(); rerender(); toast('Pinned');
+};
+function nearbySectionHTML(t, ro){
+  const cities = tripNearbyCities(t);
+  if(!cities.length) return '';
+  return cities.map((city, ci) => {
+    loadNearby(city);
+    const entry = NEARBY[city] || {status:'loading', items:[]};
+    let body;
+    if(entry.status==='loading'){
+      body = `<div class="muted small" style="padding:8px 0"><i class="icon fa-solid fa-spinner fa-spin"></i> Loading nearby ideas…</div>`;
+    } else if(entry.status==='error'){
+      body = `<div class="muted small" style="padding:8px 0">Couldn't load nearby ideas for ${esc(city)}.
+        <button class="btn sm" type="button" onclick="App.retryNearby(${ci})">Try again</button></div>`;
+    } else if(!entry.items.length){
+      body = `<div class="muted small" style="padding:8px 0">No nearby ideas found for ${esc(city)}.</div>`;
+    } else {
+      body = `<div class="mood-grid">${entry.items.map((n,ni)=>`
+        <div class="mood-card">
+          <img src="${esc(n.thumb)}" alt="${esc(n.title)}">
+          <h3 style="margin-bottom:4px">${esc(n.title)}</h3>
+          ${n.extract?`<p class="small" style="margin-top:6px">${esc(n.extract)}</p>`:''}
+          <div class="mood-actions">
+            <span>${!ro?`<button class="btn sm" onclick="App.pinNearby(${ci},${ni})">+ Pin It</button>`:''}</span>
+            <span class="btn-row"><a class="iconbtn mood-map" href="${esc(n.url)}" target="_blank" rel="noopener" aria-label="Open on Wikipedia" title="Open on Wikipedia">${ICONS.ext}</a></span>
+          </div>
+        </div>`).join('')}</div>`;
+    }
+    return `<div class="section-head" style="margin-top:22px"><h3>${ICONS.compass} Nearby ${esc(city)}</h3></div>${body}`;
+  }).join('');
 }
 /* the full accommodation card — shared by Accommodation and, read-only, by the Itinerary.
    opts: headerActions (edit/delete, top-right), footerActions (e.g. a link back to this
@@ -2654,7 +2751,8 @@ function tabMood(t, ro){
     </div>`;
   }).join('');
   return `
-    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.</div>`}`;
+    ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">Nothing pinned yet.</div>`}
+    ${nearbySectionHTML(t, ro)}`;
 }
 let MOOD_IMG = null;   // pending pin image while the form is open
 function moodImgStatus(){
