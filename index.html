@@ -251,6 +251,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .nearby-acc summary::after{content:'\25BE'; margin-left:auto; opacity:.6; transition:transform .15s;}
 .nearby-acc[open] summary::after{transform:rotate(180deg);}
 .nearby-acc-body{padding:0 14px 14px;}
+.nearby-list{display:flex; flex-direction:column;}
+.nearby-item{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);}
+.nearby-item:last-child{border-bottom:none;}
 .settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
 .settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
 .settle-row:last-child{border-bottom:none;}
@@ -1747,12 +1750,16 @@ function autoAccomName(url, address){
   if(city) return 'Stay in '+city;
   return '';
 }
-/* ================= nearby ideas (Wikipedia GeoSearch) =================
-   No API key needed and Wikipedia's action API explicitly supports
-   cross-origin calls via origin=*, which is why it's the source here
-   instead of a places API that would need a key baked into this public
-   static page, or a CORS proxy (unreliable, see the booking-link decision). */
-let NEARBY = {}; // city -> {status:'loading'|'ok'|'error', items:[{title,extract,thumb,url}]}
+/* ================= nearby ideas (Wikivoyage "Do" listings) =================
+   Wikipedia geosearch (the original source here) only surfaces places notable
+   enough for an encyclopedia — castles, monasteries, museums — which reads as
+   "generic landmarks", not "fun things to do". Wikivoyage is a travel guide:
+   its "Do" section is written for travelers (nightlife, tours, watersports...).
+   Same free/keyless/CORS-friendly MediaWiki API as before, no API key baked
+   into this public page and no CORS proxy needed. Tradeoff: Wikivoyage articles
+   are one page per destination, not one page per place, so there's no photo
+   per suggestion — just a single hero image for the destination. */
+let NEARBY = {}; // city -> {status:'loading'|'ok'|'error', title, hero, items:[{name,desc}]}
 function tripNearbyCities(t){
   const cities = [];
   (t.accommodations||[]).forEach(a=>{
@@ -1762,43 +1769,79 @@ function tripNearbyCities(t){
   if(!cities.length && t.destination && t.destination.trim()) cities.push(t.destination.trim());
   return cities;
 }
-function wikiApi(params){
+function wikivoyageApi(params){
   const qs = new URLSearchParams(Object.assign({format:'json', origin:'*'}, params)).toString();
-  return fetch('https://en.wikipedia.org/w/api.php?'+qs).then(r=>r.json());
+  return fetch('https://en.wikivoyage.org/w/api.php?'+qs).then(r=>r.json());
 }
-/* administrative places (towns, airports, etc.) aren't "things to do" — filter them out
-   using Wikidata's short description ("town in Albania", "international airport"...),
-   which is far more reliable than guessing from the article text */
-const NEARBY_NOT_ACTIVITY = /\b(city|town|village|municipality|municipal|comune|community|hamlet|borough|district|county|province|prefecture|department|commune|parish|region|state|country|capital|census|unincorporated|airport|aerodrome)\b/i;
-function loadNearby(city){
-  if(NEARBY[city]) return; // already loading, loaded, or errored — use App.retryNearby to force
-  NEARBY[city] = {status:'loading', items:[]};
-  wikiApi({action:'query', titles:city, prop:'coordinates', redirects:1})
+const wvUrl = title => 'https://en.wikivoyage.org/wiki/'+encodeURIComponent(title.replace(/ /g,'_'));
+/* a small village address (e.g. "Palaiokastritsa") often has no dedicated Wikivoyage
+   article — fall back to a title search so close/partial matches still resolve */
+function resolveWikivoyageTitle(city){
+  return wikivoyageApi({action:'query', titles:city, redirects:1})
     .then(data=>{
       const pages = data.query && data.query.pages;
       const page = pages && Object.values(pages)[0];
-      const coord = page && page.coordinates && page.coordinates[0];
-      if(!coord) throw new Error('no coordinates found for '+city);
-      return wikiApi({action:'query', list:'geosearch', gscoord:coord.lat+'|'+coord.lon, gsradius:10000, gslimit:35})
-        .then(geo=>{
-          const results = ((geo.query && geo.query.geosearch) || []).filter(g=>g.pageid!==page.pageid);
-          if(!results.length) return [];
-          return wikiApi({action:'query', pageids:results.map(g=>g.pageid).join('|'),
-              prop:'pageimages|extracts|pageterms', exintro:1, explaintext:1, exsentences:1, pithumbsize:400, wbptterms:'description'})
-            .then(det=>{
-              const dpages = (det.query && det.query.pages) || {};
-              return results.map(g=>{
-                const d = dpages[g.pageid];
-                if(!d || !d.thumbnail) return null;
-                const desc = (d.terms && d.terms.description && d.terms.description[0]) || '';
-                if(NEARBY_NOT_ACTIVITY.test(desc) || NEARBY_NOT_ACTIVITY.test(d.title)) return null;
-                return {title:d.title, extract:(d.extract||'').trim(), thumb:d.thumbnail.source,
-                        url:'https://en.wikipedia.org/wiki/'+encodeURIComponent(d.title.replace(/ /g,'_'))};
-              }).filter(Boolean).slice(0,5);
-            });
+      if(page && !page.missing) return page.title;
+      return wikivoyageApi({action:'query', list:'search', srsearch:city, srlimit:1})
+        .then(s=>{
+          const hit = s.query && s.query.search && s.query.search[0];
+          if(!hit) throw new Error('no Wikivoyage article found for '+city);
+          return hit.title;
         });
-    })
-    .then(items=>{ NEARBY[city] = {status:'ok', items}; if(CUR_TAB==='mood') rerender(); })
+    });
+}
+/* Wikivoyage's "listing" template renders each place as a block with a
+   listingname-ish bolded title followed by a description — but small/older
+   articles sometimes just use plain bullet points, so fall back to splitting
+   each <li> on its first colon/dash if no listing markup is found */
+function parseWikivoyageDoSection(html){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  let nodes = Array.from(doc.querySelectorAll('.listing'));
+  if(!nodes.length) nodes = Array.from(doc.querySelectorAll('li'));
+  const items = nodes.map(el=>{
+    const nameEl = el.querySelector('.listingname, b, strong');
+    const descEl = el.querySelector('.listingdescription');
+    const full = el.textContent.trim();
+    let name = nameEl ? nameEl.textContent.trim() : '';
+    // prefer the dedicated description span — the address/phone/hours block that Wikivoyage's
+    // listing template puts between the name and description isn't real prose, so splitting on
+    // "first sentence" over the raw combined text mistakes an abbreviation like "St." for the end
+    let desc = descEl ? descEl.textContent.trim() : '';
+    if(!name){
+      const m = full.match(/^(.{2,60}?)[:\-–—]\s*(.+)$/);
+      if(m){ name = m[1].trim(); if(!desc) desc = m[2].trim(); }
+      else { name = full.split(/\s+/).slice(0,6).join(' '); if(!desc) desc = full; }
+    } else if(!desc){
+      desc = full.slice(full.indexOf(name)+name.length).replace(/^[\s:.\-–—]+/, '').trim();
+    }
+    desc = (desc.split(/(?<=[.!?])\s/)[0] || '').trim();
+    return {name, desc};
+  }).filter(x=>x.name && x.name.length>1);
+  const seen = new Set();
+  return items.filter(x=>{ const k=x.name.toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,5);
+}
+function loadNearby(city){
+  if(NEARBY[city]) return; // already loading, loaded, or errored — use App.retryNearby to force
+  NEARBY[city] = {status:'loading', items:[]};
+  resolveWikivoyageTitle(city)
+    .then(title => wikivoyageApi({action:'parse', page:title, prop:'sections'})
+      .then(secData=>{
+        const sections = (secData.parse && secData.parse.sections) || [];
+        const doSection = sections.find(s=>(s.line||'').trim().toLowerCase()==='do');
+        const heroP = wikivoyageApi({action:'query', titles:title, prop:'pageimages', pithumbsize:500, redirects:1})
+          .then(imgData=>{
+            const pages = imgData.query && imgData.query.pages;
+            const p = pages && Object.values(pages)[0];
+            return (p && p.thumbnail && p.thumbnail.source) || null;
+          }).catch(()=>null);
+        if(!doSection) return heroP.then(hero=>({title, hero, items:[]}));
+        return Promise.all([heroP, wikivoyageApi({action:'parse', page:title, section:doSection.index, prop:'text'})])
+          .then(([hero, txtData])=>{
+            const html = (txtData.parse && txtData.parse.text && txtData.parse.text['*']) || '';
+            return {title, hero, items:parseWikivoyageDoSection(html)};
+          });
+      }))
+    .then(({title, hero, items})=>{ NEARBY[city] = {status:'ok', title, hero, items}; if(CUR_TAB==='mood') rerender(); })
     .catch(err=>{
       console.error('Nearby ideas fetch failed for', city, err);
       NEARBY[city] = {status:'error', items:[]};
@@ -1816,8 +1859,8 @@ App.pinNearby = (ci, ni) => {
   const city = tripNearbyCities(t)[ci]; if(!city) return;
   const entry = NEARBY[city]; const item = entry && entry.items[ni]; if(!item) return;
   t.moodBoard = t.moodBoard||[];
-  t.moodBoard.push({id:uid(), type:'image', title:item.title, text:item.extract, url:item.url, dataUrl:item.thumb});
-  logEdit('Ideas','pinned '+item.title+' (nearby suggestion)');
+  t.moodBoard.push({id:uid(), title:item.name, text:item.desc, url:wvUrl(entry.title)});
+  logEdit('Ideas','pinned '+item.name+' (nearby suggestion)');
   save(); rerender(); toast('Pinned');
 };
 let NEARBY_OPEN = {}; // per-city accordion open state, so it survives the rerender() a pin/retry triggers
@@ -1834,23 +1877,24 @@ function nearbySectionHTML(t, ro){
     const entry = NEARBY[city] || {status:'loading', items:[]};
     let body;
     if(entry.status==='loading'){
-      body = `<div class="muted small" style="padding:8px 0"><i class="icon fa-solid fa-spinner fa-spin"></i> Loading nearby ideas…</div>`;
+      body = `<div class="muted small" style="padding:8px 0"><i class="icon fa-solid fa-spinner fa-spin"></i> Loading things to do…</div>`;
     } else if(entry.status==='error'){
       body = `<div class="muted small" style="padding:8px 0">Couldn't load nearby ideas for ${esc(city)}.
         <button class="btn sm" type="button" onclick="App.retryNearby(${ci})">Try again</button></div>`;
     } else if(!entry.items.length){
-      body = `<div class="muted small" style="padding:8px 0">No nearby ideas found for ${esc(city)}.</div>`;
+      body = `<div class="muted small" style="padding:8px 0">No activities listed for ${esc(city)} on Wikivoyage yet.</div>`;
     } else {
-      body = `<div class="mood-grid">${entry.items.map((n,ni)=>`
-        <div class="mood-card">
-          <img src="${esc(n.thumb)}" alt="${esc(n.title)}">
-          <h3 style="margin-bottom:4px">${esc(n.title)}</h3>
-          ${n.extract?`<p class="small" style="margin-top:6px">${esc(n.extract)}</p>`:''}
-          <div class="mood-actions">
-            <span>${!ro?`<button class="btn sm" onclick="App.pinNearby(${ci},${ni})">+ Pin It</button>`:''}</span>
-            <span class="btn-row"><a class="iconbtn mood-map" href="${esc(n.url)}" target="_blank" rel="noopener" aria-label="Open on Wikipedia" title="Open on Wikipedia">${ICONS.ext}</a></span>
-          </div>
-        </div>`).join('')}</div>`;
+      body = `
+        ${entry.hero?`<img src="${esc(entry.hero)}" alt="${esc(entry.title)}" style="width:100%;display:block;border-radius:var(--radius-sm);margin-bottom:10px">`:''}
+        <div class="nearby-list">${entry.items.map((n,ni)=>`
+          <div class="nearby-item">
+            <div style="min-width:0">
+              <strong>${esc(n.name)}</strong>
+              ${n.desc?`<p class="small" style="margin-top:2px">${esc(n.desc)}</p>`:''}
+            </div>
+            ${!ro?`<button class="btn sm" style="flex-shrink:0;white-space:nowrap" onclick="App.pinNearby(${ci},${ni})">+ Pin It</button>`:''}
+          </div>`).join('')}</div>
+        <a class="doc-attach" href="${esc(wvUrl(entry.title))}" target="_blank" rel="noopener" style="margin-top:10px">${ICONS.ext} Full guide on Wikivoyage</a>`;
     }
     return `<details class="nearby-acc"${NEARBY_OPEN[city]?' open':''} ontoggle="App.toggleNearbyOpen(${ci},this.open)">
       <summary>${ICONS.compass} Nearby ${esc(city)}</summary>
