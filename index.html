@@ -111,8 +111,7 @@ a{color:var(--brand-dark);}
 .trip-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 .trip-card.archived{opacity:.55; filter:grayscale(1);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
-.card-go{position:absolute; top:14px; right:16px; font-size:1.5rem; line-height:1; color:var(--line-strong); transition:color .1s, transform .1s;}
-.trip-card:hover .card-go,.trip-card:focus-visible .card-go{color:var(--brand); transform:translateX(3px);}
+.trip-card .trip-flags{margin-bottom:4px;}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 
 /* ---------- section menu (replaces the old scrolling tab strip) ---------- */
@@ -308,19 +307,17 @@ details .d-body{padding:14px 16px;}
 .dash-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:6px;}
 .dash-tile{
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
-  padding:14px 16px; cursor:pointer; position:relative; min-width:0;
-  display:flex; align-items:center; gap:14px;
+  padding:16px; cursor:pointer; position:relative; min-width:0;
+  display:flex; flex-direction:column; align-items:flex-start; gap:10px;
   transition:transform .1s, box-shadow .1s, border-color .1s;
 }
 .dash-tile:hover,.dash-tile:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
-.dash-tile > .icon{font-size:1.6rem; color:var(--brand); flex-shrink:0; width:28px; text-align:center;}
-.dash-text{display:flex; flex-direction:column; min-width:0;}
-.dash-tile .dash-label{font-weight:700; font-size:.95rem; color:var(--ink);}
+.dash-tile > .dash-icon{font-size:1.5rem; color:var(--brand);}
+.dash-text{display:flex; flex-direction:column; min-width:0; width:100%;}
+.dash-tile .dash-label{font-weight:700; font-size:.95rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .dash-tile .dash-sum{color:var(--muted); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .dash-tile .dash-sum.unfilled{color:#C0392B; font-weight:600;}
 a.dash-tile{text-decoration:none;}
-.dash-tile .dash-go{margin-left:auto; font-size:1.3rem; line-height:1; color:var(--line-strong); flex-shrink:0;}
-.dash-tile:hover .dash-go{color:var(--brand);}
 
 /* ---------- backup / restore bar ---------- */
 .backup-bar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px solid var(--line); margin-top:28px; padding-top:16px;}
@@ -394,8 +391,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 const CHANGELOG = [
+  {version:'1.8.0', notes:['Dashboard tiles: icon above the text, no more arrow, and fixed long accommodation names overflowing their box.', 'Renamed "Emergency Contacts" to "Contacts".', 'Trip cards on the home screen: removed the arrow and the people/receipts line, and moved the country flags above the title.']},
   {version:'1.7.0', notes:['Ideas: TikTok/Instagram links are now a clickable thumbnail instead of a live embed, and the map icon only shows up when you\'ve actually added a maps link.', 'Removed the sync status pill from the header.', 'Dashboard tiles are back to two per row.']},
   {version:'1.6.0', notes:['Added this version number and changelog, next to the logo.']},
   {version:'1.5.0', notes:['Ideas: replaced the "Nearby" suggestions with the ability to add TikTok or Instagram links, which embed right in the page, plus an optional Google Maps link per idea.']},
@@ -976,14 +974,11 @@ function renderHome(){
     <div class="trip-card ${isArchived(t)?'archived':''}" role="button" tabindex="0"
          onclick="location.hash='#/trip/${t.id}'"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${t.id}'}">
-      <span class="card-go" aria-hidden="true">${fa('chevron-right')}</span>
+      ${tripFlags(t)?`<div class="trip-flags">${tripFlags(t)}</div>`:''}
       <h3>${esc(t.name)}</h3>
-      ${tripFlags(t)||t.destination?`<div class="muted">${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span> `:''}${esc(t.destination||'')}</div>`:''}
+      ${t.destination?`<div class="muted">${esc(t.destination)}</div>`:''}
       <div class="small" style="margin-top:8px">${fmtRange(t.startDate,t.endDate)}</div>
-      <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap">
-        ${statusPill(t)}
-        <span class="muted small">${(t.participants||[]).length} people · ${(t.receipts||[]).length} receipts</span>
-      </div>
+      <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
   $('#app').innerHTML = `
     <div style="padding-top:28px">
@@ -1192,7 +1187,7 @@ const TABS = [
   ['mood','Ideas'],
   ['money','Money'],
   ['photos','Photos'],
-  ['contacts','Emergency Contacts'],
+  ['contacts','Contacts'],
   ['docs','Documents'],
   ['notes','Notes'],
   ['log','Activity']
@@ -1429,7 +1424,7 @@ function tabHome(t){
     ['mood','Ideas', nPins ? nPins+(nPins===1?' idea pinned':' ideas pinned') : 'Nothing pinned yet', !nPins],
     ['money','Money', moneySum, !nRec],
     ['photos','Photos', album || 'No shared album yet', !album],
-    ['contacts','Emergency Contacts', nContacts ? nContacts+(nContacts===1?' contact':' contacts') : 'None added yet', !nContacts],
+    ['contacts','Contacts', nContacts ? nContacts+(nContacts===1?' contact':' contacts') : 'None added yet', !nContacts],
     ['docs','Documents', docParts.join(' · ') || 'Nothing saved yet', !docParts.length],
     ['notes','Notes', notesAdded ? 'Notes added' : 'No notes yet', !notesAdded],
     ['log','Activity', nLog ? nLog+(nLog===1?' change logged':' changes logged') : 'No changes yet', !nLog]
@@ -1438,8 +1433,8 @@ function tabHome(t){
   const tile = ([k,label,sum,empty]) => `
     <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)}"
          onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">
-      ${ICONS[k]}<span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum${empty?' unfilled':''}">${esc(sum)}</span></span>
-      <span class="dash-go" aria-hidden="true">${fa('chevron-right')}</span>
+      <span class="dash-icon">${ICONS[k]}</span>
+      <span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum${empty?' unfilled':''}">${esc(sum)}</span></span>
     </div>`;
   return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
 }
@@ -2125,20 +2120,20 @@ App.saveContact = i => {
   const t = getTrip(CUR_TRIP_ID);
   const name = $('#ct-name').value.trim(); if(!name) return markErr('#ct-name','Enter a name');
   const contact = {name, phone:$('#ct-phone').value.trim(), rel:$('#ct-rel').value.trim()};
-  if(i>=0 && t.notes.contacts[i]){ t.notes.contacts[i]=contact; logEdit('Emergency contacts','edited contact '+name); }
-  else { t.notes.contacts.push(contact); logEdit('Emergency contacts','added contact '+name); }
+  if(i>=0 && t.notes.contacts[i]){ t.notes.contacts[i]=contact; logEdit('Contacts','edited contact '+name); }
+  else { t.notes.contacts.push(contact); logEdit('Contacts','added contact '+name); }
   save(); closeModal(); CUR_TAB='contacts'; rerender();
 };
 App.delContact = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.notes.contacts[i];
-  t.notes.contacts.splice(i,1); logEdit('Emergency contacts','removed contact '+(removed.name||''));  save(); rerender();
+  t.notes.contacts.splice(i,1); logEdit('Contacts','removed contact '+(removed.name||''));  save(); rerender();
   toast('Contact removed', ()=>{
     const t2=getTrip(tripId); if(!t2) return;
     t2.notes = t2.notes||{contacts:[]}; t2.notes.contacts = t2.notes.contacts||[];
     t2.notes.contacts.splice(Math.min(i,t2.notes.contacts.length),0,removed);
-    logEdit('Emergency contacts','restored contact '+(removed.name||'')); save(); rerender();
+    logEdit('Contacts','restored contact '+(removed.name||'')); save(); rerender();
   });
 };
 App.generalForm = () => {
