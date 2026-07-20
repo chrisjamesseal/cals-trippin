@@ -48,6 +48,10 @@ header.top{
 }
 .logo .lg2{color:var(--brand);}
 @media(max-width:400px){.logo{font-size:1.12rem;}}
+.logo-wrap{display:flex; align-items:baseline; gap:8px; min-width:0;}
+.version-tag{background:none; border:none; padding:0; margin:0; color:var(--muted); font-size:.72rem; font-weight:600;
+  cursor:pointer; text-decoration:underline; text-decoration-color:transparent; transition:text-decoration-color .15s; flex-shrink:0;}
+.version-tag:hover{text-decoration-color:currentColor;}
 
 /* ---------- type ---------- */
 h1{font-size:1.9rem; font-weight:800; letter-spacing:-.03em; line-height:1.15; color:var(--ink);}
@@ -366,7 +370,10 @@ a.dash-tile{text-decoration:none;}
 <body>
 <header class="top">
   <div class="top-inner">
-    <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="Cal's Trippin' home">Cal&#8217;s <span class="lg2">Trippin&#8217;</span></div>
+    <div class="logo-wrap">
+      <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="Cal's Trippin' home">Cal&#8217;s <span class="lg2">Trippin&#8217;</span></div>
+      <button id="version-tag" class="version-tag" onclick="App.toggleChangelog()" aria-label="View what's new"></button>
+    </div>
     <div id="header-actions"></div>
   </div>
 </header>
@@ -393,6 +400,19 @@ const FIREBASE_CONFIG = {
   appId: "1:592178714380:web:bd541ed796f428fdbc9b29"
 };
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
+
+/* bump the version and add an entry (newest first) whenever a user-facing change ships */
+const APP_VERSION = '1.6.0';
+const CHANGELOG = [
+  {version:'1.6.0', notes:['Added this version number and changelog, next to the logo.']},
+  {version:'1.5.0', notes:['Ideas: replaced the "Nearby" suggestions with the ability to add TikTok or Instagram links, which embed right in the page, plus an optional Google Maps link per idea.']},
+  {version:'1.4.0', notes:["Fixed Undo silently failing on itinerary, travel, accommodation, contacts, documents, links, receipts and Ideas after cloud sync was on.", 'Made destructive/outlined buttons consistent throughout the app.']},
+  {version:'1.3.0', notes:['Ideas board: pin inspiration and send it straight into the itinerary; itinerary stops link back to the idea that inspired them.']},
+  {version:'1.2.0', notes:['Support for multiple accommodations per trip, each with its own booking link, dates and Google Maps link.', 'Redesigned itinerary cards to show full flight and accommodation detail inline.']},
+  {version:'1.1.0', notes:['Turned on multi-device cloud sync via one shareable trip link.', 'Switched every icon in the app over to Font Awesome.']},
+  {version:'1.0.0', notes:['First release: trip dashboard, itinerary, travel, accommodation, documents, money, photos, emergency contacts and notes.']},
+];
+document.getElementById('version-tag').textContent = 'v'+APP_VERSION;
 
 /* ================= state ================= */
 const LS_KEY = 'calstrippin_v1';
@@ -866,9 +886,31 @@ window.addEventListener('DOMContentLoaded', ()=>{
   initCloud(); route();
 });
 function stopSub(){ if(tripSub){ try{ tripSub.ref.off('value', tripSub.cb); }catch(e){} tripSub=null; } }
+/* opening the changelog leaves whatever trip/home page was showing untouched underneath
+   (no stopSub, no CUR_TRIP_ID reset) — a second tap just restores the hash from before */
+function renderChangelog(){
+  $('#header-actions').innerHTML = '';
+  $('#app').innerHTML = `
+    <div class="crumb" style="margin-top:26px">
+      <div class="crumb-titlerow">
+        <span class="crumb-here"><button class="crumb-backbtn" onclick="App.toggleChangelog()" aria-label="Back">${ICONS.back}</button>What's New</span>
+      </div>
+    </div>
+    <p class="muted small" style="margin:-8px 0 20px">Cal's Trippin' v${esc(APP_VERSION)}</p>
+    ${CHANGELOG.map(v=>`
+      <div class="card">
+        <h3 style="margin-bottom:8px">v${esc(v.version)}</h3>
+        <ul style="margin:0; padding-left:20px; display:flex; flex-direction:column; gap:4px;">
+          ${v.notes.map(n=>`<li>${esc(n)}</li>`).join('')}
+        </ul>
+      </div>`).join('')}`;
+}
 function route(){
   closeModal(); closeMenu();
   const h = location.hash;
+  if(h === '#/changelog'){
+    renderChangelog(); window.scrollTo(0,0); return;
+  }
   if(h.startsWith('#/view/')){
     // legacy snapshot link — adopt the trip locally, then switch to the stable per-trip URL
     try{
@@ -922,6 +964,11 @@ function openTrip(id){
 const App = {};
 window.App = App;
 App.goHome = () => { if(location.hash){ location.hash=''; } else { route(); } };
+let PRE_CHANGELOG_HASH = ''; // where we were before opening the changelog, so a second tap returns there
+App.toggleChangelog = () => {
+  if(location.hash === '#/changelog') location.hash = PRE_CHANGELOG_HASH;
+  else { PRE_CHANGELOG_HASH = location.hash; location.hash = '#/changelog'; }
+};
 
 App.confirmIdentity = id => {
   const t = getTrip(id); if(!t) return;
