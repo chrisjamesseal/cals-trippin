@@ -500,10 +500,11 @@ function subscribeTrip(id){
     const remote = snap.val();
     if(!remote) return;
     // normalise arrays (Firebase can return objects for sparse/keyed data)
-    ['flights','ferries','carHire','documents','receipts','moodBoard','participants','editLog','countries','itinerary','docLinks']
+    ['flights','ferries','carHire','documents','receipts','moodBoard','participants','editLog','countries','itinerary','docLinks','accommodations']
       .forEach(k=>{ if(remote[k] && !Array.isArray(remote[k])) remote[k]=Object.values(remote[k]); });
     if(remote.notes && remote.notes.contacts && !Array.isArray(remote.notes.contacts))
       remote.notes.contacts = Object.values(remote.notes.contacts);
+    migrateAccom(remote);
     const echo = JSON.stringify(remote) === lastPush;
     const idx = DB.trips.findIndex(x=>x.id===id);
     const merged = mergeRemote(idx>=0?DB.trips[idx]:null, remote);
@@ -642,6 +643,18 @@ function isArchived(t){
   return new Date() > cut;
 }
 function getTrip(id){ return DB.trips.find(t=>t.id===id); }
+/* one-time upgrade: a trip used to hold a single accommodation at notes.accom —
+   now it's a list at accommodations[], so multiple stays can be added and edited */
+function migrateAccom(t){
+  if(!t) return t;
+  if(!Array.isArray(t.accommodations)) t.accommodations = [];
+  if(t.notes && t.notes.accom){
+    const a = t.notes.accom;
+    if(a && (a.name||a.address||a.bookingUrl||a.checkin||a.checkout)) t.accommodations.push({id:uid(), ...a});
+    delete t.notes.accom;
+  }
+  return t;
+}
 /* where the trip sits in time — used for at-a-glance status pills */
 function tripStatus(t){
   if(isArchived(t)) return {label:'Archived', cls:'off'};
@@ -816,7 +829,10 @@ function markErr(sel, msg){
 
 /* ================= router ================= */
 window.addEventListener('hashchange', route);
-window.addEventListener('DOMContentLoaded', ()=>{ initCloud(); route(); });
+window.addEventListener('DOMContentLoaded', ()=>{
+  if(DB.trips.length){ DB.trips.forEach(migrateAccom); saveLocal(); }
+  initCloud(); route();
+});
 function stopSub(){ if(tripSub){ try{ tripSub.ref.off('value', tripSub.cb); }catch(e){} tripSub=null; } }
 function route(){
   closeModal(); closeMenu();
@@ -855,6 +871,7 @@ function openTrip(id){
     fetchTripOnce(id, remote=>{
       if(CUR_TRIP_ID!==id) return;
       if(remote){
+        migrateAccom(remote);
         if(!getTrip(id)){ DB.trips.unshift(remote); saveLocal(); }
         const t = getTrip(id); renderTrip(t);
         if(!whoAmI(id)) identityModal(t, ()=>{});
@@ -954,6 +971,7 @@ App.importTrips = input => {
     let added=0, updated=0;
     trips.forEach(t=>{
       if(!t || !t.id || !t.name) return;
+      migrateAccom(t);
       const i = DB.trips.findIndex(x=>x.id===t.id);
       if(i<0){ DB.trips.unshift(t); added++; }
       else { DB.trips[i] = t; updated++; }        // incoming copy wins on a straight restore
@@ -1014,8 +1032,8 @@ App.createTrip = () => {
     countries: [...NT_COUNTRIES],
     startDate: $('#f-start').value, endDate: $('#f-end').value,
     organiser: org, participants: [org, ...others],
-    flights: [], ferries: [], carHire: [], notes: {accom:{}, contacts:[], general:''},
-    documents: [], docLinks: [], itinerary: [],
+    flights: [], ferries: [], carHire: [], notes: {contacts:[], general:''},
+    accommodations: [], documents: [], docLinks: [], itinerary: [],
     receipts: [], photoAlbum: {url:'',service:''}, moodBoard: [],
     createdAt: Date.now()
   };
@@ -1303,7 +1321,7 @@ function crumbAction(t){
     case 'plan':   return `<button class="btn sm ghost" onclick="App.tab('mood')">From Ideas</button><button class="btn sm primary" onclick="App.planForm(-1)">+ Add Stop</button>`;
     case 'mood':   return `<button class="btn sm ghost" onclick="App.suggest()">✦ Get Ideas</button><button class="btn sm primary" onclick="App.moodForm()">+ Pin</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
-    case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm()">Edit</button>`;
+    case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm(-1)">+ Add</button>`;
     default:       return '';
   }
 }
@@ -1313,7 +1331,7 @@ function rerender(){
 }
 /* ================= TAB: home (dashboard) ================= */
 function tabHome(t){
-  const n = t.notes||{accom:{},contacts:[],general:''};
+  const n = t.notes||{contacts:[],general:''};
   const nTravel = (t.flights||[]).length + (t.ferries||[]).length + (t.carHire||[]).length;
   const nDocs = (t.documents||[]).length, nLinks = (t.docLinks||[]).length,
         nRec = (t.receipts||[]).length, nStops = (t.itinerary||[]).length,
@@ -1337,11 +1355,14 @@ function tabHome(t){
     myNet>0.005 ? `You're owed ${money(myNet)}` :
     myNet<-0.005 ? `You owe ${money(-myNet)}` :
     'All settled';
-  const accom = (t.notes&&t.notes.accom)||{};
+  const accoms = t.accommodations||[];
+  const staySum = !accoms.length ? 'Not added yet' :
+    accoms.length===1 ? (accoms[0].name||'1 stay added') :
+    accoms.length+' stays added';
   const notesAdded = (n.general||'').trim();
   const tiles = [
     ['travel','Travel', travParts.join(' · ') || 'Nothing booked yet', !travParts.length],
-    ['stay','Accommodation', accom.name || 'Not added yet', !accom.name],
+    ['stay','Accommodation', staySum, !accoms.length],
     ['plan','Itinerary', nStops ? nStops+(nStops===1?' stop planned':' stops planned') : 'Nothing planned yet', !nStops],
     ['mood','Ideas', nPins ? nPins+(nPins===1?' idea pinned':' ideas pinned') : 'Nothing pinned yet', !nPins],
     ['money','Money', moneySum, !nRec],
@@ -1388,9 +1409,10 @@ function tabPlan(t, ro){
     const k = f.date||'';
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
-  const ac = (t.notes && t.notes.accom) || {};
-  if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.checkinTime||'', ac});
-  if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac});
+  (t.accommodations||[]).forEach(ac=>{
+    if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.checkinTime||'', ac});
+    if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac});
+  });
   const hasAny = Object.keys(groups).length > 0;
   const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
   const dayLabel = k => {
@@ -1414,7 +1436,7 @@ function tabPlan(t, ro){
   const autoStayCard = s => `
     <div class="plan-auto">
       ${autoTag(ICONS.stay, s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
-      ${accomCardHTML(s.ac, `<button class="btn sm ghost" onclick="App.tab('stay')">Edit in Accommodation</button>`)}
+      ${accomCardHTML(s.ac, {showDates:false, footerActions:`<button class="btn sm ghost" onclick="App.tab('stay')">Edit in Accommodation</button>`})}
     </div>`;
   const card = s => {
     if(s._autoFlight) return autoFlightCard(s);
@@ -1604,32 +1626,44 @@ function tabTravel(t, ro){
     ${cars || `<div class="empty">No car hire yet.</div>`}`;
 }
 
-/* ================= TAB: accommodation ================= */
+/* ================= TAB: accommodation (multiple stays) ================= */
 function faviconFor(url){
   try{ const h = new URL(url).hostname; return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy">`; }
   catch(e){ return ''; }
 }
-/* the full accommodation card — shared by Accommodation and, read-only, by the Itinerary */
-function accomCardHTML(a, actionsHTML){
+function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
+/* the full accommodation card — shared by Accommodation and, read-only, by the Itinerary.
+   opts: headerActions (edit/delete, top-right), footerActions (e.g. a link back to this
+   section), showDates (hide the check-in/out chips when the itinerary already shows the time) */
+function accomCardHTML(a, opts){
+  opts = opts || {};
   return `
     <div class="card">
-      ${a.name?`<h3>${esc(a.name)}</h3>`:''}
-      ${a.address?`<div class="small" style="margin-top:4px">${esc(a.address)}</div>`:''}
-      <div class="btn-row" style="margin-top:12px">
+      <div class="section-head" style="margin-bottom:${a.address?'4px':'0'}">
+        <h3>${esc(a.name||'Accommodation')}</h3>
+        ${opts.headerActions?`<span class="btn-row">${opts.headerActions}</span>`:''}
+      </div>
+      ${a.address?`<div class="small" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>${esc(a.address)}</span>
+        <a class="doc-attach" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" title="Open in Google Maps" aria-label="Open in Google Maps">${ICONS.pin}Map</a>
+      </div>`:''}
+      ${opts.showDates!==false ? `<div class="btn-row" style="margin-top:12px">
         ${a.checkin?`<span class="chip">Check-in: ${fmtDate(a.checkin)}${a.checkinTime?' · '+esc(a.checkinTime):''}</span>`:''}
         ${a.checkout?`<span class="chip">Check-out: ${fmtDate(a.checkout)}${a.checkoutTime?' · '+esc(a.checkoutTime):''}</span>`:''}
         ${a.ref?`<span class="chip">Ref: ${esc(a.ref)}</span>`:''}
-      </div>
+      </div>` : (a.ref?`<div class="btn-row" style="margin-top:12px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:'')}
       ${a.bookingUrl?`<div style="margin-top:14px"><a class="btn" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener">${faviconFor(a.bookingUrl)}View Booking ${ICONS.ext}</a></div>`:''}
-      ${actionsHTML?`<div style="margin-top:12px">${actionsHTML}</div>`:''}
+      ${opts.footerActions?`<div style="margin-top:12px">${opts.footerActions}</div>`:''}
     </div>`;
 }
 function tabStay(t, ro){
-  const a = (t.notes && t.notes.accom) || {};
-  if(!a.name && !a.address && !a.bookingUrl){
-    return `<div class="empty">No accommodation details yet.${!ro?'<br><br><button class="btn primary" onclick="App.accomForm()">+ Add Your Stay</button>':''}</div>`;
+  const list = t.accommodations||[];
+  if(!list.length){
+    return `<div class="empty">No accommodation added yet.${!ro?'<br><br><button class="btn primary" onclick="App.accomForm(-1)">+ Add Accommodation</button>':''}</div>`;
   }
-  return accomCardHTML(a);
+  return list.map((a,i)=>accomCardHTML(a, {
+    headerActions: !ro?`<button class="iconbtn edit" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${i})">${ICONS.edit}</button><button class="iconbtn del" aria-label="Remove accommodation" title="Remove" onclick="App.delAccom(${i})">${ICONS.trash}</button>`:''
+  })).join('');
 }
 
 /* ================= TAB: emergency contacts ================= */
@@ -1848,12 +1882,14 @@ App.delCar = i => {
   toast('Car hire removed', ()=>{ t.carHire.splice(Math.min(i,t.carHire.length),0,removed); logEdit('Travel','restored '+label); save(); rerender(); });
 };
 
-/* --- accommodation / contacts / general / people --- */
-App.accomForm = () => {
-  const t = getTrip(CUR_TRIP_ID); const a = t.notes.accom||{};
+/* --- accommodation (multiple stays) / contacts / general / people --- */
+App.accomForm = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  t.accommodations = t.accommodations||[];
+  const a = (i>=0 && t.accommodations[i]) || {};
   openModal(`
-    <h2>Accommodation</h2>
-    <div class="field"><label class="label">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name"></div>
+    <h2>${i>=0?'Edit Accommodation':'Add Accommodation'}</h2>
+    <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name"></div>
     <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}"></div>
     <div class="grid2">
       <div class="field"><label class="label">Check-in date</label><input id="ac-in" type="date" value="${esc(a.checkin||todayStr())}"></div>
@@ -1865,18 +1901,29 @@ App.accomForm = () => {
     </div>
     <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…"></div>
-    <button class="btn primary" style="width:100%" onclick="App.saveAccom()">Save</button>`);
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveAccom(${i})">Save</button></div>`);
 };
-App.saveAccom = () => {
-  const t = getTrip(CUR_TRIP_ID);
+App.saveAccom = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  t.accommodations = t.accommodations||[];
+  const name = $('#ac-name').value.trim(), address = $('#ac-addr').value.trim();
+  if(!name && !address) return markErr('#ac-name','Give it a name or address');
   let url = $('#ac-url').value.trim();
   if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
-  t.notes.accom = {name:$('#ac-name').value.trim(), address:$('#ac-addr').value.trim(),
+  const a = {id: i>=0 && t.accommodations[i] ? t.accommodations[i].id : uid(),
+    name, address,
     checkin:$('#ac-in').value, checkinTime:$('#ac-in-time').value,
     checkout:$('#ac-out').value, checkoutTime:$('#ac-out-time').value,
     ref:$('#ac-ref').value.trim(), bookingUrl:url};
-  logEdit('Accommodation', t.notes.accom.name?('updated accommodation: '+t.notes.accom.name):'updated accommodation');
+  if(i>=0) t.accommodations[i]=a; else t.accommodations.push(a);
+  logEdit('Accommodation', (i>=0?'updated ':'added ')+(name||'accommodation'));
   save(); closeModal(); CUR_TAB='stay'; rerender();
+};
+App.delAccom = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t || !t.accommodations) return;
+  const removed = t.accommodations[i]; const label = removed.name||'accommodation';
+  t.accommodations.splice(i,1); logEdit('Accommodation','removed '+label); save(); rerender();
+  toast('Accommodation removed', ()=>{ t.accommodations.splice(Math.min(i,t.accommodations.length),0,removed); logEdit('Accommodation','restored '+label); save(); rerender(); });
 };
 App.contactForm = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
