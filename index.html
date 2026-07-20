@@ -341,17 +341,22 @@ a.dash-tile{text-decoration:none;}
 
 /* ---------- itinerary ---------- */
 .plan-day{margin:24px 0 10px; font-size:.95rem; font-weight:800; color:var(--brand-dark);}
-.plan-time{font-weight:800; color:var(--brand-dark); white-space:nowrap;}
 .plan-map{width:100%; height:180px; border:1px solid var(--line); border-radius:var(--radius-sm); display:block; margin-bottom:8px; background:var(--bg);}
 .plan-img{width:100%; max-height:220px; object-fit:cover; border-radius:var(--radius-sm); display:block; margin-bottom:10px;}
 .plan-auto{margin-bottom:16px;}
 .plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--brand-dark);}
 .plan-auto-tag .icon{font-size:.95rem;}
-.plan-auto-tag .plan-time{margin-left:auto; font-size:.8rem; text-transform:none; letter-spacing:normal;}
 .plan-auto .flight-strip,.plan-auto .card{margin-bottom:0;}
 .plan-click{cursor:pointer;}
 .plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,.card.plan-click:hover{border-color:var(--brand);}
 .plan-auto.plan-click:focus-visible .flight-strip,.plan-auto.plan-click:focus-visible .card,.card.plan-click:focus-visible{outline:none; border-color:var(--brand);}
+.plan-order{display:flex; flex-direction:column; gap:1px; flex-shrink:0;}
+.plan-order-btn{width:22px; height:17px; padding:0; display:flex; align-items:center; justify-content:center;
+  font-size:.65rem; color:var(--muted); background:none; border:none; cursor:pointer; border-radius:4px;}
+.plan-order-btn:hover{background:var(--brand-ghost); color:var(--brand-dark);}
+.plan-order-btn:disabled{opacity:.25; cursor:default;}
+.plan-order-btn:disabled:hover{background:none; color:var(--muted);}
+.plan-travel-icon{font-size:1.1rem; color:var(--brand); flex-shrink:0;}
 
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
@@ -396,8 +401,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.10.0';
 const CHANGELOG = [
+  {version:'1.10.0', notes:['Itinerary: reorder stops and travel legs with up/down arrows (manual order overrides time sort until you hit Reset Order), moved the time to after the name with a dash (e.g. "Flight - 16:05"), and gave Check In/Check Out their own distinct icons.', 'Itinerary: added the ability to manually add a travel leg between two places (mode, from, to, optional duration) — no maps API, just what you type in.']},
   {version:'1.9.0', notes:['Dashboard tile summaries rewritten for consistent Title Case copy (e.g. "2 Flights, 1 Ferry", "1 Contact Logged"), and Notes now shows a line count based on how many sentences you\'ve written.', 'Every text field and textarea in the app now has a small × button to clear it once you\'ve typed something.']},
   {version:'1.8.0', notes:['Dashboard tiles: icon above the text, no more arrow, and fixed long accommodation names overflowing their box.', 'Renamed "Emergency Contacts" to "Contacts".', 'Trip cards on the home screen: removed the arrow and the people/receipts line, and moved the country flags above the title.']},
   {version:'1.7.0', notes:['Ideas: TikTok/Instagram links are now a clickable thumbnail instead of a live embed, and the map icon only shows up when you\'ve actually added a maps link.', 'Removed the sync status pill from the header.', 'Dashboard tiles are back to two per row.']},
@@ -1204,7 +1210,14 @@ const ICONS = {
   edit: fa('pen'),
   trash: fa('trash'),
   filePdf: fa('file-pdf'),
-  fileImg: fa('file-image')
+  fileImg: fa('file-image'),
+  checkin: fa('right-to-bracket'),
+  checkout: fa('right-from-bracket'),
+  walk: fa('person-walking'),
+  train: fa('train'),
+  bus: fa('bus'),
+  up: fa('chevron-up'),
+  down: fa('chevron-down')
 };
 const TABS = [
   ['home','Overview'],
@@ -1402,7 +1415,7 @@ function renderTab(t){
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
   switch(CUR_TAB){
-    case 'plan':   return `<button class="btn sm" onclick="App.tab('mood')">From Ideas</button><button class="btn sm primary" onclick="App.planForm(-1)">+ Add Stop</button>`;
+    case 'plan':   return `<button class="btn sm" onclick="App.tab('mood')">From Ideas</button><button class="btn sm" onclick="App.travelLegForm(-1)">+ Add Travel</button><button class="btn sm primary" onclick="App.planForm(-1)">+ Add Stop</button>`;
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm(-1)">+ Add</button>`;
@@ -1484,6 +1497,31 @@ function mapQuery(t, name){
 }
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
 const PLAN_PERIODS = {morning:['Morning','06:00'], afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
+const TRAVEL_MODES = {
+  drive: {label:'Drive', icon:ICONS.car},
+  walk: {label:'Walk', icon:ICONS.walk},
+  ferry: {label:'Ferry', icon:ICONS.ferry},
+  flight: {label:'Flight', icon:ICONS.flight},
+  train: {label:'Train', icon:ICONS.train},
+  bus: {label:'Bus', icon:ICONS.bus}
+};
+function itineraryTimeKey(s){ return s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][1]) || '99:99'; }
+function itineraryItemLabel(s){
+  if(s.kind==='travel') return (s.from||s.to) ? `${s.from||'?'} → ${s.to||'?'}` : 'a travel leg';
+  return s.name || 'a stop';
+}
+/* auto flight/check-in/check-out cards always stay anchored to their real time. Manual
+   stops/travel legs sort by a persisted `order` once reordered, falling back to time
+   otherwise — comparing a stop against an auto card still falls through to time, so
+   manually-ordered items still land in a sane spot relative to real-time bookings */
+function planCompare(a, b, manual){
+  const aAuto = !!(a._autoFlight || a._autoStay), bAuto = !!(b._autoFlight || b._autoStay);
+  if(manual && !aAuto && !bAuto){
+    const ao = a.order!=null ? a.order : 99999, bo = b.order!=null ? b.order : 99999;
+    if(ao!==bo) return ao-bo;
+  }
+  return itineraryTimeKey(a).localeCompare(itineraryTimeKey(b));
+}
 function tabPlan(t, ro){
   const items = (t.itinerary||[]);
   const groups = {};
@@ -1499,6 +1537,7 @@ function tabPlan(t, ro){
     if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac, aci});
   });
   const hasAny = Object.keys(groups).length > 0;
+  const manual = !!t.itineraryManualOrder;
   const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
   const dayLabel = k => {
     if(!k) return 'Anytime';
@@ -1509,11 +1548,15 @@ function tabPlan(t, ro){
     }
     return n + fmtDate(k);
   };
-  const timeKey = s => s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][1]) || '99:99';
   const timeBadge = s => s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][0]) || '';
   const autoTag = (icon, label, time) => `
-    <div class="plan-auto-tag">${icon}<strong>${esc(label)}</strong>${time?`<span class="plan-time mono">${esc(time)}</span>`:''}</div>`;
+    <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong></div>`;
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
+  const orderArrows = s => `
+    <span class="plan-order">
+      <button type="button" class="iconbtn plan-order-btn" aria-label="Move up" title="Move up" ${s._pos<=0?'disabled':''} onclick="event.stopPropagation();App.moveItineraryItem(${s._i},-1)">${ICONS.up}</button>
+      <button type="button" class="iconbtn plan-order-btn" aria-label="Move down" title="Move down" ${s._pos>=s._total-1?'disabled':''} onclick="event.stopPropagation();App.moveItineraryItem(${s._i},1)">${ICONS.down}</button>
+    </span>`;
   const autoFlightCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
       ${autoTag(ICONS.flight, 'Flight', s.time)}
@@ -1521,18 +1564,35 @@ function tabPlan(t, ro){
     </div>`;
   const autoStayCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
-      ${autoTag(ICONS.stay, s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
+      ${autoTag(s._autoStay==='checkin'?ICONS.checkin:ICONS.checkout, s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
       ${accomCardHTML(s.ac, {showDates:false})}
     </div>`;
+  const travelCard = s => {
+    const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.drive;
+    const title = `${esc(s.from||'?')} → ${esc(s.to||'?')}${timeBadge(s)?' - '+esc(timeBadge(s)):''}`;
+    return `
+    <div class="card plan-travel${!ro?' plan-click':''}" ${clickAttrs(`App.travelLegForm(${s._i})`)}>
+      <div class="section-head" style="margin-bottom:${s.duration?'4px':'0'}">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
+          ${!ro?orderArrows(s):''}
+          <span class="plan-travel-icon">${mode.icon}</span>
+          <h3>${title}</h3>
+        </div>
+        ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove travel leg" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
+      </div>
+      ${s.duration?`<p class="small muted">${esc(s.duration)}</p>`:''}
+    </div>`;
+  };
   const card = s => {
     if(s._autoFlight) return autoFlightCard(s);
     if(s._autoStay) return autoStayCard(s);
+    if(s.kind==='travel') return travelCard(s);
     return `
     <div class="card${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       <div class="section-head" style="margin-bottom:4px">
-        <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;min-width:0">
-          ${timeBadge(s)?`<span class="plan-time mono">${esc(timeBadge(s))}</span>`:''}
-          <h3>${esc(s.name)}</h3>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
+          ${!ro?orderArrows(s):''}
+          <h3>${esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
         ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
@@ -1545,12 +1605,16 @@ function tabPlan(t, ro){
     </div>`;
   };
   return `
-    ${hasAny ? keys.map(k=>`
-      <h3 class="plan-day">${dayLabel(k)}</h3>
-      ${groups[k].sort((a,b)=>timeKey(a).localeCompare(timeKey(b))).map(card).join('')}`).join('')
+    ${hasAny ? keys.map(k=>{
+        const dayItems = groups[k].slice().sort((a,b)=>planCompare(a,b,manual));
+        const orderable = dayItems.filter(x=>!x._autoFlight && !x._autoStay);
+        orderable.forEach((x,idx)=>{ x._pos=idx; x._total=orderable.length; });
+        return `<h3 class="plan-day">${dayLabel(k)}</h3>${dayItems.map(card).join('')}`;
+      }).join('')
     : `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
         <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
-        <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`}`;
+        <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`}
+    ${hasAny && manual && !ro ? `<button class="btn sm" style="margin-top:18px" onclick="App.resetItineraryOrder()">Reset Order</button>` : ''}`;
 }
 function locationDatalist(t){
   const set = new Set();
@@ -1639,6 +1703,71 @@ App.savePlan = (i, moodIndex) => {
   logEdit('Itinerary', (i>=0?'edited ':'added ')+name);
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast('Stop saved');
 };
+App.travelWhenChange = () => {
+  const wrap = $('#tv-time-wrap'); if(!wrap) return;
+  wrap.style.display = $('#tv-when').value==='time' ? 'grid' : 'none';
+};
+/* a manually-entered travel leg between two points — no geocoding/distance API, just
+   the mode/from/to/duration the user types in, stored alongside stops in t.itinerary
+   (with kind:'travel') so it shares day-grouping and the up/down reorder system */
+App.travelLegForm = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const s = i>=0 ? (t.itinerary||[])[i] || {} : {};
+  const initWhen = s.time ? 'time' : (s.period || 'morning');
+  const {h:initHour, m:initMin} = roundToQuarterHour(s.time);
+  const hourOpts = Array.from({length:24}, (_,h)=>h)
+    .map(h=>`<option value="${String(h).padStart(2,'0')}" ${h===initHour?'selected':''}>${String(h).padStart(2,'0')}</option>`).join('');
+  const minOpts = [0,15,30,45]
+    .map(m=>`<option value="${String(m).padStart(2,'0')}" ${m===initMin?'selected':''}>${String(m).padStart(2,'0')}</option>`).join('');
+  const modeOpts = Object.keys(TRAVEL_MODES).map(k=>`<option value="${k}" ${((s.mode||'drive')===k)?'selected':''}>${TRAVEL_MODES[k].label}</option>`).join('');
+  openModal(`
+    <h2>${i>=0?'Edit Travel':'Add Travel'}</h2>
+    <div class="field"><label class="label" for="tv-mode">Mode</label>
+      <select id="tv-mode">${modeOpts}</select></div>
+    <div class="grid2">
+      <div class="field"><label class="label" for="tv-from">From</label>
+        <input id="tv-from" type="text" list="loc-list" value="${esc(s.from||'')}" placeholder="e.g. Corfu Town"></div>
+      <div class="field"><label class="label" for="tv-to">To</label>
+        <input id="tv-to" type="text" list="loc-list" value="${esc(s.to||'')}" placeholder="e.g. Paleokastritsa"></div>
+    </div>
+    ${locationDatalist(t)}
+    <div class="grid2">
+      <div class="field"><label class="label" for="tv-date">Date</label>
+        <input id="tv-date" type="date" value="${esc(s.date || t.startDate || todayStr())}"></div>
+      <div class="field"><label class="label" for="tv-when">When</label>
+        <select id="tv-when" onchange="App.travelWhenChange()">
+          <option value="morning" ${initWhen==='morning'?'selected':''}>Morning</option>
+          <option value="afternoon" ${initWhen==='afternoon'?'selected':''}>Afternoon</option>
+          <option value="evening" ${initWhen==='evening'?'selected':''}>Evening</option>
+          <option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>
+        </select></div>
+    </div>
+    <div class="grid2" id="tv-time-wrap" style="${initWhen==='time'?'':'display:none'}">
+      <div class="field"><label class="label" for="tv-hour">Hour</label>
+        <select id="tv-hour">${hourOpts}</select></div>
+      <div class="field"><label class="label" for="tv-min">Minute</label>
+        <select id="tv-min">${minOpts}</select></div>
+    </div>
+    <div class="field"><label class="label" for="tv-dur">Duration</label>
+      <input id="tv-dur" type="text" value="${esc(s.duration||'')}" placeholder="e.g. 45 min"></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveTravelLeg(${i})">${i>=0?'Save':'Add Travel'}</button></div>`, {autofocus:false});
+};
+App.saveTravelLeg = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const from = $('#tv-from').value.trim(), to = $('#tv-to').value.trim();
+  if(!from && !to) return markErr('#tv-from','Add at least a from or to location');
+  const when = $('#tv-when').value;
+  const time = when==='time' ? $('#tv-hour').value+':'+$('#tv-min').value : '';
+  const period = when==='time' ? '' : when;
+  t.itinerary = t.itinerary||[];
+  const existing = i>=0 ? t.itinerary[i] : null;
+  const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
+             from, to, date:$('#tv-date').value, time, period, duration:$('#tv-dur').value.trim(),
+             order: existing ? existing.order : undefined};
+  if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
+  logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
+  save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
+};
 /* send an Ideas pin straight into the itinerary, pre-filled — linked back to the pin so it
    can be toggled to Remove from Itinerary instead of being addable again */
 App.planFromIdea = i => {
@@ -1663,14 +1792,39 @@ App.delPlan = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.itinerary[i];
-  t.itinerary.splice(i,1); logEdit('Itinerary','removed '+(removed.name||'a stop')); save(); rerender();
-  toast('Stop removed', ()=>{
+  const label = itineraryItemLabel(removed);
+  t.itinerary.splice(i,1); logEdit('Itinerary','removed '+label); save(); rerender();
+  toast(removed.kind==='travel'?'Travel removed':'Stop removed', ()=>{
     // re-fetch: a Firebase echo may have swapped in a new trip object since delete
     const t2 = getTrip(tripId); if(!t2) return;
     t2.itinerary = t2.itinerary||[];
     t2.itinerary.splice(Math.min(i,t2.itinerary.length),0,removed);
-    logEdit('Itinerary','restored '+(removed.name||'a stop')); save(); rerender();
+    logEdit('Itinerary','restored '+label); save(); rerender();
   });
+};
+App.moveItineraryItem = (i, dir) => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const items = t.itinerary||[]; const s = items[i]; if(!s) return;
+  const day = s.date||'';
+  const daySiblings = items.filter(x=>(x.date||'')===day);
+  if(!t.itineraryManualOrder || daySiblings.some(x=>x.order==null)){
+    daySiblings.slice().sort((a,b)=>itineraryTimeKey(a).localeCompare(itineraryTimeKey(b))).forEach((x,idx)=>{ x.order=idx; });
+    t.itineraryManualOrder = true;
+  }
+  const sorted = daySiblings.slice().sort((a,b)=>a.order-b.order);
+  const pos = sorted.indexOf(s);
+  const swapPos = pos + dir;
+  if(swapPos<0 || swapPos>=sorted.length) return;
+  const other = sorted[swapPos];
+  const tmp = s.order; s.order = other.order; other.order = tmp;
+  save(); rerender();
+};
+App.resetItineraryOrder = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  t.itineraryManualOrder = false;
+  (t.itinerary||[]).forEach(s=>{ delete s.order; });
+  logEdit('Itinerary','reset the order back to time');
+  save(); rerender(); toast('Order reset');
 };
 
 /* ================= TAB: travel (flights / ferries / car hire) ================= */
