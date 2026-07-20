@@ -161,6 +161,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 textarea{min-height:90px; resize:vertical;}
 input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(14,133,119,.16);}
 .field{margin-bottom:14px;}
+.field-clearwrap{position:relative; display:block;}
+.field-clearwrap input,.field-clearwrap textarea{padding-right:34px;}
+.field-clear{position:absolute; right:4px; top:8px; display:none; align-items:center; justify-content:center;
+  width:26px; height:26px; border:none; background:none; color:var(--muted); cursor:pointer; border-radius:50%; padding:0; font-size:.8rem;}
+.field-clear:hover{background:var(--brand-ghost); color:var(--brand-dark);}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
 .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
 @media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr;}}
@@ -391,8 +396,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 const CHANGELOG = [
+  {version:'1.9.0', notes:['Dashboard tile summaries rewritten for consistent Title Case copy (e.g. "2 Flights, 1 Ferry", "1 Contact Logged"), and Notes now shows a line count based on how many sentences you\'ve written.', 'Every text field and textarea in the app now has a small × button to clear it once you\'ve typed something.']},
   {version:'1.8.0', notes:['Dashboard tiles: icon above the text, no more arrow, and fixed long accommodation names overflowing their box.', 'Renamed "Emergency Contacts" to "Contacts".', 'Trip cards on the home screen: removed the arrow and the people/receipts line, and moved the country flags above the title.']},
   {version:'1.7.0', notes:['Ideas: TikTok/Instagram links are now a clickable thumbnail instead of a live embed, and the map icon only shows up when you\'ve actually added a maps link.', 'Removed the sync status pill from the header.', 'Dashboard tiles are back to two per row.']},
   {version:'1.6.0', notes:['Added this version number and changelog, next to the logo.']},
@@ -803,6 +809,26 @@ function airlineDatalist(){
 /* ================= modal ================= */
 let _lastFocus = null;
 function modalOpen(){ return !!$('#modal-root').firstChild; }
+/* every text field in the app gets a small × button (shown once it has a value) that clears
+   it — wired up generically here rather than in each of the many form templates */
+function attachFieldClears(root){
+  root.querySelectorAll('input[type="text"], input[type="url"], input[type="tel"], input[type="email"], input[type="search"], textarea').forEach(inp=>{
+    const wrap = document.createElement('span');
+    wrap.className = 'field-clearwrap';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'field-clear';
+    btn.setAttribute('aria-label','Clear');
+    btn.innerHTML = fa('xmark');
+    const toggle = () => { btn.style.display = inp.value ? 'flex' : 'none'; };
+    btn.onclick = () => { inp.value=''; inp.focus(); inp.dispatchEvent(new Event('input',{bubbles:true})); toggle(); };
+    inp.addEventListener('input', toggle);
+    wrap.appendChild(btn);
+    toggle();
+  });
+}
 /* forms and viewers open as full screens (no popups) — a Back bar returns to the page below */
 function openModal(html, opts){
   opts = opts || {};
@@ -814,6 +840,7 @@ function openModal(html, opts){
     `<div class="modal-bg ${prev?'':'push'}">
        <div class="screen-top"><button class="screen-back" onclick="closeModal()">${ICONS.back}Back</button></div>
        <div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
+  attachFieldClears(root);
   if(prev) root.querySelector('.modal-bg').scrollTop = scrollPos;
   document.body.style.overflow = 'hidden';
   // autofocus the first real field for keyboard users (skip on re-renders to avoid focus jumps)
@@ -1397,12 +1424,12 @@ function tabHome(t){
   const albumUrl = t.photoAlbum && t.photoAlbum.url || '';
   const album = albumUrl ? detectAlbumService(albumUrl) : '';
   const docParts = [];
-  if(nLinks) docParts.push(nLinks+(nLinks===1?' link':' links'));
-  if(nDocs) docParts.push(nDocs+(nDocs===1?' file':' files'));
+  if(nLinks) docParts.push(nLinks+(nLinks===1?' Link':' Links'));
+  if(nDocs) docParts.push(nDocs+(nDocs===1?' File':' Files'));
   const travParts = [];
-  if((t.flights||[]).length) travParts.push((t.flights.length)+(t.flights.length===1?' flight':' flights'));
-  if((t.ferries||[]).length) travParts.push((t.ferries.length)+(t.ferries.length===1?' ferry':' ferries'));
-  if((t.carHire||[]).length) travParts.push('car hire');
+  if((t.flights||[]).length) travParts.push((t.flights.length)+(t.flights.length===1?' Flight':' Flights'));
+  if((t.ferries||[]).length) travParts.push((t.ferries.length)+(t.ferries.length===1?' Ferry':' Ferries'));
+  if((t.carHire||[]).length) travParts.push('Car Hire');
   // each row doubles as a counter: what's booked, added, pinned and owed
   const me = whoAmI(t.id);
   const net = nRec ? computeBalances(t) : null;
@@ -1413,21 +1440,22 @@ function tabHome(t){
     myNet<-0.005 ? `You owe ${money(-myNet)}` :
     'All settled';
   const accoms = t.accommodations||[];
-  const staySum = !accoms.length ? 'Not added yet' :
-    accoms.length===1 ? (accoms[0].name||'1 stay added') :
-    accoms.length+' stays added';
-  const notesAdded = (n.general||'').trim();
+  const staySum = !accoms.length ? 'Not Added Yet' :
+    accoms.length===1 ? (accoms[0].name||'1 Stay Added') :
+    accoms.length+' Stays Added';
+  const notesText = (n.general||'').trim();
+  const noteLines = notesText ? notesText.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean).length : 0;
   const tiles = [
-    ['plan','Itinerary', nStops ? nStops+(nStops===1?' stop planned':' stops planned') : 'Nothing planned yet', !nStops],
-    ['travel','Travel', travParts.join(' · ') || 'Nothing booked yet', !travParts.length],
+    ['plan','Itinerary', nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned') : 'Nothing Planned Yet', !nStops],
+    ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
-    ['mood','Ideas', nPins ? nPins+(nPins===1?' idea pinned':' ideas pinned') : 'Nothing pinned yet', !nPins],
+    ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
     ['money','Money', moneySum, !nRec],
-    ['photos','Photos', album || 'No shared album yet', !album],
-    ['contacts','Contacts', nContacts ? nContacts+(nContacts===1?' contact':' contacts') : 'None added yet', !nContacts],
-    ['docs','Documents', docParts.join(' · ') || 'Nothing saved yet', !docParts.length],
-    ['notes','Notes', notesAdded ? 'Notes added' : 'No notes yet', !notesAdded],
-    ['log','Activity', nLog ? nLog+(nLog===1?' change logged':' changes logged') : 'No changes yet', !nLog]
+    ['photos','Photos', album ? album+' Linked' : 'No Shared Album Yet', !album],
+    ['contacts','Contacts', nContacts ? nContacts+(nContacts===1?' Contact Logged':' Contacts Logged') : 'None Added Yet', !nContacts],
+    ['docs','Documents', docParts.join(', ') || 'Nothing Saved Yet', !docParts.length],
+    ['notes','Notes', noteLines ? noteLines+(noteLines===1?' Line':' Lines') : 'No Notes Yet', !noteLines],
+    ['log','Activity', nLog ? nLog+(nLog===1?' Log':' Logs') : 'No Changes Yet', !nLog]
   ];
   // every tile — including Photos — opens its own tab first; the tab itself links out to the album
   const tile = ([k,label,sum,empty]) => `
