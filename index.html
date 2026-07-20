@@ -1610,9 +1610,16 @@ App.removeIdeaFromItinerary = i => {
 };
 App.delPlan = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.itinerary[i];
   t.itinerary.splice(i,1); logEdit('Itinerary','removed '+(removed.name||'a stop')); save(); rerender();
-  toast('Stop removed', ()=>{ t.itinerary.splice(Math.min(i,t.itinerary.length),0,removed); logEdit('Itinerary','restored '+(removed.name||'a stop')); save(); rerender(); });
+  toast('Stop removed', ()=>{
+    // re-fetch: a Firebase echo may have swapped in a new trip object since delete
+    const t2 = getTrip(tripId); if(!t2) return;
+    t2.itinerary = t2.itinerary||[];
+    t2.itinerary.splice(Math.min(i,t2.itinerary.length),0,removed);
+    logEdit('Itinerary','restored '+(removed.name||'a stop')); save(); rerender();
+  });
 };
 
 /* ================= TAB: travel (flights / ferries / car hire) ================= */
@@ -1893,9 +1900,15 @@ App.saveFlight = i => {
 App.deleteFlightFromForm = i => { closeModal(); App.delFlight(i); };
 App.delFlight = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.flights[i]; const label=((removed.airline||'flight')+' '+(removed.flightNo||'')).trim();
   t.flights.splice(i,1); logEdit('Travel','removed '+label); save(); rerender();
-  toast('Flight removed', ()=>{ t.flights.splice(Math.min(i,t.flights.length),0,removed); logEdit('Travel','restored '+label); save(); rerender(); });
+  toast('Flight removed', ()=>{
+    const t2=getTrip(tripId); if(!t2) return;
+    t2.flights = t2.flights||[];
+    t2.flights.splice(Math.min(i,t2.flights.length),0,removed);
+    logEdit('Travel','restored '+label); save(); rerender();
+  });
 };
 
 /* --- ferries --- */
@@ -1935,9 +1948,15 @@ App.saveFerry = i => {
 };
 App.delFerry = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.ferries[i]; const label = removed.operator||'ferry';
   t.ferries.splice(i,1); logEdit('Travel','removed '+label); save(); rerender();
-  toast('Ferry removed', ()=>{ t.ferries.splice(Math.min(i,t.ferries.length),0,removed); logEdit('Travel','restored '+label); save(); rerender(); });
+  toast('Ferry removed', ()=>{
+    const t2 = getTrip(tripId); if(!t2) return;
+    t2.ferries = t2.ferries||[];
+    t2.ferries.splice(Math.min(i,t2.ferries.length),0,removed);
+    logEdit('Travel','restored '+label); save(); rerender();
+  });
 };
 
 /* --- car hire --- */
@@ -1981,9 +2000,15 @@ App.saveCar = i => {
 };
 App.delCar = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.carHire[i]; const label = removed.company||'car hire';
   t.carHire.splice(i,1); logEdit('Travel','removed '+label); save(); rerender();
-  toast('Car hire removed', ()=>{ t.carHire.splice(Math.min(i,t.carHire.length),0,removed); logEdit('Travel','restored '+label); save(); rerender(); });
+  toast('Car hire removed', ()=>{
+    const t2 = getTrip(tripId); if(!t2) return;
+    t2.carHire = t2.carHire||[];
+    t2.carHire.splice(Math.min(i,t2.carHire.length),0,removed);
+    logEdit('Travel','restored '+label); save(); rerender();
+  });
 };
 
 /* --- accommodation (multiple stays) / contacts / general / people --- */
@@ -2041,11 +2066,17 @@ App.saveAccom = i => {
    losing it, on top of the usual undo toast */
 App.delAccom = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t || !t.accommodations) return;
+  const tripId = t.id;
   const removed = t.accommodations[i]; if(!removed) return;
   const label = removed.name||'this accommodation';
   confirmModal('Remove Accommodation?', `"${label}" and its details — address, dates, booking info — will be removed.`, 'Remove', ()=>{
     t.accommodations.splice(i,1); logEdit('Accommodation','removed '+label); save(); rerender();
-    toast('Accommodation removed', ()=>{ t.accommodations.splice(Math.min(i,t.accommodations.length),0,removed); logEdit('Accommodation','restored '+label); save(); rerender(); });
+    toast('Accommodation removed', ()=>{
+      const t2 = getTrip(tripId); if(!t2) return;
+      t2.accommodations = t2.accommodations||[];
+      t2.accommodations.splice(Math.min(i,t2.accommodations.length),0,removed);
+      logEdit('Accommodation','restored '+label); save(); rerender();
+    });
   });
 };
 App.contactForm = i => {
@@ -2070,9 +2101,15 @@ App.saveContact = i => {
 };
 App.delContact = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.notes.contacts[i];
   t.notes.contacts.splice(i,1); logEdit('Emergency contacts','removed contact '+(removed.name||''));  save(); rerender();
-  toast('Contact removed', ()=>{ t.notes.contacts.splice(Math.min(i,t.notes.contacts.length),0,removed); logEdit('Emergency contacts','restored contact '+(removed.name||'')); save(); rerender(); });
+  toast('Contact removed', ()=>{
+    const t2=getTrip(tripId); if(!t2) return;
+    t2.notes = t2.notes||{contacts:[]}; t2.notes.contacts = t2.notes.contacts||[];
+    t2.notes.contacts.splice(Math.min(i,t2.notes.contacts.length),0,removed);
+    logEdit('Emergency contacts','restored contact '+(removed.name||'')); save(); rerender();
+  });
 };
 App.generalForm = () => {
   const t = getTrip(CUR_TRIP_ID);
@@ -2149,9 +2186,15 @@ App.saveLink = () => {
 };
 App.delLink = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.docLinks[i];
   t.docLinks.splice(i,1); logEdit('Documents','removed link '+(removed.name||'')); save(); rerender();
-  toast('Link removed', ()=>{ t.docLinks.splice(Math.min(i,t.docLinks.length),0,removed); logEdit('Documents','restored link '+(removed.name||'')); save(); rerender(); });
+  toast('Link removed', ()=>{
+    const t2 = getTrip(tripId); if(!t2) return;
+    t2.docLinks = t2.docLinks||[];
+    t2.docLinks.splice(Math.min(i,t2.docLinks.length),0,removed);
+    logEdit('Documents','restored link '+(removed.name||'')); save(); rerender();
+  });
 };
 App.openDoc = (tid,i) => {
   const t = getTrip(tid);
@@ -2181,9 +2224,15 @@ App.saveDocName = i => {
 };
 App.delDoc = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.documents[i];
   t.documents.splice(i,1); logEdit('Documents','removed '+(removed.name||'a document')); save(); rerender();
-  toast('Document removed', ()=>{ t.documents.splice(Math.min(i,t.documents.length),0,removed); logEdit('Documents','restored '+(removed.name||'a document')); save(); rerender(); });
+  toast('Document removed', ()=>{
+    const t2=getTrip(tripId); if(!t2) return;
+    t2.documents = t2.documents||[];
+    t2.documents.splice(Math.min(i,t2.documents.length),0,removed);
+    logEdit('Documents','restored '+(removed.name||'a document')); save(); rerender();
+  });
 };
 
 App.upload = input => {
@@ -2495,10 +2544,16 @@ App.saveReceipt = () => {
 };
 App.delReceipt = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.receipts[i];
   confirmModal('Remove This Receipt?', `"${removed.title}" (${money(receiptTotal(removed))}) will be removed.`, 'Remove', ()=>{
     t.receipts.splice(i,1); logEdit('Money','removed receipt '+(removed.title||'')); save(); rerender();
-    toast('Receipt removed', ()=>{ t.receipts.splice(Math.min(i,t.receipts.length),0,removed); logEdit('Money','restored receipt '+(removed.title||'')); save(); rerender(); });
+    toast('Receipt removed', ()=>{
+      const t2 = getTrip(tripId); if(!t2) return;
+      t2.receipts = t2.receipts||[];
+      t2.receipts.splice(Math.min(i,t2.receipts.length),0,removed);
+      logEdit('Money','restored receipt '+(removed.title||'')); save(); rerender();
+    });
   });
 };
 
@@ -2657,9 +2712,15 @@ App.saveMood = i => {
 App.deleteMoodFromForm = i => { closeModal(); App.delMood(i); };
 App.delMood = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
   const removed = t.moodBoard[i]; const label = removed.title||removed.url||'a pin';
   t.moodBoard.splice(i,1); logEdit('Ideas','removed '+label); save(); rerender();
-  toast('Pin removed', ()=>{ t.moodBoard.splice(Math.min(i,t.moodBoard.length),0,removed); logEdit('Ideas','restored '+label); save(); rerender(); });
+  toast('Pin removed', ()=>{
+    const t2=getTrip(tripId); if(!t2) return;
+    t2.moodBoard = t2.moodBoard||[];
+    t2.moodBoard.splice(Math.min(i,t2.moodBoard.length),0,removed);
+    logEdit('Ideas','restored '+label); save(); rerender();
+  });
 };
 
 </script>
