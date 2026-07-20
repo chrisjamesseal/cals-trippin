@@ -389,7 +389,7 @@ a.dash-tile{text-decoration:none;}
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCmgUmVEO7YXE_qPBcoKlH99UZCDJ43Cd0",
   authDomain: "trippin-d981d.firebaseapp.com",
-  databaseURL: "", // TODO: add a Realtime Database in the Firebase console, then paste its URL here to turn sync on
+  databaseURL: "https://trippin-d981d-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "trippin-d981d",
   storageBucket: "trippin-d981d.firebasestorage.app",
   messagingSenderId: "592178714380",
@@ -859,7 +859,9 @@ function route(){
 function openTrip(id){
   CUR_TAB = 'home';   // opening a trip always lands on the dashboard
   CUR_TRIP_ID = id;
-  syncState = cloudEnabled() ? 'ok' : 'local';
+  // 'busy' until the real .info/connected listener (in initCloud) confirms the connection —
+  // don't claim Synced before Firebase has actually said so
+  syncState = cloudEnabled() ? 'busy' : 'local';
   subscribeTrip(id);
   const local = getTrip(id);
   if(local){
@@ -1140,9 +1142,11 @@ function renderTrip(t){
   const arch = isArchived(t);
   $('#header-actions').innerHTML =
     `<div class="btn-row" style="gap:8px">
+       ${cloudEnabled()?`<span id="sync-pill" class="sync-pill"><span class="dot"></span></span>`:''}
        <button class="btn sm primary" onclick="App.share('${t.id}')">Share</button>
        <button class="menu-btn" onclick="App.openMenu()" aria-label="Trip menu" aria-haspopup="true">${ICONS.menu}<span>Menu</span></button>
      </div>`;
+  if(cloudEnabled()) paintSync();
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
   const phrase = statusPhrase(t);
   $('#app').innerHTML = `
