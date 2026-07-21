@@ -242,6 +242,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .apt-name{font-size:.72rem; color:var(--muted); margin-top:1px; line-height:1.2;}
 .flight-arrow{align-self:center; color:var(--g3,#c9d5d5);}
 .flight-arrow .icon{font-size:1.3rem; color:var(--line-strong);}
+.copy-text{cursor:pointer;}
+.copy-text .copy-ic{font-size:.5em; opacity:.35; margin-left:2px;}
+.copy-text:hover .copy-ic,.copy-text:focus-visible .copy-ic{opacity:.8;}
+.copy-text:focus-visible{outline:none; color:var(--brand);}
 .flight-meta{padding:0 14px 12px; display:flex; gap:8px 18px; flex-wrap:wrap; font-size:.8rem; color:var(--muted); align-items:center;}
 .incl-chips{display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 12px;}
 .incl-chip{font-size:.7rem; font-weight:600; color:var(--brand-dark); background:var(--brand-tint); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:4px;}
@@ -344,6 +348,7 @@ a.dash-tile{text-decoration:none;}
 .plan-map{width:100%; height:180px; border:1px solid var(--line); border-radius:var(--radius-sm); display:block; margin-bottom:8px; background:var(--bg);}
 .plan-img{width:100%; max-height:220px; object-fit:cover; border-radius:var(--radius-sm); display:block; margin-bottom:10px;}
 .plan-auto{margin-bottom:16px;}
+.plan-next-row{display:flex; justify-content:flex-end; margin-bottom:6px;}
 .plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--brand-dark);}
 .plan-auto-tag .icon{font-size:.95rem;}
 .plan-auto .flight-strip,.plan-auto .card{margin-bottom:0;}
@@ -401,8 +406,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.14.0';
 const CHANGELOG = [
+  {version:'1.14.0', notes:['Accommodation addresses, and every location on flight/ferry/car hire cards, now show as text you can tap to copy to the clipboard.', 'Ferry and car hire cards now use the same two-location-plus-arrow layout as flights.', 'Trip header dates simplified to "23/9/26 - 25/9/26", and the countdown now reads as months/weeks/days instead of a flat day count.', 'Itinerary\'s Next badge now sits above each card, right-aligned, instead of squeezed inside it.', 'Itinerary crumb buttons renamed/restyled: "From Ideas" → "Add Ideas", and "+ Add Stop" now matches the other outline buttons.', 'The Itinerary dashboard tile is back to showing an activity count.', 'Documents/Links: added a View button for documents and an Edit option for links; the tab is now called "Documents / Links".']},
   {version:'1.13.0', notes:['Itinerary now opens straight to today (or the nearest day ahead) instead of always day one, with a Today badge on the current day.', 'Past days collapse into an "X earlier days" summary so you\'re not scrolling through history to reach what\'s ahead.', 'The single soonest thing on the whole trip — stop, flight, ferry, car hire or check-in/out — gets a Next badge.', 'The Itinerary tile on the home dashboard now shows what\'s next instead of a flat count.', 'Days that fall inside a stay now show a "Staying at [hotel]" reminder.']},
   {version:'1.12.0', notes:['Itinerary: ferries and car hire (pick-up/drop-off) now show up alongside flights and check-in/out, each with the same icon + "Label - Time" tag for consistency.', 'Travel leg delete moved inside its edit screen instead of a trash icon on the card.', 'Fixed stop cards hiding their "Open in Google Maps" link whenever a photo was also set.', 'Travel leg duration dropdowns now show their units (e.g. "1 h", "30 m").']},
   {version:'1.11.0', notes:['Itinerary: removed the manual reorder arrows — instead, a same-day Check In always sorts after its Flight and a Check Out always sorts before one, automatically, since a check-in time is usually just the property\'s standard time rather than your actual arrival.', 'Fixed itinerary stops silently dropping the Google Maps link from the idea they were created from; stops now have their own Google Maps link field too.', 'Travel leg duration is now an hour/minute dropdown instead of free text.']},
@@ -655,26 +661,33 @@ function fmtRange(a,b){
   if(!a && !b) return 'Dates TBC';
   return (a?fmtDate(a):'?') + ' to ' + (b?fmtDate(b):'?');
 }
-/* long form for the trip header: "23rd September - 30th September 2026" */
-function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
-function fmtLong(d, withYear){
-  const dt = new Date(d+'T00:00:00');
-  return ordinal(dt.getDate())+' '+dt.toLocaleDateString('en-GB',{month:'long'})+(withYear?' '+dt.getFullYear():'');
-}
+/* compact numeric range for the trip header: "23/9/26 - 25/9/26" */
 function fmtRangeLong(a,b){
   if(!a && !b) return 'Dates TBC';
-  if(a && b) return a.slice(0,4)===b.slice(0,4)
-    ? fmtLong(a,false)+' - '+fmtLong(b,true)
-    : fmtLong(a,true)+' - '+fmtLong(b,true);
-  return a ? 'From '+fmtLong(a,true) : 'Until '+fmtLong(b,true);
+  if(a && b) return fmtShortDate(a)+' - '+fmtShortDate(b);
+  return a ? 'From '+fmtShortDate(a) : 'Until '+fmtShortDate(b);
 }
-/* short parenthetical for the trip header: "66 days to go", "day 2 of 8"… */
+/* months/weeks/days breakdown for the "to go" countdown, e.g. "1 month 2 weeks to go" */
+function daysToGoPhrase(n){
+  if(n===0) return 'starts today';
+  if(n===1) return '1 day to go';
+  let rem = n;
+  const months = Math.floor(rem/30); rem -= months*30;
+  const weeks = Math.floor(rem/7); rem -= weeks*7;
+  const days = rem;
+  const parts = [];
+  if(months) parts.push(months+(months===1?' month':' months'));
+  if(weeks) parts.push(weeks+(weeks===1?' week':' weeks'));
+  if(days || !parts.length) parts.push(days+(days===1?' day':' days'));
+  return parts.join(' ')+' to go';
+}
+/* short parenthetical for the trip header: "1 month 2 weeks to go", "day 2 of 8"… */
 function statusPhrase(t){
   if(isArchived(t)) return 'archived';
   const day = 86400000, today = new Date(); today.setHours(0,0,0,0);
   const s = t.startDate ? new Date(t.startDate+'T00:00:00') : null;
   const e = t.endDate ? new Date(t.endDate+'T00:00:00') : null;
-  if(s && today < s){ const n = Math.round((s-today)/day); return n===0?'starts today':n===1?'1 day to go':n+' days to go'; }
+  if(s && today < s){ const n = Math.round((s-today)/day); return daysToGoPhrase(n); }
   if(e && today > e){ const n = Math.round((today-e)/day); return n===1?'ended yesterday':'ended '+n+' days ago'; }
   if(s && e){ const d = Math.round((today-s)/day)+1, tot = Math.round((e-s)/day)+1; return 'day '+d+' of '+tot; }
   if(s) return 'happening now';
@@ -789,12 +802,30 @@ function parseAirport(v){
   return v.toUpperCase().slice(0,3);
 }
 const airportInputVal = code => code ? (airportName(code) ? code+' · '+airportName(code) : code) : '';
+/* a big location line that copies its text to the clipboard on click — shared by every
+   location shown in travel/itinerary cards (airport codes, ferry ports, car hire spots) */
+function copyRow(text, right){
+  if(!text) return `<div class="flight-apt">TBC</div>`;
+  return `<div class="flight-apt copy-text" style="display:flex;align-items:center;gap:6px;${right?'justify-content:flex-end':''}"
+    role="button" tabindex="0" title="Copy" data-copy="${esc(text)}"
+    onclick="event.stopPropagation();App.copyFromEl(this)"
+    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
+    <span>${esc(text)}</span><span class="copy-ic">${ICONS.copy}</span>
+  </div>`;
+}
 /* code prominent, name in grey underneath */
 function airportBlock(code, time, right){
   const nm = airportName(code);
   return `<div style="${right?'text-align:right':''}">
-    <div class="flight-apt">${esc(code||'TBC')}</div>
+    ${copyRow(code, right)}
     ${nm?`<div class="apt-name">${esc(nm)}</div>`:''}
+    ${time?`<div class="muted small mono">${esc(time)}</div>`:''}
+  </div>`;
+}
+/* generic location block for ferry ports / car hire pick-up-drop-off, mirroring airportBlock */
+function locBlock(main, time, right){
+  return `<div style="${right?'text-align:right':''}">
+    ${copyRow(main, right)}
     ${time?`<div class="muted small mono">${esc(time)}</div>`:''}
   </div>`;
 }
@@ -1177,6 +1208,22 @@ App.copyShare = () => {
   const el = $('#share-url'); el.select();
   navigator.clipboard.writeText(el.value).then(()=>toast('Link copied')).catch(()=>{ document.execCommand('copy'); toast('Link copied'); });
 };
+/* generic click-to-copy for any location/address/reference text — reads the raw value off
+   data-copy (set via esc()) rather than threading it through an onclick string, so quotes
+   and other special characters in addresses etc. can't break the attribute */
+App.copyFromEl = el => {
+  const text = el.getAttribute('data-copy'); if(!text) return;
+  const done = () => toast('Copied to clipboard');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>{
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); }catch(e){}
+      document.body.removeChild(ta); done();
+    });
+  }
+};
 App.nativeShare = () => {
   navigator.share({title:"Cal's Trippin' trip invite", url: $('#share-url').value}).catch(()=>{});
 };
@@ -1212,6 +1259,8 @@ const ICONS = {
   notes: fa('note-sticky'),
   edit: fa('pen'),
   trash: fa('trash'),
+  copy: fa('copy'),
+  view: fa('eye'),
   filePdf: fa('file-pdf'),
   fileImg: fa('file-image'),
   checkin: fa('right-to-bracket'),
@@ -1229,7 +1278,7 @@ const TABS = [
   ['money','Money'],
   ['photos','Photos'],
   ['contacts','Contacts'],
-  ['docs','Documents'],
+  ['docs','Documents / Links'],
   ['notes','Notes'],
   ['log','Activity']
 ];
@@ -1421,7 +1470,7 @@ function renderTab(t){
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
   switch(CUR_TAB){
-    case 'plan':   return `<button class="btn sm" onclick="App.tab('mood')">From Ideas</button><button class="btn sm" onclick="App.travelLegForm(-1)">+ Add Travel</button><button class="btn sm primary" onclick="App.planForm(-1)">+ Add Stop</button>`;
+    case 'plan':   return `<button class="btn sm" onclick="App.tab('mood')">Add Ideas</button><button class="btn sm" onclick="App.travelLegForm(-1)">+ Add Travel</button><button class="btn sm" onclick="App.planForm(-1)">+ Add Stop</button>`;
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm(-1)">+ Add</button>`;
@@ -1464,18 +1513,16 @@ function tabHome(t){
     accoms.length+' Stays Added';
   const notesText = (n.general||'').trim();
   const noteLines = notesText ? notesText.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean).length : 0;
-  const nextUp = nextItineraryEntry(t);
-  const planSum = nextUp ? 'Next: '+nextUp.label+(nextUp.time && nextUp.time!=='99:99' ? ' · '+nextUp.time : '')
-    : nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned') : 'Nothing Planned Yet';
+  const planSum = nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned') : 'Nothing Planned Yet';
   const tiles = [
-    ['plan','Itinerary', planSum, !nStops && !nextUp],
+    ['plan','Itinerary', planSum, !nStops],
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
     ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
     ['money','Money', moneySum, !nRec],
     ['photos','Photos', album ? album+' Linked' : 'No Shared Album Yet', !album],
     ['contacts','Contacts', nContacts ? nContacts+(nContacts===1?' Contact Logged':' Contacts Logged') : 'None Added Yet', !nContacts],
-    ['docs','Documents', docParts.join(', ') || 'Nothing Saved Yet', !docParts.length],
+    ['docs','Documents / Links', docParts.join(', ') || 'Nothing Saved Yet', !docParts.length],
     ['notes','Notes', noteLines ? noteLines+(noteLines===1?' Line':' Lines') : 'No Notes Yet', !noteLines],
     ['log','Activity', nLog ? nLog+(nLog===1?' Log':' Logs') : 'No Changes Yet', !nLog]
   ];
@@ -1523,31 +1570,6 @@ function travelDurationLabel(s){
 function itineraryItemLabel(s){
   if(s.kind==='travel') return (s.from||s.to) ? `${s.from||'?'} → ${s.to||'?'}` : 'a travel leg';
   return s.name || 'a stop';
-}
-/* the single soonest upcoming (or right-now) thing across the whole trip — stops, flights,
-   ferries, car hire, check-in/out — used by the home dashboard tile so "what's next" is
-   visible without even opening the Itinerary tab */
-function nextItineraryEntry(t){
-  const now = new Date();
-  const nowKey = todayStr()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-  const entries = [];
-  (t.itinerary||[]).forEach(s=>{ if(s.date) entries.push({date:s.date, time:itineraryTimeKey(s), label:itineraryItemLabel(s)}); });
-  (t.flights||[]).forEach(f=>{ if(f.date) entries.push({date:f.date, time:f.depTime||'99:99', label:'Flight'+(f.airline?' · '+f.airline:'')}); });
-  (t.ferries||[]).forEach(f=>{ if(f.date) entries.push({date:f.date, time:f.depTime||'99:99', label:'Ferry'+(f.operator?' · '+f.operator:'')}); });
-  (t.carHire||[]).forEach(c=>{
-    if(c.pickupDate) entries.push({date:c.pickupDate, time:c.pickupTime||'99:99', label:'Car Pick Up'});
-    if(c.dropoffDate) entries.push({date:c.dropoffDate, time:c.dropoffTime||'99:99', label:'Car Drop Off'});
-  });
-  (t.accommodations||[]).forEach(ac=>{
-    if(ac.checkin) entries.push({date:ac.checkin, time:ac.checkinTime||'99:99', label:'Check In'+(ac.name?' · '+ac.name:'')});
-    if(ac.checkout) entries.push({date:ac.checkout, time:ac.checkoutTime||'99:99', label:'Check Out'+(ac.name?' · '+ac.name:'')});
-  });
-  let best = null, bestKey = null;
-  entries.forEach(e=>{
-    const key = e.date+' '+e.time;
-    if(key>=nowKey && (!bestKey || key<bestKey)){ bestKey=key; best=e; }
-  });
-  return best;
 }
 /* auto flight/ferry/car/check-in/check-out cards are sorted by time, except flight vs
    check-in/check-out: a check-in's recorded time is usually just the property's standard
@@ -1618,28 +1640,28 @@ function tabPlan(t, ro){
     return ac ? (ac.name||'') : '';
   };
   const timeBadge = s => s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][0]) || '';
-  const nextBadge = `<span class="status-pill soon" style="margin-left:auto">Next</span>`;
-  const autoTag = (icon, label, time, isNext) => `
-    <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong>${isNext?nextBadge:''}</div>`;
+  const nextRow = `<div class="plan-next-row"><span class="status-pill soon">Next</span></div>`;
+  const autoTag = (icon, label, time) => `
+    <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong></div>`;
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
   const autoFlightCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
-      ${autoTag(ICONS.flight, 'Flight', s.time, s===nextItem)}
+      ${autoTag(ICONS.flight, 'Flight', s.time)}
       ${flightStripHTML(s.f, s.fi, '')}
     </div>`;
   const autoFerryCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.ferryForm(${s.fi})`)}>
-      ${autoTag(ICONS.ferry, 'Ferry', s.time, s===nextItem)}
+      ${autoTag(ICONS.ferry, 'Ferry', s.time)}
       ${ferryStripHTML(s.f, s.fi, '')}
     </div>`;
   const autoCarCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.carForm(${s.ci})`)}>
-      ${autoTag(s._autoCar==='pickup'?ICONS.checkin:ICONS.checkout, s._autoCar==='pickup'?'Pick Up':'Drop Off', s.time, s===nextItem)}
+      ${autoTag(s._autoCar==='pickup'?ICONS.checkin:ICONS.checkout, s._autoCar==='pickup'?'Pick Up':'Drop Off', s.time)}
       ${carStripHTML(s.c, s.ci, '')}
     </div>`;
   const autoStayCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
-      ${autoTag(s._autoStay==='checkin'?ICONS.checkin:ICONS.checkout, s._autoStay==='checkin'?'Check In':'Check Out', s.time, s===nextItem)}
+      ${autoTag(s._autoStay==='checkin'?ICONS.checkin:ICONS.checkout, s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
       ${accomCardHTML(s.ac, {showDates:false})}
     </div>`;
   const travelCard = s => {
@@ -1653,24 +1675,16 @@ function tabPlan(t, ro){
           <span class="plan-travel-icon">${mode.icon}</span>
           <h3>${title}</h3>
         </div>
-        ${s===nextItem?nextBadge:''}
       </div>
       ${duration?`<p class="small muted">${esc(duration)}</p>`:''}
     </div>`;
   };
-  const card = s => {
-    if(s._autoFlight) return autoFlightCard(s);
-    if(s._autoFerry) return autoFerryCard(s);
-    if(s._autoCar) return autoCarCard(s);
-    if(s._autoStay) return autoStayCard(s);
-    if(s.kind==='travel') return travelCard(s);
-    return `
+  const stopCard = s => `
     <div class="card${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       <div class="section-head" style="margin-bottom:4px">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <h3>${esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
-        ${s===nextItem?nextBadge:''}
         ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
@@ -1680,6 +1694,14 @@ function tabPlan(t, ro){
               title="Map of ${esc(s.location)}"></iframe>` : ''}
       ${s.mapsUrl || s.location ? `<a class="doc-attach" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>` : ''}
     </div>`;
+  const card = s => {
+    const inner = s._autoFlight ? autoFlightCard(s)
+      : s._autoFerry ? autoFerryCard(s)
+      : s._autoCar ? autoCarCard(s)
+      : s._autoStay ? autoStayCard(s)
+      : s.kind==='travel' ? travelCard(s)
+      : stopCard(s);
+    return (s===nextItem ? nextRow : '') + inner;
   };
   const dayBlock = k => {
     const dayItems = groups[k].slice().sort(planCompare);
@@ -1940,27 +1962,28 @@ function ferryStripHTML(f, i, actionsHTML){
         </span>
       </div>
       <div class="flight-body">
-        <div><div class="flight-apt">${esc(f.from||'TBC')}</div><div class="muted small mono">${esc(f.depTime||'')}</div></div>
-        <div class="flight-arrow">${ICONS.ferry}</div>
-        <div style="text-align:right"><div class="flight-apt">${esc(f.to||'TBC')}</div><div class="muted small mono">${esc(f.arrTime||'')}</div></div>
+        ${locBlock(f.from, f.depTime, false)}
+        <div class="flight-arrow">${fa('right-long')}</div>
+        ${locBlock(f.to, f.arrTime, true)}
       </div>
       ${(f.ref||f.note||f.doc)?`<div class="flight-meta">${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}${f.note?`<span>${esc(f.note)}</span>`:''}${travelDocLink('ferries',i,f.doc)}</div>`:''}
     </div>`;
 }
 function carStripHTML(c, i, actionsHTML){
+  const pickWhen = [c.pickupDate?fmtDate(c.pickupDate):'', c.pickupTime||''].filter(Boolean).join(' ');
+  const dropWhen = [c.dropoffDate?fmtDate(c.dropoffDate):'', c.dropoffTime||''].filter(Boolean).join(' ');
   return `
     <div class="flight-strip">
       <div class="flight-head">
         <strong>${esc(c.company||'Car hire')}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">${actionsHTML||''}</span>
       </div>
-      <div class="flight-meta" style="padding-top:12px">
-        <span>Pick-up <strong>${esc(c.pickupLoc||'TBC')}</strong>${c.pickupDate?' · '+fmtDate(c.pickupDate):''}${c.pickupTime?' '+esc(c.pickupTime):''}</span>
-        <span>Drop-off <strong>${esc(c.dropoffLoc||c.pickupLoc||'TBC')}</strong>${c.dropoffDate?' · '+fmtDate(c.dropoffDate):''}${c.dropoffTime?' '+esc(c.dropoffTime):''}</span>
-        ${c.ref?`<span>Ref <strong>${esc(c.ref)}</strong></span>`:''}
-        ${c.note?`<span>${esc(c.note)}</span>`:''}
-        ${travelDocLink('carHire',i,c.doc)}
+      <div class="flight-body">
+        ${locBlock(c.pickupLoc, pickWhen, false)}
+        <div class="flight-arrow">${fa('right-long')}</div>
+        ${locBlock(c.dropoffLoc||c.pickupLoc, dropWhen, true)}
       </div>
+      ${(c.ref||c.note||c.doc)?`<div class="flight-meta">${c.ref?`<span>Ref <strong>${esc(c.ref)}</strong></span>`:''}${c.note?`<span>${esc(c.note)}</span>`:''}${travelDocLink('carHire',i,c.doc)}</div>`:''}
     </div>`;
 }
 function tabTravel(t, ro){
@@ -2035,6 +2058,12 @@ function accomCardHTML(a, opts){
         ${opts.headerActions?`<span class="btn-row" onclick="event.stopPropagation()">${opts.headerActions}</span>`:''}
       </div>
       ${opts.showDates!==false && stayRange ? `<div class="small" style="display:flex;align-items:center;gap:8px;margin-top:10px">${ICONS.calendar}<span>${esc(stayRange)}</span></div>` : ''}
+      ${a.address ? `<div class="small copy-text" style="display:flex;align-items:center;gap:8px;margin-top:10px"
+        role="button" tabindex="0" title="Copy address" data-copy="${esc(a.address)}"
+        onclick="event.stopPropagation();App.copyFromEl(this)"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
+        ${ICONS.pin}<span>${esc(a.address)}</span><span class="copy-ic">${ICONS.copy}</span>
+      </div>` : ''}
       ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
       ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">
         ${a.bookingUrl?`<a class="btn" style="flex:1;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking</a>`:''}
@@ -2418,6 +2447,7 @@ function tabDocs(t, ro){
         </div>
       </div>
       ${!ro?`<div class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
+        ${d.dataUrl?`<button class="iconbtn" aria-label="View file" title="View" onclick="App.openDoc('${t.id}',${i})">${ICONS.view}</button>`:''}
         <button class="iconbtn edit" aria-label="Rename file" title="Rename" onclick="App.renameDoc(${i})">${ICONS.edit}</button>
         <button class="iconbtn del" aria-label="Remove document" title="Remove" onclick="App.delDoc(${i})">${ICONS.trash}</button>
       </div>`:''}
@@ -2434,25 +2464,28 @@ function tabDocs(t, ro){
       </div>
       <div class="btn-row" style="align-items:center">
         <a class="btn sm" href="${esc(l.url)}" target="_blank" rel="noopener">Open</a>
-        ${!ro?`<button class="iconbtn del" aria-label="Remove link" title="Remove" onclick="App.delLink(${i})">${ICONS.trash}</button>`:''}
+        ${!ro?`<button class="iconbtn edit" aria-label="Edit link" title="Edit" onclick="App.linkForm(${i})">${ICONS.edit}</button>
+        <button class="iconbtn del" aria-label="Remove link" title="Remove" onclick="App.delLink(${i})">${ICONS.trash}</button>`:''}
       </div>
     </div>`).join('');
   return `
     <div class="section-head"><h2>Documents</h2>${!ro?`<label class="btn sm primary" style="cursor:pointer">${ICONS.upload} Upload<input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.upload(this)"></label>`:''}</div>
     ${docs || `<div class="empty">No documents yet.</div>`}
-    <div class="section-head" style="margin-top:30px"><h2>Links</h2>${!ro?`<button class="btn sm primary" onclick="App.linkForm()">+ Add Link</button>`:''}</div>
+    <div class="section-head" style="margin-top:30px"><h2>Links</h2>${!ro?`<button class="btn sm primary" onclick="App.linkForm(-1)">+ Add Link</button>`:''}</div>
     ${links || `<div class="empty">No links yet.</div>`}`;
 }
-App.linkForm = () => {
+App.linkForm = (i) => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const l = i>=0 ? (t.docLinks||[])[i] || {} : {};
   openModal(`
-    <h2>Add a Link</h2>
+    <h2>${i>=0?'Edit Link':'Add a Link'}</h2>
     <div class="field"><label class="label" for="lk-name">What is it?</label>
-      <input id="lk-name" type="text" placeholder="e.g. easyJet boarding passes"></div>
+      <input id="lk-name" type="text" value="${esc(l.name||'')}" placeholder="e.g. easyJet boarding passes"></div>
     <div class="field"><label class="label" for="lk-url">Link</label>
-      <input id="lk-url" type="url" placeholder="https://…"></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveLink()">Add Link</button></div>`);
+      <input id="lk-url" type="url" value="${esc(l.url||'')}" placeholder="https://…"></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveLink(${i})">${i>=0?'Save Link':'Add Link'}</button></div>`);
 };
-App.saveLink = () => {
+App.saveLink = (i) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const name = $('#lk-name').value.trim();
   if(!name) return markErr('#lk-name','Say what the link is');
@@ -2460,9 +2493,15 @@ App.saveLink = () => {
   if(!url) return markErr('#lk-url','Paste the link');
   if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
   t.docLinks = t.docLinks||[];
-  t.docLinks.push({id:uid(), name, url});
-  logEdit('Documents','linked '+name);
-  save(); closeModal(); rerender(); toast('Link added');
+  if(i>=0){
+    t.docLinks[i] = {...t.docLinks[i], name, url};
+    logEdit('Documents','edited link '+name);
+    save(); closeModal(); rerender(); toast('Link updated');
+  } else {
+    t.docLinks.push({id:uid(), name, url});
+    logEdit('Documents','linked '+name);
+    save(); closeModal(); rerender(); toast('Link added');
+  }
 };
 App.delLink = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
