@@ -351,6 +351,12 @@ a.dash-tile{text-decoration:none;}
 .plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,.card.plan-click:hover{border-color:var(--brand);}
 .plan-auto.plan-click:focus-visible .flight-strip,.plan-auto.plan-click:focus-visible .card,.card.plan-click:focus-visible{outline:none; border-color:var(--brand);}
 .plan-travel-icon{font-size:1.1rem; color:var(--brand); flex-shrink:0;}
+.plan-past{margin:10px 0 24px;}
+.plan-past summary{cursor:pointer; font-size:.85rem; font-weight:700; color:var(--muted); padding:4px 0; list-style:none;}
+.plan-past summary::-webkit-details-marker{display:none;}
+.plan-past summary::before{content:'▸ ';}
+.plan-past[open] summary::before{content:'▾ ';}
+.plan-past[open] summary{margin-bottom:6px;}
 
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
@@ -395,8 +401,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.12.0';
+const APP_VERSION = '1.13.0';
 const CHANGELOG = [
+  {version:'1.13.0', notes:['Itinerary now opens straight to today (or the nearest day ahead) instead of always day one, with a Today badge on the current day.', 'Past days collapse into an "X earlier days" summary so you\'re not scrolling through history to reach what\'s ahead.', 'The single soonest thing on the whole trip — stop, flight, ferry, car hire or check-in/out — gets a Next badge.', 'The Itinerary tile on the home dashboard now shows what\'s next instead of a flat count.', 'Days that fall inside a stay now show a "Staying at [hotel]" reminder.']},
   {version:'1.12.0', notes:['Itinerary: ferries and car hire (pick-up/drop-off) now show up alongside flights and check-in/out, each with the same icon + "Label - Time" tag for consistency.', 'Travel leg delete moved inside its edit screen instead of a trash icon on the card.', 'Fixed stop cards hiding their "Open in Google Maps" link whenever a photo was also set.', 'Travel leg duration dropdowns now show their units (e.g. "1 h", "30 m").']},
   {version:'1.11.0', notes:['Itinerary: removed the manual reorder arrows — instead, a same-day Check In always sorts after its Flight and a Check Out always sorts before one, automatically, since a check-in time is usually just the property\'s standard time rather than your actual arrival.', 'Fixed itinerary stops silently dropping the Google Maps link from the idea they were created from; stops now have their own Google Maps link field too.', 'Travel leg duration is now an hour/minute dropdown instead of free text.']},
   {version:'1.10.0', notes:['Itinerary: reorder stops and travel legs with up/down arrows (manual order overrides time sort until you hit Reset Order), moved the time to after the name with a dash (e.g. "Flight - 16:05"), and gave Check In/Check Out their own distinct icons.', 'Itinerary: added the ability to manually add a travel leg between two places (mode, from, to, optional duration) — no maps API, just what you type in.']},
@@ -1389,6 +1396,11 @@ App.tab = k => {
   CUR_TAB = k;
   const t = getTrip(CUR_TRIP_ID);
   if(t) renderTrip(t);
+  // jump straight to today (or the nearest day ahead) instead of always landing on day one
+  if(k==='plan'){
+    const el = document.querySelector('.plan-day-target');
+    if(el){ el.scrollIntoView({block:'start'}); return; }
+  }
   window.scrollTo(0,0);
 };
 function renderTab(t){
@@ -1452,8 +1464,11 @@ function tabHome(t){
     accoms.length+' Stays Added';
   const notesText = (n.general||'').trim();
   const noteLines = notesText ? notesText.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean).length : 0;
+  const nextUp = nextItineraryEntry(t);
+  const planSum = nextUp ? 'Next: '+nextUp.label+(nextUp.time && nextUp.time!=='99:99' ? ' · '+nextUp.time : '')
+    : nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned') : 'Nothing Planned Yet';
   const tiles = [
-    ['plan','Itinerary', nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned') : 'Nothing Planned Yet', !nStops],
+    ['plan','Itinerary', planSum, !nStops && !nextUp],
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
     ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
@@ -1509,6 +1524,31 @@ function itineraryItemLabel(s){
   if(s.kind==='travel') return (s.from||s.to) ? `${s.from||'?'} → ${s.to||'?'}` : 'a travel leg';
   return s.name || 'a stop';
 }
+/* the single soonest upcoming (or right-now) thing across the whole trip — stops, flights,
+   ferries, car hire, check-in/out — used by the home dashboard tile so "what's next" is
+   visible without even opening the Itinerary tab */
+function nextItineraryEntry(t){
+  const now = new Date();
+  const nowKey = todayStr()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const entries = [];
+  (t.itinerary||[]).forEach(s=>{ if(s.date) entries.push({date:s.date, time:itineraryTimeKey(s), label:itineraryItemLabel(s)}); });
+  (t.flights||[]).forEach(f=>{ if(f.date) entries.push({date:f.date, time:f.depTime||'99:99', label:'Flight'+(f.airline?' · '+f.airline:'')}); });
+  (t.ferries||[]).forEach(f=>{ if(f.date) entries.push({date:f.date, time:f.depTime||'99:99', label:'Ferry'+(f.operator?' · '+f.operator:'')}); });
+  (t.carHire||[]).forEach(c=>{
+    if(c.pickupDate) entries.push({date:c.pickupDate, time:c.pickupTime||'99:99', label:'Car Pick Up'});
+    if(c.dropoffDate) entries.push({date:c.dropoffDate, time:c.dropoffTime||'99:99', label:'Car Drop Off'});
+  });
+  (t.accommodations||[]).forEach(ac=>{
+    if(ac.checkin) entries.push({date:ac.checkin, time:ac.checkinTime||'99:99', label:'Check In'+(ac.name?' · '+ac.name:'')});
+    if(ac.checkout) entries.push({date:ac.checkout, time:ac.checkoutTime||'99:99', label:'Check Out'+(ac.name?' · '+ac.name:'')});
+  });
+  let best = null, bestKey = null;
+  entries.forEach(e=>{
+    const key = e.date+' '+e.time;
+    if(key>=nowKey && (!bestKey || key<bestKey)){ bestKey=key; best=e; }
+  });
+  return best;
+}
 /* auto flight/ferry/car/check-in/check-out cards are sorted by time, except flight vs
    check-in/check-out: a check-in's recorded time is usually just the property's standard
    check-in time, not your actual arrival, so it can't be trusted to order correctly against
@@ -1547,6 +1587,20 @@ function tabPlan(t, ro){
   });
   const hasAny = Object.keys(groups).length > 0;
   const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
+  const todayKey = todayStr();
+  // the first day (today, or the nearest one ahead) — scrolled to on entering the tab
+  const targetKey = keys.find(k=>k && k>=todayKey) || null;
+  // the single soonest item, right now or later, across every card type in the whole trip
+  const now = new Date();
+  const nowTimeKey = todayKey+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  let nextItem = null, nextItemKey = null;
+  Object.keys(groups).forEach(k=>{
+    if(!k) return; // undated ("Anytime") items have nothing to compare against "now"
+    groups[k].forEach(s=>{
+      const key = k+' '+itineraryTimeKey(s);
+      if(key>=nowTimeKey && (!nextItemKey || key<nextItemKey)){ nextItemKey=key; nextItem=s; }
+    });
+  });
   const dayLabel = k => {
     if(!k) return 'Anytime';
     let n = '';
@@ -1556,28 +1610,36 @@ function tabPlan(t, ro){
     }
     return n + fmtDate(k);
   };
+  // a day strictly between a stay's check-in and check-out gets a reminder of where you're
+  // sleeping — the check-in/check-out days themselves already show their own auto-card
+  const stayingAt = k => {
+    if(!k) return '';
+    const ac = (t.accommodations||[]).find(a=>a.checkin && a.checkout && k>a.checkin && k<a.checkout);
+    return ac ? (ac.name||'') : '';
+  };
   const timeBadge = s => s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][0]) || '';
-  const autoTag = (icon, label, time) => `
-    <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong></div>`;
+  const nextBadge = `<span class="status-pill soon" style="margin-left:auto">Next</span>`;
+  const autoTag = (icon, label, time, isNext) => `
+    <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong>${isNext?nextBadge:''}</div>`;
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
   const autoFlightCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
-      ${autoTag(ICONS.flight, 'Flight', s.time)}
+      ${autoTag(ICONS.flight, 'Flight', s.time, s===nextItem)}
       ${flightStripHTML(s.f, s.fi, '')}
     </div>`;
   const autoFerryCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.ferryForm(${s.fi})`)}>
-      ${autoTag(ICONS.ferry, 'Ferry', s.time)}
+      ${autoTag(ICONS.ferry, 'Ferry', s.time, s===nextItem)}
       ${ferryStripHTML(s.f, s.fi, '')}
     </div>`;
   const autoCarCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.carForm(${s.ci})`)}>
-      ${autoTag(s._autoCar==='pickup'?ICONS.checkin:ICONS.checkout, s._autoCar==='pickup'?'Pick Up':'Drop Off', s.time)}
+      ${autoTag(s._autoCar==='pickup'?ICONS.checkin:ICONS.checkout, s._autoCar==='pickup'?'Pick Up':'Drop Off', s.time, s===nextItem)}
       ${carStripHTML(s.c, s.ci, '')}
     </div>`;
   const autoStayCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
-      ${autoTag(s._autoStay==='checkin'?ICONS.checkin:ICONS.checkout, s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
+      ${autoTag(s._autoStay==='checkin'?ICONS.checkin:ICONS.checkout, s._autoStay==='checkin'?'Check In':'Check Out', s.time, s===nextItem)}
       ${accomCardHTML(s.ac, {showDates:false})}
     </div>`;
   const travelCard = s => {
@@ -1591,6 +1653,7 @@ function tabPlan(t, ro){
           <span class="plan-travel-icon">${mode.icon}</span>
           <h3>${title}</h3>
         </div>
+        ${s===nextItem?nextBadge:''}
       </div>
       ${duration?`<p class="small muted">${esc(duration)}</p>`:''}
     </div>`;
@@ -1607,6 +1670,7 @@ function tabPlan(t, ro){
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <h3>${esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
+        ${s===nextItem?nextBadge:''}
         ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
@@ -1617,11 +1681,18 @@ function tabPlan(t, ro){
       ${s.mapsUrl || s.location ? `<a class="doc-attach" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>` : ''}
     </div>`;
   };
+  const dayBlock = k => {
+    const dayItems = groups[k].slice().sort(planCompare);
+    const stay = stayingAt(k);
+    return `<h3 class="plan-day${k===targetKey?' plan-day-target':''}">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}</h3>
+      ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${ICONS.stay}Staying at ${esc(stay)}</p>`:''}
+      ${dayItems.map(card).join('')}`;
+  };
+  const pastKeys = keys.filter(k=>k && k<todayKey);
+  const restKeys = keys.filter(k=>!(k && k<todayKey));
+  const pastHTML = pastKeys.length ? `<details class="plan-past"><summary>${pastKeys.length} earlier day${pastKeys.length===1?'':'s'}</summary>${pastKeys.map(dayBlock).join('')}</details>` : '';
   return `
-    ${hasAny ? keys.map(k=>{
-        const dayItems = groups[k].slice().sort(planCompare);
-        return `<h3 class="plan-day">${dayLabel(k)}</h3>${dayItems.map(card).join('')}`;
-      }).join('')
+    ${hasAny ? pastHTML + restKeys.map(dayBlock).join('')
     : `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
         <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
         <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`}`;
