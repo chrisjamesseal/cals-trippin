@@ -399,8 +399,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.15.2';
+const APP_VERSION = '1.15.3';
 const CHANGELOG = [
+  {version:'1.15.3', notes:['Fixed clicking into Itinerary jumping to today\'s day instead of the top of the screen — it now always opens at the top, like every other tab.']},
   {version:'1.15.2', notes:['Moved the photo album link out of Edit Trip and onto the Photos page itself, where you can now edit it directly (not just delete and re-add). Renamed the field to "Photo Album Link".']},
   {version:'1.15.1', notes:['Clarified what happens when this browser has no saved trips: since there\'s no account, a private/incognito tab, a new browser or device genuinely won\'t show a trip that\'s only known here — its share link is the way back in, and the Invite Link screen now says so up front.']},
   {version:'1.15.0', notes:['Itinerary: removed the "X earlier days" collapsed dropdown — every day now shows in full — and removed the Next badge.', 'Itinerary\'s three top buttons (Add Ideas, Add Travel, Add Stop) now each have their own icon.']},
@@ -1433,11 +1434,6 @@ App.tab = k => {
   CUR_TAB = k;
   const t = getTrip(CUR_TRIP_ID);
   if(t) renderTrip(t);
-  // jump straight to today (or the nearest day ahead) instead of always landing on day one
-  if(k==='plan'){
-    const el = document.querySelector('.plan-day-target');
-    if(el){ el.scrollIntoView({block:'start'}); return; }
-  }
   window.scrollTo(0,0);
 };
 function renderTab(t){
@@ -1598,8 +1594,6 @@ function tabPlan(t, ro){
   const hasAny = Object.keys(groups).length > 0;
   const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
   const todayKey = todayStr();
-  // the first day (today, or the nearest one ahead) — scrolled to on entering the tab
-  const targetKey = keys.find(k=>k && k>=todayKey) || null;
   const dayLabel = k => {
     if(!k) return 'Anytime';
     let n = '';
@@ -1680,7 +1674,7 @@ function tabPlan(t, ro){
   const dayBlock = k => {
     const dayItems = groups[k].slice().sort(planCompare);
     const stay = stayingAt(k);
-    return `<h3 class="plan-day${k===targetKey?' plan-day-target':''}">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}</h3>
+    return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}</h3>
       ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${ICONS.stay}Staying at ${esc(stay)}</p>`:''}
       ${dayItems.map(card).join('')}`;
   };
