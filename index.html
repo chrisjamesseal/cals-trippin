@@ -399,8 +399,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.15.1';
 const CHANGELOG = [
+  {version:'1.15.1', notes:['Clarified what happens when this browser has no saved trips: since there\'s no account, a private/incognito tab, a new browser or device genuinely won\'t show a trip that\'s only known here — its share link is the way back in, and the Invite Link screen now says so up front.']},
   {version:'1.15.0', notes:['Itinerary: removed the "X earlier days" collapsed dropdown — every day now shows in full — and removed the Next badge.', 'Itinerary\'s three top buttons (Add Ideas, Add Travel, Add Stop) now each have their own icon.']},
   {version:'1.14.0', notes:['Accommodation addresses, and every location on flight/ferry/car hire cards, now show as text you can tap to copy to the clipboard.', 'Ferry and car hire cards now use the same two-location-plus-arrow layout as flights.', 'Trip header dates simplified to "23/9/26 - 25/9/26", and the countdown now reads as months/weeks/days instead of a flat day count.', 'Itinerary\'s Next badge now sits above each card, right-aligned, instead of squeezed inside it.', 'Itinerary crumb buttons renamed/restyled: "From Ideas" → "Add Ideas", and "+ Add Stop" now matches the other outline buttons.', 'The Itinerary dashboard tile is back to showing an activity count.', 'Documents/Links: added a View button for documents and an Edit option for links; the tab is now called "Documents / Links".']},
   {version:'1.13.0', notes:['Itinerary now opens straight to today (or the nearest day ahead) instead of always day one, with a Today badge on the current day.', 'Past days collapse into an "X earlier days" summary so you\'re not scrolling through history to reach what\'s ahead.', 'The single soonest thing on the whole trip — stop, flight, ferry, car hire or check-in/out — gets a Next badge.', 'The Itinerary tile on the home dashboard now shows what\'s next instead of a flat count.', 'Days that fall inside a stay now show a "Staying at [hotel]" reminder.']},
@@ -1047,7 +1048,7 @@ function renderHome(){
       <p class="muted" style="margin-top:4px">One organiser runs the trip. Everyone else gets a link.</p>
       ${DB.trips.length===0 ? `
         <div class="empty" style="margin-top:24px">
-          No trips yet.<br><br>
+          No trips saved on this browser.${cloudEnabled()?' Already made one? A private/incognito tab, a new browser or device won\'t show it here — open its share link instead and it\'ll pull straight back in from the cloud.':''}<br><br>
           <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
         </div>` : `
         <div class="trip-grid">${active.map(card).join('')}${arch.map(card).join('')}</div>`}
@@ -1178,7 +1179,7 @@ App.share = id => {
     // one permanent link — everyone edits the same live trip
     url = location.origin + location.pathname + '#/trip/' + id;
     blurb = `This is the trip's <strong>permanent link</strong>. Anyone you send it to can view and edit with no account or sign-up, and everyone sees each other's changes. The link never changes, so share it once.`;
-    note = `Keep it to your group. Anyone with the link can edit.`;
+    note = `Keep it to your group. Anyone with the link can edit. Save it somewhere of your own too (Notes, or message it to yourself) — there's no account to log back into, so this link is also how you get back in if you ever open the app in a private/incognito tab, a new browser, or a wiped one.`;
   } else {
     // no shared store configured — fall back to a portable snapshot link
     const lite = JSON.parse(JSON.stringify(t));
