@@ -238,13 +238,17 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .flight-strip{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden;}
 .flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--brand-ghost);}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
+.flight-body.loc-stack{display:flex; flex-direction:column; gap:10px;}
 .flight-apt{font-size:1.5rem; font-weight:800; letter-spacing:.02em; color:var(--ink);}
 .apt-name{font-size:.72rem; color:var(--muted); margin-top:1px; line-height:1.2;}
+.loc-addr{font-size:1.05rem; font-weight:800; letter-spacing:.01em; color:var(--ink); line-height:1.3; overflow-wrap:break-word;}
 .flight-arrow{align-self:center; color:var(--g3,#c9d5d5);}
 .flight-arrow .icon{font-size:1.3rem; color:var(--line-strong);}
+.loc-arrow-down{color:var(--g3,#c9d5d5);}
+.loc-arrow-down .icon{font-size:1.2rem; color:var(--line-strong);}
 .copy-text{cursor:pointer;}
-.copy-text .copy-ic{font-size:.5em; opacity:.35; margin-left:2px;}
-.copy-text:hover .copy-ic,.copy-text:focus-visible .copy-ic{opacity:.8;}
+.copy-text .copy-ic{font-size:.8rem; opacity:.4; margin-left:6px;}
+.copy-text:hover .copy-ic,.copy-text:focus-visible .copy-ic{opacity:.85;}
 .copy-text:focus-visible{outline:none; color:var(--brand);}
 .flight-meta{padding:0 14px 12px; display:flex; gap:8px 18px; flex-wrap:wrap; font-size:.8rem; color:var(--muted); align-items:center;}
 .incl-chips{display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 12px;}
@@ -399,8 +403,11 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.15.1';
+const APP_VERSION = '1.15.4';
 const CHANGELOG = [
+  {version:'1.15.4', notes:['Itinerary\'s car hire cards now use a car icon and read "Car Hire Pick Up"/"Car Hire Drop Off" instead of borrowing the check-in/check-out icon.', 'Ferry and car hire cards now stack their two locations top-to-bottom with a down arrow between them, instead of squeezing full addresses into a side-by-side layout built for short airport codes.', 'The click-to-copy icon on locations and addresses is bigger and more consistently sized everywhere.', 'Moved Contacts to sit right before Activity in the trip menu.']},
+  {version:'1.15.3', notes:['Fixed clicking into Itinerary jumping to today\'s day instead of the top of the screen — it now always opens at the top, like every other tab.']},
+  {version:'1.15.2', notes:['Moved the photo album link out of Edit Trip and onto the Photos page itself, where you can now edit it directly (not just delete and re-add). Renamed the field to "Photo Album Link".']},
   {version:'1.15.1', notes:['Clarified what happens when this browser has no saved trips: since there\'s no account, a private/incognito tab, a new browser or device genuinely won\'t show a trip that\'s only known here — its share link is the way back in, and the Invite Link screen now says so up front.']},
   {version:'1.15.0', notes:['Itinerary: removed the "X earlier days" collapsed dropdown — every day now shows in full — and removed the Next badge.', 'Itinerary\'s three top buttons (Add Ideas, Add Travel, Add Stop) now each have their own icon.']},
   {version:'1.14.0', notes:['Accommodation addresses, and every location on flight/ferry/car hire cards, now show as text you can tap to copy to the clipboard.', 'Ferry and car hire cards now use the same two-location-plus-arrow layout as flights.', 'Trip header dates simplified to "23/9/26 - 25/9/26", and the countdown now reads as months/weeks/days instead of a flat day count.', 'Itinerary\'s Next badge now sits above each card, right-aligned, instead of squeezed inside it.', 'Itinerary crumb buttons renamed/restyled: "From Ideas" → "Add Ideas", and "+ Add Stop" now matches the other outline buttons.', 'The Itinerary dashboard tile is back to showing an activity count.', 'Documents/Links: added a View button for documents and an Edit option for links; the tab is now called "Documents / Links".']},
@@ -817,12 +824,17 @@ function airportBlock(code, time, right){
     ${time?`<div class="muted small mono">${esc(time)}</div>`:''}
   </div>`;
 }
-/* generic location block for ferry ports / car hire pick-up-drop-off, mirroring airportBlock */
-function locBlock(main, time, right){
-  return `<div style="${right?'text-align:right':''}">
-    ${copyRow(main, right)}
-    ${time?`<div class="muted small mono">${esc(time)}</div>`:''}
-  </div>`;
+/* address-style location line for ferry ports / car hire spots, where the text can be a
+   full address rather than a short code — smaller than an airport code and always
+   left-aligned so long text wraps cleanly, stacked top-to-bottom with a down arrow between
+   the two rather than squeezed side-by-side */
+function addrRow(text, time){
+  if(!text) return `<div class="loc-addr">TBC</div>`;
+  return `<div class="loc-addr copy-text" role="button" tabindex="0" title="Copy" data-copy="${esc(text)}"
+    onclick="event.stopPropagation();App.copyFromEl(this)"
+    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
+    <span>${esc(text)}</span><span class="copy-ic">${ICONS.copy}</span>
+  </div>${time?`<div class="muted small mono" style="margin-top:4px">${esc(time)}</div>`:''}`;
 }
 
 /* ================= airlines ================= */
@@ -1273,9 +1285,9 @@ const TABS = [
   ['mood','Ideas'],
   ['money','Money'],
   ['photos','Photos'],
-  ['contacts','Contacts'],
   ['docs','Documents / Links'],
   ['notes','Notes'],
+  ['contacts','Contacts'],
   ['log','Activity']
 ];
 function renderTrip(t){
@@ -1336,8 +1348,6 @@ App.tripForm = () => {
       <div class="chips" id="et-person-pills" style="margin-top:10px"></div>
       <p class="muted small" style="margin-top:6px">★ organiser</p>
     </div>
-    <div class="field"><label class="label" for="et-album">Shared photo album link <span class="muted small">— PhotoCircle, Google Photos…</span></label>
-      <input id="et-album" type="url" value="${esc((t.photoAlbum&&t.photoAlbum.url)||'')}" placeholder="https://photocircleapp.com/…"></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveTrip()">Save</button></div>`);
   drawETPills();
 };
@@ -1392,13 +1402,6 @@ App.saveTrip = () => {
   const name = $('#et-name').value.trim();
   if(!name) return markErr('#et-name','Give the trip a name');
   t.name = name; t.startDate = $('#et-start').value; t.endDate = $('#et-end').value;
-  let album = ($('#et-album').value||'').trim();
-  if(album && !/^https?:\/\//i.test(album)) album = 'https://' + album;
-  const prevAlbum = (t.photoAlbum&&t.photoAlbum.url)||'';
-  if(album !== prevAlbum){
-    t.photoAlbum = {url:album, service:detectAlbumService(album)};
-    logEdit('Photos', album?('linked '+(detectAlbumService(album)||'a photo album')):'removed the photo album link');
-  }
   logEdit('Trip info','updated the trip details');
   save(); closeModal(); rerender();
 };
@@ -1441,11 +1444,6 @@ App.tab = k => {
   CUR_TAB = k;
   const t = getTrip(CUR_TRIP_ID);
   if(t) renderTrip(t);
-  // jump straight to today (or the nearest day ahead) instead of always landing on day one
-  if(k==='plan'){
-    const el = document.querySelector('.plan-day-target');
-    if(el){ el.scrollIntoView({block:'start'}); return; }
-  }
   window.scrollTo(0,0);
 };
 function renderTab(t){
@@ -1606,8 +1604,6 @@ function tabPlan(t, ro){
   const hasAny = Object.keys(groups).length > 0;
   const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
   const todayKey = todayStr();
-  // the first day (today, or the nearest one ahead) — scrolled to on entering the tab
-  const targetKey = keys.find(k=>k && k>=todayKey) || null;
   const dayLabel = k => {
     if(!k) return 'Anytime';
     let n = '';
@@ -1640,7 +1636,7 @@ function tabPlan(t, ro){
     </div>`;
   const autoCarCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.carForm(${s.ci})`)}>
-      ${autoTag(s._autoCar==='pickup'?ICONS.checkin:ICONS.checkout, s._autoCar==='pickup'?'Pick Up':'Drop Off', s.time)}
+      ${autoTag(ICONS.car, s._autoCar==='pickup'?'Car Hire Pick Up':'Car Hire Drop Off', s.time)}
       ${carStripHTML(s.c, s.ci, '')}
     </div>`;
   const autoStayCard = s => `
@@ -1688,7 +1684,7 @@ function tabPlan(t, ro){
   const dayBlock = k => {
     const dayItems = groups[k].slice().sort(planCompare);
     const stay = stayingAt(k);
-    return `<h3 class="plan-day${k===targetKey?' plan-day-target':''}">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}</h3>
+    return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}</h3>
       ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${ICONS.stay}Staying at ${esc(stay)}</p>`:''}
       ${dayItems.map(card).join('')}`;
   };
@@ -1940,10 +1936,10 @@ function ferryStripHTML(f, i, actionsHTML){
           ${actionsHTML||''}
         </span>
       </div>
-      <div class="flight-body">
-        ${locBlock(f.from, f.depTime, false)}
-        <div class="flight-arrow">${fa('right-long')}</div>
-        ${locBlock(f.to, f.arrTime, true)}
+      <div class="flight-body loc-stack">
+        ${addrRow(f.from, f.depTime)}
+        <div class="loc-arrow-down">${fa('arrow-down')}</div>
+        ${addrRow(f.to, f.arrTime)}
       </div>
       ${(f.ref||f.note||f.doc)?`<div class="flight-meta">${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}${f.note?`<span>${esc(f.note)}</span>`:''}${travelDocLink('ferries',i,f.doc)}</div>`:''}
     </div>`;
@@ -1957,10 +1953,10 @@ function carStripHTML(c, i, actionsHTML){
         <strong>${esc(c.company||'Car hire')}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">${actionsHTML||''}</span>
       </div>
-      <div class="flight-body">
-        ${locBlock(c.pickupLoc, pickWhen, false)}
-        <div class="flight-arrow">${fa('right-long')}</div>
-        ${locBlock(c.dropoffLoc||c.pickupLoc, dropWhen, true)}
+      <div class="flight-body loc-stack">
+        ${addrRow(c.pickupLoc, pickWhen)}
+        <div class="loc-arrow-down">${fa('arrow-down')}</div>
+        ${addrRow(c.dropoffLoc||c.pickupLoc, dropWhen)}
       </div>
       ${(c.ref||c.note||c.doc)?`<div class="flight-meta">${c.ref?`<span>Ref <strong>${esc(c.ref)}</strong></span>`:''}${c.note?`<span>${esc(c.note)}</span>`:''}${travelDocLink('carHire',i,c.doc)}</div>`:''}
     </div>`;
@@ -2879,7 +2875,8 @@ function tabPhotos(t, ro){
         <p class="muted small" style="margin-bottom:12px">${albumNote(service)}</p>
         <div class="btn-row">
           <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open Album ${ICONS.ext}</a>
-          ${!ro?`<button class="iconbtn del" aria-label="Remove album link" title="Remove link" onclick="App.removeAlbum()">${ICONS.trash}</button>`:''}
+          ${!ro?`<button class="iconbtn edit" aria-label="Edit album link" title="Edit link" onclick="App.albumForm()">${ICONS.edit}</button>
+          <button class="iconbtn del" aria-label="Remove album link" title="Remove link" onclick="App.removeAlbum()">${ICONS.trash}</button>`:''}
         </div>
       </div>` : `
       <div class="empty">No shared album linked yet.
@@ -2918,7 +2915,7 @@ App.albumForm = () => {
   openModal(`
     <h2>Shared Album Link</h2>
     <p class="small" style="margin-bottom:12px">Paste your <strong>PhotoCircle</strong> invite link (recommended), or any Apple/Google album link.</p>
-    <div class="field"><label class="label" for="al-url">Album / invite URL</label>
+    <div class="field"><label class="label" for="al-url">Photo Album Link</label>
       <input id="al-url" type="url" value="${esc(t.photoAlbum.url||'')}" placeholder="https://photocircleapp.com/…"></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveAlbum()">Save</button></div>`);
 };
