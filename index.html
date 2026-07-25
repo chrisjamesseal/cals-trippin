@@ -41,6 +41,7 @@ header.top{
   border-bottom:1px solid var(--line); background:var(--paper);
   position:sticky; top:0; z-index:50;
 }
+.sidebar{display:none;}
 .top-inner{max-width:920px; margin:0 auto; padding:13px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;}
 
 /* ---------- wordmark ---------- */
@@ -102,6 +103,25 @@ a{color:var(--brand-dark);}
 .card.flat{box-shadow:none;}
 .panel{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); padding:18px; margin-bottom:20px;}
 .divider{border:none; border-top:1px solid var(--line); margin:14px 0;}
+
+/* ---------- countdown card (upcoming trip) ---------- */
+.countdown-card{
+  position:relative; overflow:hidden; border-radius:20px; background:#0A1830;
+  padding:20px 16px; margin-top:14px; box-shadow:var(--shadow);
+}
+.countdown-card::before{
+  content:''; position:absolute; top:-55%; left:-25%; width:75%; height:170%;
+  background:radial-gradient(circle, rgba(70,120,255,.55), transparent 70%);
+  pointer-events:none;
+}
+.countdown-grid{position:relative; display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
+.countdown-tile{
+  background:linear-gradient(145deg,#3E63E8,#1B3489); border-radius:14px; padding:14px 6px; text-align:center;
+  box-shadow:0 4px 16px rgba(10,25,90,.45), inset 0 1px 0 rgba(255,255,255,.18);
+}
+.countdown-num{font-size:1.7rem; font-weight:800; color:#fff; letter-spacing:-.02em; font-variant-numeric:tabular-nums;}
+.countdown-label{font-size:.66rem; color:#B9C6F5; margin-top:2px; font-weight:600;}
+@media(min-width:480px){.countdown-num{font-size:2.1rem;} .countdown-tile{padding:18px 8px;}}
 
 /* ---------- trip list ---------- */
 .trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:18px;}
@@ -368,6 +388,23 @@ a.dash-tile{text-decoration:none;}
 .log-who{font-weight:700; color:var(--ink); white-space:nowrap; flex-shrink:0;}
 .log-what{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .log-when{color:var(--muted); font-size:.75rem; white-space:nowrap; flex-shrink:0; margin-left:auto;}
+
+/* ---------- desktop: sidebar nav instead of the mobile hamburger overlay ---------- */
+@media(min-width:1024px){
+  .app-shell{display:flex; align-items:flex-start;}
+  .sidebar{
+    display:flex; flex-direction:column; gap:2px; flex-shrink:0; width:248px;
+    position:sticky; top:65px; height:calc(100vh - 65px); overflow-y:auto;
+    padding:18px 10px; border-right:1px solid var(--line);
+  }
+  .sidebar .menu-item{padding:10px 12px; font-size:.88rem;}
+  .menu-btn{display:none;}
+  .wrap{max-width:1160px; margin:0; padding:0 40px 96px 32px; flex:1; min-width:0;}
+  .dash-grid{grid-template-columns:repeat(3,1fr);}
+}
+@media(min-width:1024px) and (max-width:1279px){
+  .sidebar{width:216px;}
+}
 </style>
 </head>
 <body>
@@ -380,7 +417,10 @@ a.dash-tile{text-decoration:none;}
     <div id="header-actions"></div>
   </div>
 </header>
-<main class="wrap" id="app"></main>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-root"></aside>
+  <main class="wrap" id="app"></main>
+</div>
 <div id="modal-root"></div>
 <div id="menu-root"></div>
 <div id="toast"></div>
@@ -405,8 +445,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.15.5';
+const APP_VERSION = '1.16.0';
 const CHANGELOG = [
+  {version:'1.16.0', notes:['A trip that hasn\'t started yet now shows a live days/hours/minutes/seconds countdown instead of a "N to go" line.', 'Receipt scanning: fixed large totals with a comma (e.g. "£1,234.56") being truncated to the wrong amount; a service charge/gratuity/tip line is now captured as its own item and split like everything else instead of being silently dropped; item descriptions are now best-effort translated to English; the date is read straight off the receipt when it\'s unambiguous, otherwise left alone.', 'Desktop: the hamburger menu is now a persistent sidebar, and the page uses the full width of a wide screen instead of staying pinned to a narrow, centered column.']},
   {version:'1.15.5', notes:['Added a proper favicon and home-screen icon: the itinerary map icon in white on the app\'s brand green.']},
   {version:'1.15.4', notes:['Itinerary\'s car hire cards now use a car icon and read "Car Hire Pick Up"/"Car Hire Drop Off" instead of borrowing the check-in/check-out icon.', 'Ferry and car hire cards now stack their two locations top-to-bottom with a down arrow between them, instead of squeezing full addresses into a side-by-side layout built for short airport codes.', 'The click-to-copy icon on locations and addresses is bigger and more consistently sized everywhere.', 'Moved Contacts to sit right before Activity in the trip menu.']},
   {version:'1.15.3', notes:['Fixed clicking into Itinerary jumping to today\'s day instead of the top of the screen — it now always opens at the top, like every other tab.']},
@@ -697,6 +738,44 @@ function statusPhrase(t){
   if(s && e){ const d = Math.round((today-s)/day)+1, tot = Math.round((e-s)/day)+1; return 'day '+d+' of '+tot; }
   if(s) return 'happening now';
   return '';
+}
+/* the trip's start date, but only when it's genuinely still ahead of us — used to decide
+   whether the header shows the live countdown card instead of the "N to go" phrase */
+function upcomingStartDate(t){
+  if(isArchived(t) || !t.startDate) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return today < new Date(t.startDate+'T00:00:00') ? t.startDate : null;
+}
+function countdownCardHTML(){
+  const tile = (id,label) => `<div class="countdown-tile"><div class="countdown-num" id="${id}">–</div><div class="countdown-label">${label}</div></div>`;
+  return `
+    <div class="countdown-card" id="countdown-card">
+      <div class="countdown-grid">
+        ${tile('cd-days','days')}${tile('cd-hours','hours')}${tile('cd-mins','minutes')}${tile('cd-secs','seconds')}
+      </div>
+    </div>`;
+}
+let _countdownTimer = null;
+function stopCountdown(){ if(_countdownTimer){ clearInterval(_countdownTimer); _countdownTimer=null; } }
+/* ticks the 4 numbers directly via the DOM every second rather than re-rendering the
+   whole page — self-stops the moment #countdown-card is no longer on screen (tab switch,
+   different trip, trip starting), so nothing needs to remember to clean this up elsewhere */
+function startCountdown(startDate){
+  stopCountdown();
+  const target = new Date(startDate+'T00:00:00').getTime();
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  const tick = () => {
+    if(!document.getElementById('countdown-card')){ stopCountdown(); return; }
+    const diff = target - Date.now();
+    if(diff<=0){ stopCountdown(); rerender(); return; }
+    const secsTotal = Math.floor(diff/1000);
+    set('cd-days', Math.floor(secsTotal/86400));
+    set('cd-hours', String(Math.floor(secsTotal%86400/3600)).padStart(2,'0'));
+    set('cd-mins', String(Math.floor(secsTotal%3600/60)).padStart(2,'0'));
+    set('cd-secs', String(secsTotal%60).padStart(2,'0'));
+  };
+  tick();
+  _countdownTimer = setInterval(tick, 1000);
 }
 function money(n){ return (n<0?'-':'') + '£' + Math.abs(n).toFixed(2); }
 function isArchived(t){
@@ -1045,6 +1124,7 @@ App.changeIdentity = () => {
 /* ================= home (trip list) ================= */
 function renderHome(){
   $('#header-actions').innerHTML = `<button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>`;
+  renderSidebar(null);
   const active = DB.trips.filter(t=>!isArchived(t));
   const arch  = DB.trips.filter(t=> isArchived(t));
   const card = t => `
@@ -1302,13 +1382,16 @@ function renderTrip(t){
        <button class="menu-btn" onclick="App.openMenu()" aria-label="Trip menu" aria-haspopup="true">${ICONS.menu}<span>Menu</span></button>
      </div>`;
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
+  renderSidebar(t);
   const phrase = statusPhrase(t);
+  const upcoming = CUR_TAB==='home' ? upcomingStartDate(t) : null;
   $('#app').innerHTML = `
     ${arch?`<div class="banner">🗄 This trip ended over a month ago and is now archived and read-only.</div>`:''}
     ${CUR_TAB==='home' ? `
     <div style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
-      <p class="muted" style="margin-top:4px">${fmtRangeLong(t.startDate,t.endDate)}${phrase?` (${phrase})`:''}</p>
+      <p class="muted" style="margin-top:4px">${fmtRangeLong(t.startDate,t.endDate)}${(phrase && !upcoming)?` (${phrase})`:''}</p>
+      ${upcoming?countdownCardHTML():''}
     </div>` : `
     <div class="crumb" style="margin-top:26px">
       <div class="crumb-titlerow">
@@ -1320,6 +1403,7 @@ function renderTrip(t){
     ${CUR_TAB==='home' && !ro ? `
     <button class="btn primary" style="width:100%;margin-top:40px;border-radius:var(--radius)" onclick="App.tripForm()">Edit Trip</button>
     <button class="btn danger" style="width:100%;margin-top:12px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}`;
+  if(upcoming) startCountdown(upcoming); else stopCountdown();
   renderTab(t);
 }
 /* Edit Trip screen: name, dates, countries and people (trip settings) */
@@ -1408,7 +1492,30 @@ App.saveTrip = () => {
   logEdit('Trip info','updated the trip details');
   save(); closeModal(); rerender();
 };
-/* ---- slide-in section menu (replaces the old scrolling tab strip) ---- */
+/* ---- section nav: a slide-in overlay on mobile, a persistent sidebar on desktop —
+   both render off the same item list so they can never drift out of sync ---- */
+function tripNavItems(t){
+  const item = ([k,l]) => `
+    <div class="menu-item ${CUR_TAB===k?'active':''}" role="menuitem" tabindex="0"
+         onclick="App.menuGo('${k}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.menuGo('${k}')}">
+      ${ICONS[k]||''}<span>${l}</span>
+    </div>`;
+  return `${TABS.map(item).join('')}
+    <hr class="menu-sep">
+    <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.share('${t.id}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.share('${t.id}')}">${ICONS.share}<span>Share Trip</span></div>
+    <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.changeIdentity()"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.changeIdentity()}">${ICONS.user}<span>Switch Name${whoAmI(t.id)?' ('+esc(whoAmI(t.id))+')':''}</span></div>
+    <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.goHome()"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.goHome()}">${ICONS.back}<span>All Trips</span></div>`;
+}
+function renderSidebar(t){
+  const root = $('#sidebar-root'); if(!root) return;
+  root.innerHTML = t ? `
+    <div class="menu-head" style="padding-left:2px"><span class="menu-title">${esc(t.name)}</span></div>
+    ${tripNavItems(t)}` : '';
+}
 function menuIsOpen(){ return !!$('#menu-root').firstChild; }
 function closeMenu(){
   if(!menuIsOpen()) return;
@@ -1418,25 +1525,12 @@ function closeMenu(){
 App.closeMenu = closeMenu;
 App.openMenu = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const item = ([k,l]) => `
-    <div class="menu-item ${CUR_TAB===k?'active':''}" role="menuitem" tabindex="0"
-         onclick="App.menuGo('${k}')"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.menuGo('${k}')}">
-      ${ICONS[k]||''}<span>${l}</span>
-    </div>`;
   $('#menu-root').innerHTML = `
     <div class="menu-bg" onclick="if(event.target===this)App.closeMenu()">
       <nav class="menu" role="menu" aria-label="Trip sections">
         <div class="menu-head"><span class="menu-title">${esc(t.name)}</span>
           <button class="iconbtn" onclick="App.closeMenu()" aria-label="Close menu">${fa('xmark')}</button></div>
-        ${TABS.map(item).join('')}
-        <hr class="menu-sep">
-        <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.share('${t.id}')"
-             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.share('${t.id}')}">${ICONS.share}<span>Share Trip</span></div>
-        <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.changeIdentity()"
-             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.changeIdentity()}">${ICONS.user}<span>Switch Name${whoAmI(t.id)?' ('+esc(whoAmI(t.id))+')':''}</span></div>
-        <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.goHome()"
-             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.goHome()}">${ICONS.back}<span>All Trips</span></div>
+        ${tripNavItems(t)}
       </nav>
     </div>`;
   document.body.style.overflow='hidden';
@@ -2605,27 +2699,89 @@ function ensureTesseract(cb){
   s.onload = () => cb(); s.onerror = () => cb(new Error('load'));
   document.head.appendChild(s);
 }
+/* a matched price string can have its separators either way round ("1,234.56" or
+   "1.234,56") — the regex that finds it always leaves exactly 2 digits after the LAST
+   separator (the decimal part), so normalize off that position rather than guessing by
+   character, then round to the nearest cent to avoid float noise */
+function normalizeAmount(raw){
+  const s = raw.replace(/\s/g,'');
+  const lastSep = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
+  if(lastSep<0) return Math.round(parseFloat(s)*100)/100;
+  const whole = s.slice(0,lastSep).replace(/[.,]/g,'');
+  const cents = s.slice(lastSep+1);
+  return Math.round(parseFloat(whole+'.'+cents)*100)/100;
+}
 /* turn OCR text into candidate line items: "<description> ... <price>" */
 function parseReceiptText(text){
-  const skip = /(sub[\s-]?total|^total|balance|change|cash|card|visa|master|amex|vat|tax|gratuity|service|^tip|amount|payment|table|receipt|thank|www\.|http|tel[:\s]|order|invoice|qty|discount|voucher)/i;
+  const skip = /(sub[\s-]?total|^total|balance|change|cash|card|visa|master|amex|vat|tax|amount|payment|table|receipt|thank|www\.|http|tel[:\s]|order|invoice|qty|discount|voucher)/i;
+  // a service charge/gratuity/tip line is a real cost too — captured as its own item
+  // (rather than silently dropped) so it's not lost from the group's total; an item with
+  // no one ticked already splits evenly across everyone, so no extra split logic is needed
+  const serviceCharge = /(service\s*charge|gratuity|\btip\b|service\s*fee|svc\s*chg)/i;
   const out = [];
   (text||'').split(/\r?\n/).forEach(line=>{
     const l = line.trim(); if(l.length<3) return;
-    // "<desc> ... £12.50", "<desc> 12,50 €", "<desc> 12.50 GBP", trailing VAT letter tolerated
-    const m = l.match(/^(.*?)[\s.·•\-–—:]*[£$€]?\s*(\d{1,4}\s?[.,]\s?\d{2})\s*(?:[£$€]|GBP|EUR|USD|[A-Z])?\s*$/);
+    // "<desc> ... £12.50", "<desc> 12,50 €", "<desc> £1,234.56", trailing VAT letter tolerated
+    const m = l.match(/^(.*?)[\s.·•\-–—:]*[£$€]?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|\d{1,4}[.,]\d{2})\s*(?:[£$€]|GBP|EUR|USD|[A-Z])?\s*$/);
     if(!m) return;
+    const amount = normalizeAmount(m[2]);
+    if(!(amount>0) || amount>5000) return;
+    if(serviceCharge.test(l)){ out.push({desc:'Service Charge', amount, people:[]}); return; }
     let desc = m[1].replace(/[.:·•\-–—\s]+$/,'').replace(/\s{2,}/g,' ').trim();
     desc = desc.replace(/^\d+\s*[xX]?\s*/, '').trim();      // drop leading quantity "2 x"
     desc = desc.replace(/\s*[xX]\s*\d+$/, '').trim();       // drop trailing quantity "x2"
     desc = desc.replace(/\s+\d{1,4}[.,]\d{2}$/,'').trim();  // drop a unit price before the line total
-    const amount = parseFloat(m[2].replace(/\s/g,'').replace(',','.'));
-    if(!desc || !(amount>0) || amount>2000) return;
+    if(!desc) return;
     if(skip.test(desc)) return;
     if(/^[\d\s.,:\/-]+$/.test(desc)) return;                // pure numbers/dates aren't items
     if(!/[A-Za-z]{2}/.test(desc)) return;                   // need at least a bit of a word
     out.push({desc: desc.slice(0,40), amount, people:[]});
   });
   return out;
+}
+/* look for one clear, valid, non-future date in the OCR text — a receipt date is only
+   ever prefilled when we're actually sure; anything ambiguous or invalid is left alone so
+   the form keeps its sensible today's-date default rather than a guessed wrong one */
+function parseReceiptDate(text){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const valid = (y,mo,d) => {
+    if(y<2015 || mo<1 || mo>12 || d<1 || d>31) return null;
+    const dt = new Date(y, mo-1, d);
+    if(dt.getFullYear()!==y || dt.getMonth()!==mo-1 || dt.getDate()!==d) return null;
+    if(dt > today) return null;
+    return dt.toISOString().slice(0,10);
+  };
+  for(const line of (text||'').split(/\r?\n/)){
+    let m = line.match(/\b(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})\b/);   // ISO: YYYY-MM-DD
+    if(m){ const r = valid(+m[1], +m[2], +m[3]); if(r) return r; }
+    m = line.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/);     // D/M/Y (or M/D/Y if unambiguous)
+    if(m){
+      let d=+m[1], mo=+m[2], y=+m[3];
+      if(y<100) y += y<70?2000:1900;
+      if(mo>12 && mo<=31 && d<=12){ const t=d; d=mo; mo=t; }
+      const r = valid(y, mo, d); if(r) return r;
+    }
+  }
+  return '';
+}
+/* best-effort translation of scanned item descriptions to English via a free, keyless
+   endpoint — same fallback pattern as the TikTok oEmbed lookup: on any failure (offline,
+   blocked, unexpected response) the original text is simply left as-is, nothing blocks */
+function translateToEnglish(items, cb){
+  const todo = items.filter(it=>it.desc && it.desc!=='Service Charge');
+  if(!todo.length){ cb(); return; }
+  let remaining = todo.length;
+  const done = () => { if(--remaining<=0) cb(); };
+  todo.forEach(it=>{
+    fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q='+encodeURIComponent(it.desc))
+      .then(r=>r.json())
+      .then(data=>{
+        const translated = data && data[0] && data[0].map(seg=>seg[0]).join('').trim();
+        if(translated && translated.toLowerCase()!==it.desc.trim().toLowerCase()) it.desc = translated.slice(0,40);
+        done();
+      })
+      .catch(done);
+  });
 }
 App.scanReceipt = input => {
   const file = input.files[0]; input.value=''; if(!file || !R) return;
@@ -2637,15 +2793,21 @@ App.scanReceipt = input => {
       if(err || !window.Tesseract){ R._scanning=false; R._scanMsg="Couldn't load the scanner. Check you're online, or add items by hand."; App.redrawReceipt(); return; }
       window.Tesseract.recognize(dataUrl, 'eng')
         .then(({data}) => {
-          const items = parseReceiptText(data && data.text || '');
+          const text = data && data.text || '';
+          const items = parseReceiptText(text);
+          const foundDate = parseReceiptDate(text);
+          if(foundDate) R.date = foundDate;
+          R._scanning = false;
           if(items.length){
             R.items = items;
             R._scanMsg = `Found ${items.length} item${items.length>1?'s':''}. Check them, then tick who had each.`;
+            App.redrawReceipt();
+            translateToEnglish(items, () => App.redrawReceipt());
           } else {
             if(!R.items.length) R.items = [{desc:'',amount:'',people:[]}];
             R._scanMsg = "Couldn't pick out items from that photo. Add them by hand.";
+            App.redrawReceipt();
           }
-          R._scanning=false; App.redrawReceipt();
         })
         .catch(() => { R._scanning=false; R._scanMsg='Scan failed. Add items by hand.'; App.redrawReceipt(); });
     });
