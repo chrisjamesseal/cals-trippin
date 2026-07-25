@@ -433,10 +433,17 @@ const FIREBASE_CONFIG = {
   appId: "1:592178714380:web:bd541ed796f428fdbc9b29"
 };
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
+/* one shared PIN for the whole site, in place of per-trip secret links — change this and
+   give the new one to your group. This is a static site with no backend, so the check is
+   client-side only: it keeps casual visitors out, but it is NOT real security against
+   anyone who reads the page's source (view-source reveals this constant). Don't rely on it
+   to protect anything you wouldn't be okay with a determined stranger seeing. */
+const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.17.2';
+const APP_VERSION = '1.18.0';
 const CHANGELOG = [
+  {version:'1.18.0', notes:['Replaced the per-trip "you need the link" model with a single shared PIN for the whole site: enter it once per browser (remembered after that) and the "Your Trips" list now shows every trip that exists — created by anyone, on any device — instead of only trips this particular browser happened to make or open before. The PIN protects the whole app, including direct trip links.']},
   {version:'1.17.2', notes:['Fixed the receipt\'s own "Total" line sometimes being picked up as a fake extra item (e.g. showing as an item literally named "; Total") — a stray OCR character right at the start of a line was breaking the check that\'s meant to exclude it, so it got counted and split like a real purchase on top of the actual items.']},
   {version:'1.17.1', notes:['Receipt scanning now detects the receipt\'s actual currency (£/€/$) instead of always assuming pounds, and converts to £ using today\'s exchange rate — a euro receipt was previously shown, split and totalled as if the numbers were already in pounds. The original amount and rate used are shown on the saved receipt.']},
   {version:'1.17.0', notes:['Countdown restyled in the app\'s own brand colours: no more dark card, tiles are full width and green with white text.', 'Receipt scanning, tested against a real photographed receipt: photos taken sideways (very common for a narrow receipt) now get auto-rotated by trying each orientation and keeping whichever one Tesseract reads most confidently, instead of failing outright. Line items are now reconstructed from each word\'s position on the receipt rather than trusting the raw text\'s line breaks, so tabular receipts (item / unit price / qty / total in separate columns) parse correctly. Also fixed round totals a printer had truncated to one decimal (e.g. "€30.0"), and added Spanish/Portuguese equivalents (parcial, impuesto, propina, servicio…) to the recognized summary-line and service-charge terms.', 'Activity is no longer its own tab — the log now sits below the Delete Trip button on Overview, and each entry links straight to the section it\'s about.']},
@@ -1004,6 +1011,26 @@ function markErr(sel, msg){
   return false;
 }
 
+/* ================= PIN gate ================= */
+const PIN_KEY = 'calstrippin_pin_ok';
+function pinOk(){ try{ return localStorage.getItem(PIN_KEY)==='1'; }catch(e){ return false; } }
+function renderPinGate(){
+  $('#header-actions').innerHTML = '';
+  const sidebarEl = $('#sidebar-root'); if(sidebarEl) sidebarEl.innerHTML = '';
+  $('#app').innerHTML = `
+    <div style="max-width:320px; margin:80px auto 0; text-align:center">
+      <div class="logo" style="justify-content:center; margin-bottom:8px">Cal&#8217;s <span class="lg2">Trippin&#8217;</span></div>
+      <p class="muted" style="margin-bottom:20px">Enter the group PIN to continue.</p>
+      <div class="field">
+        <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN"
+          style="text-align:center; font-size:1.3rem; letter-spacing:.25em"
+          onkeydown="if(event.key==='Enter'){App.submitPin()}">
+        <div class="field-err">Wrong PIN</div>
+      </div>
+      <button class="btn primary" style="width:100%; margin-top:8px" onclick="App.submitPin()">Continue</button>
+    </div>`;
+  setTimeout(()=>{ const el=$('#pin-input'); if(el) el.focus(); }, 0);
+}
 /* ================= router ================= */
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', ()=>{
@@ -1032,6 +1059,7 @@ function renderChangelog(){
 }
 function route(){
   closeModal(); closeMenu();
+  if(!pinOk()){ CUR_TRIP_ID = null; stopSub(); renderPinGate(); return; }
   const h = location.hash;
   if(h === '#/changelog'){
     renderChangelog(); window.scrollTo(0,0); return;
@@ -1088,6 +1116,15 @@ function openTrip(id){
 
 const App = {};
 window.App = App;
+App.submitPin = () => {
+  const val = ($('#pin-input').value||'').trim();
+  if(val && val===APP_PIN){
+    try{ localStorage.setItem(PIN_KEY,'1'); }catch(e){}
+    route();
+  } else {
+    markErr('#pin-input','Wrong PIN');
+  }
+};
 App.goHome = () => { if(location.hash){ location.hash=''; } else { route(); } };
 let PRE_CHANGELOG_HASH = ''; // where we were before opening the changelog, so a second tap returns there
 App.toggleChangelog = () => {
@@ -1113,12 +1150,8 @@ App.changeIdentity = () => {
 };
 
 /* ================= home (trip list) ================= */
-function renderHome(){
-  $('#header-actions').innerHTML = `<button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>`;
-  renderSidebar(null);
-  const active = DB.trips.filter(t=>!isArchived(t));
-  const arch  = DB.trips.filter(t=> isArchived(t));
-  const card = t => `
+function tripCardHTML(t){
+  return `
     <div class="trip-card ${isArchived(t)?'archived':''}" role="button" tabindex="0"
          onclick="location.hash='#/trip/${t.id}'"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${t.id}'}">
@@ -1128,30 +1161,59 @@ function renderHome(){
       <div class="small" style="margin-top:8px">${fmtRange(t.startDate,t.endDate)}</div>
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
+}
+function homeGridHTML(trips){
+  if(!trips.length){
+    return `<div class="empty" style="margin-top:24px">
+      No trips yet.<br><br>
+      <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
+    </div>`;
+  }
+  const active = trips.filter(t=>!isArchived(t));
+  const arch = trips.filter(t=>isArchived(t));
+  return `<div class="trip-grid">${active.map(tripCardHTML).join('')}${arch.map(tripCardHTML).join('')}</div>`;
+}
+/* everyone who's entered the PIN can see every trip — not just the ones this particular
+   browser happened to create or open before — so the full list comes from Firebase itself
+   rather than this browser's local index. Falls back to the local list when cloud sync
+   isn't configured, or if the fetch fails for any reason. */
+function fetchAllTrips(cb){
+  if(!fbRoot){ cb(DB.trips); return; }
+  fbRoot.ref('trips').once('value')
+    .then(snap => {
+      const val = snap.val() || {};
+      const merged = Object.values(val).map(r => {
+        migrateAccom(r);
+        const local = getTrip(r.id);
+        return local ? mergeRemote(local, r) : r;
+      });
+      cb(merged);
+    })
+    .catch(() => cb(DB.trips));
+}
+function renderHome(){
+  $('#header-actions').innerHTML = `<button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>`;
+  renderSidebar(null);
   $('#app').innerHTML = `
     <div style="padding-top:28px">
       <h1>Your Trips</h1>
-      <p class="muted" style="margin-top:4px">One organiser runs the trip. Everyone else gets a link.</p>
-      ${DB.trips.length===0 ? `
-        <div class="empty" style="margin-top:24px">
-          No trips saved on this browser.${cloudEnabled()?' Already made one? A private/incognito tab, a new browser or device won\'t show it here — open its share link instead and it\'ll pull straight back in from the cloud.':''}<br><br>
-          <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
-        </div>` : `
-        <div class="trip-grid">${active.map(card).join('')}${arch.map(card).join('')}</div>`}
-      ${DB.trips.length ? `
-        <div class="backup-bar">
-          <span class="muted small">${cloudEnabled()?'Trips sync automatically and stay backed up in the cloud.':'Trips are saved in this browser. Moving to a new phone or browser?'}</span>
-          <span class="btn-row">
-            <button class="btn sm" onclick="App.exportTrips()">${ICONS.download} Back Up Trips</button>
-            <label class="btn sm" style="cursor:pointer">${ICONS.upload} Restore
-              <input type="file" accept="application/json,.json" style="display:none" onchange="App.importTrips(this)"></label>
-          </span>
-        </div>` : `
-        <div style="margin-top:22px;text-align:center">
-          <label class="btn sm" style="cursor:pointer">${ICONS.upload} Restore From a Backup
+      <p class="muted" style="margin-top:4px">${cloudEnabled()?'Everyone with the PIN sees every trip.':'One organiser runs the trip. Everyone else gets a link.'}</p>
+      <div id="home-grid">${homeGridHTML(DB.trips)}</div>
+      <div class="backup-bar" style="margin-top:22px">
+        <span class="muted small">${cloudEnabled()?'Trips sync automatically and stay backed up in the cloud.':'Trips are saved in this browser. Moving to a new phone or browser?'}</span>
+        <span class="btn-row">
+          <button class="btn sm" onclick="App.exportTrips()">${ICONS.download} Back Up Trips</button>
+          <label class="btn sm" style="cursor:pointer">${ICONS.upload} Restore
             <input type="file" accept="application/json,.json" style="display:none" onchange="App.importTrips(this)"></label>
-        </div>`}
+        </span>
+      </div>
     </div>`;
+  if(cloudEnabled()){
+    fetchAllTrips(all => {
+      if(CUR_TRIP_ID) return; // navigated into a trip while this was loading
+      const el = $('#home-grid'); if(el) el.innerHTML = homeGridHTML(all);
+    });
+  }
 }
 /* ---- backup / restore: carry trips to another browser without an account ---- */
 App.exportTrips = () => {
