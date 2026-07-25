@@ -104,23 +104,11 @@ a{color:var(--brand-dark);}
 .panel{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); padding:18px; margin-bottom:20px;}
 .divider{border:none; border-top:1px solid var(--line); margin:14px 0;}
 
-/* ---------- countdown card (upcoming trip) ---------- */
-.countdown-card{
-  position:relative; overflow:hidden; border-radius:20px; background:#0A1830;
-  padding:20px 16px; margin-top:14px; box-shadow:var(--shadow);
-}
-.countdown-card::before{
-  content:''; position:absolute; top:-55%; left:-25%; width:75%; height:170%;
-  background:radial-gradient(circle, rgba(70,120,255,.55), transparent 70%);
-  pointer-events:none;
-}
-.countdown-grid{position:relative; display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
-.countdown-tile{
-  background:linear-gradient(145deg,#3E63E8,#1B3489); border-radius:14px; padding:14px 6px; text-align:center;
-  box-shadow:0 4px 16px rgba(10,25,90,.45), inset 0 1px 0 rgba(255,255,255,.18);
-}
+/* ---------- countdown (upcoming trip) — brand-green tiles, full width, no card ---------- */
+.countdown-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:14px;}
+.countdown-tile{background:var(--brand); border-radius:14px; padding:14px 6px; text-align:center;}
 .countdown-num{font-size:1.7rem; font-weight:800; color:#fff; letter-spacing:-.02em; font-variant-numeric:tabular-nums;}
-.countdown-label{font-size:.66rem; color:#B9C6F5; margin-top:2px; font-weight:600;}
+.countdown-label{font-size:.66rem; color:rgba(255,255,255,.85); margin-top:2px; font-weight:600;}
 @media(min-width:480px){.countdown-num{font-size:2.1rem;} .countdown-tile{padding:18px 8px;}}
 
 /* ---------- trip list ---------- */
@@ -385,6 +373,8 @@ a.dash-tile{text-decoration:none;}
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
 .log-row:last-child{border-bottom:none;}
+.log-row-link{cursor:pointer; margin:0 -8px; padding:12px 8px; border-radius:8px;}
+.log-row-link:hover,.log-row-link:focus-visible{background:var(--bg); outline:none;}
 .log-who{font-weight:700; color:var(--ink); white-space:nowrap; flex-shrink:0;}
 .log-what{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .log-when{color:var(--muted); font-size:.75rem; white-space:nowrap; flex-shrink:0; margin-left:auto;}
@@ -445,8 +435,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.16.0';
+const APP_VERSION = '1.17.0';
 const CHANGELOG = [
+  {version:'1.17.0', notes:['Countdown restyled in the app\'s own brand colours: no more dark card, tiles are full width and green with white text.', 'Receipt scanning, tested against a real photographed receipt: photos taken sideways (very common for a narrow receipt) now get auto-rotated by trying each orientation and keeping whichever one Tesseract reads most confidently, instead of failing outright. Line items are now reconstructed from each word\'s position on the receipt rather than trusting the raw text\'s line breaks, so tabular receipts (item / unit price / qty / total in separate columns) parse correctly. Also fixed round totals a printer had truncated to one decimal (e.g. "€30.0"), and added Spanish/Portuguese equivalents (parcial, impuesto, propina, servicio…) to the recognized summary-line and service-charge terms.', 'Activity is no longer its own tab — the log now sits below the Delete Trip button on Overview, and each entry links straight to the section it\'s about.']},
   {version:'1.16.0', notes:['A trip that hasn\'t started yet now shows a live days/hours/minutes/seconds countdown instead of a "N to go" line.', 'Receipt scanning: fixed large totals with a comma (e.g. "£1,234.56") being truncated to the wrong amount; a service charge/gratuity/tip line is now captured as its own item and split like everything else instead of being silently dropped; item descriptions are now best-effort translated to English; the date is read straight off the receipt when it\'s unambiguous, otherwise left alone.', 'Desktop: the hamburger menu is now a persistent sidebar, and the page uses the full width of a wide screen instead of staying pinned to a narrow, centered column.']},
   {version:'1.15.5', notes:['Added a proper favicon and home-screen icon: the itinerary map icon in white on the app\'s brand green.']},
   {version:'1.15.4', notes:['Itinerary\'s car hire cards now use a car icon and read "Car Hire Pick Up"/"Car Hire Drop Off" instead of borrowing the check-in/check-out icon.', 'Ferry and car hire cards now stack their two locations top-to-bottom with a down arrow between them, instead of squeezing full addresses into a side-by-side layout built for short airport codes.', 'The click-to-copy icon on locations and addresses is bigger and more consistently sized everywhere.', 'Moved Contacts to sit right before Activity in the trip menu.']},
@@ -749,10 +740,8 @@ function upcomingStartDate(t){
 function countdownCardHTML(){
   const tile = (id,label) => `<div class="countdown-tile"><div class="countdown-num" id="${id}">–</div><div class="countdown-label">${label}</div></div>`;
   return `
-    <div class="countdown-card" id="countdown-card">
-      <div class="countdown-grid">
-        ${tile('cd-days','days')}${tile('cd-hours','hours')}${tile('cd-mins','minutes')}${tile('cd-secs','seconds')}
-      </div>
+    <div class="countdown-grid" id="countdown-card">
+      ${tile('cd-days','days')}${tile('cd-hours','hours')}${tile('cd-mins','minutes')}${tile('cd-secs','seconds')}
     </div>`;
 }
 let _countdownTimer = null;
@@ -1370,8 +1359,7 @@ const TABS = [
   ['photos','Photos'],
   ['docs','Documents / Links'],
   ['notes','Notes'],
-  ['contacts','Contacts'],
-  ['log','Activity']
+  ['contacts','Contacts']
 ];
 function renderTrip(t){
   const ro = readOnly(t);
@@ -1402,7 +1390,8 @@ function renderTrip(t){
     <div id="tab-body"></div>
     ${CUR_TAB==='home' && !ro ? `
     <button class="btn primary" style="width:100%;margin-top:40px;border-radius:var(--radius)" onclick="App.tripForm()">Edit Trip</button>
-    <button class="btn danger" style="width:100%;margin-top:12px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}`;
+    <button class="btn danger" style="width:100%;margin-top:12px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
+    ${CUR_TAB==='home' ? tabLog(t) : ''}`;
   if(upcoming) startCountdown(upcoming); else stopCountdown();
   renderTab(t);
 }
@@ -1556,7 +1545,6 @@ function renderTab(t){
   if(CUR_TAB==='mood')     el.innerHTML = tabMood(t,ro);
   if(CUR_TAB==='contacts') el.innerHTML = tabContacts(t,ro);
   if(CUR_TAB==='notes')    el.innerHTML = tabNotes(t,ro);
-  if(CUR_TAB==='log')      el.innerHTML = tabLog(t);
 }
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
@@ -1578,7 +1566,7 @@ function tabHome(t){
   const nTravel = (t.flights||[]).length + (t.ferries||[]).length + (t.carHire||[]).length;
   const nDocs = (t.documents||[]).length, nLinks = (t.docLinks||[]).length,
         nRec = (t.receipts||[]).length, nStops = (t.itinerary||[]).length,
-        nPins = (t.moodBoard||[]).length, nLog = (t.editLog||[]).length,
+        nPins = (t.moodBoard||[]).length,
         nContacts = (n.contacts||[]).length;
   const albumUrl = t.photoAlbum && t.photoAlbum.url || '';
   const album = albumUrl ? detectAlbumService(albumUrl) : '';
@@ -1614,8 +1602,7 @@ function tabHome(t){
     ['photos','Photos', album ? album+' Linked' : 'No Shared Album Yet', !album],
     ['contacts','Contacts', nContacts ? nContacts+(nContacts===1?' Contact Logged':' Contacts Logged') : 'None Added Yet', !nContacts],
     ['docs','Documents / Links', docParts.join(', ') || 'Nothing Saved Yet', !docParts.length],
-    ['notes','Notes', noteLines ? noteLines+(noteLines===1?' Line':' Lines') : 'No Notes Yet', !noteLines],
-    ['log','Activity', nLog ? nLog+(nLog===1?' Log':' Logs') : 'No Changes Yet', !nLog]
+    ['notes','Notes', noteLines ? noteLines+(noteLines===1?' Line':' Lines') : 'No Notes Yet', !noteLines]
   ];
   // every tile — including Photos — opens its own tab first; the tab itself links out to the album
   const tile = ([k,label,sum,empty]) => `
@@ -1627,15 +1614,27 @@ function tabHome(t){
   return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
 }
 /* ================= TAB: log (who changed what) ================= */
+/* which tab a log entry's section belongs to, so each row can jump straight there —
+   'Trip info'/'People' edits live on Overview itself (where this list already sits),
+   so those rows aren't made clickable */
+const LOG_SECTION_TAB = {
+  Itinerary:'plan', Travel:'travel', Accommodation:'stay', Ideas:'mood', Money:'money',
+  Photos:'photos', Contacts:'contacts', Documents:'docs', Notes:'notes'
+};
 function tabLog(t){
   const log = (t.editLog||[]).slice().sort((a,b)=>b.when-a.when);
+  const row = e => {
+    const k = LOG_SECTION_TAB[e.section];
+    return `
+    <div class="log-row${k?' log-row-link':''}" ${k?`role="button" tabindex="0" onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}"`:''}>
+      <span class="log-who">${esc(e.who)}</span>
+      <span class="log-what">${esc(e.summary)}</span>
+      <span class="log-when">${timeAgo(e.when)}</span>
+    </div>`;
+  };
   return `
-    ${log.length ? log.map(e=>`
-      <div class="log-row">
-        <span class="log-who">${esc(e.who)}</span>
-        <span class="log-what">${esc(e.summary)}</span>
-        <span class="log-when">${timeAgo(e.when)}</span>
-      </div>`).join('') : `<div class="empty">No changes logged yet.</div>`}`;
+    <h2 style="margin-top:36px">Activity</h2>
+    ${log.length ? log.map(row).join('') : `<div class="empty">No changes logged yet.</div>`}`;
 }
 /* ================= TAB: itinerary (day-by-day plan with maps) ================= */
 function mapQuery(t, name){
@@ -2658,19 +2657,46 @@ App.upload = input => {
   input.value='';
 };
 /* ================= receipt scanning (OCR) ================= */
-function downscaleToDataURL(file, max, quality, cb, ocr){
+function downscaleToDataURL(file, max, quality, cb){
   const img = new Image();
   img.onload = () => {
     const c = document.createElement('canvas');
     const scale = Math.min(1, max/Math.max(img.width,img.height));
     c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
     c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-    if(ocr) preprocessForOCR(c);
     cb(c.toDataURL('image/jpeg', quality));
     URL.revokeObjectURL(img.src);
   };
   img.onerror = () => cb(null);
   img.src = URL.createObjectURL(file);
+}
+/* same downscale + greyscale/contrast prep as downscaleToDataURL, but hands back the
+   canvas itself (not a flattened dataURL) so the OCR path can re-render it at other
+   rotations without re-decoding the source image each time */
+function downscaleToCanvas(file, max, cb){
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    const scale = Math.min(1, max/Math.max(img.width,img.height));
+    c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    preprocessForOCR(c);
+    cb(c);
+    URL.revokeObjectURL(img.src);
+  };
+  img.onerror = () => cb(null);
+  img.src = URL.createObjectURL(file);
+}
+function rotateCanvas(src, degrees){
+  const rad = degrees*Math.PI/180, swap = degrees===90||degrees===270;
+  const c = document.createElement('canvas');
+  c.width = swap ? src.height : src.width;
+  c.height = swap ? src.width : src.height;
+  const ctx = c.getContext('2d');
+  ctx.translate(c.width/2, c.height/2);
+  ctx.rotate(rad);
+  ctx.drawImage(src, -src.width/2, -src.height/2);
+  return c;
 }
 /* greyscale + contrast-stretch the photo so Tesseract has clean text to work with */
 function preprocessForOCR(canvas){
@@ -2699,6 +2725,54 @@ function ensureTesseract(cb){
   s.onload = () => cb(); s.onerror = () => cb(new Error('load'));
   document.head.appendChild(s);
 }
+/* many POS receipts print as a table (item / unit price / qty / line total in separate
+   columns) rather than one clean "desc ... price" line — Tesseract's own line breaks often
+   don't line up with the visual rows in that layout. Rebuilding rows from each word's own
+   bounding box (grouping by Y-position, then reading left-to-right) is far more faithful to
+   what's actually on the receipt than trusting the raw text's newlines */
+function wordsToLines(words){
+  if(!words || !words.length) return [];
+  const items = words.map(w=>({text:w.text, x0:w.bbox.x0, yc:(w.bbox.y0+w.bbox.y1)/2, h:w.bbox.y1-w.bbox.y0}))
+    .filter(w=>w.text && w.text.trim());
+  if(!items.length) return [];
+  const heights = items.map(w=>w.h).sort((a,b)=>a-b);
+  const tol = Math.max(8, heights[Math.floor(heights.length/2)]*0.6);
+  items.sort((a,b)=>a.yc-b.yc);
+  const rows = [];
+  items.forEach(w=>{
+    let row = rows.find(r=>Math.abs(r.yc-w.yc)<tol);
+    if(!row){ row = {yc:w.yc, n:0, words:[]}; rows.push(row); }
+    row.words.push(w); row.n++; row.yc = (row.yc*(row.n-1)+w.yc)/row.n;
+  });
+  return rows.map(r=>r.words.sort((a,b)=>a.x0-b.x0).map(w=>w.text).join(' '));
+}
+/* a phone photo of a (often narrow, thermal-printed) receipt is frequently shot sideways —
+   Tesseract has no built-in auto-rotation, so try the upright orientation first (cheap,
+   the common case), and only pay for the other 3 rotations when that first pass looks
+   unconvincing (low confidence or nothing price-shaped found) — picking whichever
+   orientation Tesseract itself is most confident about */
+function recognizeReceipt(canvas, cb){
+  const run = deg => {
+    try{
+      const c = deg===0 ? canvas : rotateCanvas(canvas, deg);
+      return window.Tesseract.recognize(c.toDataURL('image/jpeg', 0.9), 'eng')
+        .then(({data}) => ({
+          confidence: data.confidence||0,
+          lines: (()=>{ const l = wordsToLines(data.words); return l.length ? l : (data.text||'').split(/\r?\n/); })()
+        }))
+        .catch(() => ({confidence:0, lines:[]}));
+    }catch(e){ return Promise.resolve({confidence:0, lines:[]}); }
+  };
+  run(0).then(first=>{
+    const text = first.lines.join('\n');
+    const looksGood = first.confidence>45 && /\d[.,]\d{1,2}/.test(text);
+    if(looksGood){ cb(first.lines); return; }
+    Promise.all([90,180,270].map(run)).then(rest=>{
+      const best = [first,...rest].sort((a,b)=>b.confidence-a.confidence)[0];
+      cb(best.lines);
+    });
+  });
+}
 /* a matched price string can have its separators either way round ("1,234.56" or
    "1.234,56") — the regex that finds it always leaves exactly 2 digits after the LAST
    separator (the decimal part), so normalize off that position rather than guessing by
@@ -2713,16 +2787,19 @@ function normalizeAmount(raw){
 }
 /* turn OCR text into candidate line items: "<description> ... <price>" */
 function parseReceiptText(text){
-  const skip = /(sub[\s-]?total|^total|balance|change|cash|card|visa|master|amex|vat|tax|amount|payment|table|receipt|thank|www\.|http|tel[:\s]|order|invoice|qty|discount|voucher)/i;
+  // a handful of Spanish/Portuguese equivalents are included alongside the English terms
+  // (this app's trips skew toward Europe) since a summary line like "Parcial" or
+  // "Cantidad a pagar" would otherwise look just like a real item and get duplicated in
+  const skip = /(sub[\s-]?total|^total|balance|change|cash|card|visa|master|amex|vat|tax|amount|payment|table|receipt|thank|www\.|http|tel[:\s]|order|invoice|qty|discount|voucher|parcial|a pagar|impuesto|descuento)/i;
   // a service charge/gratuity/tip line is a real cost too — captured as its own item
   // (rather than silently dropped) so it's not lost from the group's total; an item with
   // no one ticked already splits evenly across everyone, so no extra split logic is needed
-  const serviceCharge = /(service\s*charge|gratuity|\btip\b|service\s*fee|svc\s*chg)/i;
+  const serviceCharge = /(service\s*charge|gratuity|\btip\b|service\s*fee|svc\s*chg|propina|\bservicio\b)/i;
   const out = [];
   (text||'').split(/\r?\n/).forEach(line=>{
     const l = line.trim(); if(l.length<3) return;
     // "<desc> ... £12.50", "<desc> 12,50 €", "<desc> £1,234.56", trailing VAT letter tolerated
-    const m = l.match(/^(.*?)[\s.·•\-–—:]*[£$€]?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|\d{1,4}[.,]\d{2})\s*(?:[£$€]|GBP|EUR|USD|[A-Z])?\s*$/);
+    const m = l.match(/^(.*?)[\s.·•\-–—:]*[£$€]?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{1,2}|\d{1,4}[.,]\d{1,2})\s*(?:[£$€]|GBP|EUR|USD|[A-Z])?\s*$/);
     if(!m) return;
     const amount = normalizeAmount(m[2]);
     if(!(amount>0) || amount>5000) return;
@@ -2730,7 +2807,13 @@ function parseReceiptText(text){
     let desc = m[1].replace(/[.:·•\-–—\s]+$/,'').replace(/\s{2,}/g,' ').trim();
     desc = desc.replace(/^\d+\s*[xX]?\s*/, '').trim();      // drop leading quantity "2 x"
     desc = desc.replace(/\s*[xX]\s*\d+$/, '').trim();       // drop trailing quantity "x2"
-    desc = desc.replace(/\s+\d{1,4}[.,]\d{2}$/,'').trim();  // drop a unit price before the line total
+    // a columnar receipt (name | unit price | qty | line total) can leave "<name> <unit
+    // price> <qty>" in desc ahead of the line total — only strip a trailing bare quantity
+    // when doing so reveals a unit price sitting right behind it, so a legitimately
+    // numeric item name isn't mistaken for one
+    const qtyStripped = desc.replace(/\s+\d{1,2}$/,'').trim();
+    if(/[£$€]?\s*\d{1,4}[.,]\d{1,2}\s*$/.test(qtyStripped)) desc = qtyStripped;
+    desc = desc.replace(/\s*[£$€]?\s*\d{1,4}[.,]\d{1,2}\s*$/,'').trim();
     if(!desc) return;
     if(skip.test(desc)) return;
     if(/^[\d\s.,:\/-]+$/.test(desc)) return;                // pure numbers/dates aren't items
@@ -2787,31 +2870,29 @@ App.scanReceipt = input => {
   const file = input.files[0]; input.value=''; if(!file || !R) return;
   R.evenSplit = false; R._scanning = true; R._scanMsg = '';
   App.redrawReceipt();
-  downscaleToDataURL(file, 2200, 0.9, dataUrl => {
-    if(!dataUrl){ R._scanning=false; R._scanMsg="Couldn't read that image. Add items by hand."; App.redrawReceipt(); return; }
+  downscaleToCanvas(file, 2200, canvas => {
+    if(!canvas){ R._scanning=false; R._scanMsg="Couldn't read that image. Add items by hand."; App.redrawReceipt(); return; }
     ensureTesseract(err => {
       if(err || !window.Tesseract){ R._scanning=false; R._scanMsg="Couldn't load the scanner. Check you're online, or add items by hand."; App.redrawReceipt(); return; }
-      window.Tesseract.recognize(dataUrl, 'eng')
-        .then(({data}) => {
-          const text = data && data.text || '';
-          const items = parseReceiptText(text);
-          const foundDate = parseReceiptDate(text);
-          if(foundDate) R.date = foundDate;
-          R._scanning = false;
-          if(items.length){
-            R.items = items;
-            R._scanMsg = `Found ${items.length} item${items.length>1?'s':''}. Check them, then tick who had each.`;
-            App.redrawReceipt();
-            translateToEnglish(items, () => App.redrawReceipt());
-          } else {
-            if(!R.items.length) R.items = [{desc:'',amount:'',people:[]}];
-            R._scanMsg = "Couldn't pick out items from that photo. Add them by hand.";
-            App.redrawReceipt();
-          }
-        })
-        .catch(() => { R._scanning=false; R._scanMsg='Scan failed. Add items by hand.'; App.redrawReceipt(); });
+      recognizeReceipt(canvas, lines => {
+        const text = lines.join('\n');
+        const items = parseReceiptText(text);
+        const foundDate = parseReceiptDate(text);
+        if(foundDate) R.date = foundDate;
+        R._scanning = false;
+        if(items.length){
+          R.items = items;
+          R._scanMsg = `Found ${items.length} item${items.length>1?'s':''}. Check them, then tick who had each.`;
+          App.redrawReceipt();
+          translateToEnglish(items, () => App.redrawReceipt());
+        } else {
+          if(!R.items.length) R.items = [{desc:'',amount:'',people:[]}];
+          R._scanMsg = "Couldn't pick out items from that photo. Add them by hand.";
+          App.redrawReceipt();
+        }
+      });
     });
-  }, true);
+  });
 };
 
 /* ================= TAB: money ================= */
