@@ -104,7 +104,7 @@ a{color:var(--brand-dark);}
 .panel{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); padding:18px; margin-bottom:20px;}
 .divider{border:none; border-top:1px solid var(--line); margin:14px 0;}
 
-/* ---------- countdown (upcoming trip) — brand-green tiles, full width, no card ---------- */
+/* ---------- countdown (upcoming trip), brand-green tiles, full width, no card ---------- */
 .countdown-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:14px;}
 .countdown-tile{background:var(--brand); border-radius:14px; padding:14px 6px; text-align:center;}
 .countdown-num{font-size:1.7rem; font-weight:800; color:#fff; letter-spacing:-.02em; font-variant-numeric:tabular-nums;}
@@ -391,6 +391,10 @@ a.dash-tile{text-decoration:none;}
   .menu-btn{display:none;}
   .wrap{max-width:1160px; margin:0; padding:0 40px 96px 32px; flex:1; min-width:0;}
   .dash-grid{grid-template-columns:repeat(3,1fr);}
+  .top-inner{max-width:none; padding:13px 40px 13px 32px;}
+  .trip-head{display:flex; align-items:center; justify-content:space-between; gap:28px; flex-wrap:nowrap;}
+  .trip-head-info{flex:1; min-width:0;}
+  .trip-head .countdown-grid{margin-top:0; flex-shrink:0; width:auto; grid-template-columns:repeat(4,minmax(64px,1fr));}
 }
 @media(min-width:1024px) and (max-width:1279px){
   .sidebar{width:216px;}
@@ -419,7 +423,7 @@ a.dash-tile{text-decoration:none;}
 /* ================= config ================= */
 /* Paste your Firebase web config below to turn on ONE permanent, shareable link that
    everyone edits together. Leave apiKey/databaseURL blank to run fully on this device
-   (single-device, no sync) — the app works either way.
+   (single-device, no sync), the app works either way.
    Setup: create a free Firebase project → add a Realtime Database → copy the web config
    here → set the database rules (see README). The keys below are public client keys and
    are safe to commit. */
@@ -433,7 +437,7 @@ const FIREBASE_CONFIG = {
   appId: "1:592178714380:web:bd541ed796f428fdbc9b29"
 };
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
-/* one shared PIN for the whole site, in place of per-trip secret links — change this and
+/* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
    anyone who reads the page's source (view-source reveals this constant). Don't rely on it
@@ -441,26 +445,27 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.18.2';
+const APP_VERSION = '1.19.0';
 const CHANGELOG = [
+  {version:'1.19.0', notes:['Removed receipt photo scanning (Take a Photo / Upload an Image) entirely; it wasn\'t working reliably, so receipts are now always added by hand, item by item or as an even split.', 'Desktop: the logo now sits hard left and the header buttons sit hard right, using the full header width instead of a narrow centered strip.', 'Desktop: "All Trips" is now the first item in the trip menu, and the trip name no longer repeats at the top of the sidebar (it\'s already shown as the page heading).', 'Desktop: the countdown now sits right-aligned in the same row as the trip title and dates, instead of its own row underneath.', 'Removed long dashes from copy throughout the app in favour of commas, colons and periods.']},
   {version:'1.18.2', notes:['Fixed trips silently failing to appear on other browsers/devices even with cloud sync configured: the database rules needed for listing every trip (and for the in-app PIN change) were missing from the setup instructions, so those reads/writes were being quietly rejected and falling back to "nothing here." Now shows a clear message explaining exactly what\'s missing instead of failing silently, and the README\'s example rules are corrected.']},
-  {version:'1.18.1', notes:['Fixed the PIN field overflowing its margin on mobile.', 'The "Your Trips" page no longer briefly says "No trips yet" while it\'s still fetching the real list from the cloud — it now says "Loading trips…" until that finishes.', 'Added a PIN button next to + New Trip so the group PIN can be changed from inside the app — updates it for everyone straight away, no code change needed.']},
-  {version:'1.18.0', notes:['Replaced the per-trip "you need the link" model with a single shared PIN for the whole site: enter it once per browser (remembered after that) and the "Your Trips" list now shows every trip that exists — created by anyone, on any device — instead of only trips this particular browser happened to make or open before. The PIN protects the whole app, including direct trip links.']},
-  {version:'1.17.2', notes:['Fixed the receipt\'s own "Total" line sometimes being picked up as a fake extra item (e.g. showing as an item literally named "; Total") — a stray OCR character right at the start of a line was breaking the check that\'s meant to exclude it, so it got counted and split like a real purchase on top of the actual items.']},
-  {version:'1.17.1', notes:['Receipt scanning now detects the receipt\'s actual currency (£/€/$) instead of always assuming pounds, and converts to £ using today\'s exchange rate — a euro receipt was previously shown, split and totalled as if the numbers were already in pounds. The original amount and rate used are shown on the saved receipt.']},
-  {version:'1.17.0', notes:['Countdown restyled in the app\'s own brand colours: no more dark card, tiles are full width and green with white text.', 'Receipt scanning, tested against a real photographed receipt: photos taken sideways (very common for a narrow receipt) now get auto-rotated by trying each orientation and keeping whichever one Tesseract reads most confidently, instead of failing outright. Line items are now reconstructed from each word\'s position on the receipt rather than trusting the raw text\'s line breaks, so tabular receipts (item / unit price / qty / total in separate columns) parse correctly. Also fixed round totals a printer had truncated to one decimal (e.g. "€30.0"), and added Spanish/Portuguese equivalents (parcial, impuesto, propina, servicio…) to the recognized summary-line and service-charge terms.', 'Activity is no longer its own tab — the log now sits below the Delete Trip button on Overview, and each entry links straight to the section it\'s about.']},
+  {version:'1.18.1', notes:['Fixed the PIN field overflowing its margin on mobile.', 'The "Your Trips" page no longer briefly says "No trips yet" while it\'s still fetching the real list from the cloud, it now says "Loading trips…" until that finishes.', 'Added a PIN button next to + New Trip so the group PIN can be changed from inside the app, updates it for everyone straight away, no code change needed.']},
+  {version:'1.18.0', notes:['Replaced the per-trip "you need the link" model with a single shared PIN for the whole site: enter it once per browser (remembered after that) and the "Your Trips" list now shows every trip that exists, created by anyone, on any device, instead of only trips this particular browser happened to make or open before. The PIN protects the whole app, including direct trip links.']},
+  {version:'1.17.2', notes:['Fixed the receipt\'s own "Total" line sometimes being picked up as a fake extra item (e.g. showing as an item literally named "; Total"), a stray OCR character right at the start of a line was breaking the check that\'s meant to exclude it, so it got counted and split like a real purchase on top of the actual items.']},
+  {version:'1.17.1', notes:['Receipt scanning now detects the receipt\'s actual currency (£/€/$) instead of always assuming pounds, and converts to £ using today\'s exchange rate, a euro receipt was previously shown, split and totalled as if the numbers were already in pounds. The original amount and rate used are shown on the saved receipt.']},
+  {version:'1.17.0', notes:['Countdown restyled in the app\'s own brand colours: no more dark card, tiles are full width and green with white text.', 'Receipt scanning, tested against a real photographed receipt: photos taken sideways (very common for a narrow receipt) now get auto-rotated by trying each orientation and keeping whichever one Tesseract reads most confidently, instead of failing outright. Line items are now reconstructed from each word\'s position on the receipt rather than trusting the raw text\'s line breaks, so tabular receipts (item / unit price / qty / total in separate columns) parse correctly. Also fixed round totals a printer had truncated to one decimal (e.g. "€30.0"), and added Spanish/Portuguese equivalents (parcial, impuesto, propina, servicio…) to the recognized summary-line and service-charge terms.', 'Activity is no longer its own tab, the log now sits below the Delete Trip button on Overview, and each entry links straight to the section it\'s about.']},
   {version:'1.16.0', notes:['A trip that hasn\'t started yet now shows a live days/hours/minutes/seconds countdown instead of a "N to go" line.', 'Receipt scanning: fixed large totals with a comma (e.g. "£1,234.56") being truncated to the wrong amount; a service charge/gratuity/tip line is now captured as its own item and split like everything else instead of being silently dropped; item descriptions are now best-effort translated to English; the date is read straight off the receipt when it\'s unambiguous, otherwise left alone.', 'Desktop: the hamburger menu is now a persistent sidebar, and the page uses the full width of a wide screen instead of staying pinned to a narrow, centered column.']},
   {version:'1.15.5', notes:['Added a proper favicon and home-screen icon: the itinerary map icon in white on the app\'s brand green.']},
   {version:'1.15.4', notes:['Itinerary\'s car hire cards now use a car icon and read "Car Hire Pick Up"/"Car Hire Drop Off" instead of borrowing the check-in/check-out icon.', 'Ferry and car hire cards now stack their two locations top-to-bottom with a down arrow between them, instead of squeezing full addresses into a side-by-side layout built for short airport codes.', 'The click-to-copy icon on locations and addresses is bigger and more consistently sized everywhere.', 'Moved Contacts to sit right before Activity in the trip menu.']},
-  {version:'1.15.3', notes:['Fixed clicking into Itinerary jumping to today\'s day instead of the top of the screen — it now always opens at the top, like every other tab.']},
+  {version:'1.15.3', notes:['Fixed clicking into Itinerary jumping to today\'s day instead of the top of the screen, it now always opens at the top, like every other tab.']},
   {version:'1.15.2', notes:['Moved the photo album link out of Edit Trip and onto the Photos page itself, where you can now edit it directly (not just delete and re-add). Renamed the field to "Photo Album Link".']},
-  {version:'1.15.1', notes:['Clarified what happens when this browser has no saved trips: since there\'s no account, a private/incognito tab, a new browser or device genuinely won\'t show a trip that\'s only known here — its share link is the way back in, and the Invite Link screen now says so up front.']},
-  {version:'1.15.0', notes:['Itinerary: removed the "X earlier days" collapsed dropdown — every day now shows in full — and removed the Next badge.', 'Itinerary\'s three top buttons (Add Ideas, Add Travel, Add Stop) now each have their own icon.']},
+  {version:'1.15.1', notes:['Clarified what happens when this browser has no saved trips: since there\'s no account, a private/incognito tab, a new browser or device genuinely won\'t show a trip that\'s only known here, its share link is the way back in, and the Invite Link screen now says so up front.']},
+  {version:'1.15.0', notes:['Itinerary: removed the "X earlier days" collapsed dropdown, every day now shows in full, and removed the Next badge.', 'Itinerary\'s three top buttons (Add Ideas, Add Travel, Add Stop) now each have their own icon.']},
   {version:'1.14.0', notes:['Accommodation addresses, and every location on flight/ferry/car hire cards, now show as text you can tap to copy to the clipboard.', 'Ferry and car hire cards now use the same two-location-plus-arrow layout as flights.', 'Trip header dates simplified to "23/9/26 - 25/9/26", and the countdown now reads as months/weeks/days instead of a flat day count.', 'Itinerary\'s Next badge now sits above each card, right-aligned, instead of squeezed inside it.', 'Itinerary crumb buttons renamed/restyled: "From Ideas" → "Add Ideas", and "+ Add Stop" now matches the other outline buttons.', 'The Itinerary dashboard tile is back to showing an activity count.', 'Documents/Links: added a View button for documents and an Edit option for links; the tab is now called "Documents / Links".']},
-  {version:'1.13.0', notes:['Itinerary now opens straight to today (or the nearest day ahead) instead of always day one, with a Today badge on the current day.', 'Past days collapse into an "X earlier days" summary so you\'re not scrolling through history to reach what\'s ahead.', 'The single soonest thing on the whole trip — stop, flight, ferry, car hire or check-in/out — gets a Next badge.', 'The Itinerary tile on the home dashboard now shows what\'s next instead of a flat count.', 'Days that fall inside a stay now show a "Staying at [hotel]" reminder.']},
+  {version:'1.13.0', notes:['Itinerary now opens straight to today (or the nearest day ahead) instead of always day one, with a Today badge on the current day.', 'Past days collapse into an "X earlier days" summary so you\'re not scrolling through history to reach what\'s ahead.', 'The single soonest thing on the whole trip, stop, flight, ferry, car hire or check-in/out, gets a Next badge.', 'The Itinerary tile on the home dashboard now shows what\'s next instead of a flat count.', 'Days that fall inside a stay now show a "Staying at [hotel]" reminder.']},
   {version:'1.12.0', notes:['Itinerary: ferries and car hire (pick-up/drop-off) now show up alongside flights and check-in/out, each with the same icon + "Label - Time" tag for consistency.', 'Travel leg delete moved inside its edit screen instead of a trash icon on the card.', 'Fixed stop cards hiding their "Open in Google Maps" link whenever a photo was also set.', 'Travel leg duration dropdowns now show their units (e.g. "1 h", "30 m").']},
-  {version:'1.11.0', notes:['Itinerary: removed the manual reorder arrows — instead, a same-day Check In always sorts after its Flight and a Check Out always sorts before one, automatically, since a check-in time is usually just the property\'s standard time rather than your actual arrival.', 'Fixed itinerary stops silently dropping the Google Maps link from the idea they were created from; stops now have their own Google Maps link field too.', 'Travel leg duration is now an hour/minute dropdown instead of free text.']},
-  {version:'1.10.0', notes:['Itinerary: reorder stops and travel legs with up/down arrows (manual order overrides time sort until you hit Reset Order), moved the time to after the name with a dash (e.g. "Flight - 16:05"), and gave Check In/Check Out their own distinct icons.', 'Itinerary: added the ability to manually add a travel leg between two places (mode, from, to, optional duration) — no maps API, just what you type in.']},
+  {version:'1.11.0', notes:['Itinerary: removed the manual reorder arrows, instead, a same-day Check In always sorts after its Flight and a Check Out always sorts before one, automatically, since a check-in time is usually just the property\'s standard time rather than your actual arrival.', 'Fixed itinerary stops silently dropping the Google Maps link from the idea they were created from; stops now have their own Google Maps link field too.', 'Travel leg duration is now an hour/minute dropdown instead of free text.']},
+  {version:'1.10.0', notes:['Itinerary: reorder stops and travel legs with up/down arrows (manual order overrides time sort until you hit Reset Order), moved the time to after the name with a dash (e.g. "Flight - 16:05"), and gave Check In/Check Out their own distinct icons.', 'Itinerary: added the ability to manually add a travel leg between two places (mode, from, to, optional duration), no maps API, just what you type in.']},
   {version:'1.9.0', notes:['Dashboard tile summaries rewritten for consistent Title Case copy (e.g. "2 Flights, 1 Ferry", "1 Contact Logged"), and Notes now shows a line count based on how many sentences you\'ve written.', 'Every text field and textarea in the app now has a small × button to clear it once you\'ve typed something.']},
   {version:'1.8.0', notes:['Dashboard tiles: icon above the text, no more arrow, and fixed long accommodation names overflowing their box.', 'Renamed "Emergency Contacts" to "Contacts".', 'Trip cards on the home screen: removed the arrow and the people/receipts line, and moved the country flags above the title.']},
   {version:'1.7.0', notes:['Ideas: TikTok/Instagram links are now a clickable thumbnail instead of a live embed, and the map icon only shows up when you\'ve actually added a maps link.', 'Removed the sync status pill from the header.', 'Dashboard tiles are back to two per row.']},
@@ -492,7 +497,7 @@ function load(){
   }catch(e){}
   return {trips:[], schema:SCHEMA};
 }
-/* persist to localStorage. If storage is full, never lose a trip — drop only the heavy
+/* persist to localStorage. If storage is full, never lose a trip, drop only the heavy
    in-browser file/photo previews (they still live in the cloud copy when synced) and keep
    every trip and all its details. */
 function saveLocal(){
@@ -518,7 +523,7 @@ function save(){
 
 /* ================= cloud sync ================= */
 function cloudEnabled(){ return !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL); }
-/* surface *why* sync failed instead of a silent Offline pill — permission-denied (locked
+/* surface *why* sync failed instead of a silent Offline pill, permission-denied (locked
    database rules) is by far the most common cause when it's freshly configured */
 let _syncErrorToasted = false;
 function syncErrorHint(err){
@@ -527,7 +532,7 @@ function syncErrorHint(err){
   return 'Sync failed: '+code;
 }
 function reportSyncError(err){
-  console.error("Cal's Trippin' — cloud sync error:", err);
+  console.error("Cal's Trippin', cloud sync error:", err);
   syncState='off';
   if(!_syncErrorToasted){ _syncErrorToasted = true; toast(syncErrorHint(err)); }
 }
@@ -539,7 +544,7 @@ function initCloud(){
     firebase.database().ref('.info/connected').on('value', s=>{
       if(CUR_TRIP_ID){ syncState = s.val() ? 'ok' : 'off'; }
     }, reportSyncError);
-  }catch(e){ fbRoot = null; syncState='local'; console.error("Cal's Trippin' — Firebase failed to initialise:", e); }
+  }catch(e){ fbRoot = null; syncState='local'; console.error("Cal's Trippin', Firebase failed to initialise:", e); }
 }
 /* strip heavy blobs so the shared document stays small & portable */
 function stripForCloud(t){
@@ -667,7 +672,7 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'
 let _toastQueue = [];
 let _toastActive = null;   // the {msg,undoFn} currently on screen, or null
 function toast(msg, undoFn){
-  // only an *active undo* blocks the next toast — a plain FYI toast gets cut short
+  // only an *active undo* blocks the next toast, a plain FYI toast gets cut short
   // immediately so a fast follow-up action (e.g. add then delete) never buries its Undo
   if(_toastActive && _toastActive.undoFn){ _toastQueue.push({msg, undoFn}); return; }
   showToastNow({msg, undoFn});
@@ -741,7 +746,7 @@ function statusPhrase(t){
   if(s) return 'happening now';
   return '';
 }
-/* the trip's start date, but only when it's genuinely still ahead of us — used to decide
+/* the trip's start date, but only when it's genuinely still ahead of us, used to decide
    whether the header shows the live countdown card instead of the "N to go" phrase */
 function upcomingStartDate(t){
   if(isArchived(t) || !t.startDate) return null;
@@ -749,7 +754,7 @@ function upcomingStartDate(t){
   return today < new Date(t.startDate+'T00:00:00') ? t.startDate : null;
 }
 function countdownCardHTML(){
-  const tile = (id,label) => `<div class="countdown-tile"><div class="countdown-num" id="${id}">–</div><div class="countdown-label">${label}</div></div>`;
+  const tile = (id,label) => `<div class="countdown-tile"><div class="countdown-num" id="${id}">0</div><div class="countdown-label">${label}</div></div>`;
   return `
     <div class="countdown-grid" id="countdown-card">
       ${tile('cd-days','days')}${tile('cd-hours','hours')}${tile('cd-mins','minutes')}${tile('cd-secs','seconds')}
@@ -758,7 +763,7 @@ function countdownCardHTML(){
 let _countdownTimer = null;
 function stopCountdown(){ if(_countdownTimer){ clearInterval(_countdownTimer); _countdownTimer=null; } }
 /* ticks the 4 numbers directly via the DOM every second rather than re-rendering the
-   whole page — self-stops the moment #countdown-card is no longer on screen (tab switch,
+   whole page, self-stops the moment #countdown-card is no longer on screen (tab switch,
    different trip, trip starting), so nothing needs to remember to clean this up elsewhere */
 function startCountdown(startDate){
   stopCountdown();
@@ -785,7 +790,7 @@ function isArchived(t){
   return new Date() > cut;
 }
 function getTrip(id){ return DB.trips.find(t=>t.id===id); }
-/* one-time upgrade: a trip used to hold a single accommodation at notes.accom —
+/* one-time upgrade: a trip used to hold a single accommodation at notes.accom,
    now it's a list at accommodations[], so multiple stays can be added and edited */
 function migrateAccom(t){
   if(!t) return t;
@@ -797,7 +802,7 @@ function migrateAccom(t){
   }
   return t;
 }
-/* where the trip sits in time — used for at-a-glance status pills */
+/* where the trip sits in time, used for at-a-glance status pills */
 function tripStatus(t){
   if(isArchived(t)) return {label:'Archived', cls:'off'};
   const day = 86400000, today = new Date(); today.setHours(0,0,0,0);
@@ -886,7 +891,7 @@ function parseAirport(v){
   return v.toUpperCase().slice(0,3);
 }
 const airportInputVal = code => code ? (airportName(code) ? code+' · '+airportName(code) : code) : '';
-/* a big location line that copies its text to the clipboard on click — shared by every
+/* a big location line that copies its text to the clipboard on click, shared by every
    location shown in travel/itinerary cards (airport codes, ferry ports, car hire spots) */
 function copyRow(text, right){
   if(!text) return `<div class="flight-apt">TBC</div>`;
@@ -907,7 +912,7 @@ function airportBlock(code, time, right){
   </div>`;
 }
 /* address-style location line for ferry ports / car hire spots, where the text can be a
-   full address rather than a short code — smaller than an airport code and always
+   full address rather than a short code, smaller than an airport code and always
    left-aligned so long text wraps cleanly, stacked top-to-bottom with a down arrow between
    the two rather than squeezed side-by-side */
 function addrRow(text, time){
@@ -939,7 +944,7 @@ function airlineDatalist(){
 let _lastFocus = null;
 function modalOpen(){ return !!$('#modal-root').firstChild; }
 /* every text field in the app gets a small × button (shown once it has a value) that clears
-   it — wired up generically here rather than in each of the many form templates */
+   it, wired up generically here rather than in each of the many form templates */
 function attachFieldClears(root){
   root.querySelectorAll('input[type="text"], input[type="url"], input[type="tel"], input[type="email"], input[type="search"], textarea').forEach(inp=>{
     const wrap = document.createElement('span');
@@ -958,7 +963,7 @@ function attachFieldClears(root){
     toggle();
   });
 }
-/* forms and viewers open as full screens (no popups) — a Back bar returns to the page below */
+/* forms and viewers open as full screens (no popups), a Back bar returns to the page below */
 function openModal(html, opts){
   opts = opts || {};
   const root = $('#modal-root');
@@ -1000,7 +1005,7 @@ function confirmModal(title, body, confirmLabel, onYes){
     </div>`);
   $('#confirm-yes').onclick = () => { closeModal(); onYes(); };
 }
-/* inline field validation — injects an error line under the field, clears on next input */
+/* inline field validation, injects an error line under the field, clears on next input */
 function markErr(sel, msg){
   const inp = $(sel); if(!inp) return false;
   const field = inp.closest('.field'); if(!field){ toast(msg); return false; }
@@ -1016,7 +1021,7 @@ function markErr(sel, msg){
 /* ================= PIN gate ================= */
 const PIN_KEY = 'calstrippin_pin_ok';
 function pinOk(){ try{ return localStorage.getItem(PIN_KEY)==='1'; }catch(e){ return false; } }
-/* the real, currently-active PIN — stored in Firebase once someone changes it (via App.savePin)
+/* the real, currently-active PIN, stored in Firebase once someone changes it (via App.savePin)
    so a change applies to everyone immediately, not just this browser; APP_PIN is only the
    starting value / the fallback when cloud sync isn't configured at all */
 function currentPin(cb){
@@ -1050,7 +1055,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 });
 function stopSub(){ if(tripSub){ try{ tripSub.ref.off('value', tripSub.cb); }catch(e){} tripSub=null; } }
 /* opening the changelog leaves whatever trip/home page was showing untouched underneath
-   (no stopSub, no CUR_TRIP_ID reset) — a second tap just restores the hash from before */
+   (no stopSub, no CUR_TRIP_ID reset), a second tap just restores the hash from before */
 function renderChangelog(){
   $('#header-actions').innerHTML = '';
   $('#app').innerHTML = `
@@ -1076,7 +1081,7 @@ function route(){
     renderChangelog(); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
-    // legacy snapshot link — adopt the trip locally, then switch to the stable per-trip URL
+    // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
     try{
       const snap = JSON.parse(LZString.decompressFromEncodedURIComponent(h.slice(7)));
       if(!snap || !snap.name || !snap.id) throw 0;
@@ -1097,7 +1102,7 @@ function route(){
 function openTrip(id){
   CUR_TAB = 'home';   // opening a trip always lands on the dashboard
   CUR_TRIP_ID = id;
-  // 'busy' until the real .info/connected listener (in initCloud) confirms the connection —
+  // 'busy' until the real .info/connected listener (in initCloud) confirms the connection,
   // don't claim Synced before Firebase has actually said so
   syncState = cloudEnabled() ? 'busy' : 'local';
   subscribeTrip(id);
@@ -1139,14 +1144,14 @@ App.submitPin = () => {
     }
   });
 };
-/* lets the group change the PIN without a code deploy — stored in Firebase so it applies to
+/* lets the group change the PIN without a code deploy, stored in Firebase so it applies to
    everyone immediately, not just the browser that changed it (mirrors the shared-PIN model:
    no accounts, one passphrase for the group) */
 App.pinSettingsForm = () => {
   if(!cloudEnabled()){ toast("The PIN can't be changed without cloud sync configured."); return; }
   openModal(`
     <h2>Group PIN</h2>
-    <p class="small" style="margin-bottom:12px">Anyone with this PIN can see and edit every trip. Changing it here updates it for everyone straight away — friends still on the old PIN will just be asked again next time they open the app.</p>
+    <p class="small" style="margin-bottom:12px">Anyone with this PIN can see and edit every trip. Changing it here updates it for everyone straight away, friends still on the old PIN will just be asked again next time they open the app.</p>
     <div class="field"><label class="label" for="pin-new">New PIN</label>
       <input id="pin-new" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 2026"></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePin()">Save PIN</button></div>`);
@@ -1155,11 +1160,11 @@ App.savePin = () => {
   const val = ($('#pin-new').value||'').trim();
   if(!val) return markErr('#pin-new','Enter a PIN');
   fbRoot.ref('appPin').set(val)
-    .then(()=>{ closeModal(); toast('PIN updated — share the new one with your group'); })
+    .then(()=>{ closeModal(); toast('PIN updated, share the new one with your group'); })
     .catch(err => {
-      console.error("Cal's Trippin' — couldn't save the PIN:", err);
+      console.error("Cal's Trippin', couldn't save the PIN:", err);
       if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
-        toast("Couldn't save — the database rules don't allow writing the PIN. Open the Firebase console → Realtime Database → Rules and add an \"appPin\": { \".read\": true, \".write\": true } rule.");
+        toast("Couldn't save: the database rules don't allow writing the PIN. Open the Firebase console → Realtime Database → Rules and add an \"appPin\": { \".read\": true, \".write\": true } rule.");
       }else{
         toast("Couldn't save the new PIN. Check your connection and try again.");
       }
@@ -1205,7 +1210,7 @@ function tripCardHTML(t){
 function homeGridHTML(trips, loading){
   if(!trips.length){
     // while trips are still being fetched from the cloud, "No trips yet" would be
-    // misleading — it hasn't actually checked yet, so say so instead
+    // misleading, it hasn't actually checked yet, so say so instead
     return loading ? `<div class="empty" style="margin-top:24px">Loading trips…</div>` : `<div class="empty" style="margin-top:24px">
       No trips yet.<br><br>
       <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
@@ -1215,8 +1220,8 @@ function homeGridHTML(trips, loading){
   const arch = trips.filter(t=>isArchived(t));
   return `<div class="trip-grid">${active.map(tripCardHTML).join('')}${arch.map(tripCardHTML).join('')}</div>`;
 }
-/* everyone who's entered the PIN can see every trip — not just the ones this particular
-   browser happened to create or open before — so the full list comes from Firebase itself
+/* everyone who's entered the PIN can see every trip, not just the ones this particular
+   browser happened to create or open before, so the full list comes from Firebase itself
    rather than this browser's local index. Falls back to the local list when cloud sync
    isn't configured, or if the fetch fails for any reason. */
 let _listErrorToasted = false;
@@ -1233,10 +1238,10 @@ function fetchAllTrips(cb){
       cb(merged);
     })
     .catch(err => {
-      console.error("Cal's Trippin' — couldn't list trips from the cloud:", err);
+      console.error("Cal's Trippin', couldn't list trips from the cloud:", err);
       if(!_listErrorToasted && /permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
         _listErrorToasted = true;
-        toast("Can't see everyone's trips — the database rules only allow reading one trip at a time. Open the Firebase console → Realtime Database → Rules and add \"trips\": { \".read\": true } alongside the existing rule.");
+        toast("Can't see everyone's trips: the database rules only allow reading one trip at a time. Open the Firebase console → Realtime Database → Rules and add \"trips\": { \".read\": true } alongside the existing rule.");
       }
       cb(DB.trips);
     });
@@ -1377,12 +1382,12 @@ App.share = id => {
   const t = getTrip(id); if(!t) return;
   let url, blurb, note;
   if(cloudEnabled()){
-    // one permanent link — everyone edits the same live trip
+    // one permanent link, everyone edits the same live trip
     url = location.origin + location.pathname + '#/trip/' + id;
     blurb = `This is the trip's <strong>permanent link</strong>. Anyone you send it to can view and edit with no account or sign-up, and everyone sees each other's changes. The link never changes, so share it once.`;
-    note = `Keep it to your group. Anyone with the link can edit. Save it somewhere of your own too (Notes, or message it to yourself) — there's no account to log back into, so this link is also how you get back in if you ever open the app in a private/incognito tab, a new browser, or a wiped one.`;
+    note = `Keep it to your group. Anyone with the link can edit. Save it somewhere of your own too (Notes, or message it to yourself), there's no account to log back into, so this link is also how you get back in if you ever open the app in a private/incognito tab, a new browser, or a wiped one.`;
   } else {
-    // no shared store configured — fall back to a portable snapshot link
+    // no shared store configured, fall back to a portable snapshot link
     const lite = JSON.parse(JSON.stringify(t));
     lite.documents = (lite.documents||[]).map(d=>({...d, dataUrl:null, stripped:true}));
     lite.moodBoard = (lite.moodBoard||[]).map(m=> m.dataUrl ? {...m, dataUrl:null, text:(m.text?m.text+' ':'')+'(image not included in shared link)'} : m);
@@ -1404,7 +1409,7 @@ App.copyShare = () => {
   const el = $('#share-url'); el.select();
   navigator.clipboard.writeText(el.value).then(()=>toast('Link copied')).catch(()=>{ document.execCommand('copy'); toast('Link copied'); });
 };
-/* generic click-to-copy for any location/address/reference text — reads the raw value off
+/* generic click-to-copy for any location/address/reference text, reads the raw value off
    data-copy (set via esc()) rather than threading it through an onclick string, so quotes
    and other special characters in addresses etc. can't break the attribute */
 App.copyFromEl = el => {
@@ -1493,9 +1498,11 @@ function renderTrip(t){
   $('#app').innerHTML = `
     ${arch?`<div class="banner">🗄 This trip ended over a month ago and is now archived and read-only.</div>`:''}
     ${CUR_TAB==='home' ? `
-    <div style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
-      <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
-      <p class="muted" style="margin-top:4px">${fmtRangeLong(t.startDate,t.endDate)}${(phrase && !upcoming)?` (${phrase})`:''}</p>
+    <div class="trip-head" style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
+      <div class="trip-head-info">
+        <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
+        <p class="muted" style="margin-top:4px">${fmtRangeLong(t.startDate,t.endDate)}${(phrase && !upcoming)?` (${phrase})`:''}</p>
+      </div>
       ${upcoming?countdownCardHTML():''}
     </div>` : `
     <div class="crumb" style="margin-top:26px">
@@ -1598,7 +1605,7 @@ App.saveTrip = () => {
   logEdit('Trip info','updated the trip details');
   save(); closeModal(); rerender();
 };
-/* ---- section nav: a slide-in overlay on mobile, a persistent sidebar on desktop —
+/* ---- section nav: a slide-in overlay on mobile, a persistent sidebar on desktop,
    both render off the same item list so they can never drift out of sync ---- */
 function tripNavItems(t){
   const item = ([k,l]) => `
@@ -1607,20 +1614,20 @@ function tripNavItems(t){
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.menuGo('${k}')}">
       ${ICONS[k]||''}<span>${l}</span>
     </div>`;
-  return `${TABS.map(item).join('')}
+  return `
+    <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.goHome()"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.goHome()}">${ICONS.back}<span>All Trips</span></div>
+    <hr class="menu-sep">
+    ${TABS.map(item).join('')}
     <hr class="menu-sep">
     <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.share('${t.id}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.share('${t.id}')}">${ICONS.share}<span>Share Trip</span></div>
     <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.changeIdentity()"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.changeIdentity()}">${ICONS.user}<span>Switch Name${whoAmI(t.id)?' ('+esc(whoAmI(t.id))+')':''}</span></div>
-    <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.goHome()"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.goHome()}">${ICONS.back}<span>All Trips</span></div>`;
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.changeIdentity()}">${ICONS.user}<span>Switch Name${whoAmI(t.id)?' ('+esc(whoAmI(t.id))+')':''}</span></div>`;
 }
 function renderSidebar(t){
   const root = $('#sidebar-root'); if(!root) return;
-  root.innerHTML = t ? `
-    <div class="menu-head" style="padding-left:2px"><span class="menu-title">${esc(t.name)}</span></div>
-    ${tripNavItems(t)}` : '';
+  root.innerHTML = t ? tripNavItems(t) : '';
 }
 function menuIsOpen(){ return !!$('#menu-root').firstChild; }
 function closeMenu(){
@@ -1721,7 +1728,7 @@ function tabHome(t){
     ['docs','Documents / Links', docParts.join(', ') || 'Nothing Saved Yet', !docParts.length],
     ['notes','Notes', noteLines ? noteLines+(noteLines===1?' Line':' Lines') : 'No Notes Yet', !noteLines]
   ];
-  // every tile — including Photos — opens its own tab first; the tab itself links out to the album
+  // every tile, including Photos, opens its own tab first; the tab itself links out to the album
   const tile = ([k,label,sum,empty]) => `
     <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)}"
          onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">
@@ -1731,7 +1738,7 @@ function tabHome(t){
   return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
 }
 /* ================= TAB: log (who changed what) ================= */
-/* which tab a log entry's section belongs to, so each row can jump straight there —
+/* which tab a log entry's section belongs to, so each row can jump straight there,
    'Trip info'/'People' edits live on Overview itself (where this list already sits),
    so those rows aren't made clickable */
 const LOG_SECTION_TAB = {
@@ -1781,7 +1788,7 @@ function itineraryItemLabel(s){
 /* auto flight/ferry/car/check-in/check-out cards are sorted by time, except flight vs
    check-in/check-out: a check-in's recorded time is usually just the property's standard
    check-in time, not your actual arrival, so it can't be trusted to order correctly against
-   a same-day flight — force checkout, then flight, then check-in regardless of what the
+   a same-day flight, force checkout, then flight, then check-in regardless of what the
    individual times say */
 function planCompare(a, b){
   const isAuto = x => !!(x._autoFlight || x._autoFerry || x._autoCar || x._autoStay);
@@ -1797,7 +1804,7 @@ function tabPlan(t, ro){
   const groups = {};
   items.forEach((s,i)=>{ const k = s.date||''; (groups[k]=groups[k]||[]).push({...s, _i:i}); });
   // fold travel + accommodation into the schedule, with their full detail, so the whole trip
-  // reads in one place — each still lives and is edited in its own section
+  // reads in one place, each still lives and is edited in its own section
   (t.flights||[]).forEach((f,fi)=>{
     const k = f.date||'';
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
@@ -1827,7 +1834,7 @@ function tabPlan(t, ro){
     return n + fmtDate(k);
   };
   // a day strictly between a stay's check-in and check-out gets a reminder of where you're
-  // sleeping — the check-in/check-out days themselves already show their own auto-card
+  // sleeping, the check-in/check-out days themselves already show their own auto-card
   const stayingAt = k => {
     if(!k) return '';
     const ac = (t.accommodations||[]).find(a=>a.checkin && a.checkout && k>a.checkin && k<a.checkout);
@@ -2002,7 +2009,7 @@ App.travelWhenChange = () => {
   const wrap = $('#tv-time-wrap'); if(!wrap) return;
   wrap.style.display = $('#tv-when').value==='time' ? 'grid' : 'none';
 };
-/* a manually-entered travel leg between two points — no geocoding/distance API, just
+/* a manually-entered travel leg between two points, no geocoding/distance API, just
    the mode/from/to/duration the user types in, stored alongside stops in t.itinerary
    (with kind:'travel') so it shares day-grouping and the up/down reorder system */
 App.travelLegForm = i => {
@@ -2074,7 +2081,7 @@ App.saveTravelLeg = i => {
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
 };
-/* send an Ideas pin straight into the itinerary, pre-filled — linked back to the pin so it
+/* send an Ideas pin straight into the itinerary, pre-filled, linked back to the pin so it
    can be toggled to Remove from Itinerary instead of being addable again */
 App.planFromIdea = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -2119,7 +2126,7 @@ function flightTrackLink(f){
       ? `<a class="doc-attach" href="https://www.google.com/search?q=${encodeURIComponent(f.flightNo+' flight status')}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Live flight status">${ICONS.ext}Track Flight</a>`
       : '';
 }
-/* the full flight card — shared by Travel and, read-only (whole card opens the edit form), by the Itinerary */
+/* the full flight card, shared by Travel and, read-only (whole card opens the edit form), by the Itinerary */
 function flightStripHTML(f, i, actionsHTML){
   return `
     <div class="flight-strip">
@@ -2200,7 +2207,7 @@ function faviconFor(url){
   catch(e){ return ''; }
 }
 function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
-/* best-effort town/city out of a full address — drop a trailing postcode-looking segment,
+/* best-effort town/city out of a full address, drop a trailing postcode-looking segment,
    then take the last comma-separated part, e.g. "1 Rua X, Lisbon, 1000-001" -> "Lisbon" */
 function guessCityFromAddress(address){
   if(!address) return '';
@@ -2208,7 +2215,7 @@ function guessCityFromAddress(address){
   if(!parts.length) return '';
   const looksLikePostcode = /\d/.test(parts[parts.length-1]) && parts[parts.length-1].length<=10;
   if(looksLikePostcode && parts.length>1) parts.pop();
-  // "Saranda, Albania" shouldn't guess the country as the city — drop it and use the town
+  // "Saranda, Albania" shouldn't guess the country as the city, drop it and use the town
   if(parts.length>1 && countryByName(parts[parts.length-1])) parts.pop();
   return parts[parts.length-1] || '';
 }
@@ -2229,7 +2236,7 @@ function autoAccomName(url, address){
   if(city) return 'Stay in '+city;
   return '';
 }
-/* the full accommodation card — shared by Accommodation and, read-only, by the Itinerary.
+/* the full accommodation card, shared by Accommodation and, read-only, by the Itinerary.
    opts: headerActions (edit/delete, top-right), footerActions (e.g. a link back to this
    section), showDates (hide the check-in/out chips when the itinerary already shows the time) */
 function accomCardHTML(a, opts){
@@ -2303,7 +2310,7 @@ App.attachDoc = input => {
   const file = input.files[0]; input.value=''; if(!file) return;
   if(file.type==='application/pdf'){
     const fr = new FileReader();
-    fr.onload = e => { FORM_DOC = {name:file.name, kind:'pdf', size:file.size, dataUrl: file.size<=5*1048576 ? e.target.result : null}; paintDocStatus(); if(file.size>5*1048576) toast('PDF over 5 MB — details stored, file kept on this device'); };
+    fr.onload = e => { FORM_DOC = {name:file.name, kind:'pdf', size:file.size, dataUrl: file.size<=5*1048576 ? e.target.result : null}; paintDocStatus(); if(file.size>5*1048576) toast('PDF over 5 MB, details stored, file kept on this device'); };
     fr.readAsDataURL(file);
   } else {
     downscaleToDataURL(file, 1800, 0.85, dataUrl => { FORM_DOC = {name:file.name, kind:'img', size:dataUrl?Math.round(dataUrl.length*.75):0, dataUrl}; paintDocStatus(); });
@@ -2314,7 +2321,7 @@ function attachField(){
     <div id="doc-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">${docStatusHTML()}</div>
     <label class="btn sm" style="cursor:pointer">${ICONS.upload} ${FORM_DOC?'Replace file':'Attach file'}<input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.attachDoc(this)"></label></div>`;
 }
-/* data: URLs can't reliably render PDFs in iframes (especially on mobile) — serve a blob URL
+/* data: URLs can't reliably render PDFs in iframes (especially on mobile), serve a blob URL
    instead, with open-in-new-tab and download as fallbacks */
 function dataUrlToBlobUrl(dataUrl){
   try{
@@ -2516,7 +2523,7 @@ App.accomForm = i => {
   openModal(`
     <h2>${i>=0?'Edit Accommodation':'Add Accommodation'}</h2>
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…" oninput="App.accomAutoName()"></div>
-    <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name — fills in automatically once you add a link or address"></div>
+    <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name (fills in automatically once you add a link or address)"</div>
     <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}" oninput="App.accomAutoName()"></div>
     <div class="grid2">
       <div class="field"><label class="label">Check-in date</label><input id="ac-in" type="date" value="${esc(a.checkin||todayStr())}"></div>
@@ -2532,7 +2539,7 @@ App.accomForm = i => {
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.delAccom(${i})">Delete Accommodation</button>`:''}
     </div>`);
 };
-/* live-suggest a name from the link/address, but stop the moment the user types their own —
+/* live-suggest a name from the link/address, but stop the moment the user types their own,
    only touch the field while its value still matches our own last suggestion */
 App.accomAutoName = () => {
   const nameEl = $('#ac-name'); if(!nameEl) return;
@@ -2559,14 +2566,14 @@ App.saveAccom = i => {
   logEdit('Accommodation', (i>=0?'updated ':'added ')+(name||'accommodation'));
   save(); closeModal(); rerender();
 };
-/* accommodation holds a lot of detail (address, dates, ref, booking link) — confirm before
+/* accommodation holds a lot of detail (address, dates, ref, booking link), confirm before
    losing it, on top of the usual undo toast */
 App.delAccom = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t || !t.accommodations) return;
   const tripId = t.id;
   const removed = t.accommodations[i]; if(!removed) return;
   const label = removed.name||'this accommodation';
-  confirmModal('Remove Accommodation?', `"${label}" and its details — address, dates, booking info — will be removed.`, 'Remove', ()=>{
+  confirmModal('Remove Accommodation?', `"${label}" and its details (address, dates, booking info) will be removed.`, 'Remove', ()=>{
     t.accommodations.splice(i,1); logEdit('Accommodation','removed '+label); save(); rerender();
     toast('Accommodation removed', ()=>{
       const t2 = getTrip(tripId); if(!t2) return;
@@ -2773,7 +2780,6 @@ App.upload = input => {
   }
   input.value='';
 };
-/* ================= receipt scanning (OCR) ================= */
 function downscaleToDataURL(file, max, quality, cb){
   const img = new Image();
   img.onload = () => {
@@ -2787,286 +2793,6 @@ function downscaleToDataURL(file, max, quality, cb){
   img.onerror = () => cb(null);
   img.src = URL.createObjectURL(file);
 }
-/* same downscale + greyscale/contrast prep as downscaleToDataURL, but hands back the
-   canvas itself (not a flattened dataURL) so the OCR path can re-render it at other
-   rotations without re-decoding the source image each time */
-function downscaleToCanvas(file, max, cb){
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    const scale = Math.min(1, max/Math.max(img.width,img.height));
-    c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
-    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-    preprocessForOCR(c);
-    cb(c);
-    URL.revokeObjectURL(img.src);
-  };
-  img.onerror = () => cb(null);
-  img.src = URL.createObjectURL(file);
-}
-function rotateCanvas(src, degrees){
-  const rad = degrees*Math.PI/180, swap = degrees===90||degrees===270;
-  const c = document.createElement('canvas');
-  c.width = swap ? src.height : src.width;
-  c.height = swap ? src.width : src.height;
-  const ctx = c.getContext('2d');
-  ctx.translate(c.width/2, c.height/2);
-  ctx.rotate(rad);
-  ctx.drawImage(src, -src.width/2, -src.height/2);
-  return c;
-}
-/* greyscale + contrast-stretch the photo so Tesseract has clean text to work with */
-function preprocessForOCR(canvas){
-  try{
-    const ctx = canvas.getContext('2d');
-    const d = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const px = d.data;
-    let min=255, max=0;
-    for(let i=0;i<px.length;i+=4){
-      const g = .299*px[i] + .587*px[i+1] + .114*px[i+2];
-      px[i]=px[i+1]=px[i+2]=g;
-      if(g<min) min=g; if(g>max) max=g;
-    }
-    const range = Math.max(1, max-min);
-    for(let i=0;i<px.length;i+=4){
-      const v = Math.max(0, Math.min(255, (px[i]-min)*255/range));
-      px[i]=px[i+1]=px[i+2]=v;
-    }
-    ctx.putImageData(d,0,0);
-  }catch(e){}
-}
-function ensureTesseract(cb){
-  if(window.Tesseract){ cb(); return; }
-  const s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
-  s.onload = () => cb(); s.onerror = () => cb(new Error('load'));
-  document.head.appendChild(s);
-}
-/* many POS receipts print as a table (item / unit price / qty / line total in separate
-   columns) rather than one clean "desc ... price" line — Tesseract's own line breaks often
-   don't line up with the visual rows in that layout. Rebuilding rows from each word's own
-   bounding box (grouping by Y-position, then reading left-to-right) is far more faithful to
-   what's actually on the receipt than trusting the raw text's newlines */
-function wordsToLines(words){
-  if(!words || !words.length) return [];
-  const items = words.map(w=>({text:w.text, x0:w.bbox.x0, yc:(w.bbox.y0+w.bbox.y1)/2, h:w.bbox.y1-w.bbox.y0}))
-    .filter(w=>w.text && w.text.trim());
-  if(!items.length) return [];
-  const heights = items.map(w=>w.h).sort((a,b)=>a-b);
-  const tol = Math.max(8, heights[Math.floor(heights.length/2)]*0.6);
-  items.sort((a,b)=>a.yc-b.yc);
-  const rows = [];
-  items.forEach(w=>{
-    let row = rows.find(r=>Math.abs(r.yc-w.yc)<tol);
-    if(!row){ row = {yc:w.yc, n:0, words:[]}; rows.push(row); }
-    row.words.push(w); row.n++; row.yc = (row.yc*(row.n-1)+w.yc)/row.n;
-  });
-  return rows.map(r=>r.words.sort((a,b)=>a.x0-b.x0).map(w=>w.text).join(' '));
-}
-/* a phone photo of a (often narrow, thermal-printed) receipt is frequently shot sideways —
-   Tesseract has no built-in auto-rotation, so try the upright orientation first (cheap,
-   the common case), and only pay for the other 3 rotations when that first pass looks
-   unconvincing (low confidence or nothing price-shaped found) — picking whichever
-   orientation Tesseract itself is most confident about */
-function recognizeReceipt(canvas, cb){
-  const run = deg => {
-    try{
-      const c = deg===0 ? canvas : rotateCanvas(canvas, deg);
-      return window.Tesseract.recognize(c.toDataURL('image/jpeg', 0.9), 'eng')
-        .then(({data}) => ({
-          confidence: data.confidence||0,
-          lines: (()=>{ const l = wordsToLines(data.words); return l.length ? l : (data.text||'').split(/\r?\n/); })()
-        }))
-        .catch(() => ({confidence:0, lines:[]}));
-    }catch(e){ return Promise.resolve({confidence:0, lines:[]}); }
-  };
-  run(0).then(first=>{
-    const text = first.lines.join('\n');
-    const looksGood = first.confidence>45 && /\d[.,]\d{1,2}/.test(text);
-    if(looksGood){ cb(first.lines); return; }
-    Promise.all([90,180,270].map(run)).then(rest=>{
-      const best = [first,...rest].sort((a,b)=>b.confidence-a.confidence)[0];
-      cb(best.lines);
-    });
-  });
-}
-/* a matched price string can have its separators either way round ("1,234.56" or
-   "1.234,56") — the regex that finds it always leaves exactly 2 digits after the LAST
-   separator (the decimal part), so normalize off that position rather than guessing by
-   character, then round to the nearest cent to avoid float noise */
-function normalizeAmount(raw){
-  const s = raw.replace(/\s/g,'');
-  const lastSep = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
-  if(lastSep<0) return Math.round(parseFloat(s)*100)/100;
-  const whole = s.slice(0,lastSep).replace(/[.,]/g,'');
-  const cents = s.slice(lastSep+1);
-  return Math.round(parseFloat(whole+'.'+cents)*100)/100;
-}
-/* turn OCR text into candidate line items: "<description> ... <price>" */
-function parseReceiptText(text){
-  // a handful of Spanish/Portuguese equivalents are included alongside the English terms
-  // (this app's trips skew toward Europe) since a summary line like "Parcial" or
-  // "Cantidad a pagar" would otherwise look just like a real item and get duplicated in
-  const skip = /(sub[\s-]?total|^total|balance|change|cash|card|visa|master|amex|vat|tax|amount|payment|table|receipt|thank|www\.|http|tel[:\s]|order|invoice|qty|discount|voucher|parcial|a pagar|impuesto|descuento)/i;
-  // a service charge/gratuity/tip line is a real cost too — captured as its own item
-  // (rather than silently dropped) so it's not lost from the group's total; an item with
-  // no one ticked already splits evenly across everyone, so no extra split logic is needed
-  const serviceCharge = /(service\s*charge|gratuity|\btip\b|service\s*fee|svc\s*chg|propina|\bservicio\b)/i;
-  const out = [];
-  (text||'').split(/\r?\n/).forEach(line=>{
-    const l = line.trim(); if(l.length<3) return;
-    // "<desc> ... £12.50", "<desc> 12,50 €", "<desc> £1,234.56", trailing VAT letter tolerated
-    const m = l.match(/^(.*?)[\s.·•\-–—:]*[£$€]?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{1,2}|\d{1,4}[.,]\d{1,2})\s*(?:[£$€]|GBP|EUR|USD|[A-Z])?\s*$/);
-    if(!m) return;
-    const amount = normalizeAmount(m[2]);
-    if(!(amount>0) || amount>5000) return;
-    if(serviceCharge.test(l)){ out.push({desc:'Service Charge', amount, people:[]}); return; }
-    let desc = m[1].replace(/[.:·•\-–—\s]+$/,'').replace(/\s{2,}/g,' ').trim();
-    // OCR often leaves a stray punctuation mark at the very start of a line (misread table
-    // rule, bullet, etc.) — e.g. "; Total" instead of "Total" — which broke the ^total-style
-    // anchored skip check below, letting the receipt's own total line through as a fake item
-    desc = desc.replace(/^[^\p{L}\p{N}]+/u, '').trim();
-    desc = desc.replace(/^\d+\s*[xX]?\s*/, '').trim();      // drop leading quantity "2 x"
-    desc = desc.replace(/\s*[xX]\s*\d+$/, '').trim();       // drop trailing quantity "x2"
-    // a columnar receipt (name | unit price | qty | line total) can leave "<name> <unit
-    // price> <qty>" in desc ahead of the line total — only strip a trailing bare quantity
-    // when doing so reveals a unit price sitting right behind it, so a legitimately
-    // numeric item name isn't mistaken for one
-    const qtyStripped = desc.replace(/\s+\d{1,2}$/,'').trim();
-    if(/[£$€]?\s*\d{1,4}[.,]\d{1,2}\s*$/.test(qtyStripped)) desc = qtyStripped;
-    desc = desc.replace(/\s*[£$€]?\s*\d{1,4}[.,]\d{1,2}\s*$/,'').trim();
-    if(!desc) return;
-    if(skip.test(desc)) return;
-    if(/^[\d\s.,:\/-]+$/.test(desc)) return;                // pure numbers/dates aren't items
-    if(!/[A-Za-z]{2}/.test(desc)) return;                   // need at least a bit of a word
-    out.push({desc: desc.slice(0,40), amount, people:[]});
-  });
-  return out;
-}
-/* look for one clear, valid, non-future date in the OCR text — a receipt date is only
-   ever prefilled when we're actually sure; anything ambiguous or invalid is left alone so
-   the form keeps its sensible today's-date default rather than a guessed wrong one */
-function parseReceiptDate(text){
-  const today = new Date(); today.setHours(0,0,0,0);
-  const valid = (y,mo,d) => {
-    if(y<2015 || mo<1 || mo>12 || d<1 || d>31) return null;
-    const dt = new Date(y, mo-1, d);
-    if(dt.getFullYear()!==y || dt.getMonth()!==mo-1 || dt.getDate()!==d) return null;
-    if(dt > today) return null;
-    return dt.toISOString().slice(0,10);
-  };
-  for(const line of (text||'').split(/\r?\n/)){
-    let m = line.match(/\b(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})\b/);   // ISO: YYYY-MM-DD
-    if(m){ const r = valid(+m[1], +m[2], +m[3]); if(r) return r; }
-    m = line.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/);     // D/M/Y (or M/D/Y if unambiguous)
-    if(m){
-      let d=+m[1], mo=+m[2], y=+m[3];
-      if(y<100) y += y<70?2000:1900;
-      if(mo>12 && mo<=31 && d<=12){ const t=d; d=mo; mo=t; }
-      const r = valid(y, mo, d); if(r) return r;
-    }
-  }
-  return '';
-}
-/* best-effort translation of scanned item descriptions to English via a free, keyless
-   endpoint — same fallback pattern as the TikTok oEmbed lookup: on any failure (offline,
-   blocked, unexpected response) the original text is simply left as-is, nothing blocks */
-function translateToEnglish(items, cb){
-  const todo = items.filter(it=>it.desc && it.desc!=='Service Charge');
-  if(!todo.length){ cb(); return; }
-  let remaining = todo.length;
-  const done = () => { if(--remaining<=0) cb(); };
-  todo.forEach(it=>{
-    fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q='+encodeURIComponent(it.desc))
-      .then(r=>r.json())
-      .then(data=>{
-        const translated = data && data[0] && data[0].map(seg=>seg[0]).join('').trim();
-        if(translated && translated.toLowerCase()!==it.desc.trim().toLowerCase()) it.desc = translated.slice(0,40);
-        done();
-      })
-      .catch(done);
-  });
-}
-const CURRENCY_SYMBOL = {GBP:'£', EUR:'€', USD:'$'};
-/* every amount in this app displays as £ — a scanned receipt that's actually in euros or
-   dollars needs to be spotted and converted rather than silently treated as pounds at face
-   value. Whichever currency's symbol/code shows up most across the OCR text wins; with
-   nothing recognisable, assume GBP (no conversion) rather than guessing */
-function detectCurrency(text){
-  const t = text||'';
-  const count = re => (t.match(re)||[]).length;
-  const counts = {
-    GBP: count(/£/g) + count(/\bGBP\b/gi),
-    EUR: count(/€/g) + count(/\bEUR\b/gi),
-    USD: count(/\$/g) + count(/\bUSD\b/gi)
-  };
-  let best = 'GBP', bestN = 0;
-  Object.entries(counts).forEach(([c,n])=>{ if(n>bestN){ bestN=n; best=c; } });
-  return best;
-}
-let _fxCache = {};
-/* free, keyless FX lookup, cached for a few hours — cb(null) on any failure (offline,
-   blocked, unexpected response) so the caller can fall back to leaving amounts unconverted
-   rather than mislabeling them as pounds */
-function fetchFxRate(from, cb){
-  if(from==='GBP'){ cb(1); return; }
-  const cached = _fxCache[from];
-  if(cached && Date.now()-cached.at < 6*3600*1000){ cb(cached.rate); return; }
-  fetch('https://open.er-api.com/v6/latest/'+from)
-    .then(r=>r.json())
-    .then(data=>{
-      const rate = data && data.rates && data.rates.GBP;
-      if(rate){ _fxCache[from] = {rate, at:Date.now()}; cb(rate); }
-      else cb(null);
-    })
-    .catch(()=>cb(null));
-}
-App.scanReceipt = input => {
-  const file = input.files[0]; input.value=''; if(!file || !R) return;
-  R.evenSplit = false; R._scanning = true; R._scanMsg = ''; R.fx = null;
-  App.redrawReceipt();
-  downscaleToCanvas(file, 2200, canvas => {
-    if(!canvas){ R._scanning=false; R._scanMsg="Couldn't read that image. Add items by hand."; App.redrawReceipt(); return; }
-    ensureTesseract(err => {
-      if(err || !window.Tesseract){ R._scanning=false; R._scanMsg="Couldn't load the scanner. Check you're online, or add items by hand."; App.redrawReceipt(); return; }
-      recognizeReceipt(canvas, lines => {
-        const text = lines.join('\n');
-        const items = parseReceiptText(text);
-        const foundDate = parseReceiptDate(text);
-        const currency = detectCurrency(text);
-        if(foundDate) R.date = foundDate;
-        R._scanning = false;
-        if(!items.length){
-          if(!R.items.length) R.items = [{desc:'',amount:'',people:[]}];
-          R._scanMsg = "Couldn't pick out items from that photo. Add them by hand.";
-          App.redrawReceipt();
-          return;
-        }
-        const finish = () => { R.items = items; App.redrawReceipt(); translateToEnglish(items, () => App.redrawReceipt()); };
-        if(currency==='GBP'){
-          R._scanMsg = `Found ${items.length} item${items.length>1?'s':''}. Check them, then tick who had each.`;
-          finish();
-        } else {
-          const sym = CURRENCY_SYMBOL[currency]||currency;
-          R._scanMsg = `Found ${items.length} item${items.length>1?'s':''} in ${currency} — converting to £…`;
-          App.redrawReceipt();
-          fetchFxRate(currency, rate => {
-            if(rate){
-              const originalTotal = items.reduce((s,it)=>s+it.amount,0);
-              items.forEach(it=>{ it.originalAmount = it.amount; it.amount = Math.round(it.amount*rate*100)/100; });
-              R.fx = {currency, originalTotal, rate};
-              R._scanMsg = `Found ${items.length} item${items.length>1?'s':''} — converted from ${sym}${originalTotal.toFixed(2)} at today's rate. Check them, then tick who had each.`;
-            } else {
-              R._scanMsg = `Found ${items.length} item${items.length>1?'s':''} in ${currency}, but couldn't fetch today's exchange rate — amounts below are still in ${sym}, not £. Adjust manually or try again later.`;
-            }
-            finish();
-          });
-        }
-      });
-    });
-  });
-};
-
 /* ================= TAB: money ================= */
 function receiptTotal(r){
   return r.evenSplit ? (+r.amount||0) : (r.items||[]).reduce((s,it)=>s+(+it.amount||0),0);
@@ -3117,7 +2843,6 @@ function tabMoney(t, ro){
         <div style="min-width:0"><h3>${esc(r.title)}</h3><div class="muted small">${r.date?fmtDate(r.date)+' · ':''}paid by <strong>${esc(r.paidBy)}</strong></div></div>
         <span class="amount mono" style="font-size:1.15rem">${money(total)}</span>
       </div>
-      ${r.fx?`<div class="muted small" style="margin-bottom:8px">Originally ${esc(CURRENCY_SYMBOL[r.fx.currency]||r.fx.currency)}${r.fx.originalTotal.toFixed(2)} · converted to £ at ${r.fx.rate.toFixed(3)}</div>`:''}
       ${detail}
       ${!ro?`<div class="btn-row" style="justify-content:flex-end;margin-top:10px">
         <button class="iconbtn edit" aria-label="Edit receipt" title="Edit" onclick="App.receiptForm(${i})">${ICONS.edit}</button>
@@ -3157,13 +2882,13 @@ App.receiptForm = i => {
     R = {title:r.title, date:r.date||'', paidBy:r.paidBy, evenSplit:!!r.evenSplit, amount:r.amount||'',
          sharedWith:[...(r.sharedWith||[])],
          items:(r.items||[]).length?(r.items||[]).map(it=>({desc:it.desc, amount:it.amount, people:[...(it.people||[])]})):[{desc:'',amount:'',people:[]}],
-         _scanning:false, _scanMsg:'', _edit:i, fx:r.fx||null};
+         _edit:i};
   } else {
-    R = {title:'', date:todayStr(), paidBy:t.organiser, evenSplit:true, amount:'', sharedWith:[...t.participants], items:[{desc:'',amount:'',people:[]}], _scanning:false, _scanMsg:'', _edit:-1, fx:null};
+    R = {title:'', date:todayStr(), paidBy:t.organiser, evenSplit:true, amount:'', sharedWith:[...t.participants], items:[{desc:'',amount:'',people:[]}], _edit:-1};
   }
   drawReceiptModal(t);
 };
-/* the live "who owes what / what's left to pay" panel — recomputed on every change */
+/* the live "who owes what / what's left to pay" panel, recomputed on every change */
 function splitSummaryInner(t){
   const itemsTotal = R.items.reduce((s,it)=>s+(+it.amount||0),0);
   const unassigned = R.items.reduce((s,it)=>s+((it.people&&it.people.length)?0:(+it.amount||0)),0);
@@ -3197,16 +2922,6 @@ function drawReceiptModal(t){
     ${summary}`;
   openModal(`
     <h2>${R._edit>=0?'Edit Receipt':'Add Receipt'}</h2>
-    <div class="grid2" style="gap:10px">
-      <label class="btn" style="cursor:pointer" aria-label="Take a photo of the receipt">${ICONS.camera} Take a Photo
-        <input type="file" accept="image/*" capture="environment" style="display:none" onchange="App.scanReceipt(this)"></label>
-      <label class="btn" style="cursor:pointer" aria-label="Upload a receipt image">${ICONS.upload} Upload an Image
-        <input type="file" accept="image/*" style="display:none" onchange="App.scanReceipt(this)"></label>
-    </div>
-    <p class="muted small" style="margin:8px 0 12px;text-align:center">Snap or upload the receipt and we'll list the items, then tick who had what.</p>
-    ${R._scanning?`<div class="banner">⏳ Reading the receipt… this can take a few seconds.</div>`:''}
-    ${R._scanMsg?`<div class="banner">${esc(R._scanMsg)}</div>`:''}
-    <hr class="divider">
     <div class="grid2">
       <div class="field"><label class="label" for="rc-title">What was it?</label><input id="rc-title" type="text" value="${esc(R.title)}" placeholder="Dinner at Tasca" oninput="R.title=this.value"></div>
       <div class="field"><label class="label" for="rc-date">Date</label><input id="rc-date" type="date" value="${esc(R.date)}" oninput="R.date=this.value"></div>
@@ -3250,8 +2965,7 @@ App.saveReceipt = () => {
   const editing = R._edit>=0 && t.receipts[R._edit];
   const rec = {id: editing ? t.receipts[R._edit].id : uid(), title:R.title.trim(), date:R.date, paidBy:R.paidBy,
     evenSplit:R.evenSplit, amount:+R.amount||0, sharedWith:[...R.sharedWith],
-    items:R.items.map(it=>({desc:it.desc.trim()||'Item', amount:+it.amount||0, people:[...(it.people||[])]})),
-    fx: !R.evenSplit && R.fx ? R.fx : null};
+    items:R.items.map(it=>({desc:it.desc.trim()||'Item', amount:+it.amount||0, people:[...(it.people||[])]}))};
   if(editing) t.receipts[R._edit] = rec; else t.receipts.push(rec);
   logEdit('Money',(editing?'edited receipt ':'added receipt ')+rec.title+' ('+money(receiptTotal(rec))+')');
   save(); R=null; closeModal(); rerender(); toast(editing?'Receipt updated':'Receipt added');
@@ -3359,7 +3073,7 @@ let VIDEO_THUMB = {}; // videoUrl -> {status:'loading'|'ok'|'error', thumb}
 /* TikTok's oEmbed endpoint is public and CORS-open (no key needed) and returns a real
    thumbnail for the specific video. Instagram's oEmbed now requires an authenticated
    Facebook app token we don't have, so Instagram gets a branded placeholder instead of
-   a real per-post thumbnail — both are just a clickable card that opens the real post. */
+   a real per-post thumbnail, both are just a clickable card that opens the real post. */
 function loadVideoThumb(url){
   if(VIDEO_THUMB[url]) return;
   VIDEO_THUMB[url] = {status:'loading'};
