@@ -441,8 +441,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.18.1';
+const APP_VERSION = '1.18.2';
 const CHANGELOG = [
+  {version:'1.18.2', notes:['Fixed trips silently failing to appear on other browsers/devices even with cloud sync configured: the database rules needed for listing every trip (and for the in-app PIN change) were missing from the setup instructions, so those reads/writes were being quietly rejected and falling back to "nothing here." Now shows a clear message explaining exactly what\'s missing instead of failing silently, and the README\'s example rules are corrected.']},
   {version:'1.18.1', notes:['Fixed the PIN field overflowing its margin on mobile.', 'The "Your Trips" page no longer briefly says "No trips yet" while it\'s still fetching the real list from the cloud — it now says "Loading trips…" until that finishes.', 'Added a PIN button next to + New Trip so the group PIN can be changed from inside the app — updates it for everyone straight away, no code change needed.']},
   {version:'1.18.0', notes:['Replaced the per-trip "you need the link" model with a single shared PIN for the whole site: enter it once per browser (remembered after that) and the "Your Trips" list now shows every trip that exists — created by anyone, on any device — instead of only trips this particular browser happened to make or open before. The PIN protects the whole app, including direct trip links.']},
   {version:'1.17.2', notes:['Fixed the receipt\'s own "Total" line sometimes being picked up as a fake extra item (e.g. showing as an item literally named "; Total") — a stray OCR character right at the start of a line was breaking the check that\'s meant to exclude it, so it got counted and split like a real purchase on top of the actual items.']},
@@ -1155,7 +1156,14 @@ App.savePin = () => {
   if(!val) return markErr('#pin-new','Enter a PIN');
   fbRoot.ref('appPin').set(val)
     .then(()=>{ closeModal(); toast('PIN updated — share the new one with your group'); })
-    .catch(()=>{ toast("Couldn't save the new PIN. Check your connection and try again."); });
+    .catch(err => {
+      console.error("Cal's Trippin' — couldn't save the PIN:", err);
+      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        toast("Couldn't save — the database rules don't allow writing the PIN. Open the Firebase console → Realtime Database → Rules and add an \"appPin\": { \".read\": true, \".write\": true } rule.");
+      }else{
+        toast("Couldn't save the new PIN. Check your connection and try again.");
+      }
+    });
 };
 App.goHome = () => { if(location.hash){ location.hash=''; } else { route(); } };
 let PRE_CHANGELOG_HASH = ''; // where we were before opening the changelog, so a second tap returns there
@@ -1211,6 +1219,7 @@ function homeGridHTML(trips, loading){
    browser happened to create or open before — so the full list comes from Firebase itself
    rather than this browser's local index. Falls back to the local list when cloud sync
    isn't configured, or if the fetch fails for any reason. */
+let _listErrorToasted = false;
 function fetchAllTrips(cb){
   if(!fbRoot){ cb(DB.trips); return; }
   fbRoot.ref('trips').once('value')
@@ -1223,7 +1232,14 @@ function fetchAllTrips(cb){
       });
       cb(merged);
     })
-    .catch(() => cb(DB.trips));
+    .catch(err => {
+      console.error("Cal's Trippin' — couldn't list trips from the cloud:", err);
+      if(!_listErrorToasted && /permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        _listErrorToasted = true;
+        toast("Can't see everyone's trips — the database rules only allow reading one trip at a time. Open the Firebase console → Realtime Database → Rules and add \"trips\": { \".read\": true } alongside the existing rule.");
+      }
+      cb(DB.trips);
+    });
 }
 function renderHome(){
   $('#header-actions').innerHTML = `<div class="btn-row" style="gap:8px">

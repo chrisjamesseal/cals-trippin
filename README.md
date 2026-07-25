@@ -22,31 +22,33 @@ One place for your group trip — flights, money, plans and photos. One organise
 
 ## Turning on the shared, permanent link (Firebase)
 
-The app works out of the box **on a single device** with no setup. To get the one-permanent-link-that-everyone-edits behaviour, connect a free [Firebase](https://firebase.google.com/) Realtime Database:
+The app works out of the box **on a single device** with no setup. To get everyone-sees-every-trip syncing plus the shared PIN gate, connect a free [Firebase](https://firebase.google.com/) Realtime Database:
 
 1. Create a free Firebase project and add a **Realtime Database**.
 2. In Project settings → *Your apps* → *Web*, copy the config object.
 3. Paste it into `FIREBASE_CONFIG` near the top of the `<script>` in `index.html` (these are public client keys — safe to commit).
-4. Set the database rules. Access is by unguessable trip link (no logins), so for a friends-only trip planner:
+4. Set the database rules. Access is gated by a shared PIN (no per-user logins), so for a friends-only trip planner:
 
    ```json
    {
      "rules": {
        "trips": {
-         "$id": { ".read": true, ".write": true }
-       }
+         ".read": true,
+         "$id": { ".write": true }
+       },
+       "appPin": { ".read": true, ".write": true }
      }
    }
    ```
 
-That's it — share buttons now hand out `…/#/trip/<id>` links that stay the same forever and sync everyone's edits. Without a config, the app quietly falls back to single-device mode and the Share button produces a portable snapshot link instead.
+   Note the `trips` node needs its own top-level `.read: true` — Realtime Database rules don't cascade upward from `trips/$id` to `trips`, and the app needs to read the *whole* `trips` node at once to list every trip on the "Your Trips" page. Without it, the app silently falls back to only showing trips this particular browser already knows about (looks like "no trips saved"), and the in-app PIN-change screen will fail to save.
 
-The header shows a small **sync status** pill (Synced / Saving… / Offline / On this device) so you always know where your changes are.
+That's it — the app now shows every trip that exists (not just ones this browser made), and share buttons hand out `…/#/trip/<id>` links that stay the same forever and sync everyone's edits. Without a config, the app quietly falls back to single-device mode, a fixed local PIN, and the Share button produces a portable snapshot link instead.
 
 ## Notes
 
 - Static site, no backend of its own — hosted on GitHub Pages. The optional shared store is Firebase, called directly from the browser.
-- **Security is deliberately light:** anyone with a trip link can view and edit it. Keep links to your group.
+- **Security is deliberately light:** the PIN gate is a client-side deterrent, not real access control — anyone who reads the page source can find it. It stops casual visitors, not a determined stranger. Keep the URL and PIN to your group.
 - Large uploaded files and mood-board images stay on the uploader's device (only smaller ones sync); their details still appear for everyone.
 - Receipt/PDF scanning accuracy varies with the photo — it's a review-and-correct flow, not magic.
 
