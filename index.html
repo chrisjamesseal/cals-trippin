@@ -445,8 +445,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.19.1';
+const APP_VERSION = '1.19.2';
 const CHANGELOG = [
+  {version:'1.19.2', notes:['Save Receipt could fail with zero feedback if anything unexpected went wrong (or if the trip wasn\'t loaded), it now shows a clear message explaining what happened instead of silently doing nothing.']},
   {version:'1.19.1', notes:['Itinerary stops now show their location as a tap-to-copy address (with a pin icon), matching how accommodation addresses already work.']},
   {version:'1.19.0', notes:['Removed receipt photo scanning (Take a Photo / Upload an Image) entirely; it wasn\'t working reliably, so receipts are now always added by hand, item by item or as an even split.', 'Desktop: the logo now sits hard left and the header buttons sit hard right, using the full header width instead of a narrow centered strip.', 'Desktop: "All Trips" is now the first item in the trip menu, and the trip name no longer repeats at the top of the sidebar (it\'s already shown as the page heading).', 'Desktop: the countdown now sits right-aligned in the same row as the trip title and dates, instead of its own row underneath.', 'Removed long dashes from copy throughout the app in favour of commas, colons and periods.']},
   {version:'1.18.2', notes:['Fixed trips silently failing to appear on other browsers/devices even with cloud sync configured: the database rules needed for listing every trip (and for the in-app PIN change) were missing from the setup instructions, so those reads/writes were being quietly rejected and falling back to "nothing here." Now shows a clear message explaining exactly what\'s missing instead of failing silently, and the README\'s example rules are corrected.']},
@@ -2960,22 +2961,28 @@ App.toggleItemPerson = (idx,pi) => {
   App.redrawReceipt();
 };
 App.saveReceipt = () => {
-  const t = getTrip(CUR_TRIP_ID); if(!t||!R) return;
-  if(!R.title.trim()) return markErr('#rc-title','Give the receipt a name');
-  if(R.evenSplit){
-    if(!(+R.amount>0)) return markErr('#rc-amt','Enter the amount');
-    if(!R.sharedWith.length){ toast('Pick who shares it'); return; }
-  } else {
-    R.items = R.items.filter(it=>it.desc.trim()||+it.amount>0);
-    if(!R.items.length || !R.items.some(it=>+it.amount>0)){ toast('Add at least one item with an amount'); return; }
+  const t = getTrip(CUR_TRIP_ID);
+  if(!t||!R){ toast("Couldn't save: this trip isn't loaded. Try refreshing the page."); return; }
+  try{
+    if(!R.title.trim()) return markErr('#rc-title','Give the receipt a name');
+    if(R.evenSplit){
+      if(!(+R.amount>0)) return markErr('#rc-amt','Enter the amount');
+      if(!R.sharedWith.length){ toast('Pick who shares it'); return; }
+    } else {
+      R.items = R.items.filter(it=>it.desc.trim()||+it.amount>0);
+      if(!R.items.length || !R.items.some(it=>+it.amount>0)){ toast('Add at least one item with an amount'); return; }
+    }
+    const editing = R._edit>=0 && t.receipts[R._edit];
+    const rec = {id: editing ? t.receipts[R._edit].id : uid(), title:R.title.trim(), date:R.date, paidBy:R.paidBy,
+      evenSplit:R.evenSplit, amount:+R.amount||0, sharedWith:[...R.sharedWith],
+      items:R.items.map(it=>({desc:it.desc.trim()||'Item', amount:+it.amount||0, people:[...(it.people||[])]}))};
+    if(editing) t.receipts[R._edit] = rec; else t.receipts.push(rec);
+    logEdit('Money',(editing?'edited receipt ':'added receipt ')+rec.title+' ('+money(receiptTotal(rec))+')');
+    save(); R=null; closeModal(); rerender(); toast(editing?'Receipt updated':'Receipt added');
+  }catch(e){
+    console.error("Cal's Trippin', couldn't save receipt:", e);
+    toast("Something went wrong saving that receipt: "+(e&&e.message||e)+". Try again, and let Chris know if it keeps happening.");
   }
-  const editing = R._edit>=0 && t.receipts[R._edit];
-  const rec = {id: editing ? t.receipts[R._edit].id : uid(), title:R.title.trim(), date:R.date, paidBy:R.paidBy,
-    evenSplit:R.evenSplit, amount:+R.amount||0, sharedWith:[...R.sharedWith],
-    items:R.items.map(it=>({desc:it.desc.trim()||'Item', amount:+it.amount||0, people:[...(it.people||[])]}))};
-  if(editing) t.receipts[R._edit] = rec; else t.receipts.push(rec);
-  logEdit('Money',(editing?'edited receipt ':'added receipt ')+rec.title+' ('+money(receiptTotal(rec))+')');
-  save(); R=null; closeModal(); rerender(); toast(editing?'Receipt updated':'Receipt added');
 };
 App.delReceipt = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
