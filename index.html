@@ -163,7 +163,7 @@ a{color:var(--brand-dark);}
 .fav{width:20px; height:20px; border-radius:5px; vertical-align:-4px; margin-right:7px; background:var(--bg);}
 
 /* ---------- forms ---------- */
-input[type=text],input[type=date],input[type=time],input[type=number],input[type=url],input[type=tel],select,textarea{
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=url],input[type=tel],input[type=password],select,textarea{
   font:inherit; width:100%; padding:10px 13px; border:1px solid var(--line-strong); background:var(--paper);
   color:var(--ink); border-radius:var(--radius-sm); -webkit-appearance:none; appearance:none;
 }
@@ -441,8 +441,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.18.0';
+const APP_VERSION = '1.18.1';
 const CHANGELOG = [
+  {version:'1.18.1', notes:['Fixed the PIN field overflowing its margin on mobile.', 'The "Your Trips" page no longer briefly says "No trips yet" while it\'s still fetching the real list from the cloud — it now says "Loading trips…" until that finishes.', 'Added a PIN button next to + New Trip so the group PIN can be changed from inside the app — updates it for everyone straight away, no code change needed.']},
   {version:'1.18.0', notes:['Replaced the per-trip "you need the link" model with a single shared PIN for the whole site: enter it once per browser (remembered after that) and the "Your Trips" list now shows every trip that exists — created by anyone, on any device — instead of only trips this particular browser happened to make or open before. The PIN protects the whole app, including direct trip links.']},
   {version:'1.17.2', notes:['Fixed the receipt\'s own "Total" line sometimes being picked up as a fake extra item (e.g. showing as an item literally named "; Total") — a stray OCR character right at the start of a line was breaking the check that\'s meant to exclude it, so it got counted and split like a real purchase on top of the actual items.']},
   {version:'1.17.1', notes:['Receipt scanning now detects the receipt\'s actual currency (£/€/$) instead of always assuming pounds, and converts to £ using today\'s exchange rate — a euro receipt was previously shown, split and totalled as if the numbers were already in pounds. The original amount and rate used are shown on the saved receipt.']},
@@ -1014,6 +1015,15 @@ function markErr(sel, msg){
 /* ================= PIN gate ================= */
 const PIN_KEY = 'calstrippin_pin_ok';
 function pinOk(){ try{ return localStorage.getItem(PIN_KEY)==='1'; }catch(e){ return false; } }
+/* the real, currently-active PIN — stored in Firebase once someone changes it (via App.savePin)
+   so a change applies to everyone immediately, not just this browser; APP_PIN is only the
+   starting value / the fallback when cloud sync isn't configured at all */
+function currentPin(cb){
+  if(!fbRoot){ cb(APP_PIN); return; }
+  fbRoot.ref('appPin').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : APP_PIN))
+    .catch(() => cb(APP_PIN));
+}
 function renderPinGate(){
   $('#header-actions').innerHTML = '';
   const sidebarEl = $('#sidebar-root'); if(sidebarEl) sidebarEl.innerHTML = '';
@@ -1118,12 +1128,34 @@ const App = {};
 window.App = App;
 App.submitPin = () => {
   const val = ($('#pin-input').value||'').trim();
-  if(val && val===APP_PIN){
-    try{ localStorage.setItem(PIN_KEY,'1'); }catch(e){}
-    route();
-  } else {
-    markErr('#pin-input','Wrong PIN');
-  }
+  if(!val) return;
+  currentPin(real => {
+    if(val===real){
+      try{ localStorage.setItem(PIN_KEY,'1'); }catch(e){}
+      route();
+    } else {
+      markErr('#pin-input','Wrong PIN');
+    }
+  });
+};
+/* lets the group change the PIN without a code deploy — stored in Firebase so it applies to
+   everyone immediately, not just the browser that changed it (mirrors the shared-PIN model:
+   no accounts, one passphrase for the group) */
+App.pinSettingsForm = () => {
+  if(!cloudEnabled()){ toast("The PIN can't be changed without cloud sync configured."); return; }
+  openModal(`
+    <h2>Group PIN</h2>
+    <p class="small" style="margin-bottom:12px">Anyone with this PIN can see and edit every trip. Changing it here updates it for everyone straight away — friends still on the old PIN will just be asked again next time they open the app.</p>
+    <div class="field"><label class="label" for="pin-new">New PIN</label>
+      <input id="pin-new" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 2026"></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePin()">Save PIN</button></div>`);
+};
+App.savePin = () => {
+  const val = ($('#pin-new').value||'').trim();
+  if(!val) return markErr('#pin-new','Enter a PIN');
+  fbRoot.ref('appPin').set(val)
+    .then(()=>{ closeModal(); toast('PIN updated — share the new one with your group'); })
+    .catch(()=>{ toast("Couldn't save the new PIN. Check your connection and try again."); });
 };
 App.goHome = () => { if(location.hash){ location.hash=''; } else { route(); } };
 let PRE_CHANGELOG_HASH = ''; // where we were before opening the changelog, so a second tap returns there
@@ -1162,9 +1194,11 @@ function tripCardHTML(t){
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
 }
-function homeGridHTML(trips){
+function homeGridHTML(trips, loading){
   if(!trips.length){
-    return `<div class="empty" style="margin-top:24px">
+    // while trips are still being fetched from the cloud, "No trips yet" would be
+    // misleading — it hasn't actually checked yet, so say so instead
+    return loading ? `<div class="empty" style="margin-top:24px">Loading trips…</div>` : `<div class="empty" style="margin-top:24px">
       No trips yet.<br><br>
       <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
     </div>`;
@@ -1192,13 +1226,16 @@ function fetchAllTrips(cb){
     .catch(() => cb(DB.trips));
 }
 function renderHome(){
-  $('#header-actions').innerHTML = `<button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>`;
+  $('#header-actions').innerHTML = `<div class="btn-row" style="gap:8px">
+      ${cloudEnabled()?`<button class="btn sm" onclick="App.pinSettingsForm()">${fa('key')} PIN</button>`:''}
+      <button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>
+    </div>`;
   renderSidebar(null);
   $('#app').innerHTML = `
     <div style="padding-top:28px">
       <h1>Your Trips</h1>
       <p class="muted" style="margin-top:4px">${cloudEnabled()?'Everyone with the PIN sees every trip.':'One organiser runs the trip. Everyone else gets a link.'}</p>
-      <div id="home-grid">${homeGridHTML(DB.trips)}</div>
+      <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
       <div class="backup-bar" style="margin-top:22px">
         <span class="muted small">${cloudEnabled()?'Trips sync automatically and stay backed up in the cloud.':'Trips are saved in this browser. Moving to a new phone or browser?'}</span>
         <span class="btn-row">
