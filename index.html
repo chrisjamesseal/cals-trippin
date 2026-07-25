@@ -104,12 +104,6 @@ a{color:var(--brand-dark);}
 .panel{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); padding:18px; margin-bottom:20px;}
 .divider{border:none; border-top:1px solid var(--line); margin:14px 0;}
 
-/* ---------- countdown (upcoming trip), brand-green tiles, full width, no card ---------- */
-.countdown-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:14px;}
-.countdown-tile{background:var(--brand); border-radius:14px; padding:14px 6px; text-align:center;}
-.countdown-num{font-size:1.7rem; font-weight:800; color:#fff; letter-spacing:-.02em; font-variant-numeric:tabular-nums;}
-.countdown-label{font-size:.66rem; color:rgba(255,255,255,.85); margin-top:2px; font-weight:600;}
-@media(min-width:480px){.countdown-num{font-size:2.1rem;} .countdown-tile{padding:18px 8px;}}
 
 /* ---------- trip list ---------- */
 .trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:18px;}
@@ -277,7 +271,6 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
   background:rgba(0,0,0,.55); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.1rem;}
 .mood-type{font-size:.6rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin-bottom:6px;}
 .mood-actions{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;}
-.mood-map{color:var(--brand-dark);}
 .settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
 .settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
 .settle-row:last-child{border-bottom:none;}
@@ -392,9 +385,6 @@ a.dash-tile{text-decoration:none;}
   .wrap{max-width:1160px; margin:0; padding:0 40px 96px 32px; flex:1; min-width:0;}
   .dash-grid{grid-template-columns:repeat(3,1fr);}
   .top-inner{max-width:none; padding:13px 40px 13px 32px;}
-  .trip-head{display:flex; align-items:center; justify-content:space-between; gap:28px; flex-wrap:nowrap;}
-  .trip-head-info{flex:1; min-width:0;}
-  .trip-head .countdown-grid{margin-top:0; flex-shrink:0; width:auto; grid-template-columns:repeat(4,minmax(64px,1fr));}
 }
 @media(min-width:1024px) and (max-width:1279px){
   .sidebar{width:216px;}
@@ -445,8 +435,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.19.2';
+const APP_VERSION = '1.20.0';
 const CHANGELOG = [
+  {version:'1.20.0', notes:['Ideas: the map link on a pinned idea is now the same "Open in Google Maps" button used everywhere else, instead of a small icon-only link.', 'Itinerary: flights now get an automatic "Travel to [Airport]" reminder card right before them, with just a map link for the airport, no other detail to fill in.', 'Overview: Edit Trip is now the first card in the dashboard grid (with the trip dates shown underneath it) instead of a separate button below everything. The line under the trip title now shows a live countdown ticking down to departure for an upcoming trip.']},
   {version:'1.19.2', notes:['Save Receipt could fail with zero feedback if anything unexpected went wrong (or if the trip wasn\'t loaded), it now shows a clear message explaining what happened instead of silently doing nothing.']},
   {version:'1.19.1', notes:['Itinerary stops now show their location as a tap-to-copy address (with a pin icon), matching how accommodation addresses already work.']},
   {version:'1.19.0', notes:['Removed receipt photo scanning (Take a Photo / Upload an Image) entirely; it wasn\'t working reliably, so receipts are now always added by hand, item by item or as an even split.', 'Desktop: the logo now sits hard left and the header buttons sit hard right, using the full header width instead of a narrow centered strip.', 'Desktop: "All Trips" is now the first item in the trip menu, and the trip name no longer repeats at the top of the sidebar (it\'s already shown as the page heading).', 'Desktop: the countdown now sits right-aligned in the same row as the trip title and dates, instead of its own row underneath.', 'Removed long dashes from copy throughout the app in favour of commas, colons and periods.']},
@@ -755,31 +746,30 @@ function upcomingStartDate(t){
   const today = new Date(); today.setHours(0,0,0,0);
   return today < new Date(t.startDate+'T00:00:00') ? t.startDate : null;
 }
-function countdownCardHTML(){
-  const tile = (id,label) => `<div class="countdown-tile"><div class="countdown-num" id="${id}">0</div><div class="countdown-label">${label}</div></div>`;
-  return `
-    <div class="countdown-grid" id="countdown-card">
-      ${tile('cd-days','days')}${tile('cd-hours','hours')}${tile('cd-mins','minutes')}${tile('cd-secs','seconds')}
-    </div>`;
+/* same spot and styling as the plain date/status line it replaces for an upcoming trip,
+   just live-ticking down to departure instead of a static phrase */
+function countdownTextHTML(){
+  return `<p class="muted" style="margin-top:4px" id="countdown-text"></p>`;
 }
 let _countdownTimer = null;
 function stopCountdown(){ if(_countdownTimer){ clearInterval(_countdownTimer); _countdownTimer=null; } }
-/* ticks the 4 numbers directly via the DOM every second rather than re-rendering the
-   whole page, self-stops the moment #countdown-card is no longer on screen (tab switch,
-   different trip, trip starting), so nothing needs to remember to clean this up elsewhere */
+/* ticks the text directly via the DOM every second rather than re-rendering the whole page,
+   self-stops the moment #countdown-text is no longer on screen (tab switch, different trip,
+   trip starting), so nothing needs to remember to clean this up elsewhere */
 function startCountdown(startDate){
   stopCountdown();
   const target = new Date(startDate+'T00:00:00').getTime();
-  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   const tick = () => {
-    if(!document.getElementById('countdown-card')){ stopCountdown(); return; }
+    const el = document.getElementById('countdown-text');
+    if(!el){ stopCountdown(); return; }
     const diff = target - Date.now();
     if(diff<=0){ stopCountdown(); rerender(); return; }
     const secsTotal = Math.floor(diff/1000);
-    set('cd-days', Math.floor(secsTotal/86400));
-    set('cd-hours', String(Math.floor(secsTotal%86400/3600)).padStart(2,'0'));
-    set('cd-mins', String(Math.floor(secsTotal%3600/60)).padStart(2,'0'));
-    set('cd-secs', String(secsTotal%60).padStart(2,'0'));
+    const days = Math.floor(secsTotal/86400);
+    const hours = String(Math.floor(secsTotal%86400/3600)).padStart(2,'0');
+    const mins = String(Math.floor(secsTotal%3600/60)).padStart(2,'0');
+    const secs = String(secsTotal%60).padStart(2,'0');
+    el.textContent = `${days} day${days===1?'':'s'}, ${hours}:${mins}:${secs} to go`;
   };
   tick();
   _countdownTimer = setInterval(tick, 1000);
@@ -1500,12 +1490,9 @@ function renderTrip(t){
   $('#app').innerHTML = `
     ${arch?`<div class="banner">🗄 This trip ended over a month ago and is now archived and read-only.</div>`:''}
     ${CUR_TAB==='home' ? `
-    <div class="trip-head" style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
-      <div class="trip-head-info">
-        <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
-        <p class="muted" style="margin-top:4px">${fmtRangeLong(t.startDate,t.endDate)}${(phrase && !upcoming)?` (${phrase})`:''}</p>
-      </div>
-      ${upcoming?countdownCardHTML():''}
+    <div style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
+      <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
+      ${upcoming ? countdownTextHTML() : (phrase?`<p class="muted" style="margin-top:4px">${esc(phrase)}</p>`:'')}
     </div>` : `
     <div class="crumb" style="margin-top:26px">
       <div class="crumb-titlerow">
@@ -1515,8 +1502,7 @@ function renderTrip(t){
     </div>`}
     <div id="tab-body"></div>
     ${CUR_TAB==='home' && !ro ? `
-    <button class="btn primary" style="width:100%;margin-top:40px;border-radius:var(--radius)" onclick="App.tripForm()">Edit Trip</button>
-    <button class="btn danger" style="width:100%;margin-top:12px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
+    <button class="btn danger" style="width:100%;margin-top:40px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
     ${CUR_TAB==='home' ? tabLog(t) : ''}`;
   if(upcoming) startCountdown(upcoming); else stopCountdown();
   renderTab(t);
@@ -1661,7 +1647,7 @@ App.tab = k => {
 function renderTab(t){
   const el = $('#tab-body');
   const ro = readOnly(t);
-  if(CUR_TAB==='home')     el.innerHTML = tabHome(t);
+  if(CUR_TAB==='home')     el.innerHTML = tabHome(t,ro);
   if(CUR_TAB==='travel')   el.innerHTML = tabTravel(t,ro);
   if(CUR_TAB==='stay')     el.innerHTML = tabStay(t,ro);
   if(CUR_TAB==='plan')     el.innerHTML = tabPlan(t,ro);
@@ -1687,7 +1673,7 @@ function rerender(){
   if(t) renderTrip(t);
 }
 /* ================= TAB: home (dashboard) ================= */
-function tabHome(t){
+function tabHome(t, ro){
   const n = t.notes||{contacts:[],general:''};
   const nTravel = (t.flights||[]).length + (t.ferries||[]).length + (t.carHire||[]).length;
   const nDocs = (t.documents||[]).length, nLinks = (t.docLinks||[]).length,
@@ -1737,7 +1723,15 @@ function tabHome(t){
       <span class="dash-icon">${ICONS[k]}</span>
       <span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum${empty?' unfilled':''}">${esc(sum)}</span></span>
     </div>`;
-  return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
+  // first tile in the grid rather than a separate full-width button, the trip dates now live
+  // here (moved off the header, which shows the live countdown instead for upcoming trips)
+  const editTile = !ro ? `
+    <div class="dash-tile" role="button" tabindex="0" aria-label="Edit Trip"
+         onclick="App.tripForm()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tripForm()}">
+      <span class="dash-icon">${ICONS.edit}</span>
+      <span class="dash-text"><span class="dash-label">Edit Trip</span><span class="dash-sum">${esc(fmtRangeLong(t.startDate,t.endDate))}</span></span>
+    </div>` : '';
+  return `<div class="dash-grid">${editTile}${tiles.map(tile).join('')}</div>`;
 }
 /* ================= TAB: log (who changed what) ================= */
 /* which tab a log entry's section belongs to, so each row can jump straight there,
@@ -1809,6 +1803,10 @@ function tabPlan(t, ro){
   // reads in one place, each still lives and is edited in its own section
   (t.flights||[]).forEach((f,fi)=>{
     const k = f.date||'';
+    // a lightweight reminder to get to the airport, sorted immediately before its flight by
+    // sharing the same time (stable sort keeps insertion order for ties), no details of its
+    // own since there's nothing to store, just a map link for the departure airport
+    if(f.from) (groups[k]=groups[k]||[]).push({_autoAirportTravel:1, time:f.depTime||'', f, fi});
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
   (t.ferries||[]).forEach((f,fi)=>{
@@ -1846,6 +1844,20 @@ function tabPlan(t, ro){
   const autoTag = (icon, label, time) => `
     <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong></div>`;
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
+  const autoAirportTravelCard = s => {
+    const name = airportName(s.f.from) || s.f.from;
+    const mapsUrl = 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name+' Airport');
+    return `
+    <div class="card plan-travel">
+      <div class="section-head" style="margin-bottom:0">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
+          <span class="plan-travel-icon">${ICONS.car}</span>
+          <h3>Travel to ${esc(name)}</h3>
+        </div>
+      </div>
+      <div style="margin-top:8px"><a class="doc-attach" href="${esc(mapsUrl)}" target="_blank" rel="noopener" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a></div>
+    </div>`;
+  };
   const autoFlightCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
       ${autoTag(ICONS.flight, 'Flight', s.time)}
@@ -1903,7 +1915,8 @@ function tabPlan(t, ro){
       ${s.mapsUrl || s.location ? `<a class="doc-attach" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>` : ''}
     </div>`;
   const card = s =>
-    s._autoFlight ? autoFlightCard(s)
+    s._autoAirportTravel ? autoAirportTravelCard(s)
+    : s._autoFlight ? autoFlightCard(s)
     : s._autoFerry ? autoFerryCard(s)
     : s._autoCar ? autoCarCard(s)
     : s._autoStay ? autoStayCard(s)
@@ -3133,7 +3146,7 @@ function tabMood(t, ro){
           :`<button class="btn sm" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}</span>
         <span class="btn-row">
           ${!ro?`<button class="iconbtn edit" aria-label="Edit idea" title="Edit" onclick="App.moodForm(${i})">${ICONS.edit}</button>`:''}
-          ${mapsHref?`<a class="iconbtn mood-map" href="${esc(mapsHref)}" target="_blank" rel="noopener" aria-label="Open map" title="Open map">${ICONS.pin}</a>`:''}
+          ${mapsHref?`<a class="doc-attach" href="${esc(mapsHref)}" target="_blank" rel="noopener" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>`:''}
         </span>
       </div>
     </div>`;
