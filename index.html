@@ -445,8 +445,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.19.0';
+const APP_VERSION = '1.19.1';
 const CHANGELOG = [
+  {version:'1.19.1', notes:['Itinerary stops now show their location as a tap-to-copy address (with a pin icon), matching how accommodation addresses already work.']},
   {version:'1.19.0', notes:['Removed receipt photo scanning (Take a Photo / Upload an Image) entirely; it wasn\'t working reliably, so receipts are now always added by hand, item by item or as an even split.', 'Desktop: the logo now sits hard left and the header buttons sit hard right, using the full header width instead of a narrow centered strip.', 'Desktop: "All Trips" is now the first item in the trip menu, and the trip name no longer repeats at the top of the sidebar (it\'s already shown as the page heading).', 'Desktop: the countdown now sits right-aligned in the same row as the trip title and dates, instead of its own row underneath.', 'Removed long dashes from copy throughout the app in favour of commas, colons and periods.']},
   {version:'1.18.2', notes:['Fixed trips silently failing to appear on other browsers/devices even with cloud sync configured: the database rules needed for listing every trip (and for the in-app PIN change) were missing from the setup instructions, so those reads/writes were being quietly rejected and falling back to "nothing here." Now shows a clear message explaining exactly what\'s missing instead of failing silently, and the README\'s example rules are corrected.']},
   {version:'1.18.1', notes:['Fixed the PIN field overflowing its margin on mobile.', 'The "Your Trips" page no longer briefly says "No trips yet" while it\'s still fetching the real list from the cloud, it now says "Loading trips…" until that finishes.', 'Added a PIN button next to + New Trip so the group PIN can be changed from inside the app, updates it for everyone straight away, no code change needed.']},
@@ -1888,6 +1889,12 @@ function tabPlan(t, ro){
         ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
+      ${s.location ? `<div class="small copy-text" style="display:flex;align-items:center;gap:8px;margin-bottom:10px"
+        role="button" tabindex="0" title="Copy address" data-copy="${esc(s.location)}"
+        onclick="event.stopPropagation();App.copyFromEl(this)"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
+        ${ICONS.pin}<span>${esc(s.location)}</span><span class="copy-ic">${ICONS.copy}</span>
+      </div>` : ''}
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
       ${!s.image && !s.mapsUrl && s.location ? `<iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
               src="https://maps.google.com/maps?q=${mapQuery(t, s.location)}&z=15&output=embed"
