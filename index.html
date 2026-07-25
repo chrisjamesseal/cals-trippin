@@ -435,8 +435,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.17.0';
+const APP_VERSION = '1.17.1';
 const CHANGELOG = [
+  {version:'1.17.1', notes:['Receipt scanning now detects the receipt\'s actual currency (£/€/$) instead of always assuming pounds, and converts to £ using today\'s exchange rate — a euro receipt was previously shown, split and totalled as if the numbers were already in pounds. The original amount and rate used are shown on the saved receipt.']},
   {version:'1.17.0', notes:['Countdown restyled in the app\'s own brand colours: no more dark card, tiles are full width and green with white text.', 'Receipt scanning, tested against a real photographed receipt: photos taken sideways (very common for a narrow receipt) now get auto-rotated by trying each orientation and keeping whichever one Tesseract reads most confidently, instead of failing outright. Line items are now reconstructed from each word\'s position on the receipt rather than trusting the raw text\'s line breaks, so tabular receipts (item / unit price / qty / total in separate columns) parse correctly. Also fixed round totals a printer had truncated to one decimal (e.g. "€30.0"), and added Spanish/Portuguese equivalents (parcial, impuesto, propina, servicio…) to the recognized summary-line and service-charge terms.', 'Activity is no longer its own tab — the log now sits below the Delete Trip button on Overview, and each entry links straight to the section it\'s about.']},
   {version:'1.16.0', notes:['A trip that hasn\'t started yet now shows a live days/hours/minutes/seconds countdown instead of a "N to go" line.', 'Receipt scanning: fixed large totals with a comma (e.g. "£1,234.56") being truncated to the wrong amount; a service charge/gratuity/tip line is now captured as its own item and split like everything else instead of being silently dropped; item descriptions are now best-effort translated to English; the date is read straight off the receipt when it\'s unambiguous, otherwise left alone.', 'Desktop: the hamburger menu is now a persistent sidebar, and the page uses the full width of a wide screen instead of staying pinned to a narrow, centered column.']},
   {version:'1.15.5', notes:['Added a proper favicon and home-screen icon: the itinerary map icon in white on the app\'s brand green.']},
@@ -2866,9 +2867,43 @@ function translateToEnglish(items, cb){
       .catch(done);
   });
 }
+const CURRENCY_SYMBOL = {GBP:'£', EUR:'€', USD:'$'};
+/* every amount in this app displays as £ — a scanned receipt that's actually in euros or
+   dollars needs to be spotted and converted rather than silently treated as pounds at face
+   value. Whichever currency's symbol/code shows up most across the OCR text wins; with
+   nothing recognisable, assume GBP (no conversion) rather than guessing */
+function detectCurrency(text){
+  const t = text||'';
+  const count = re => (t.match(re)||[]).length;
+  const counts = {
+    GBP: count(/£/g) + count(/\bGBP\b/gi),
+    EUR: count(/€/g) + count(/\bEUR\b/gi),
+    USD: count(/\$/g) + count(/\bUSD\b/gi)
+  };
+  let best = 'GBP', bestN = 0;
+  Object.entries(counts).forEach(([c,n])=>{ if(n>bestN){ bestN=n; best=c; } });
+  return best;
+}
+let _fxCache = {};
+/* free, keyless FX lookup, cached for a few hours — cb(null) on any failure (offline,
+   blocked, unexpected response) so the caller can fall back to leaving amounts unconverted
+   rather than mislabeling them as pounds */
+function fetchFxRate(from, cb){
+  if(from==='GBP'){ cb(1); return; }
+  const cached = _fxCache[from];
+  if(cached && Date.now()-cached.at < 6*3600*1000){ cb(cached.rate); return; }
+  fetch('https://open.er-api.com/v6/latest/'+from)
+    .then(r=>r.json())
+    .then(data=>{
+      const rate = data && data.rates && data.rates.GBP;
+      if(rate){ _fxCache[from] = {rate, at:Date.now()}; cb(rate); }
+      else cb(null);
+    })
+    .catch(()=>cb(null));
+}
 App.scanReceipt = input => {
   const file = input.files[0]; input.value=''; if(!file || !R) return;
-  R.evenSplit = false; R._scanning = true; R._scanMsg = '';
+  R.evenSplit = false; R._scanning = true; R._scanMsg = ''; R.fx = null;
   App.redrawReceipt();
   downscaleToCanvas(file, 2200, canvas => {
     if(!canvas){ R._scanning=false; R._scanMsg="Couldn't read that image. Add items by hand."; App.redrawReceipt(); return; }
@@ -2878,17 +2913,34 @@ App.scanReceipt = input => {
         const text = lines.join('\n');
         const items = parseReceiptText(text);
         const foundDate = parseReceiptDate(text);
+        const currency = detectCurrency(text);
         if(foundDate) R.date = foundDate;
         R._scanning = false;
-        if(items.length){
-          R.items = items;
-          R._scanMsg = `Found ${items.length} item${items.length>1?'s':''}. Check them, then tick who had each.`;
-          App.redrawReceipt();
-          translateToEnglish(items, () => App.redrawReceipt());
-        } else {
+        if(!items.length){
           if(!R.items.length) R.items = [{desc:'',amount:'',people:[]}];
           R._scanMsg = "Couldn't pick out items from that photo. Add them by hand.";
           App.redrawReceipt();
+          return;
+        }
+        const finish = () => { R.items = items; App.redrawReceipt(); translateToEnglish(items, () => App.redrawReceipt()); };
+        if(currency==='GBP'){
+          R._scanMsg = `Found ${items.length} item${items.length>1?'s':''}. Check them, then tick who had each.`;
+          finish();
+        } else {
+          const sym = CURRENCY_SYMBOL[currency]||currency;
+          R._scanMsg = `Found ${items.length} item${items.length>1?'s':''} in ${currency} — converting to £…`;
+          App.redrawReceipt();
+          fetchFxRate(currency, rate => {
+            if(rate){
+              const originalTotal = items.reduce((s,it)=>s+it.amount,0);
+              items.forEach(it=>{ it.originalAmount = it.amount; it.amount = Math.round(it.amount*rate*100)/100; });
+              R.fx = {currency, originalTotal, rate};
+              R._scanMsg = `Found ${items.length} item${items.length>1?'s':''} — converted from ${sym}${originalTotal.toFixed(2)} at today's rate. Check them, then tick who had each.`;
+            } else {
+              R._scanMsg = `Found ${items.length} item${items.length>1?'s':''} in ${currency}, but couldn't fetch today's exchange rate — amounts below are still in ${sym}, not £. Adjust manually or try again later.`;
+            }
+            finish();
+          });
         }
       });
     });
@@ -2945,6 +2997,7 @@ function tabMoney(t, ro){
         <div style="min-width:0"><h3>${esc(r.title)}</h3><div class="muted small">${r.date?fmtDate(r.date)+' · ':''}paid by <strong>${esc(r.paidBy)}</strong></div></div>
         <span class="amount mono" style="font-size:1.15rem">${money(total)}</span>
       </div>
+      ${r.fx?`<div class="muted small" style="margin-bottom:8px">Originally ${esc(CURRENCY_SYMBOL[r.fx.currency]||r.fx.currency)}${r.fx.originalTotal.toFixed(2)} · converted to £ at ${r.fx.rate.toFixed(3)}</div>`:''}
       ${detail}
       ${!ro?`<div class="btn-row" style="justify-content:flex-end;margin-top:10px">
         <button class="iconbtn edit" aria-label="Edit receipt" title="Edit" onclick="App.receiptForm(${i})">${ICONS.edit}</button>
@@ -2984,9 +3037,9 @@ App.receiptForm = i => {
     R = {title:r.title, date:r.date||'', paidBy:r.paidBy, evenSplit:!!r.evenSplit, amount:r.amount||'',
          sharedWith:[...(r.sharedWith||[])],
          items:(r.items||[]).length?(r.items||[]).map(it=>({desc:it.desc, amount:it.amount, people:[...(it.people||[])]})):[{desc:'',amount:'',people:[]}],
-         _scanning:false, _scanMsg:'', _edit:i};
+         _scanning:false, _scanMsg:'', _edit:i, fx:r.fx||null};
   } else {
-    R = {title:'', date:todayStr(), paidBy:t.organiser, evenSplit:true, amount:'', sharedWith:[...t.participants], items:[{desc:'',amount:'',people:[]}], _scanning:false, _scanMsg:'', _edit:-1};
+    R = {title:'', date:todayStr(), paidBy:t.organiser, evenSplit:true, amount:'', sharedWith:[...t.participants], items:[{desc:'',amount:'',people:[]}], _scanning:false, _scanMsg:'', _edit:-1, fx:null};
   }
   drawReceiptModal(t);
 };
@@ -3077,7 +3130,8 @@ App.saveReceipt = () => {
   const editing = R._edit>=0 && t.receipts[R._edit];
   const rec = {id: editing ? t.receipts[R._edit].id : uid(), title:R.title.trim(), date:R.date, paidBy:R.paidBy,
     evenSplit:R.evenSplit, amount:+R.amount||0, sharedWith:[...R.sharedWith],
-    items:R.items.map(it=>({desc:it.desc.trim()||'Item', amount:+it.amount||0, people:[...(it.people||[])]}))};
+    items:R.items.map(it=>({desc:it.desc.trim()||'Item', amount:+it.amount||0, people:[...(it.people||[])]})),
+    fx: !R.evenSplit && R.fx ? R.fx : null};
   if(editing) t.receipts[R._edit] = rec; else t.receipts.push(rec);
   logEdit('Money',(editing?'edited receipt ':'added receipt ')+rec.title+' ('+money(receiptTotal(rec))+')');
   save(); R=null; closeModal(); rerender(); toast(editing?'Receipt updated':'Receipt added');
