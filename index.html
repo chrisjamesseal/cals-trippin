@@ -435,8 +435,9 @@ const FIREBASE_CONFIG = {
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.17.1';
+const APP_VERSION = '1.17.2';
 const CHANGELOG = [
+  {version:'1.17.2', notes:['Fixed the receipt\'s own "Total" line sometimes being picked up as a fake extra item (e.g. showing as an item literally named "; Total") — a stray OCR character right at the start of a line was breaking the check that\'s meant to exclude it, so it got counted and split like a real purchase on top of the actual items.']},
   {version:'1.17.1', notes:['Receipt scanning now detects the receipt\'s actual currency (£/€/$) instead of always assuming pounds, and converts to £ using today\'s exchange rate — a euro receipt was previously shown, split and totalled as if the numbers were already in pounds. The original amount and rate used are shown on the saved receipt.']},
   {version:'1.17.0', notes:['Countdown restyled in the app\'s own brand colours: no more dark card, tiles are full width and green with white text.', 'Receipt scanning, tested against a real photographed receipt: photos taken sideways (very common for a narrow receipt) now get auto-rotated by trying each orientation and keeping whichever one Tesseract reads most confidently, instead of failing outright. Line items are now reconstructed from each word\'s position on the receipt rather than trusting the raw text\'s line breaks, so tabular receipts (item / unit price / qty / total in separate columns) parse correctly. Also fixed round totals a printer had truncated to one decimal (e.g. "€30.0"), and added Spanish/Portuguese equivalents (parcial, impuesto, propina, servicio…) to the recognized summary-line and service-charge terms.', 'Activity is no longer its own tab — the log now sits below the Delete Trip button on Overview, and each entry links straight to the section it\'s about.']},
   {version:'1.16.0', notes:['A trip that hasn\'t started yet now shows a live days/hours/minutes/seconds countdown instead of a "N to go" line.', 'Receipt scanning: fixed large totals with a comma (e.g. "£1,234.56") being truncated to the wrong amount; a service charge/gratuity/tip line is now captured as its own item and split like everything else instead of being silently dropped; item descriptions are now best-effort translated to English; the date is read straight off the receipt when it\'s unambiguous, otherwise left alone.', 'Desktop: the hamburger menu is now a persistent sidebar, and the page uses the full width of a wide screen instead of staying pinned to a narrow, centered column.']},
@@ -2806,6 +2807,10 @@ function parseReceiptText(text){
     if(!(amount>0) || amount>5000) return;
     if(serviceCharge.test(l)){ out.push({desc:'Service Charge', amount, people:[]}); return; }
     let desc = m[1].replace(/[.:·•\-–—\s]+$/,'').replace(/\s{2,}/g,' ').trim();
+    // OCR often leaves a stray punctuation mark at the very start of a line (misread table
+    // rule, bullet, etc.) — e.g. "; Total" instead of "Total" — which broke the ^total-style
+    // anchored skip check below, letting the receipt's own total line through as a fake item
+    desc = desc.replace(/^[^\p{L}\p{N}]+/u, '').trim();
     desc = desc.replace(/^\d+\s*[xX]?\s*/, '').trim();      // drop leading quantity "2 x"
     desc = desc.replace(/\s*[xX]\s*\d+$/, '').trim();       // drop trailing quantity "x2"
     // a columnar receipt (name | unit price | qty | line total) can leave "<name> <unit
