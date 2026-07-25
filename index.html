@@ -210,11 +210,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 #toast{
   position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(calc(100% + 40px));
   background:var(--ink); color:#fff; padding:12px 22px; font-weight:600; font-size:.85rem;
-  border-radius:999px; box-shadow:var(--shadow-lift);
-  z-index:200; transition:transform .2s, visibility .2s; max-width:92vw; visibility:hidden;
-  display:flex; align-items:center; justify-content:center; gap:12px; white-space:nowrap;
+  border-radius:var(--radius); box-shadow:var(--shadow-lift);
+  z-index:200; transition:transform .2s, visibility .2s; max-width:min(460px,92vw); visibility:hidden;
+  display:flex; align-items:center; justify-content:center; gap:12px;
 }
-#toast .toast-msg{overflow:hidden; text-overflow:ellipsis;}
+#toast .toast-msg{white-space:pre-wrap;}
 #toast.show{transform:translateX(-50%) translateY(0); visibility:visible;}
 #toast .toast-undo{
   border:1px solid rgba(255,255,255,.6); border-radius:999px; background:none; color:#fff;
@@ -352,7 +352,6 @@ a.dash-tile{text-decoration:none;}
 
 /* ---------- itinerary ---------- */
 .plan-day{margin:24px 0 10px; font-size:.95rem; font-weight:800; color:var(--brand-dark);}
-.plan-map{width:100%; height:180px; border:1px solid var(--line); border-radius:var(--radius-sm); display:block; margin-bottom:8px; background:var(--bg);}
 .plan-img{width:100%; max-height:220px; object-fit:cover; border-radius:var(--radius-sm); display:block; margin-bottom:10px;}
 .plan-auto{margin-bottom:16px;}
 .plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--brand-dark);}
@@ -435,8 +434,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.20.0';
+const APP_VERSION = '1.21.0';
 const CHANGELOG = [
+  {version:'1.21.0', notes:['Travel mode dropdowns (manual travel legs and the new "Travel to [Airport]" reminder) now have a "Not Decided" option at the top, and default to it (a generic icon) instead of assuming Drive, since a plane, train or taxi are just as likely.', 'The "Travel to [Airport]" card is now clickable so you can actually set its mode.', 'Every map link in the app is now the same full "Open Map" button, none are icon-only anymore, and itinerary stops no longer show a separate embedded map preview alongside it.', 'The trip header goes back to showing the plain dates (like before), and the live countdown for an upcoming trip is now a simple "X days to go" shown under Edit Trip on the dashboard instead of a ticking clock under the title.', 'Money tab\'s empty state now says "No Receipts Yet".', 'Toast notifications for longer messages (like a save error) now stay up longer and wrap onto multiple lines instead of being cut off after a couple of seconds.']},
   {version:'1.20.0', notes:['Ideas: the map link on a pinned idea is now the same "Open in Google Maps" button used everywhere else, instead of a small icon-only link.', 'Itinerary: flights now get an automatic "Travel to [Airport]" reminder card right before them, with just a map link for the airport, no other detail to fill in.', 'Overview: Edit Trip is now the first card in the dashboard grid (with the trip dates shown underneath it) instead of a separate button below everything. The line under the trip title now shows a live countdown ticking down to departure for an upcoming trip.']},
   {version:'1.19.2', notes:['Save Receipt could fail with zero feedback if anything unexpected went wrong (or if the trip wasn\'t loaded), it now shows a clear message explaining what happened instead of silently doing nothing.']},
   {version:'1.19.1', notes:['Itinerary stops now show their location as a tap-to-copy address (with a pin icon), matching how accommodation addresses already work.']},
@@ -685,7 +685,9 @@ function showToastNow(entry){
     t.querySelector('.toast-undo').onclick = () => { clearTimeout(t._h); dismiss(); entry.undoFn(); };
     t._h = setTimeout(dismiss, 6000);
   } else {
-    t._h = setTimeout(dismiss, 2600);
+    // a short message gets the usual quick dismiss; a long one (e.g. an error explaining
+    // what went wrong) stays up long enough to actually read, capped so it can't linger forever
+    t._h = setTimeout(dismiss, Math.min(12000, Math.max(2600, entry.msg.length*60)));
   }
 }
 function fmtDate(d){
@@ -746,33 +748,11 @@ function upcomingStartDate(t){
   const today = new Date(); today.setHours(0,0,0,0);
   return today < new Date(t.startDate+'T00:00:00') ? t.startDate : null;
 }
-/* same spot and styling as the plain date/status line it replaces for an upcoming trip,
-   just live-ticking down to departure instead of a static phrase */
-function countdownTextHTML(){
-  return `<p class="muted" style="margin-top:4px" id="countdown-text"></p>`;
-}
-let _countdownTimer = null;
-function stopCountdown(){ if(_countdownTimer){ clearInterval(_countdownTimer); _countdownTimer=null; } }
-/* ticks the text directly via the DOM every second rather than re-rendering the whole page,
-   self-stops the moment #countdown-text is no longer on screen (tab switch, different trip,
-   trip starting), so nothing needs to remember to clean this up elsewhere */
-function startCountdown(startDate){
-  stopCountdown();
-  const target = new Date(startDate+'T00:00:00').getTime();
-  const tick = () => {
-    const el = document.getElementById('countdown-text');
-    if(!el){ stopCountdown(); return; }
-    const diff = target - Date.now();
-    if(diff<=0){ stopCountdown(); rerender(); return; }
-    const secsTotal = Math.floor(diff/1000);
-    const days = Math.floor(secsTotal/86400);
-    const hours = String(Math.floor(secsTotal%86400/3600)).padStart(2,'0');
-    const mins = String(Math.floor(secsTotal%3600/60)).padStart(2,'0');
-    const secs = String(secsTotal%60).padStart(2,'0');
-    el.textContent = `${days} day${days===1?'':'s'}, ${hours}:${mins}:${secs} to go`;
-  };
-  tick();
-  _countdownTimer = setInterval(tick, 1000);
+/* flat day count for the Edit Trip tile's summary, e.g. "45 days to go" */
+function daysToGoCount(startDate){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const n = Math.round((new Date(startDate+'T00:00:00') - today)/86400000);
+  return n+' day'+(n===1?'':'s')+' to go';
 }
 function money(n){ return (n<0?'-':'') + '£' + Math.abs(n).toFixed(2); }
 function isArchived(t){
@@ -1492,7 +1472,7 @@ function renderTrip(t){
     ${CUR_TAB==='home' ? `
     <div style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
-      ${upcoming ? countdownTextHTML() : (phrase?`<p class="muted" style="margin-top:4px">${esc(phrase)}</p>`:'')}
+      <p class="muted" style="margin-top:4px">${fmtRangeLong(t.startDate,t.endDate)}${(phrase && !upcoming)?` (${phrase})`:''}</p>
     </div>` : `
     <div class="crumb" style="margin-top:26px">
       <div class="crumb-titlerow">
@@ -1504,7 +1484,6 @@ function renderTrip(t){
     ${CUR_TAB==='home' && !ro ? `
     <button class="btn danger" style="width:100%;margin-top:40px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
     ${CUR_TAB==='home' ? tabLog(t) : ''}`;
-  if(upcoming) startCountdown(upcoming); else stopCountdown();
   renderTab(t);
 }
 /* Edit Trip screen: name, dates, countries and people (trip settings) */
@@ -1723,13 +1702,14 @@ function tabHome(t, ro){
       <span class="dash-icon">${ICONS[k]}</span>
       <span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum${empty?' unfilled':''}">${esc(sum)}</span></span>
     </div>`;
-  // first tile in the grid rather than a separate full-width button, the trip dates now live
-  // here (moved off the header, which shows the live countdown instead for upcoming trips)
+  // first tile in the grid rather than a separate full-width button; its summary is the
+  // days-to-go countdown for an upcoming trip (the header itself shows the plain dates)
+  const upcoming = upcomingStartDate(t);
   const editTile = !ro ? `
     <div class="dash-tile" role="button" tabindex="0" aria-label="Edit Trip"
          onclick="App.tripForm()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tripForm()}">
       <span class="dash-icon">${ICONS.edit}</span>
-      <span class="dash-text"><span class="dash-label">Edit Trip</span><span class="dash-sum">${esc(fmtRangeLong(t.startDate,t.endDate))}</span></span>
+      <span class="dash-text"><span class="dash-label">Edit Trip</span>${upcoming?`<span class="dash-sum">${esc(daysToGoCount(upcoming))}</span>`:''}</span>
     </div>` : '';
   return `<div class="dash-grid">${editTile}${tiles.map(tile).join('')}</div>`;
 }
@@ -1764,6 +1744,7 @@ function mapQuery(t, name){
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
 const PLAN_PERIODS = {morning:['Morning','06:00'], afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
 const TRAVEL_MODES = {
+  undecided: {label:'Not Decided', icon:ICONS.route},
   drive: {label:'Drive', icon:ICONS.car},
   walk: {label:'Walk', icon:ICONS.walk},
   ferry: {label:'Ferry', icon:ICONS.ferry},
@@ -1846,16 +1827,17 @@ function tabPlan(t, ro){
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
   const autoAirportTravelCard = s => {
     const name = airportName(s.f.from) || s.f.from;
+    const mode = TRAVEL_MODES[s.f.toAirportMode] || TRAVEL_MODES.undecided;
     const mapsUrl = 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name+' Airport');
     return `
-    <div class="card plan-travel">
+    <div class="card plan-travel${!ro?' plan-click':''}" ${clickAttrs(`App.airportTravelForm(${s.fi})`)}>
       <div class="section-head" style="margin-bottom:0">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <span class="plan-travel-icon">${ICONS.car}</span>
+          <span class="plan-travel-icon">${mode.icon}</span>
           <h3>Travel to ${esc(name)}</h3>
         </div>
       </div>
-      <div style="margin-top:8px"><a class="doc-attach" href="${esc(mapsUrl)}" target="_blank" rel="noopener" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a></div>
+      <div style="margin-top:8px"><a class="doc-attach" href="${esc(mapsUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${ICONS.pin}Open Map</a></div>
     </div>`;
   };
   const autoFlightCard = s => `
@@ -1879,7 +1861,7 @@ function tabPlan(t, ro){
       ${accomCardHTML(s.ac, {showDates:false})}
     </div>`;
   const travelCard = s => {
-    const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.drive;
+    const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
     const title = `${esc(s.from||'?')} → ${esc(s.to||'?')}${timeBadge(s)?' - '+esc(timeBadge(s)):''}`;
     const duration = travelDurationLabel(s);
     return `
@@ -1909,10 +1891,7 @@ function tabPlan(t, ro){
         ${ICONS.pin}<span>${esc(s.location)}</span><span class="copy-ic">${ICONS.copy}</span>
       </div>` : ''}
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
-      ${!s.image && !s.mapsUrl && s.location ? `<iframe class="plan-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
-              src="https://maps.google.com/maps?q=${mapQuery(t, s.location)}&z=15&output=embed"
-              title="Map of ${esc(s.location)}"></iframe>` : ''}
-      ${s.mapsUrl || s.location ? `<a class="doc-attach" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>` : ''}
+      ${s.mapsUrl || s.location ? `<a class="doc-attach" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${ICONS.pin}Open Map</a>` : ''}
     </div>`;
   const card = s =>
     s._autoAirportTravel ? autoAirportTravelCard(s)
@@ -2042,7 +2021,7 @@ App.travelLegForm = i => {
     .map(h=>`<option value="${String(h).padStart(2,'0')}" ${h===initHour?'selected':''}>${String(h).padStart(2,'0')}</option>`).join('');
   const minOpts = [0,15,30,45]
     .map(m=>`<option value="${String(m).padStart(2,'0')}" ${m===initMin?'selected':''}>${String(m).padStart(2,'0')}</option>`).join('');
-  const modeOpts = Object.keys(TRAVEL_MODES).map(k=>`<option value="${k}" ${((s.mode||'drive')===k)?'selected':''}>${TRAVEL_MODES[k].label}</option>`).join('');
+  const modeOpts = Object.keys(TRAVEL_MODES).map(k=>`<option value="${k}" ${((s.mode||'undecided')===k)?'selected':''}>${TRAVEL_MODES[k].label}</option>`).join('');
   const durHourOpts = Array.from({length:24}, (_,h)=>h)
     .map(h=>`<option value="${h}" ${h===(s.durationH||0)?'selected':''}>${h} h</option>`).join('');
   const durMinOpts = [0,15,30,45]
@@ -2101,6 +2080,25 @@ App.saveTravelLeg = i => {
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
+};
+/* the auto "Travel to [Airport]" card has no stored itinerary entry of its own, just this
+   one field on the flight it precedes, since a mode is the only thing worth picking for it */
+App.airportTravelForm = fi => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const f = (t.flights||[])[fi]; if(!f) return;
+  const name = airportName(f.from) || f.from;
+  const modeOpts = Object.keys(TRAVEL_MODES).map(k=>`<option value="${k}" ${((f.toAirportMode||'undecided')===k)?'selected':''}>${TRAVEL_MODES[k].label}</option>`).join('');
+  openModal(`
+    <h2>Travel to ${esc(name)}</h2>
+    <div class="field"><label class="label" for="at-mode">Mode</label>
+      <select id="at-mode">${modeOpts}</select></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveAirportTravel(${fi})">Save</button></div>`);
+};
+App.saveAirportTravel = fi => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const f = (t.flights||[])[fi]; if(!f) return;
+  f.toAirportMode = $('#at-mode').value;
+  save(); closeModal(); rerender(); toast('Travel mode saved');
 };
 /* send an Ideas pin straight into the itinerary, pre-filled, linked back to the pin so it
    can be toggled to Remove from Itinerary instead of being addable again */
@@ -2886,7 +2884,7 @@ function tabMoney(t, ro){
         ${stl.length ? stl.map(s=>`<div class="settle-row"><span><strong>${esc(s.from)}</strong> → <strong>${esc(s.to)}</strong></span><span class="amount mono">${money(s.amt)}</span></div>`).join('') : `<div class="muted" style="padding:8px 0">Everyone is settled up 🤝</div>`}
       </div>`:''}
     <div class="section-head" ${hasRec?'style="margin-top:30px"':''}><h2>Receipts</h2>${!ro?`<button class="btn sm primary" onclick="App.receiptForm(-1)">+ Add Receipt</button>`:''}</div>
-    ${receipts || `<div class="empty">No shared costs yet.</div>`}
+    ${receipts || `<div class="empty">No Receipts Yet</div>`}
     ${hasRec ? `
       <h2 style="margin-top:30px">Balances</h2>
       <div class="settle">
@@ -3146,7 +3144,7 @@ function tabMood(t, ro){
           :`<button class="btn sm" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}</span>
         <span class="btn-row">
           ${!ro?`<button class="iconbtn edit" aria-label="Edit idea" title="Edit" onclick="App.moodForm(${i})">${ICONS.edit}</button>`:''}
-          ${mapsHref?`<a class="doc-attach" href="${esc(mapsHref)}" target="_blank" rel="noopener" aria-label="Open in Google Maps" title="Open in Google Maps">${ICONS.pin}Map</a>`:''}
+          ${mapsHref?`<a class="doc-attach" href="${esc(mapsHref)}" target="_blank" rel="noopener" aria-label="Open Map" title="Open Map">${ICONS.pin}Open Map</a>`:''}
         </span>
       </div>
     </div>`;
