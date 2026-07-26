@@ -434,8 +434,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.22.0';
+const APP_VERSION = '1.23.0';
 const CHANGELOG = [
+  {version:'1.23.0', notes:['The "Travel to [Airport]" reminder is now a genuine Add Travel card: clicking it opens the same full form (mode, from, to, date, duration) as any manually-added travel leg, and saving it turns it into a real, ordinary itinerary entry instead of a separate bespoke one.', 'Fixed the itinerary stop card\'s Open Map still being a plain text link instead of the bordered button used everywhere else.', 'Rebalanced the accommodation card\'s View Booking / Open Map buttons so View Booking\'s text fits on one line.', 'Alert banners (e.g. the archived-trip notice) now always fit on one line, with a button to see the full text in a popup if it\'s been truncated.', 'PDFs weren\'t viewable on mobile Safari because the in-page preview (an embedded iframe) doesn\'t render reliably there, a long-standing WebKit limitation. Viewing a PDF now hands it straight to the device\'s own PDF viewer instead of trying to preview it in place.']},
   {version:'1.22.0', notes:['Fixed Save Receipt crashing ("t.receipts.push" error) on any trip missing its receipts list entirely, an older or remote trip can simply be missing a field that was empty when last saved. Every trip now gets its list fields (receipts, flights, notes, contacts and more) guaranteed on load, wherever it came from.', 'Notes now supports multiple separate notes instead of one shared block of text, add, edit and delete each on its own.', 'Contacts: added a "Who is this for?" field, shown as a label on each contact, so a group can tell at a glance whose contact it is.', 'Links open on a tap anywhere on their card now, in a new tab, matching how documents already work.', 'Renamed the "Documents / Links" tab to "Documents & Links".', 'Ideas: each idea\'s buttons (Add/Remove from Itinerary, Open Map, Edit) are now stacked one per line instead of squeezed into a row, which was distorting the pill-shaped buttons on longer labels.', 'The "Travel to [Airport]" reminder\'s Open Map button now matches the bordered button style used elsewhere (e.g. Check In), instead of a plain text link.', 'Switched the app\'s font to Figtree.']},
   {version:'1.21.0', notes:['Travel mode dropdowns (manual travel legs and the new "Travel to [Airport]" reminder) now have a "Not Decided" option at the top, and default to it (a generic icon) instead of assuming Drive, since a plane, train or taxi are just as likely.', 'The "Travel to [Airport]" card is now clickable so you can actually set its mode.', 'Every map link in the app is now the same full "Open Map" button, none are icon-only anymore, and itinerary stops no longer show a separate embedded map preview alongside it.', 'The trip header goes back to showing the plain dates (like before), and the live countdown for an upcoming trip is now a simple "X days to go" shown under Edit Trip on the dashboard instead of a ticking clock under the title.', 'Money tab\'s empty state now says "No Receipts Yet".', 'Toast notifications for longer messages (like a save error) now stay up longer and wrap onto multiple lines instead of being cut off after a couple of seconds.']},
   {version:'1.20.0', notes:['Ideas: the map link on a pinned idea is now the same "Open in Google Maps" button used everywhere else, instead of a small icon-only link.', 'Itinerary: flights now get an automatic "Travel to [Airport]" reminder card right before them, with just a map link for the airport, no other detail to fill in.', 'Overview: Edit Trip is now the first card in the dashboard grid (with the trip dates shown underneath it) instead of a separate button below everything. The line under the trip title now shows a live countdown ticking down to departure for an upcoming trip.']},
@@ -982,6 +983,15 @@ document.addEventListener('keydown', e=>{
   if(menuIsOpen()) closeMenu();
   else if(modalOpen()) closeModal();
 });
+/* an alert-style banner that always fits on one line, truncating with an ellipsis rather
+   than wrapping and pushing the rest of the page down, a small button opens the full text
+   in a modal so nothing said in the banner is ever actually lost to the truncation */
+function bannerHTML(html, cls){
+  return `<div class="banner${cls?' '+cls:''}" style="display:flex;align-items:center;gap:10px">
+    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${html}</span>
+    <button type="button" class="iconbtn" style="flex-shrink:0" aria-label="Show full message" title="Show full message" onclick="App.expandBanner(this)">${ICONS.view}</button>
+  </div>`;
+}
 /* app-styled confirm to replace native confirm() */
 function confirmModal(title, body, confirmLabel, onYes){
   openModal(`
@@ -1120,6 +1130,10 @@ function openTrip(id){
 
 const App = {};
 window.App = App;
+App.expandBanner = btn => {
+  const span = btn.previousElementSibling;
+  openModal(`<p class="small" style="white-space:normal">${span.innerHTML}</p>`, {autofocus:false});
+};
 App.submitPin = () => {
   const val = ($('#pin-input').value||'').trim();
   if(!val) return;
@@ -1484,7 +1498,7 @@ function renderTrip(t){
   const phrase = statusPhrase(t);
   const upcoming = CUR_TAB==='home' ? upcomingStartDate(t) : null;
   $('#app').innerHTML = `
-    ${arch?`<div class="banner">🗄 This trip ended over a month ago and is now archived and read-only.</div>`:''}
+    ${arch?bannerHTML('🗄 This trip ended over a month ago and is now archived and read-only.'):''}
     ${CUR_TAB==='home' ? `
     <div style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
@@ -1800,10 +1814,17 @@ function tabPlan(t, ro){
   // reads in one place, each still lives and is edited in its own section
   (t.flights||[]).forEach((f,fi)=>{
     const k = f.date||'';
-    // a lightweight reminder to get to the airport, sorted immediately before its flight by
-    // sharing the same time (stable sort keeps insertion order for ties), no details of its
-    // own since there's nothing to store, just a map link for the departure airport
-    if(f.from) (groups[k]=groups[k]||[]).push({_autoAirportTravel:1, time:f.depTime||'', f, fi});
+    // a lightweight reminder to get to the airport, it's a real Add Travel card (same
+    // rendering, same edit form) rather than a bespoke one, just suggested rather than
+    // stored until you actually save it, so once you do it behaves exactly like any travel
+    // leg you'd add yourself. Sorted immediately before its flight by sharing the same time
+    // (stable sort keeps insertion order for ties). Skipped once a real entry for this
+    // flight exists, so saving it once doesn't leave a duplicate suggestion behind.
+    const alreadyAdded = (t.itinerary||[]).some(s=>s._autoForFlight===fi);
+    if(f.from && !alreadyAdded){
+      const name = airportName(f.from) || f.from;
+      (groups[k]=groups[k]||[]).push({kind:'travel', mode:'undecided', from:'', to:name, time:f.depTime||'', fi});
+    }
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
   (t.ferries||[]).forEach((f,fi)=>{
@@ -1841,21 +1862,6 @@ function tabPlan(t, ro){
   const autoTag = (icon, label, time) => `
     <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong></div>`;
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
-  const autoAirportTravelCard = s => {
-    const name = airportName(s.f.from) || s.f.from;
-    const mode = TRAVEL_MODES[s.f.toAirportMode] || TRAVEL_MODES.undecided;
-    const mapsUrl = 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name+' Airport');
-    return `
-    <div class="card plan-travel${!ro?' plan-click':''}" ${clickAttrs(`App.airportTravelForm(${s.fi})`)}>
-      <div class="section-head" style="margin-bottom:0">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <span class="plan-travel-icon">${mode.icon}</span>
-          <h3>Travel to ${esc(name)}</h3>
-        </div>
-      </div>
-      <div class="btn-row" style="margin-top:14px"><a class="btn" style="flex:1" href="${esc(mapsUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICONS.pin}Open Map</a></div>
-    </div>`;
-  };
   const autoFlightCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
       ${autoTag(ICONS.flight, 'Flight', s.time)}
@@ -1878,10 +1884,15 @@ function tabPlan(t, ro){
     </div>`;
   const travelCard = s => {
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
-    const title = `${esc(s.from||'?')} → ${esc(s.to||'?')}${timeBadge(s)?' - '+esc(timeBadge(s)):''}`;
+    const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
+    const title = place + (timeBadge(s)?' - '+esc(timeBadge(s)):'');
     const duration = travelDurationLabel(s);
+    // an auto-suggested "travel to the airport" entry has no itinerary index yet (it isn't
+    // saved until you actually edit it), so it opens the same Add Travel form pre-filled
+    // instead of the usual edit-by-index route
+    const editFn = s._i!=null ? `App.travelLegForm(${s._i})` : `App.airportTravelForm(${s.fi})`;
     return `
-    <div class="card plan-travel${!ro?' plan-click':''}" ${clickAttrs(`App.travelLegForm(${s._i})`)}>
+    <div class="card plan-travel${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
       <div class="section-head" style="margin-bottom:${duration?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="plan-travel-icon">${mode.icon}</span>
@@ -1907,11 +1918,10 @@ function tabPlan(t, ro){
         ${ICONS.pin}<span>${esc(s.location)}</span><span class="copy-ic">${ICONS.copy}</span>
       </div>` : ''}
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
-      ${s.mapsUrl || s.location ? `<a class="doc-attach" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${ICONS.pin}Open Map</a>` : ''}
+      ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px"><a class="btn" style="flex:1" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICONS.pin}Open Map</a></div>` : ''}
     </div>`;
   const card = s =>
-    s._autoAirportTravel ? autoAirportTravelCard(s)
-    : s._autoFlight ? autoFlightCard(s)
+    s._autoFlight ? autoFlightCard(s)
     : s._autoFerry ? autoFerryCard(s)
     : s._autoCar ? autoCarCard(s)
     : s._autoStay ? autoStayCard(s)
@@ -2028,9 +2038,15 @@ App.travelWhenChange = () => {
 /* a manually-entered travel leg between two points, no geocoding/distance API, just
    the mode/from/to/duration the user types in, stored alongside stops in t.itinerary
    (with kind:'travel') so it shares day-grouping and the up/down reorder system */
-App.travelLegForm = i => {
+/* set while the form is open for an auto-suggested "travel to the airport" entry, which
+   has no itinerary index of its own until the first time it's actually saved, at which
+   point it becomes a normal travel leg like any other (tagged so the auto-suggestion isn't
+   generated again alongside it) */
+let TRAVEL_AUTO_LINK = null;
+App.travelLegForm = (i, prefill) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const s = i>=0 ? (t.itinerary||[])[i] || {} : {};
+  const s = i>=0 ? (t.itinerary||[])[i] || {} : (prefill || {});
+  TRAVEL_AUTO_LINK = (i<0 && prefill && prefill._autoForFlight!=null) ? prefill._autoForFlight : null;
   const initWhen = s.time ? 'time' : (s.period || 'morning');
   const {h:initHour, m:initMin} = roundToQuarterHour(s.time);
   const hourOpts = Array.from({length:24}, (_,h)=>h)
@@ -2092,29 +2108,21 @@ App.saveTravelLeg = i => {
   t.itinerary = t.itinerary||[];
   const existing = i>=0 ? t.itinerary[i] : null;
   const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
-             from, to, date:$('#tv-date').value, time, period, durationH, durationM};
+             from, to, date:$('#tv-date').value, time, period, durationH, durationM,
+             ...(i<0 && TRAVEL_AUTO_LINK!=null ? {_autoForFlight:TRAVEL_AUTO_LINK} : {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
+  TRAVEL_AUTO_LINK = null;
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
 };
-/* the auto "Travel to [Airport]" card has no stored itinerary entry of its own, just this
-   one field on the flight it precedes, since a mode is the only thing worth picking for it */
+/* the auto "travel to the airport" card opens the exact same Add Travel form, pre-filled
+   with the departure airport as the destination, an empty starting point, and the flight's
+   date, from/to/date/duration all editable exactly like a manually-added travel leg */
 App.airportTravelForm = fi => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const f = (t.flights||[])[fi]; if(!f) return;
   const name = airportName(f.from) || f.from;
-  const modeOpts = Object.keys(TRAVEL_MODES).map(k=>`<option value="${k}" ${((f.toAirportMode||'undecided')===k)?'selected':''}>${TRAVEL_MODES[k].label}</option>`).join('');
-  openModal(`
-    <h2>Travel to ${esc(name)}</h2>
-    <div class="field"><label class="label" for="at-mode">Mode</label>
-      <select id="at-mode">${modeOpts}</select></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveAirportTravel(${fi})">Save</button></div>`);
-};
-App.saveAirportTravel = fi => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const f = (t.flights||[])[fi]; if(!f) return;
-  f.toAirportMode = $('#at-mode').value;
-  save(); closeModal(); rerender(); toast('Travel mode saved');
+  App.travelLegForm(-1, {mode:'undecided', from:'', to:name, date:f.date||'', _autoForFlight:fi});
 };
 /* send an Ideas pin straight into the itinerary, pre-filled, linked back to the pin so it
    can be toggled to Remove from Itinerary instead of being addable again */
@@ -2296,7 +2304,7 @@ function accomCardHTML(a, opts){
       </div>` : ''}
       ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
       ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">
-        ${a.bookingUrl?`<a class="btn" style="flex:1;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking</a>`:''}
+        ${a.bookingUrl?`<a class="btn" style="flex:1.4;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking</a>`:''}
         ${a.address?`<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICONS.pin}Open Map</a>`:''}
       </div>`:''}
       ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
@@ -2369,16 +2377,21 @@ function dataUrlToBlobUrl(dataUrl){
     return URL.createObjectURL(new Blob([arr],{type:mime}));
   }catch(e){ return null; }
 }
+/* PDFs don't render reliably inside an embedded iframe on mobile Safari (a long-standing
+   WebKit limitation with blob/data URLs in a nested browsing context, it can just show
+   blank), so instead of trying to preview it in place, hand it straight to the device's
+   own PDF viewer via a full navigation, that works everywhere */
 function docViewerHTML(d){
-  if(d.kind!=='pdf')
+  if(d.kind!=='pdf'){
     return `<img src="${d.dataUrl}" alt="${esc(d.name)}" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">`;
+  }
   const url = dataUrlToBlobUrl(d.dataUrl) || d.dataUrl;
   return `
-    <div class="btn-row" style="margin-bottom:12px">
-      <a class="btn sm" href="${url}" target="_blank" rel="noopener">${ICONS.ext} Open in New Tab</a>
-      <a class="btn sm" href="${url}" download="${esc(d.name)}">${ICONS.download} Download</a>
-    </div>
-    <iframe src="${url}" title="${esc(d.name)}" style="border:1px solid var(--line);border-radius:12px;width:100%;height:70vh;background:#fff"></iframe>`;
+    <p class="muted small" style="margin-bottom:14px">PDFs open in your device's own viewer rather than in-page, so you get proper zoom, search and sharing.</p>
+    <div class="btn-row">
+      <a class="btn primary" style="flex:1.4;min-width:0" href="${url}" target="_blank" rel="noopener">${ICONS.ext}Open PDF</a>
+      <a class="btn" style="flex:1;min-width:0" href="${url}" download="${esc(d.name)}">${ICONS.download}Download</a>
+    </div>`;
 }
 /* open an attached travel document full-screen */
 App.viewTravelDoc = (arr, i) => {
@@ -3086,7 +3099,7 @@ function tabPhotos(t, ro){
       </div>
       ${!ro?`
       <h2 style="margin-top:30px">Set One Up</h2>
-      <div class="banner">📸 <strong>PhotoCircle</strong> works best. It's free, cross-platform, and <strong>everyone can add photos</strong> from iPhone, Android or the web.</div>
+      ${bannerHTML('📸 <strong>PhotoCircle</strong> works best. It\'s free, cross-platform, and <strong>everyone can add photos</strong> from iPhone, Android or the web.')}
       <details open>
         <summary> PhotoCircle (recommended)</summary>
         <div class="d-body"><ol class="steps">
