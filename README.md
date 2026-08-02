@@ -1,4 +1,4 @@
-# Cal's Trippin'
+# My Trips
 
 One place for your group trip, flights, money, plans and photos. One organiser starts the trip, everyone else gets a link, and now everyone can pitch in.
 
@@ -53,4 +53,4 @@ That's it, the app now shows every trip that exists (not just ones this browser 
 
 Inside a trip, everything is reached from the **dashboard tiles** or the **☰ Menu**, each with its own icon: Overview, Travel (flights, ferries, car hire), Accommodation, Itinerary, Money, Photos, Ideas, Emergency Contacts, Documents, Notes and Activity: no horizontal tab scrolling. Countries and people are managed from **Edit Trip** on the Overview.
 
-Built from the v1 product spec (`cals_trippin_spec.md`); this release adds **Milestone 2 (collaborative editing + edit log)** and a branded UI refresh (teal/coral palette, "Cal's Trippin'" wordmark, icon menu navigation).
+Built from the v1 product spec (`cals_trippin_spec.md`); this release adds **Milestone 2 (collaborative editing + edit log)** and a branded UI refresh (teal/coral palette, "My Trips" wordmark, icon menu navigation).

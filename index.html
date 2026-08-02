@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Cal's Trippin'</title>
+<title>My Trips</title>
 <meta name="description" content="One place for your group trip: flights, money, plans and photos.">
 <meta name="theme-color" content="#102A43">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTUiIGZpbGw9IiMxMDJBNDMiLz4KPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTYgMTEzLjc3OCkgc2NhbGUoMC41NTU1NTYpIj4KPHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTM4NCA0NzYuMUwxOTIgNDIxLjJsMC0zODUuM0wzODQgOTAuOGwwIDM4NS4zem0zMi0xLjJsMC0zODYuNUw1NDMuMSAzNy41YzE1LjgtNi4zIDMyLjkgNS4zIDMyLjkgMjIuM2wwIDMzNC44YzAgOS44LTYgMTguNi0xNS4xIDIyLjNMNDE2IDQ3NC44ek0xNS4xIDk1LjFMMTYwIDM3LjJsMCAzODYuNUwzMi45IDQ3NC41QzE3LjEgNDgwLjggMCA0NjkuMiAwIDQ1Mi4yTDAgMTE3LjRjMC05LjggNi0xOC42IDE1LjEtMjIuM3oiLz4KPC9nPgo8L3N2Zz4K">
@@ -394,7 +394,7 @@ a.dash-tile{text-decoration:none;}
 <header class="top">
   <div class="top-inner">
     <div class="logo-wrap">
-      <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="Cal's Trippin' home">Cal&#8217;s <span class="lg2">Trippin&#8217;</span></div>
+      <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="My Trips home">My <span class="lg2">Trips</span></div>
       <button id="version-tag" class="version-tag" onclick="App.toggleChangelog()" aria-label="View what's new"></button>
     </div>
     <div id="header-actions"></div>
@@ -434,8 +434,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.24.0';
+const APP_VERSION = '1.25.0';
 const CHANGELOG = [
+  {version:'1.25.0', notes:['Renamed the app from "Cal\'s Trippin\'" to "My Trips".']},
   {version:'1.24.0', notes:['Accommodation: added an arrival time, separate from the check-in time, for when you\'re getting there later (or earlier) than the property\'s standard check-in. Once set, it\'s what the itinerary uses to work out where that day\'s check-in falls relative to flights and everything else, instead of always assuming it comes after them.']},
   {version:'1.23.0', notes:['The "Travel to [Airport]" reminder is now a genuine Add Travel card: clicking it opens the same full form (mode, from, to, date, duration) as any manually-added travel leg, and saving it turns it into a real, ordinary itinerary entry instead of a separate bespoke one.', 'Fixed the itinerary stop card\'s Open Map still being a plain text link instead of the bordered button used everywhere else.', 'Rebalanced the accommodation card\'s View Booking / Open Map buttons so View Booking\'s text fits on one line.', 'Alert banners (e.g. the archived-trip notice) now always fit on one line, with a button to see the full text in a popup if it\'s been truncated.', 'PDFs weren\'t viewable on mobile Safari because the in-page preview (an embedded iframe) doesn\'t render reliably there, a long-standing WebKit limitation. Viewing a PDF now hands it straight to the device\'s own PDF viewer instead of trying to preview it in place.']},
   {version:'1.22.0', notes:['Fixed Save Receipt crashing ("t.receipts.push" error) on any trip missing its receipts list entirely, an older or remote trip can simply be missing a field that was empty when last saved. Every trip now gets its list fields (receipts, flights, notes, contacts and more) guaranteed on load, wherever it came from.', 'Notes now supports multiple separate notes instead of one shared block of text, add, edit and delete each on its own.', 'Contacts: added a "Who is this for?" field, shown as a label on each contact, so a group can tell at a glance whose contact it is.', 'Links open on a tap anywhere on their card now, in a new tab, matching how documents already work.', 'Renamed the "Documents / Links" tab to "Documents & Links".', 'Ideas: each idea\'s buttons (Add/Remove from Itinerary, Open Map, Edit) are now stacked one per line instead of squeezed into a row, which was distorting the pill-shaped buttons on longer labels.', 'The "Travel to [Airport]" reminder\'s Open Map button now matches the bordered button style used elsewhere (e.g. Check In), instead of a plain text link.', 'Switched the app\'s font to Figtree.']},
@@ -528,7 +529,7 @@ function syncErrorHint(err){
   return 'Sync failed: '+code;
 }
 function reportSyncError(err){
-  console.error("Cal's Trippin', cloud sync error:", err);
+  console.error("My Trips, cloud sync error:", err);
   syncState='off';
   if(!_syncErrorToasted){ _syncErrorToasted = true; toast(syncErrorHint(err)); }
 }
@@ -540,7 +541,7 @@ function initCloud(){
     firebase.database().ref('.info/connected').on('value', s=>{
       if(CUR_TRIP_ID){ syncState = s.val() ? 'ok' : 'off'; }
     }, reportSyncError);
-  }catch(e){ fbRoot = null; syncState='local'; console.error("Cal's Trippin', Firebase failed to initialise:", e); }
+  }catch(e){ fbRoot = null; syncState='local'; console.error("My Trips, Firebase failed to initialise:", e); }
 }
 /* strip heavy blobs so the shared document stays small & portable */
 function stripForCloud(t){
@@ -1034,7 +1035,7 @@ function renderPinGate(){
   const sidebarEl = $('#sidebar-root'); if(sidebarEl) sidebarEl.innerHTML = '';
   $('#app').innerHTML = `
     <div style="max-width:320px; margin:80px auto 0; text-align:center">
-      <div class="logo" style="justify-content:center; margin-bottom:8px">Cal&#8217;s <span class="lg2">Trippin&#8217;</span></div>
+      <div class="logo" style="justify-content:center; margin-bottom:8px">My <span class="lg2">Trips</span></div>
       <p class="muted" style="margin-bottom:20px">Enter the group PIN to continue.</p>
       <div class="field">
         <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN"
@@ -1063,7 +1064,7 @@ function renderChangelog(){
         <span class="crumb-here"><button class="crumb-backbtn" onclick="App.toggleChangelog()" aria-label="Back">${ICONS.back}</button>What's New</span>
       </div>
     </div>
-    <p class="muted small" style="margin:-8px 0 20px">Cal's Trippin' v${esc(APP_VERSION)}</p>
+    <p class="muted small" style="margin:-8px 0 20px">My Trips v${esc(APP_VERSION)}</p>
     ${CHANGELOG.map(v=>`
       <div class="card">
         <h3 style="margin-bottom:8px">v${esc(v.version)}</h3>
@@ -1165,7 +1166,7 @@ App.savePin = () => {
   fbRoot.ref('appPin').set(val)
     .then(()=>{ closeModal(); toast('PIN updated, share the new one with your group'); })
     .catch(err => {
-      console.error("Cal's Trippin', couldn't save the PIN:", err);
+      console.error("My Trips, couldn't save the PIN:", err);
       if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
         toast("Couldn't save: the database rules don't allow writing the PIN. Open the Firebase console → Realtime Database → Rules and add an \"appPin\": { \".read\": true, \".write\": true } rule.");
       }else{
@@ -1241,7 +1242,7 @@ function fetchAllTrips(cb){
       cb(merged);
     })
     .catch(err => {
-      console.error("Cal's Trippin', couldn't list trips from the cloud:", err);
+      console.error("My Trips, couldn't list trips from the cloud:", err);
       if(!_listErrorToasted && /permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
         _listErrorToasted = true;
         toast("Can't see everyone's trips: the database rules only allow reading one trip at a time. Open the Firebase console → Realtime Database → Rules and add \"trips\": { \".read\": true } alongside the existing rule.");
@@ -1429,7 +1430,7 @@ App.copyFromEl = el => {
   }
 };
 App.nativeShare = () => {
-  navigator.share({title:"Cal's Trippin' trip invite", url: $('#share-url').value}).catch(()=>{});
+  navigator.share({title:"Trip invite", url: $('#share-url').value}).catch(()=>{});
 };
 
 /* ================= trip shell ================= */
@@ -3055,7 +3056,7 @@ App.saveReceipt = () => {
     logEdit('Money',(editing?'edited receipt ':'added receipt ')+rec.title+' ('+money(receiptTotal(rec))+')');
     save(); R=null; closeModal(); rerender(); toast(editing?'Receipt updated':'Receipt added');
   }catch(e){
-    console.error("Cal's Trippin', couldn't save receipt:", e);
+    console.error("My Trips, couldn't save receipt:", e);
     toast("Something went wrong saving that receipt: "+(e&&e.message||e)+". Try again, and let Chris know if it keeps happening.");
   }
 };
