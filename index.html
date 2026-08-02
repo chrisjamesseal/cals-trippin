@@ -434,8 +434,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.23.0';
+const APP_VERSION = '1.24.0';
 const CHANGELOG = [
+  {version:'1.24.0', notes:['Accommodation: added an arrival time, separate from the check-in time, for when you\'re getting there later (or earlier) than the property\'s standard check-in. Once set, it\'s what the itinerary uses to work out where that day\'s check-in falls relative to flights and everything else, instead of always assuming it comes after them.']},
   {version:'1.23.0', notes:['The "Travel to [Airport]" reminder is now a genuine Add Travel card: clicking it opens the same full form (mode, from, to, date, duration) as any manually-added travel leg, and saving it turns it into a real, ordinary itinerary entry instead of a separate bespoke one.', 'Fixed the itinerary stop card\'s Open Map still being a plain text link instead of the bordered button used everywhere else.', 'Rebalanced the accommodation card\'s View Booking / Open Map buttons so View Booking\'s text fits on one line.', 'Alert banners (e.g. the archived-trip notice) now always fit on one line, with a button to see the full text in a popup if it\'s been truncated.', 'PDFs weren\'t viewable on mobile Safari because the in-page preview (an embedded iframe) doesn\'t render reliably there, a long-standing WebKit limitation. Viewing a PDF now hands it straight to the device\'s own PDF viewer instead of trying to preview it in place.']},
   {version:'1.22.0', notes:['Fixed Save Receipt crashing ("t.receipts.push" error) on any trip missing its receipts list entirely, an older or remote trip can simply be missing a field that was empty when last saved. Every trip now gets its list fields (receipts, flights, notes, contacts and more) guaranteed on load, wherever it came from.', 'Notes now supports multiple separate notes instead of one shared block of text, add, edit and delete each on its own.', 'Contacts: added a "Who is this for?" field, shown as a label on each contact, so a group can tell at a glance whose contact it is.', 'Links open on a tap anywhere on their card now, in a new tab, matching how documents already work.', 'Renamed the "Documents / Links" tab to "Documents & Links".', 'Ideas: each idea\'s buttons (Add/Remove from Itinerary, Open Map, Edit) are now stacked one per line instead of squeezed into a row, which was distorting the pill-shaped buttons on longer labels.', 'The "Travel to [Airport]" reminder\'s Open Map button now matches the bordered button style used elsewhere (e.g. Check In), instead of a plain text link.', 'Switched the app\'s font to Figtree.']},
   {version:'1.21.0', notes:['Travel mode dropdowns (manual travel legs and the new "Travel to [Airport]" reminder) now have a "Not Decided" option at the top, and default to it (a generic icon) instead of assuming Drive, since a plane, train or taxi are just as likely.', 'The "Travel to [Airport]" card is now clickable so you can actually set its mode.', 'Every map link in the app is now the same full "Open Map" button, none are icon-only anymore, and itinerary stops no longer show a separate embedded map preview alongside it.', 'The trip header goes back to showing the plain dates (like before), and the live countdown for an upcoming trip is now a simple "X days to go" shown under Edit Trip on the dashboard instead of a ticking clock under the title.', 'Money tab\'s empty state now says "No Receipts Yet".', 'Toast notifications for longer messages (like a save error) now stay up longer and wrap onto multiple lines instead of being cut off after a couple of seconds.']},
@@ -1796,11 +1797,13 @@ function itineraryItemLabel(s){
    check-in/check-out: a check-in's recorded time is usually just the property's standard
    check-in time, not your actual arrival, so it can't be trusted to order correctly against
    a same-day flight, force checkout, then flight, then check-in regardless of what the
-   individual times say */
+   individual times say, unless an explicit arrival time has been set for that stay, in
+   which case it's real and sorts normally like everything else */
 function planCompare(a, b){
   const isAuto = x => !!(x._autoFlight || x._autoFerry || x._autoCar || x._autoStay);
   if(isAuto(a) && isAuto(b)){
-    const rank = x => x._autoStay==='checkout' ? 0 : x._autoFlight ? 1 : x._autoStay==='checkin' ? 2 : null;
+    const untrustedCheckin = x => x._autoStay==='checkin' && !(x.ac && x.ac.arrivalTime);
+    const rank = x => x._autoStay==='checkout' ? 0 : x._autoFlight ? 1 : untrustedCheckin(x) ? 2 : null;
     const ra = rank(a), rb = rank(b);
     if(ra!=null && rb!=null && ra!==rb) return ra-rb;
   }
@@ -1836,7 +1839,9 @@ function tabPlan(t, ro){
     if(c.dropoffDate) (groups[c.dropoffDate]=groups[c.dropoffDate]||[]).push({_autoCar:'dropoff', time:c.dropoffTime||'', c, ci});
   });
   (t.accommodations||[]).forEach((ac,aci)=>{
-    if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.checkinTime||'', ac, aci});
+    // your actual arrival time, when you've set one, is what the day should sort by, not
+    // the property's generic check-in time
+    if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.arrivalTime||ac.checkinTime||'', ac, aci});
     if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac, aci});
   });
   const hasAny = Object.keys(groups).length > 0;
@@ -2284,9 +2289,10 @@ function autoAccomName(url, address){
    section), showDates (hide the check-in/out chips when the itinerary already shows the time) */
 function accomCardHTML(a, opts){
   opts = opts || {};
+  const arrivalSuffix = a.arrivalTime ? ` (arriving ${esc(a.arrivalTime)})` : '';
   const stayRange = a.checkin && a.checkout
-    ? `${fmtShortDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''} - ${fmtShortDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
-    : a.checkin ? `${fmtShortDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}`
+    ? `${fmtShortDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix} - ${fmtShortDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
+    : a.checkin ? `${fmtShortDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix}`
     : a.checkout ? `${fmtShortDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
     : '';
   return `
@@ -2578,6 +2584,8 @@ App.accomForm = i => {
       <div class="field"><label class="label">Check-in date</label><input id="ac-in" type="date" value="${esc(a.checkin||todayStr())}"></div>
       <div class="field"><label class="label">Check-in time</label><input id="ac-in-time" type="time" value="${esc(a.checkinTime||'')}"></div>
     </div>
+    <div class="field"><label class="label">Your arrival time</label><input id="ac-arrival-time" type="time" value="${esc(a.arrivalTime||'')}">
+      <p class="muted small" style="margin-top:6px">Only if you're arriving later than the standard check-in time above, used instead of it to work out where this falls in the itinerary.</p></div>
     <div class="grid2">
       <div class="field"><label class="label">Check-out date</label><input id="ac-out" type="date" value="${esc(a.checkout||todayStr())}"></div>
       <div class="field"><label class="label">Check-out time</label><input id="ac-out-time" type="time" value="${esc(a.checkoutTime||'')}"></div>
@@ -2608,7 +2616,7 @@ App.saveAccom = i => {
   if(!name && !address) return markErr('#ac-name','Give it a name or address');
   const a = {id: i>=0 && t.accommodations[i] ? t.accommodations[i].id : uid(),
     name, address,
-    checkin:$('#ac-in').value, checkinTime:$('#ac-in-time').value,
+    checkin:$('#ac-in').value, checkinTime:$('#ac-in-time').value, arrivalTime:$('#ac-arrival-time').value,
     checkout:$('#ac-out').value, checkoutTime:$('#ac-out-time').value,
     ref:$('#ac-ref').value.trim(), bookingUrl:url};
   if(i>=0) t.accommodations[i]=a; else t.accommodations.push(a);
