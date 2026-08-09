@@ -17,6 +17,7 @@ One place for your group trip, flights, money, plans and photos. One organiser s
 - **Money splitter:** receipts with itemised line-by-line splitting or an even-split toggle, plus a who-pays-whom settlement that combines debts into the fewest possible payments (Tricount-style). Your own balance shows right on the dashboard's Money tile.
 - **Photos:** links out to one shared album everyone adds to. **PhotoCircle** is recommended (free, cross-platform, and everyone, iPhone, Android or web, can *add* photos, not just view); Apple Shared Album / Google Photos links also work if you already use them, with in-app notes on each one's limitations.
 - **Mood board:** pin links, notes and images; built-in destination-based idea suggestions.
+- **Places I've Been:** the globe icon next to the logo opens a checklist of every country. Tick Been or Want to Go; any country on an upcoming trip's itinerary shows as Going automatically, and flips to Been once that trip is over.
 - **Auto-archiving:** trips grey out and become read-only one month after the end date.
 - **Your trips are kept:** trips are saved in the browser and survive app updates. Use **Back up trips** on the home screen to download all your trips as a file and **Restore** them in any other browser or on a new phone (no account needed). With the shared store configured, trips also sync to anyone holding the link.
 
@@ -36,12 +37,13 @@ The app works out of the box **on a single device** with no setup. To get everyo
          ".read": true,
          "$id": { ".write": true }
        },
-       "appPin": { ".read": true, ".write": true }
+       "appPin": { ".read": true, ".write": true },
+       "places": { ".read": true, ".write": true }
      }
    }
    ```
 
-   Note the `trips` node needs its own top-level `.read: true`, Realtime Database rules don't cascade upward from `trips/$id` to `trips`, and the app needs to read the *whole* `trips` node at once to list every trip on the "Your Trips" page. Without it, the app silently falls back to only showing trips this particular browser already knows about (looks like "no trips saved"), and the in-app PIN-change screen will fail to save.
+   Note the `trips` node needs its own top-level `.read: true`, Realtime Database rules don't cascade upward from `trips/$id` to `trips`, and the app needs to read the *whole* `trips` node at once to list every trip on the "Your Trips" page. Without it, the app silently falls back to only showing trips this particular browser already knows about (looks like "no trips saved"), and the in-app PIN-change screen will fail to save. The same non-cascading rule applies to `places`, the shared Places I've Been checklist: without it, ticked countries stay stuck on the device that ticked them instead of syncing to the group.
 
 That's it, the app now shows every trip that exists (not just ones this browser made), and share buttons hand out `…/#/trip/<id>` links that stay the same forever and sync everyone's edits. Without a config, the app quietly falls back to single-device mode, a fixed local PIN, and the Share button produces a portable snapshot link instead.
 
