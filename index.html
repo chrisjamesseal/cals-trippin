@@ -403,7 +403,6 @@ a.dash-tile{text-decoration:none;}
   <div class="top-inner">
     <div class="logo-wrap">
       <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="My Trips home">My <span class="lg2">Trips</span></div>
-      <button id="places-btn" class="iconbtn" onclick="App.goPlaces()" aria-label="Places I've Been" title="Places I've Been"><i class="icon fa-solid fa-earth-europe"></i></button>
       <button id="version-tag" class="version-tag" onclick="App.toggleChangelog()" aria-label="View what's new"></button>
     </div>
     <div id="header-actions"></div>
@@ -443,8 +442,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.26.1';
+const APP_VERSION = '1.26.2';
 const CHANGELOG = [
+  {version:'1.26.2', notes:['The Places I\'ve Been globe icon is now a proper button, sitting next to the Share/Menu buttons inside a trip, and next to + New Trip on the Your Trips page.']},
   {version:'1.26.1', notes:['Places I\'ve Been: the search box now matches the rest of the app\'s field styling, and every country card shows a small continent icon alongside its flag.', 'Travel mode (Add/Edit Travel, and the "Travel to Airport" reminder) is now a row of icon buttons instead of a dropdown, "Not Decided" is still the default until you pick one.']},
   {version:'1.26.0', notes:['Added a "Places I\'ve Been" page (the globe icon next to the logo): tick off every country as Been or Want to Go. Any country on an upcoming trip shows as Going automatically, and once that trip is over its countries are marked Been for you. Countries are grouped by continent with a search box and a running total at the top.']},
   {version:'1.25.0', notes:['Renamed the app from "Cal\'s Trippin\'" to "My Trips".']},
@@ -1152,6 +1152,11 @@ function renderChangelog(){
         </ul>
       </div>`).join('')}`;
 }
+/* used in the header-actions button row on Home and inside a trip, next to whichever
+   other button lives there (+ New Trip, or the Menu button) */
+function placesBtnHTML(){
+  return `<button id="places-btn" class="btn sm" onclick="App.goPlaces()" aria-label="Places I've Been" title="Places I've Been">${fa('earth-europe')}</button>`;
+}
 /* opening Places leaves whatever trip/home page was showing untouched underneath,
    same pattern as renderChangelog above */
 function renderPlaces(){
@@ -1406,6 +1411,7 @@ function renderHome(){
   $('#header-actions').innerHTML = `<div class="btn-row" style="gap:8px">
       ${cloudEnabled()?`<button class="btn sm" onclick="App.pinSettingsForm()">${fa('key')} PIN</button>`:''}
       <button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>
+      ${placesBtnHTML()}
     </div>`;
   renderSidebar(null);
   $('#app').innerHTML = `
@@ -1646,6 +1652,7 @@ function renderTrip(t){
   $('#header-actions').innerHTML =
     `<div class="btn-row" style="gap:8px">
        <button class="btn sm primary" onclick="App.share('${t.id}')">Share</button>
+       ${placesBtnHTML()}
        <button class="menu-btn" onclick="App.openMenu()" aria-label="Trip menu" aria-haspopup="true">${ICONS.menu}<span>Menu</span></button>
      </div>`;
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
