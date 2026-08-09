@@ -449,9 +449,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.27.0';
+const APP_VERSION = '1.27.1';
 const CHANGELOG = [
-  {version:'1.27.0', notes:['Places I\'ve Been now opens with a set of region cards (Europe, Asia, Africa, North America, South America, Oceania) instead of every country at once, tap one to see just that region\'s countries. Added a Been / Want to Go / Going filter, and a rotating 3D globe at the top of the page, colour-coded to match: tap a country on the globe to jump straight to it in the list below.']},
+  {version:'1.27.1', notes:['Fixed the Places I\'ve Been globe not loading (the map data was pointed at the wrong address).', 'Added England, Scotland, Wales and Northern Ireland to Places I\'ve Been, in place of a single "United Kingdom" entry, since they\'re usually tracked separately. On the globe, the UK\'s single shape reflects all four together.']},
   {version:'1.26.2', notes:['The Places I\'ve Been globe icon is now a proper button, sitting next to the Share/Menu buttons inside a trip, and next to + New Trip on the Your Trips page.']},
   {version:'1.26.1', notes:['Places I\'ve Been: the search box now matches the rest of the app\'s field styling, and every country card shows a small continent icon alongside its flag.', 'Travel mode (Add/Edit Travel, and the "Travel to Airport" reminder) is now a row of icon buttons instead of a dropdown, "Not Decided" is still the default until you pick one.']},
   {version:'1.26.0', notes:['Added a "Places I\'ve Been" page (the globe icon next to the logo): tick off every country as Been or Want to Go. Any country on an upcoming trip shows as Going automatically, and once that trip is over its countries are marked Been for you. Countries are grouped by continent with a search box and a running total at the top.']},
@@ -843,14 +843,21 @@ function readOnly(t){ return isArchived(t); }
 function fileSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.round(b/1024)+' KB'; }
 
 /* ================= countries ================= */
-/* ISO 3166-1 alpha-2 codes; names come from Intl.DisplayNames, flags from regional indicators */
-const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CK CL CM CN CO CR CU CV CW CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FK FM FO FR GA GB GD GE GG GH GI GL GM GN GQ GR GT GW GY HK HN HR HT HU ID IE IL IM IN IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MO MQ MR MS MT MU MV MW MX MY MZ NA NC NE NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PR PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WS YE ZA ZM ZW').split(' ');
-const flagEmoji = c => c.replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
+/* ISO 3166-1 alpha-2 codes; names come from Intl.DisplayNames, flags from regional indicators.
+   Plus a small set of "user-assigned" codes (the XA-XZ range ISO guarantees will never be
+   handed to a real country) for places that are commonly tracked as their own "country" on a
+   travel checklist despite having no ISO code of their own: England, Scotland and Wales use
+   their real Unicode flag emoji; XI (Northern Ireland) mirrors the code the UK/EU already use
+   for it in customs contexts, there's no single agreed NI flag so it shows the Union Flag. */
+const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CK CL CM CN CO CR CU CV CW CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FK FM FO FR GA GD GE GG GH GI GL GM GN GQ GR GT GW GY HK HN HR HT HU ID IE IL IM IN IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MO MQ MR MS MT MU MV MW MX MY MZ NA NC NE NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PR PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WS YE ZA ZM ZW XE XS XW XI').split(' ');
+const CUSTOM_COUNTRY_NAMES = {XE:'England', XS:'Scotland', XW:'Wales', XI:'Northern Ireland'};
+const CUSTOM_COUNTRY_FLAGS = {XE:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', XS:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', XW:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}', XI:'\u{1F1EC}\u{1F1E7}'};
+const flagEmoji = c => CUSTOM_COUNTRY_FLAGS[c] || c.replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
 const COUNTRIES = (()=>{
   let dn = null;
   try{ dn = new Intl.DisplayNames(['en'], {type:'region'}); }catch(e){}
   return COUNTRY_CODES
-    .map(c => ({code:c, name:(dn && dn.of(c)) || c, flag:flagEmoji(c)}))
+    .map(c => ({code:c, name:CUSTOM_COUNTRY_NAMES[c] || (dn && dn.of(c)) || c, flag:flagEmoji(c)}))
     .sort((a,b)=>a.name.localeCompare(b.name));
 })();
 const countryByName = n => COUNTRIES.find(c=>c.name.toLowerCase()===String(n||'').trim().toLowerCase());
@@ -870,7 +877,7 @@ function tripFlags(t){
 const COUNTRY_CONTINENT = {
   Africa: 'AO BF BI BJ BW CD CF CG CI CM CV DJ DZ EG ER ET GA GH GM GN GQ GW KE KM LR LS LY MA MG ML MR MU MW MZ NA NE NG RW SC SD SL SN SO SS ST SZ TD TG TN TZ UG ZA ZM ZW',
   Asia: 'AE AF AM AZ BD BH BN BT CN GE HK ID IL IN IQ IR JO JP KG KH KP KR KW KZ LA LB LK MM MN MO MV MY NP OM PH PK QA SA SG SY TH TJ TL TM TR TW UZ VN YE',
-  Europe: 'AD AL AT BA BE BG BY CH CY CZ DE DK EE ES FI FO FR GB GG GI GR HR HU IE IM IS IT JE LI LT LU LV MC MD ME MK MT NL NO PL PT RO RS RU SE SI SK SM UA VA',
+  Europe: 'AD AL AT BA BE BG BY CH CY CZ DE DK EE ES FI FO FR GG GI GR HR HU IE IM IS IT JE LI LT LU LV MC MD ME MK MT NL NO PL PT RO RS RU SE SI SK SM UA VA XE XS XW XI',
   'North America': 'AG AI AW BB BM BS BZ CA CR CU CW DM DO GD GL GT HN HT JM KN KY LC MQ MS MX NI PA PR SV SX TC TT US VC VG VI',
   Oceania: 'AU CK FJ FM KI MH NC NR NU NZ PF PG PW SB TO TV VU WS',
   'South America': 'AR BO BR CL CO EC FK GY PE PY SR UY VE'
@@ -958,7 +965,7 @@ function placesRegionGridHTML(going){
    both loaded from a free CDN, no API key. Loaded lazily, only while the Places page is
    open, and fails soft: if the CDN or WebGL isn't available the list below still works. */
 const PLACES_GLOBE_SRC = 'https://cdn.jsdelivr.net/npm/globe.gl';
-const PLACES_GEO_SRC = 'https://cdn.jsdelivr.net/npm/three-globe/example/img/ne_110m_admin_0_countries.geojson';
+const PLACES_GEO_SRC = 'https://cdn.jsdelivr.net/npm/three-globe/example/country-polygons/ne_110m_admin_0_countries.geojson';
 const PLACES_GLOBE_IMG = 'https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg';
 let PLACES_GLOBE = null;
 let PLACES_GEO_PROMISE = null;
@@ -976,26 +983,52 @@ function getPlacesGeo(){
   }
   return PLACES_GEO_PROMISE;
 }
+/* Natural Earth flags a handful of real countries' ISO_A2 as "-99" (France, Norway) because
+   of their overseas territories, alongside genuinely code-less disputed regions (Northern
+   Cyprus, Somaliland); patch the former back in by name so they still colour and click */
+const PLACES_GEO_ISO_FIX = {France:'FR', Norway:'NO'};
+function placesGeoIso(f){
+  const raw = f.properties && f.properties.ISO_A2;
+  if(raw && raw!=='-99') return raw;
+  return (f.properties && PLACES_GEO_ISO_FIX[f.properties.ADMIN]) || null;
+}
+/* the boundary data has one shape for the whole UK (England/Scotland/Wales/Northern Ireland
+   aren't separately drawn at this map's resolution), so its colour/click reflects all four */
+const PLACES_UK_CODES = ['XE','XS','XW','XI'];
+function placesUkStatus(going){
+  const statuses = PLACES_UK_CODES.map(c => placesStatusOf(c, going[c]||0));
+  if(statuses.includes('going')) return 'going';
+  if(statuses.every(s => s==='been')) return 'been';
+  if(statuses.some(s => s==='been' || s==='want')) return 'want';
+  return 'none';
+}
+function placesGlobeStatus(f, going){
+  if(placesGeoIso(f)==='GB') return placesUkStatus(going);
+  const code = placesGeoIso(f);
+  return placesStatusOf(code, going[code]||0);
+}
 function initPlacesGlobe(){
   const el = $('#places-globe'); if(!el) return;
   Promise.all([loadScriptOnce(PLACES_GLOBE_SRC), getPlacesGeo()])
     .then(([_, geo]) => {
       if(!$('#places-globe') || location.hash!=='#/places') return; // navigated away while loading
       if(typeof Globe !== 'function') throw new Error('Globe() unavailable after script load');
-      const going = placesGoingMap();
       PLACES_GLOBE = Globe()(el)
         .globeImageUrl(PLACES_GLOBE_IMG)
         .backgroundColor('rgba(0,0,0,0)')
-        .polygonsData((geo.features||[]).filter(f => f.properties && f.properties.ISO_A2 && f.properties.ISO_A2!=='-99'))
-        .polygonCapColor(f => PLACES_STATUS_COLOR[placesStatusOf(f.properties.ISO_A2, placesGoingMap()[f.properties.ISO_A2]||0)])
+        .polygonsData((geo.features||[]).filter(f => placesGeoIso(f)))
+        .polygonCapColor(f => PLACES_STATUS_COLOR[placesGlobeStatus(f, placesGoingMap())])
         .polygonSideColor(() => 'rgba(20,40,47,.15)')
         .polygonStrokeColor(() => 'rgba(255,255,255,.35)')
         .polygonAltitude(0.006)
         .polygonLabel(f => `<div style="background:#14282F;color:#fff;padding:4px 8px;border-radius:6px;font:600 12px Figtree,sans-serif">${esc(f.properties.ADMIN||f.properties.NAME||'')}</div>`)
         .onPolygonClick(f => {
-          const code = f.properties.ISO_A2; if(!countryByCode(code)) return;
+          const code = placesGeoIso(f); if(!code) return;
           const inp = $('#places-filter'); if(inp) inp.value = '';
-          CUR_PLACES_REGION = null; CUR_PLACES_FILTER = 'all';
+          CUR_PLACES_FILTER = 'all';
+          if(code==='GB'){ CUR_PLACES_REGION = 'Europe'; drawPlacesGrid(); return; }
+          if(!countryByCode(code)) return;
+          CUR_PLACES_REGION = null;
           drawPlacesGrid();
           const card = document.querySelector(`.place-card[data-code="${code}"]`);
           if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
@@ -1015,7 +1048,7 @@ function initPlacesGlobe(){
 function refreshPlacesGlobeColors(){
   if(!PLACES_GLOBE) return;
   const going = placesGoingMap();
-  PLACES_GLOBE.polygonCapColor(f => PLACES_STATUS_COLOR[placesStatusOf(f.properties.ISO_A2, going[f.properties.ISO_A2]||0)]);
+  PLACES_GLOBE.polygonCapColor(f => PLACES_STATUS_COLOR[placesGlobeStatus(f, going)]);
 }
 
 /* ================= airports ================= */
