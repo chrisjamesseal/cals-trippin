@@ -188,13 +188,16 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .chip button:hover{color:var(--accent-dark);}
 .chip.pick{cursor:pointer; color:var(--muted); user-select:none;}
 .chip.pick.on{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint); font-weight:700;}
+.mode-picker{display:flex; flex-wrap:wrap; gap:8px;}
+.mode-pick{padding:8px 10px; font-size:1rem; line-height:1;}
 .chip.country{padding:5px 12px;}
 .chip.country .flag{font-size:1.05rem; line-height:1;}
 .trip-flags{font-size:1.05rem; letter-spacing:.08em;}
 .places-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-bottom:22px;}
 .place-card{border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; background:var(--paper);}
 .place-card .flag{font-size:1.1rem; margin-right:6px;}
-.place-name{font-weight:700; font-size:.85rem;}
+.place-name{font-weight:700; font-size:.85rem; position:relative; padding-right:18px;}
+.place-continent-icon{position:absolute; top:1px; right:0; font-size:.72rem; color:var(--muted); opacity:.6;}
 .places-continent-heading{margin:0 0 10px; font-size:.95rem;}
 
 /* ---------- full-screen form views (no popups) ---------- */
@@ -440,8 +443,9 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.26.0';
+const APP_VERSION = '1.26.1';
 const CHANGELOG = [
+  {version:'1.26.1', notes:['Places I\'ve Been: the search box now matches the rest of the app\'s field styling, and every country card shows a small continent icon alongside its flag.', 'Travel mode (Add/Edit Travel, and the "Travel to Airport" reminder) is now a row of icon buttons instead of a dropdown, "Not Decided" is still the default until you pick one.']},
   {version:'1.26.0', notes:['Added a "Places I\'ve Been" page (the globe icon next to the logo): tick off every country as Been or Want to Go. Any country on an upcoming trip shows as Going automatically, and once that trip is over its countries are marked Been for you. Countries are grouped by continent with a search box and a running total at the top.']},
   {version:'1.25.0', notes:['Renamed the app from "Cal\'s Trippin\'" to "My Trips".']},
   {version:'1.24.0', notes:['Accommodation: added an arrival time, separate from the check-in time, for when you\'re getting there later (or earlier) than the property\'s standard check-in. Once set, it\'s what the itinerary uses to work out where that day\'s check-in falls relative to flights and everything else, instead of always assuming it comes after them.']},
@@ -865,6 +869,15 @@ const COUNTRY_CONTINENT = {
 };
 const CONTINENT_ORDER = ['Europe','Asia','Africa','North America','South America','Oceania'];
 const continentOf = c => Object.keys(COUNTRY_CONTINENT).find(k => COUNTRY_CONTINENT[k].split(' ').includes(String(c||'').toUpperCase())) || 'Other';
+/* Font Awesome has no distinct South America glyph, it shares earth-americas with North America */
+const CONTINENT_ICON = {
+  Europe: 'earth-europe',
+  Asia: 'earth-asia',
+  Africa: 'earth-africa',
+  'North America': 'earth-americas',
+  'South America': 'earth-americas',
+  Oceania: 'earth-oceania'
+};
 function loadPlacesCloud(cb){
   if(!fbRoot){ cb(DB.places||{}); return; }
   fbRoot.ref('places').once('value')
@@ -1152,7 +1165,7 @@ function renderPlaces(){
     </div>
     <p class="muted small" id="places-summary" style="margin:-8px 0 16px">${placesSummaryLine()}</p>
     <div class="field" style="margin-bottom:16px">
-      <input type="search" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
+      <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
     </div>
     <div id="places-grid"></div>`;
   drawPlacesGrid();
@@ -1170,9 +1183,14 @@ function placesSummaryLine(){
 }
 function placeCardHTML(co, goingCount){
   const status = (DB.places||{})[co.code];
+  const continent = continentOf(co.code);
+  const continentIcon = CONTINENT_ICON[continent] ? fa(CONTINENT_ICON[continent]) : '';
   return `
     <div class="place-card">
-      <div class="place-name"><span class="flag">${co.flag}</span>${esc(co.name)}</div>
+      <div class="place-name">
+        <span class="flag">${co.flag}</span>${esc(co.name)}
+        ${continentIcon ? `<span class="place-continent-icon" title="${esc(continent)}" aria-hidden="true">${continentIcon}</span>` : ''}
+      </div>
       ${goingCount ? `<span class="status-pill soon">Going${goingCount>1?' · '+goingCount+' trips':''}</span>` :
         `<div class="chips" style="margin-top:6px">
           <span class="chip pick ${status==='been'?'on':''}" role="button" tabindex="0" onclick="App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})}">Been</span>
@@ -2184,6 +2202,14 @@ App.travelWhenChange = () => {
    point it becomes a normal travel leg like any other (tagged so the auto-suggestion isn't
    generated again alongside it) */
 let TRAVEL_AUTO_LINK = null;
+App.setTravelMode = k => {
+  $('#tv-mode').value = k;
+  document.querySelectorAll('.mode-picker .mode-pick').forEach(el => {
+    const on = el.dataset.mode === k;
+    el.classList.toggle('on', on);
+    el.setAttribute('aria-checked', String(on));
+  });
+};
 App.travelLegForm = (i, prefill) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const s = i>=0 ? (t.itinerary||[])[i] || {} : (prefill || {});
@@ -2194,15 +2220,21 @@ App.travelLegForm = (i, prefill) => {
     .map(h=>`<option value="${String(h).padStart(2,'0')}" ${h===initHour?'selected':''}>${String(h).padStart(2,'0')}</option>`).join('');
   const minOpts = [0,15,30,45]
     .map(m=>`<option value="${String(m).padStart(2,'0')}" ${m===initMin?'selected':''}>${String(m).padStart(2,'0')}</option>`).join('');
-  const modeOpts = Object.keys(TRAVEL_MODES).map(k=>`<option value="${k}" ${((s.mode||'undecided')===k)?'selected':''}>${TRAVEL_MODES[k].label}</option>`).join('');
+  const modePicks = Object.keys(TRAVEL_MODES).map(k=>`
+    <span class="chip pick mode-pick ${((s.mode||'undecided')===k)?'on':''}"
+          data-mode="${k}" role="radio" tabindex="0" aria-checked="${((s.mode||'undecided')===k)}"
+          aria-label="${esc(TRAVEL_MODES[k].label)}" title="${esc(TRAVEL_MODES[k].label)}"
+          onclick="App.setTravelMode('${k}')"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setTravelMode('${k}')}">${TRAVEL_MODES[k].icon}</span>`).join('');
   const durHourOpts = Array.from({length:24}, (_,h)=>h)
     .map(h=>`<option value="${h}" ${h===(s.durationH||0)?'selected':''}>${h} h</option>`).join('');
   const durMinOpts = [0,15,30,45]
     .map(m=>`<option value="${m}" ${m===(s.durationM||0)?'selected':''}>${m} m</option>`).join('');
   openModal(`
     <h2>${i>=0?'Edit Travel':'Add Travel'}</h2>
-    <div class="field"><label class="label" for="tv-mode">Mode</label>
-      <select id="tv-mode">${modeOpts}</select></div>
+    <div class="field"><label class="label" id="tv-mode-label">Mode</label>
+      <input type="hidden" id="tv-mode" value="${s.mode||'undecided'}">
+      <div class="mode-picker" role="radiogroup" aria-labelledby="tv-mode-label">${modePicks}</div></div>
     <div class="grid2">
       <div class="field"><label class="label" for="tv-from">From</label>
         <input id="tv-from" type="text" list="loc-list" value="${esc(s.from||'')}" placeholder="e.g. Corfu Town"></div>
