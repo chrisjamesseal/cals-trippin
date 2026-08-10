@@ -126,6 +126,7 @@ a{color:var(--brand-dark);}
 }
 .menu-btn:hover{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-ghost);}
 .menu-btn .icon{font-size:.95rem;}
+#header-actions .btn-row .btn.sm,#header-actions .btn-row .menu-btn{height:34px; padding-top:0; padding-bottom:0; box-sizing:border-box;}
 .menu-bg{position:fixed; inset:0; background:rgba(20,40,47,.45); z-index:120; animation:fadeIn .15s ease-out;}
 .menu{
   position:fixed; top:0; right:0; bottom:0; width:min(320px,86vw); background:var(--paper);
@@ -199,6 +200,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .place-name{font-weight:700; font-size:.85rem; position:relative; padding-right:18px;}
 .place-continent-icon{position:absolute; top:1px; right:0; font-size:.72rem; color:var(--muted); opacity:.6;}
 .places-continent-heading{margin:0 0 10px; font-size:.95rem;}
+.place-info{display:flex; flex-direction:column; gap:3px; margin:8px 0; font-size:.74rem; color:var(--muted);}
+.place-info span{display:flex; align-items:center; gap:6px;}
+.place-info .icon{width:13px; text-align:center; flex-shrink:0;}
 .places-globe-wrap{position:relative; width:100%; height:300px; border-radius:var(--radius); overflow:hidden; background:#0B1A1F; margin-bottom:14px;}
 .places-globe-wrap canvas{display:block;}
 .places-globe-fallback{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:8px; color:#9FB4B9; font-size:.82rem; text-align:center; padding:20px;}
@@ -449,8 +453,16 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.27.1';
+const APP_VERSION = '1.28.0';
 const CHANGELOG = [
+  {version:'1.28.0', notes:[
+    'Places I\'ve Been: each country now shows its capital city, language and currency symbol, with icons instead of text labels.',
+    'The globe\'s "not yet" colour is duller so ticked countries stand out more, and Going is now blue instead of near-black.',
+    'The globe stops auto-spinning as soon as you drag or zoom, instead of fighting your interaction.',
+    'Region cards now show a percentage alongside the count.',
+    'Selecting a Been/Want to Go/Going filter now also isolates that category on the globe, everything else fades to the default colour.',
+    'Share and Menu (or PIN/+ New Trip) now stay in the header while you\'re on the Places page, instead of disappearing, and the globe button is the same height as them.'
+  ]},
   {version:'1.27.1', notes:['Fixed the Places I\'ve Been globe not loading (the map data was pointed at the wrong address).', 'Added England, Scotland, Wales and Northern Ireland to Places I\'ve Been, in place of a single "United Kingdom" entry, since they\'re usually tracked separately. On the globe, the UK\'s single shape reflects all four together.']},
   {version:'1.26.2', notes:['The Places I\'ve Been globe icon is now a proper button, sitting next to the Share/Menu buttons inside a trip, and next to + New Trip on the Your Trips page.']},
   {version:'1.26.1', notes:['Places I\'ve Been: the search box now matches the rest of the app\'s field styling, and every country card shows a small continent icon alongside its flag.', 'Travel mode (Add/Edit Travel, and the "Travel to Airport" reminder) is now a row of icon buttons instead of a dropdown, "Not Decided" is still the default until you pick one.']},
@@ -893,6 +905,232 @@ const CONTINENT_ICON = {
   'South America': 'earth-americas',
   Oceania: 'earth-oceania'
 };
+/* capital, primary language(s), currency symbol — sourced from the world-countries dataset (mirrors restcountries.com), a few language orderings hand-corrected for accuracy where the source data listed a minority language first */
+const COUNTRY_INFO = {
+  AD:['Andorra la Vella','Catalan','€'],
+  AE:['Abu Dhabi','Arabic','د.إ'],
+  AF:['Kabul','Dari/Pashto','؋'],
+  AG:['Saint John\'s','English','$'],
+  AI:['The Valley','English','$'],
+  AL:['Tirana','Albanian','L'],
+  AM:['Yerevan','Armenian','֏'],
+  AO:['Luanda','Portuguese','Kz'],
+  AR:['Buenos Aires','Spanish','$'],
+  AT:['Vienna','German','€'],
+  AU:['Canberra','English','$'],
+  AW:['Oranjestad','Dutch/Papiamento','ƒ'],
+  AZ:['Baku','Azerbaijani','₼'],
+  BA:['Sarajevo','Bosnian/Croatian','KM'],
+  BB:['Bridgetown','English','$'],
+  BD:['Dhaka','Bengali','৳'],
+  BE:['Brussels','German/French','€'],
+  BF:['Ouagadougou','French','Fr'],
+  BG:['Sofia','Bulgarian','лв'],
+  BH:['Manama','Arabic','.د.ب'],
+  BI:['Gitega','French/Kirundi','Fr'],
+  BJ:['Porto-Novo','French','Fr'],
+  BM:['Hamilton','English','$'],
+  BN:['Bandar Seri Begawan','Malay','$'],
+  BO:['Sucre','Spanish/Quechua','Bs.'],
+  BR:['Brasília','Portuguese','R$'],
+  BS:['Nassau','English','$'],
+  BT:['Thimphu','Dzongkha','Nu.'],
+  BW:['Gaborone','English/Tswana','P'],
+  BY:['Minsk','Belarusian/Russian','Br'],
+  BZ:['Belmopan','Belizean Creole/English','$'],
+  CA:['Ottawa','English/French','$'],
+  CD:['Kinshasa','French/Kikongo','FC'],
+  CF:['Bangui','French/Sango','Fr'],
+  CG:['Brazzaville','French/Kikongo','Fr'],
+  CH:['Bern','French/Swiss German','Fr.'],
+  CI:['Yamoussoukro','French','Fr'],
+  CK:['Avarua','English/Cook Islands Māori','$'],
+  CL:['Santiago','Spanish','$'],
+  CM:['Yaoundé','English/French','Fr'],
+  CN:['Beijing','Chinese','¥'],
+  CO:['Bogotá','Spanish','$'],
+  CR:['San José','Spanish','₡'],
+  CU:['Havana','Spanish','$'],
+  CV:['Praia','Portuguese','Esc'],
+  CW:['Willemstad','English/Dutch','ƒ'],
+  CY:['Nicosia','Greek/Turkish','€'],
+  CZ:['Prague','Czech/Slovak','Kč'],
+  DE:['Berlin','German','€'],
+  DJ:['Djibouti','Arabic/French','Fr'],
+  DK:['Copenhagen','Danish','kr'],
+  DM:['Roseau','English','$'],
+  DO:['Santo Domingo','Spanish','$'],
+  DZ:['Algiers','Arabic','د.ج'],
+  EC:['Quito','Spanish','$'],
+  EE:['Tallinn','Estonian','€'],
+  EG:['Cairo','Arabic','£'],
+  ER:['Asmara','Arabic/English','Nfk'],
+  ES:['Madrid','Spanish','€'],
+  ET:['Addis Ababa','Amharic','Br'],
+  FI:['Helsinki','Finnish/Swedish','€'],
+  FJ:['Suva','English/Fijian','$'],
+  FK:['Stanley','English','£'],
+  FM:['Palikir','English','$'],
+  FO:['Tórshavn','Danish/Faroese','kr'],
+  FR:['Paris','French','€'],
+  GA:['Libreville','French','Fr'],
+  GD:['St. George\'s','English','$'],
+  GE:['Tbilisi','Georgian','₾'],
+  GG:['St. Peter Port','English/French','£'],
+  GH:['Accra','English','₵'],
+  GI:['Gibraltar','English','£'],
+  GL:['Nuuk','Greenlandic','kr.'],
+  GM:['Banjul','English','D'],
+  GN:['Conakry','French','Fr'],
+  GQ:['Malabo','French/Portuguese','Fr'],
+  GR:['Athens','Greek','€'],
+  GT:['Guatemala City','Spanish','Q'],
+  GW:['Bissau','Portuguese/Upper Guinea Creole','Fr'],
+  GY:['Georgetown','English','$'],
+  HK:['City of Victoria','English/Chinese','$'],
+  HN:['Tegucigalpa','Spanish','L'],
+  HR:['Zagreb','Croatian','€'],
+  HT:['Port-au-Prince','French/Haitian Creole','G'],
+  HU:['Budapest','Hungarian','Ft'],
+  ID:['Jakarta','Indonesian','Rp'],
+  IE:['Dublin','English/Irish','€'],
+  IL:['Jerusalem','Hebrew/Arabic','₪'],
+  IM:['Douglas','English/Manx','£'],
+  IN:['New Delhi','English/Hindi','₹'],
+  IQ:['Baghdad','Arabic/Aramaic','ع.د'],
+  IR:['Tehran','Persian (Farsi)','﷼'],
+  IS:['Reykjavik','Icelandic','kr'],
+  IT:['Rome','Italian','€'],
+  JE:['Saint Helier','English/French','£'],
+  JM:['Kingston','English/Jamaican Patois','$'],
+  JO:['Amman','Arabic','د.ا'],
+  JP:['Tokyo','Japanese','¥'],
+  KE:['Nairobi','English/Swahili','Sh'],
+  KG:['Bishkek','Kyrgyz/Russian','с'],
+  KH:['Phnom Penh','Khmer','៛'],
+  KI:['South Tarawa','English/Gilbertese','$'],
+  KM:['Moroni','Arabic/French','Fr'],
+  KN:['Basseterre','English','$'],
+  KP:['Pyongyang','Korean','₩'],
+  KR:['Seoul','Korean','₩'],
+  KW:['Kuwait City','Arabic','د.ك'],
+  KY:['George Town','English','$'],
+  KZ:['Astana','Kazakh/Russian','₸'],
+  LA:['Vientiane','Lao','₭'],
+  LB:['Beirut','Arabic/French','ل.ل'],
+  LC:['Castries','English','$'],
+  LI:['Vaduz','German','Fr'],
+  LK:['Colombo','Sinhala/Tamil','Rs'],
+  LR:['Monrovia','English','$'],
+  LS:['Maseru','English/Sotho','L'],
+  LT:['Vilnius','Lithuanian','€'],
+  LU:['Luxembourg','German/French','€'],
+  LV:['Riga','Latvian','€'],
+  LY:['Tripoli','Arabic','ل.د'],
+  MA:['Rabat','Arabic/Berber','د.م.'],
+  MC:['Monaco','French','€'],
+  MD:['Chișinău','Romanian','L'],
+  ME:['Podgorica','Montenegrin','€'],
+  MG:['Antananarivo','French/Malagasy','Ar'],
+  MH:['Majuro','English/Marshallese','$'],
+  MK:['Skopje','Macedonian','den'],
+  ML:['Bamako','French','Fr'],
+  MM:['Naypyidaw','Burmese','Ks'],
+  MN:['Ulan Bator','Mongolian','₮'],
+  MO:['Macau','Portuguese/Chinese','P'],
+  MQ:['Fort-de-France','French','€'],
+  MR:['Nouakchott','Arabic','UM'],
+  MS:['Plymouth','English','$'],
+  MT:['Valletta','English/Maltese','€'],
+  MU:['Port Louis','English/French','₨'],
+  MV:['Malé','Maldivian','.ރ'],
+  MW:['Lilongwe','English/Chewa','MK'],
+  MX:['Mexico City','Spanish','$'],
+  MY:['Kuala Lumpur','English/Malay','RM'],
+  MZ:['Maputo','Portuguese','MT'],
+  NA:['Windhoek','Afrikaans/German','$'],
+  NC:['Nouméa','French','₣'],
+  NE:['Niamey','French','Fr'],
+  NG:['Abuja','English','₦'],
+  NI:['Managua','Spanish','C$'],
+  NL:['Amsterdam','Dutch','€'],
+  NO:['Oslo','Norwegian Nynorsk/Norwegian Bokmål','kr'],
+  NP:['Kathmandu','Nepali','₨'],
+  NR:['Yaren','English/Nauru','$'],
+  NU:['Alofi','English/Niuean','$'],
+  NZ:['Wellington','English/Māori','$'],
+  OM:['Muscat','Arabic','ر.ع.'],
+  PA:['Panama City','Spanish','B/.'],
+  PE:['Lima','Spanish/Quechua','S/.'],
+  PF:['Papeetē','French','₣'],
+  PG:['Port Moresby','English/Hiri Motu','K'],
+  PH:['Manila','English/Filipino','₱'],
+  PK:['Islamabad','English/Urdu','₨'],
+  PL:['Warsaw','Polish','zł'],
+  PR:['San Juan','English/Spanish','$'],
+  PT:['Lisbon','Portuguese','€'],
+  PW:['Ngerulmud','English/Palauan','$'],
+  PY:['Asunción','Guaraní/Spanish','₲'],
+  QA:['Doha','Arabic','ر.ق'],
+  RO:['Bucharest','Romanian','lei'],
+  RS:['Belgrade','Serbian','дин.'],
+  RU:['Moscow','Russian','₽'],
+  RW:['Kigali','English/French','Fr'],
+  SA:['Riyadh','Arabic','ر.س'],
+  SB:['Honiara','English','$'],
+  SC:['Victoria','Seychellois Creole/English','₨'],
+  SD:['Khartoum','Arabic/English','PT'],
+  SE:['Stockholm','Swedish','kr'],
+  SG:['Singapore','English/Malay','$'],
+  SI:['Ljubljana','Slovene','€'],
+  SK:['Bratislava','Slovak','€'],
+  SL:['Freetown','English','Le'],
+  SM:['City of San Marino','Italian','€'],
+  SN:['Dakar','French','Fr'],
+  SO:['Mogadishu','Arabic/Somali','Sh'],
+  SR:['Paramaribo','Dutch','$'],
+  SS:['Juba','English','£'],
+  ST:['São Tomé','Portuguese','Db'],
+  SV:['San Salvador','Spanish','$'],
+  SX:['Philipsburg','English/French','ƒ'],
+  SY:['Damascus','Arabic','£'],
+  SZ:['Lobamba','English/Swazi','L'],
+  TC:['Cockburn Town','English','$'],
+  TD:['N\'Djamena','Arabic/French','Fr'],
+  TG:['Lomé','French','Fr'],
+  TH:['Bangkok','Thai','฿'],
+  TJ:['Dushanbe','Tajik/Russian','ЅМ'],
+  TL:['Dili','Portuguese/Tetum','$'],
+  TM:['Ashgabat','Turkmen/Russian','m'],
+  TN:['Tunis','Arabic','د.ت'],
+  TO:['Nuku\'alofa','English/Tongan','T$'],
+  TR:['Ankara','Turkish','₺'],
+  TT:['Port of Spain','English','$'],
+  TV:['Funafuti','English/Tuvaluan','$'],
+  TW:['Taipei','Chinese','$'],
+  TZ:['Dodoma','English/Swahili','Sh'],
+  UA:['Kyiv','Ukrainian','₴'],
+  UG:['Kampala','English/Swahili','Sh'],
+  US:['Washington D.C.','English','$'],
+  UY:['Montevideo','Spanish','$'],
+  UZ:['Tashkent','Uzbek/Russian','so\'m'],
+  VA:['Vatican City','Italian/Latin','€'],
+  VC:['Kingstown','English','$'],
+  VE:['Caracas','Spanish','Bs.S.'],
+  VG:['Road Town','English','$'],
+  VI:['Charlotte Amalie','English','$'],
+  VN:['Hanoi','Vietnamese','₫'],
+  VU:['Port Vila','Bislama/English','Vt'],
+  WS:['Apia','English/Samoan','T'],
+  YE:['Sana\'a','Arabic','﷼'],
+  ZA:['Pretoria','Afrikaans/English','R'],
+  ZM:['Lusaka','English','ZK'],
+  ZW:['Harare','Shona/English','P'],
+  XE:['London','English','£'],
+  XS:['Edinburgh','English','£'],
+  XW:['Cardiff','English/Welsh','£'],
+  XI:['Belfast','English','£']
+};
 function loadPlacesCloud(cb){
   if(!fbRoot){ cb(DB.places||{}); return; }
   fbRoot.ref('places').once('value')
@@ -942,14 +1180,15 @@ function placesStatusOf(code, goingCount){
   return (DB.places||{})[code] || 'none';
 }
 const PLACES_FILTERS = [['all','All'],['been','Been'],['want','Want to Go'],['going','Going']];
-const PLACES_STATUS_COLOR = {none:'#E3E9E9', want:'#FF7052', been:'#0E8577', going:'#14282F'};
+const PLACES_STATUS_COLOR = {none:'#3E4C51', want:'#FF7052', been:'#0E8577', going:'#3B82F6'};
 let CUR_PLACES_REGION = null;   // continent name, or null to show the region picker
 let CUR_PLACES_FILTER = 'all';  // one of PLACES_FILTERS' keys
 function placesRegionGridHTML(going){
   const tiles = CONTINENT_ORDER.map(k=>{
     const codes = COUNTRY_CONTINENT[k].split(' ');
     const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, going[c]||0)!=='none' : placesStatusOf(c, going[c]||0)===CUR_PLACES_FILTER);
-    const label = `${shown.length} of ${codes.length}`;
+    const pct = codes.length ? Math.round(shown.length/codes.length*100) : 0;
+    const label = `${shown.length} of ${codes.length} (${pct}%)`;
     return `<div class="dash-tile" role="button" tabindex="0" aria-label="${esc(k)}"
         onclick="App.selectPlacesRegion('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.selectPlacesRegion('${k}')}">
       <span class="dash-icon">${fa(CONTINENT_ICON[k])}</span>
@@ -1003,9 +1242,12 @@ function placesUkStatus(going){
   return 'none';
 }
 function placesGlobeStatus(f, going){
-  if(placesGeoIso(f)==='GB') return placesUkStatus(going);
   const code = placesGeoIso(f);
-  return placesStatusOf(code, going[code]||0);
+  const actual = code==='GB' ? placesUkStatus(going) : placesStatusOf(code, going[code]||0);
+  /* the active Been/Want to Go/Going filter isolates just that category on the globe too,
+     everything else recedes to the dull "not yet" colour instead of showing its real status */
+  if(CUR_PLACES_FILTER!=='all' && actual!==CUR_PLACES_FILTER) return 'none';
+  return actual;
 }
 function initPlacesGlobe(){
   const el = $('#places-globe'); if(!el) return;
@@ -1035,6 +1277,9 @@ function initPlacesGlobe(){
         });
       PLACES_GLOBE.controls().autoRotate = true;
       PLACES_GLOBE.controls().autoRotateSpeed = 0.6;
+      /* stop the auto-spin the moment someone starts dragging or zooming, so it doesn't
+         fight with the interaction they're actually trying to do */
+      PLACES_GLOBE.controls().addEventListener('start', () => { PLACES_GLOBE.controls().autoRotate = false; });
       const resize = () => { if(PLACES_GLOBE) PLACES_GLOBE.width(el.clientWidth).height(el.clientHeight); };
       resize();
       window.addEventListener('resize', resize);
@@ -1287,10 +1532,27 @@ function renderChangelog(){
 function placesBtnHTML(){
   return `<button id="places-btn" class="btn sm" onclick="App.goPlaces()" aria-label="Places I've Been" title="Places I've Been">${fa('earth-europe')}</button>`;
 }
+/* the Share/Menu row (inside a trip) or PIN/+New Trip row (on Home) — shared so it can
+   stay put on the Places page too instead of vanishing while you're still in that context */
+function headerActionsHTML(){
+  const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID);
+  if(t){
+    return `<div class="btn-row" style="gap:8px">
+       <button class="btn sm primary" onclick="App.share('${t.id}')">Share</button>
+       ${placesBtnHTML()}
+       <button class="menu-btn" onclick="App.openMenu()" aria-label="Trip menu" aria-haspopup="true">${ICONS.menu}<span>Menu</span></button>
+     </div>`;
+  }
+  return `<div class="btn-row" style="gap:8px">
+      ${cloudEnabled()?`<button class="btn sm" onclick="App.pinSettingsForm()">${fa('key')} PIN</button>`:''}
+      <button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>
+      ${placesBtnHTML()}
+    </div>`;
+}
 /* opening Places leaves whatever trip/home page was showing untouched underneath,
    same pattern as renderChangelog above */
 function renderPlaces(){
-  $('#header-actions').innerHTML = '';
+  $('#header-actions').innerHTML = headerActionsHTML();
   applyArchiveTransitions();
   CUR_PLACES_REGION = null;
   CUR_PLACES_FILTER = 'all';
@@ -1333,12 +1595,18 @@ function placeCardHTML(co, goingCount){
   const status = (DB.places||{})[co.code];
   const continent = continentOf(co.code);
   const continentIcon = CONTINENT_ICON[continent] ? fa(CONTINENT_ICON[continent]) : '';
+  const info = COUNTRY_INFO[co.code];
   return `
     <div class="place-card" data-code="${co.code}">
       <div class="place-name">
         <span class="flag">${co.flag}</span>${esc(co.name)}
         ${continentIcon ? `<span class="place-continent-icon" title="${esc(continent)}" aria-hidden="true">${continentIcon}</span>` : ''}
       </div>
+      ${info ? `<div class="place-info">
+        <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
+        <span title="Language">${fa('language')}${esc(info[1])}</span>
+        <span title="Currency">${fa('coins')}${esc(info[2])}</span>
+      </div>` : ''}
       ${goingCount ? `<span class="status-pill soon">Going${goingCount>1?' · '+goingCount+' trips':''}</span>` :
         `<div class="chips" style="margin-top:6px">
           <span class="chip pick ${status==='been'?'on':''}" role="button" tabindex="0" onclick="App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})}">Been</span>
@@ -1504,6 +1772,7 @@ App.setPlacesFilter = k => {
   CUR_PLACES_FILTER = k;
   document.querySelectorAll('#places-filters .chip').forEach(el => el.classList.toggle('on', el.dataset.filter===k));
   drawPlacesGrid();
+  refreshPlacesGlobeColors();
 };
 
 App.confirmIdentity = id => {
@@ -1576,11 +1845,7 @@ function fetchAllTrips(cb){
     });
 }
 function renderHome(){
-  $('#header-actions').innerHTML = `<div class="btn-row" style="gap:8px">
-      ${cloudEnabled()?`<button class="btn sm" onclick="App.pinSettingsForm()">${fa('key')} PIN</button>`:''}
-      <button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>
-      ${placesBtnHTML()}
-    </div>`;
+  $('#header-actions').innerHTML = headerActionsHTML();
   renderSidebar(null);
   $('#app').innerHTML = `
     <div style="padding-top:28px">
@@ -1817,12 +2082,7 @@ const TABS = [
 function renderTrip(t){
   const ro = readOnly(t);
   const arch = isArchived(t);
-  $('#header-actions').innerHTML =
-    `<div class="btn-row" style="gap:8px">
-       <button class="btn sm primary" onclick="App.share('${t.id}')">Share</button>
-       ${placesBtnHTML()}
-       <button class="menu-btn" onclick="App.openMenu()" aria-label="Trip menu" aria-haspopup="true">${ICONS.menu}<span>Menu</span></button>
-     </div>`;
+  $('#header-actions').innerHTML = headerActionsHTML();
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
   renderSidebar(t);
   const phrase = statusPhrase(t);
@@ -1980,7 +2240,12 @@ App.menuGo = k => { closeMenu(); App.tab(k); };
 App.tab = k => {
   CUR_TAB = k;
   const t = getTrip(CUR_TRIP_ID);
-  if(t) renderTrip(t);
+  if(t){
+    // e.g. jumping to a tab from the Places page: fix the address bar without a real
+    // 'hashchange' (that would re-run route()/openTrip(), which resets CUR_TAB to 'home')
+    if(location.hash !== '#/trip/'+CUR_TRIP_ID) history.replaceState(null, '', location.pathname + '#/trip/' + CUR_TRIP_ID);
+    renderTrip(t);
+  }
   window.scrollTo(0,0);
 };
 function renderTab(t){
