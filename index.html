@@ -115,6 +115,8 @@ a{color:var(--brand-dark);}
 .trip-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 .trip-card.archived{opacity:.55; filter:grayscale(1);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
+.places-home-card{background:var(--brand-tint); border-color:var(--brand);}
+.places-home-card h3{display:flex; align-items:center; gap:8px; font-size:1.05rem;}
 .trip-card .trip-flags{margin-bottom:4px;}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 
@@ -197,19 +199,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .places-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-bottom:22px;}
 .place-card{border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; background:var(--paper);}
 .place-card .flag{font-size:1.7rem; line-height:1; display:block; margin-bottom:4px;}
-.place-name{font-weight:700; font-size:.85rem; position:relative; padding-right:18px; display:flex; flex-direction:column; align-items:flex-start;}
-.place-continent-icon{position:absolute; top:1px; right:0; font-size:.72rem; color:var(--muted); opacity:.6;}
+.place-name{font-weight:700; font-size:.85rem; display:flex; flex-direction:column; align-items:flex-start;}
 .places-continent-heading{margin:0 0 10px; font-size:.95rem;}
 .place-info{display:flex; flex-direction:column; gap:3px; margin:8px 0; font-size:.74rem; color:var(--muted);}
 .place-info span{display:flex; align-items:center; gap:6px;}
 .place-info .icon{width:13px; text-align:center; flex-shrink:0;}
-.places-globe-wrap{position:relative; width:100%; height:300px; border-radius:var(--radius); overflow:hidden; background:#0B1A1F; margin-bottom:14px;}
-.places-globe-wrap canvas{display:block;}
-.places-globe-fallback{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:8px; color:#9FB4B9; font-size:.82rem; text-align:center; padding:20px;}
-.places-legend{display:flex; flex-wrap:wrap; gap:14px; margin:0 0 18px; font-size:.78rem; color:var(--muted);}
-.places-legend span{display:inline-flex; align-items:center; gap:6px;}
-.places-legend i{width:11px; height:11px; border-radius:3px; display:inline-block;}
-@media(min-width:768px){ .places-globe-wrap{height:420px;} }
 
 /* ---------- full-screen form views (no popups) ---------- */
 .modal-bg{position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; overscroll-behavior:contain;}
@@ -353,7 +347,6 @@ details .d-body{padding:14px 16px;}
 .dash-tile .dash-sum{color:var(--muted); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .dash-tile .dash-sum.unfilled{color:#C0392B; font-weight:600;}
 .dash-tile.wide{grid-column:span 2;}
-.places-pie{position:absolute; top:12px; right:12px; width:26px; height:26px; border-radius:50%;}
 a.dash-tile{text-decoration:none;}
 
 /* ---------- backup / restore bar ---------- */
@@ -455,8 +448,16 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.28.1';
+const APP_VERSION = '1.29.0';
 const CHANGELOG = [
+  {version:'1.29.0', notes:[
+    'Places I\'ve Been: removed the 3D globe, the pie charts and the colour-key legend, simplifying the page down to region cards, a search box and country cards.',
+    'Removed the separate "Going" status. A country on any active trip\'s itinerary now just shows Been ticked automatically, same as ticking it yourself.',
+    'Each filter button (All, Been, Want to Go) now shows a live count in brackets.',
+    'Added a "Places I\'ve Been" card to the home page with a running total, tap it to jump straight to the page.',
+    'Added a "Search Flights" button (with a plane icon) to every country card, linking out to Google Flights (no live prices, just a pre-filled search, there\'s no free flight-price API to pull real numbers from).',
+    'Removed the small continent icon badge from each country card (the continent heading above each group already shows this).'
+  ]},
   {version:'1.28.1', notes:[
     'Places I\'ve Been: added an "All" region card (spanning the full width) that shows every country at once, and every region card now has a small pie chart showing its percentage complete.',
     'Opening a single region now shows its name as a heading again.',
@@ -1164,7 +1165,8 @@ function pushPlaces(){
     });
 }
 function savePlaces(){ saveLocal(); pushPlaces(); }
-/* countries on any non-archived trip count as "Going"; archived trips don't */
+/* countries on any non-archived trip's itinerary auto-count as Been; archived trips don't
+   (those get folded into DB.places directly, see applyArchiveTransitions below) */
 function placesGoingMap(){
   const map = {};
   DB.trips.forEach(t=>{
@@ -1174,7 +1176,7 @@ function placesGoingMap(){
   return map;
 }
 /* one-time transition: once a trip crosses the archive boundary, mark its countries
-   Been so a country doesn't just quietly stop being Going with nothing to show for it */
+   Been for good, otherwise they'd quietly drop out of the auto-Been count with nothing to show for it */
 function applyArchiveTransitions(){
   if(!DB.places) DB.places = {};
   if(!Array.isArray(DB.placesArchived)) DB.placesArchived = [];
@@ -1187,19 +1189,28 @@ function applyArchiveTransitions(){
   });
   if(changed) savePlaces();
 }
-/* single source of truth for a country's overall status, Going always wins over a
-   manually-set status while the trip that put it there is still active */
+/* a country counts as Been once you tick it yourself, or automatically the moment it's on
+   any active (non-archived) trip's itinerary, same as ticking the box for it */
 function placesStatusOf(code, goingCount){
-  if(goingCount) return 'going';
+  if(goingCount) return 'been';
   return (DB.places||{})[code] || 'none';
 }
-const PLACES_FILTERS = [['all','All'],['been','Been'],['want','Want to Go'],['going','Going']];
-const PLACES_STATUS_COLOR = {none:'#3E4C51', want:'#FF7052', been:'#0E8577', going:'#3B82F6'};
+function placesCounts(){
+  const going = placesGoingMap();
+  const counts = {all: COUNTRY_CODES.length, been:0, want:0};
+  COUNTRY_CODES.forEach(c=>{
+    const s = placesStatusOf(c, going[c]||0);
+    if(s==='been') counts.been++;
+    else if(s==='want') counts.want++;
+  });
+  return counts;
+}
+const PLACES_FILTERS = [['all','All'],['been','Been'],['want','Want to Go']];
 let CUR_PLACES_REGION = null;   // continent name, or null to show the region picker
 let CUR_PLACES_FILTER = 'all';  // one of PLACES_FILTERS' keys
-function placesPieHTML(pct){
-  const color = CUR_PLACES_FILTER==='all' ? 'var(--brand)' : PLACES_STATUS_COLOR[CUR_PLACES_FILTER];
-  return `<div class="places-pie" style="background:conic-gradient(${color} ${pct}%, var(--line) 0)" aria-hidden="true"></div>`;
+function placesFilterRowHTML(){
+  const counts = placesCounts();
+  return PLACES_FILTERS.map(([k,label])=>`<span class="chip pick ${CUR_PLACES_FILTER===k?'on':''}" role="button" tabindex="0" data-filter="${k}" onclick="App.setPlacesFilter('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlacesFilter('${k}')}">${esc(label)} (${counts[k]})</span>`).join('');
 }
 function placesRegionTileHTML(k, codes, icon, wide, going){
   const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, going[c]||0)!=='none' : placesStatusOf(c, going[c]||0)===CUR_PLACES_FILTER);
@@ -1207,113 +1218,14 @@ function placesRegionTileHTML(k, codes, icon, wide, going){
   const label = `${shown.length} of ${codes.length} (${pct}%)`;
   return `<div class="dash-tile${wide?' wide':''}" role="button" tabindex="0" aria-label="${esc(k)}"
       onclick="App.selectPlacesRegion('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.selectPlacesRegion('${k}')}">
-    ${placesPieHTML(pct)}
     <span class="dash-icon">${fa(icon)}</span>
     <span class="dash-text"><span class="dash-label">${esc(k)}</span><span class="dash-sum${shown.length===0?' unfilled':''}">${esc(label)}</span></span>
   </div>`;
 }
 function placesRegionGridHTML(going){
-  const allTile = placesRegionTileHTML('All', COUNTRY_CODES, 'globe', true, going);
+  const allTile = placesRegionTileHTML('All', COUNTRY_CODES, 'list', true, going);
   const tiles = CONTINENT_ORDER.map(k => placesRegionTileHTML(k, COUNTRY_CONTINENT[k].split(' '), CONTINENT_ICON[k], false, going)).join('');
   return `<div class="dash-grid">${allTile}${tiles}</div>`;
-}
-
-/* ================= places globe (3D, rotating, colour-coded by status) =================
-   Uses globe.gl (self-contained: bundles three.js + three-globe + orbit controls in one
-   UMD file) plus the small Natural Earth country-boundary GeoJSON that ships alongside it,
-   both loaded from a free CDN, no API key. Loaded lazily, only while the Places page is
-   open, and fails soft: if the CDN or WebGL isn't available the list below still works. */
-const PLACES_GLOBE_SRC = 'https://cdn.jsdelivr.net/npm/globe.gl';
-const PLACES_GEO_SRC = 'https://cdn.jsdelivr.net/npm/three-globe/example/country-polygons/ne_110m_admin_0_countries.geojson';
-const PLACES_GLOBE_IMG = 'https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg';
-let PLACES_GLOBE = null;
-let PLACES_GEO_PROMISE = null;
-function loadScriptOnce(src){
-  return new Promise((resolve, reject) => {
-    if(document.querySelector(`script[src="${src}"]`)){ resolve(); return; }
-    const s = document.createElement('script');
-    s.src = src; s.onload = () => resolve(); s.onerror = () => reject(new Error('script failed to load: '+src));
-    document.head.appendChild(s);
-  });
-}
-function getPlacesGeo(){
-  if(!PLACES_GEO_PROMISE){
-    PLACES_GEO_PROMISE = fetch(PLACES_GEO_SRC).then(r => { if(!r.ok) throw new Error('geojson '+r.status); return r.json(); });
-  }
-  return PLACES_GEO_PROMISE;
-}
-/* Natural Earth flags a handful of real countries' ISO_A2 as "-99" (France, Norway) because
-   of their overseas territories, alongside genuinely code-less disputed regions (Northern
-   Cyprus, Somaliland); patch the former back in by name so they still colour and click */
-const PLACES_GEO_ISO_FIX = {France:'FR', Norway:'NO'};
-function placesGeoIso(f){
-  const raw = f.properties && f.properties.ISO_A2;
-  if(raw && raw!=='-99') return raw;
-  return (f.properties && PLACES_GEO_ISO_FIX[f.properties.ADMIN]) || null;
-}
-/* the boundary data has one shape for the whole UK (England/Scotland/Wales/Northern Ireland
-   aren't separately drawn at this map's resolution), so its colour/click reflects all four */
-const PLACES_UK_CODES = ['XE','XS','XW','XI'];
-function placesUkStatus(going){
-  const statuses = PLACES_UK_CODES.map(c => placesStatusOf(c, going[c]||0));
-  if(statuses.includes('going')) return 'going';
-  if(statuses.every(s => s==='been')) return 'been';
-  if(statuses.some(s => s==='been' || s==='want')) return 'want';
-  return 'none';
-}
-function placesGlobeStatus(f, going){
-  const code = placesGeoIso(f);
-  const actual = code==='GB' ? placesUkStatus(going) : placesStatusOf(code, going[code]||0);
-  /* the active Been/Want to Go/Going filter isolates just that category on the globe too,
-     everything else recedes to the dull "not yet" colour instead of showing its real status */
-  if(CUR_PLACES_FILTER!=='all' && actual!==CUR_PLACES_FILTER) return 'none';
-  return actual;
-}
-function initPlacesGlobe(){
-  const el = $('#places-globe'); if(!el) return;
-  Promise.all([loadScriptOnce(PLACES_GLOBE_SRC), getPlacesGeo()])
-    .then(([_, geo]) => {
-      if(!$('#places-globe') || location.hash!=='#/places') return; // navigated away while loading
-      if(typeof Globe !== 'function') throw new Error('Globe() unavailable after script load');
-      PLACES_GLOBE = Globe()(el)
-        .globeImageUrl(PLACES_GLOBE_IMG)
-        .backgroundColor('rgba(0,0,0,0)')
-        .polygonsData((geo.features||[]).filter(f => placesGeoIso(f)))
-        .polygonCapColor(f => PLACES_STATUS_COLOR[placesGlobeStatus(f, placesGoingMap())])
-        .polygonSideColor(() => 'rgba(20,40,47,.15)')
-        .polygonStrokeColor(() => 'rgba(255,255,255,.35)')
-        .polygonAltitude(0.006)
-        .polygonLabel(f => `<div style="background:#14282F;color:#fff;padding:4px 8px;border-radius:6px;font:600 12px Figtree,sans-serif">${esc(f.properties.ADMIN||f.properties.NAME||'')}</div>`)
-        .onPolygonClick(f => {
-          const code = placesGeoIso(f); if(!code) return;
-          const inp = $('#places-filter'); if(inp) inp.value = '';
-          CUR_PLACES_FILTER = 'all';
-          if(code==='GB'){ CUR_PLACES_REGION = 'Europe'; drawPlacesGrid(); return; }
-          if(!countryByCode(code)) return;
-          CUR_PLACES_REGION = null;
-          drawPlacesGrid();
-          const card = document.querySelector(`.place-card[data-code="${code}"]`);
-          if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
-        });
-      PLACES_GLOBE.controls().autoRotate = true;
-      PLACES_GLOBE.controls().autoRotateSpeed = 0.6;
-      /* stop the auto-spin the moment someone starts dragging or zooming, so it doesn't
-         fight with the interaction they're actually trying to do */
-      PLACES_GLOBE.controls().addEventListener('start', () => { PLACES_GLOBE.controls().autoRotate = false; });
-      const resize = () => { if(PLACES_GLOBE) PLACES_GLOBE.width(el.clientWidth).height(el.clientHeight); };
-      resize();
-      window.addEventListener('resize', resize);
-    })
-    .catch(err => {
-      console.error("My Trips, Places globe didn't load:", err);
-      const stillThere = $('#places-globe');
-      if(stillThere) stillThere.innerHTML = `<div class="places-globe-fallback">${fa('globe')} Map couldn't load right now, the list below still works.</div>`;
-    });
-}
-function refreshPlacesGlobeColors(){
-  if(!PLACES_GLOBE) return;
-  const going = placesGoingMap();
-  PLACES_GLOBE.polygonCapColor(f => PLACES_STATUS_COLOR[placesGlobeStatus(f, going)]);
 }
 
 /* ================= airports ================= */
@@ -1583,55 +1495,43 @@ function renderPlaces(){
       </div>
     </div>
     <p class="muted small" id="places-summary" style="margin:-8px 0 16px">${placesSummaryLine()}</p>
-    <div class="places-globe-wrap" id="places-globe"></div>
-    <div class="places-legend">
-      <span><i style="background:${PLACES_STATUS_COLOR.been}"></i>Been</span>
-      <span><i style="background:${PLACES_STATUS_COLOR.want}"></i>Want to Go</span>
-      <span><i style="background:${PLACES_STATUS_COLOR.going}"></i>Going</span>
-      <span><i style="background:${PLACES_STATUS_COLOR.none};border:1px solid var(--line-strong)"></i>Not Interested</span>
-    </div>
     <div class="chips" id="places-filters" style="margin-bottom:16px">
-      ${PLACES_FILTERS.map(([k,label])=>`<span class="chip pick ${CUR_PLACES_FILTER===k?'on':''}" role="button" tabindex="0" data-filter="${k}" onclick="App.setPlacesFilter('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlacesFilter('${k}')}">${esc(label)}</span>`).join('')}
+      ${placesFilterRowHTML()}
     </div>
     <div class="field" style="margin-bottom:16px">
       <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
     </div>
     <div id="places-grid"></div>`;
   drawPlacesGrid();
-  initPlacesGlobe();
   loadPlacesCloud(cloud => {
     DB.places = cloud||{};
     saveLocal();
-    if(location.hash==='#/places'){ drawPlacesGrid(); refreshPlacesGlobeColors(); }
+    if(location.hash==='#/places'){ drawPlacesGrid(); }
   });
 }
 function placesSummaryLine(){
-  const vals = Object.values(DB.places||{});
-  const been = vals.filter(v=>v==='been').length;
-  const want = vals.filter(v=>v==='want').length;
-  return `${been} been · ${want} want to go · ${COUNTRIES.length} countries`;
+  const counts = placesCounts();
+  return `${counts.been} been · ${counts.want} want to go · ${counts.all} countries`;
 }
 function placeCardHTML(co, goingCount){
-  const status = (DB.places||{})[co.code];
-  const continent = continentOf(co.code);
-  const continentIcon = CONTINENT_ICON[continent] ? fa(CONTINENT_ICON[continent]) : '';
+  const status = placesStatusOf(co.code, goingCount);
   const info = COUNTRY_INFO[co.code];
+  const flightUrl = 'https://www.google.com/travel/flights?q=' + encodeURIComponent('Flights to '+co.name);
   return `
     <div class="place-card" data-code="${co.code}">
       <div class="place-name">
         <span class="flag">${co.flag}</span>
         <span class="place-name-text">${esc(co.name)}</span>
-        ${continentIcon ? `<span class="place-continent-icon" title="${esc(continent)}" aria-hidden="true">${continentIcon}</span>` : ''}
       </div>
       ${info ? `<div class="place-info">
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
         <span title="Language">${fa('language')}${esc(info[1])}</span>
       </div>` : ''}
-      ${goingCount ? `<span class="status-pill soon">Going${goingCount>1?' · '+goingCount+' trips':''}</span>` :
-        `<div class="chips" style="margin-top:6px">
-          <span class="chip pick mode-pick ${status==='been'?'on':''}" role="button" tabindex="0" aria-label="Been" title="Been" onclick="App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})}">${fa('check')}</span>
-          <span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0" aria-label="Want to Go" title="Want to Go" onclick="App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})}">${fa('star')}</span>
-        </div>`}
+      <a class="btn sm" style="margin-top:6px" href="${esc(flightUrl)}" target="_blank" rel="noopener">${fa('plane')} Search Flights</a>
+      <div class="chips" style="margin-top:6px">
+        <span class="chip pick mode-pick ${status==='been'?'on':''}" role="button" tabindex="0" aria-label="Been" title="Been" onclick="App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})}">${fa('check')}</span>
+        <span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0" aria-label="Want to Go" title="Want to Go" onclick="App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})}">${fa('star')}</span>
+      </div>
     </div>`;
 }
 function drawPlacesGrid(){
@@ -1782,8 +1682,8 @@ App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
   if(status) DB.places[code] = status; else delete DB.places[code];
   savePlaces();
+  const fr = $('#places-filters'); if(fr) fr.innerHTML = placesFilterRowHTML();
   drawPlacesGrid();
-  refreshPlacesGlobeColors();
 };
 App.selectPlacesRegion = k => {
   CUR_PLACES_REGION = k;
@@ -1793,9 +1693,8 @@ App.selectPlacesRegion = k => {
 App.clearPlacesRegion = () => { CUR_PLACES_REGION = null; drawPlacesGrid(); };
 App.setPlacesFilter = k => {
   CUR_PLACES_FILTER = k;
-  document.querySelectorAll('#places-filters .chip').forEach(el => el.classList.toggle('on', el.dataset.filter===k));
+  const fr = $('#places-filters'); if(fr) fr.innerHTML = placesFilterRowHTML();
   drawPlacesGrid();
-  refreshPlacesGlobeColors();
 };
 
 App.confirmIdentity = id => {
@@ -1828,18 +1727,29 @@ function tripCardHTML(t){
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
 }
+function placesHomeCardHTML(){
+  const counts = placesCounts();
+  return `
+    <div class="trip-card places-home-card" role="button" tabindex="0"
+         onclick="App.goPlaces()"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
+      <h3>${fa('earth-europe')} Places I've Been</h3>
+      <div class="small" style="margin-top:8px">${counts.been} been · ${counts.want} want to go · ${counts.all} countries</div>
+    </div>`;
+}
 function homeGridHTML(trips, loading){
+  const placesCard = placesHomeCardHTML();
   if(!trips.length){
     // while trips are still being fetched from the cloud, "No trips yet" would be
     // misleading, it hasn't actually checked yet, so say so instead
-    return loading ? `<div class="empty" style="margin-top:24px">Loading trips…</div>` : `<div class="empty" style="margin-top:24px">
+    return loading ? `<div class="trip-grid">${placesCard}</div><div class="empty" style="margin-top:24px">Loading trips…</div>` : `<div class="trip-grid">${placesCard}</div><div class="empty" style="margin-top:24px">
       No trips yet.<br><br>
       <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
     </div>`;
   }
   const active = trips.filter(t=>!isArchived(t));
   const arch = trips.filter(t=>isArchived(t));
-  return `<div class="trip-grid">${active.map(tripCardHTML).join('')}${arch.map(tripCardHTML).join('')}</div>`;
+  return `<div class="trip-grid">${placesCard}${active.map(tripCardHTML).join('')}${arch.map(tripCardHTML).join('')}</div>`;
 }
 /* everyone who's entered the PIN can see every trip, not just the ones this particular
    browser happened to create or open before, so the full list comes from Firebase itself
