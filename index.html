@@ -200,6 +200,7 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .place-card{border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; background:var(--paper);}
 .place-card .flag{font-size:1.7rem; line-height:1; display:block; margin-bottom:4px;}
 .place-name{font-weight:700; font-size:.85rem; display:flex; flex-direction:column; align-items:flex-start;}
+.place-actions{display:flex; align-items:center; justify-content:space-between; gap:6px;}
 .places-continent-heading{margin:0 0 10px; font-size:.95rem;}
 .place-info{display:flex; flex-direction:column; gap:3px; margin:8px 0; font-size:.74rem; color:var(--muted);}
 .place-info span{display:flex; align-items:center; gap:6px;}
@@ -448,8 +449,12 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.29.0';
+const APP_VERSION = '1.29.1';
 const CHANGELOG = [
+  {version:'1.29.1', notes:[
+    'Places I\'ve Been: the Search Flights button is now icon-only (plane icon, no text) and sits bottom-right of each country card, matching the app\'s other icon buttons.',
+    'Removed the "N been · N want to go · N countries" summary line from below the page title.'
+  ]},
   {version:'1.29.0', notes:[
     'Places I\'ve Been: removed the 3D globe, the pie charts and the colour-key legend, simplifying the page down to region cards, a search box and country cards.',
     'Removed the separate "Going" status. A country on any active trip\'s itinerary now just shows Been ticked automatically, same as ticking it yourself.',
@@ -1494,7 +1499,6 @@ function renderPlaces(){
         <span class="crumb-here"><button class="crumb-backbtn" onclick="App.leavePlaces()" aria-label="Back">${ICONS.back}</button>Places I've Been</span>
       </div>
     </div>
-    <p class="muted small" id="places-summary" style="margin:-8px 0 16px">${placesSummaryLine()}</p>
     <div class="chips" id="places-filters" style="margin-bottom:16px">
       ${placesFilterRowHTML()}
     </div>
@@ -1508,10 +1512,6 @@ function renderPlaces(){
     saveLocal();
     if(location.hash==='#/places'){ drawPlacesGrid(); }
   });
-}
-function placesSummaryLine(){
-  const counts = placesCounts();
-  return `${counts.been} been · ${counts.want} want to go · ${counts.all} countries`;
 }
 function placeCardHTML(co, goingCount){
   const status = placesStatusOf(co.code, goingCount);
@@ -1527,10 +1527,12 @@ function placeCardHTML(co, goingCount){
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
         <span title="Language">${fa('language')}${esc(info[1])}</span>
       </div>` : ''}
-      <a class="btn sm" style="margin-top:6px" href="${esc(flightUrl)}" target="_blank" rel="noopener">${fa('plane')} Search Flights</a>
-      <div class="chips" style="margin-top:6px">
-        <span class="chip pick mode-pick ${status==='been'?'on':''}" role="button" tabindex="0" aria-label="Been" title="Been" onclick="App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})}">${fa('check')}</span>
-        <span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0" aria-label="Want to Go" title="Want to Go" onclick="App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})}">${fa('star')}</span>
+      <div class="place-actions" style="margin-top:6px">
+        <div class="chips">
+          <span class="chip pick mode-pick ${status==='been'?'on':''}" role="button" tabindex="0" aria-label="Been" title="Been" onclick="App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})}">${fa('check')}</span>
+          <span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0" aria-label="Want to Go" title="Want to Go" onclick="App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})}">${fa('star')}</span>
+        </div>
+        <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener" aria-label="Search flights to ${esc(co.name)}" title="Search Flights">${fa('plane')}</a>
       </div>
     </div>`;
 }
@@ -1538,7 +1540,6 @@ function drawPlacesGrid(){
   const el = $('#places-grid'); if(!el) return;
   const q = (($('#places-filter')||{}).value||'').trim().toLowerCase();
   const going = placesGoingMap();
-  const summary = $('#places-summary'); if(summary) summary.textContent = placesSummaryLine();
 
   if(!q && !CUR_PLACES_REGION){
     el.innerHTML = placesRegionGridHTML(going);
