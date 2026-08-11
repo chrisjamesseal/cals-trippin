@@ -371,6 +371,21 @@ a.dash-tile{text-decoration:none;}
 .wx-chip .icon{font-size:.78rem;}
 .wx-note{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:4px 0 -4px; font-size:.78rem; color:var(--muted);}
 .wx-note-text{display:inline-flex; align-items:center; gap:6px;}
+
+/* ---------- polls ---------- */
+.poll-card{margin-bottom:14px;}
+.poll-opt{position:relative; overflow:hidden; border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:9px 12px; margin-bottom:8px; background:var(--paper);}
+.poll-opt[role=button]{cursor:pointer;}
+.poll-opt[role=button]:hover,.poll-opt[role=button]:focus-visible{border-color:var(--brand); outline:none;}
+.poll-opt.picked{border-color:var(--brand); background:var(--brand-ghost);}
+.poll-opt.won{border-color:var(--brand); }
+.poll-bar{position:absolute; inset:0 auto 0 0; background:var(--brand-tint); transition:width .2s; z-index:0;}
+.poll-opt.picked .poll-bar{background:var(--brand-tint);}
+.poll-opt-row{position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.poll-opt-text{display:inline-flex; align-items:center; gap:8px; font-size:.85rem; font-weight:600; min-width:0; overflow-wrap:anywhere;}
+.poll-opt-text .icon{color:var(--brand-dark); flex-shrink:0;}
+.poll-opt-n{font-size:.74rem; font-weight:700; color:var(--muted); white-space:nowrap; flex-shrink:0;}
+.poll-voters{position:relative; z-index:1; margin-top:3px; font-size:.7rem; color:var(--muted); overflow-wrap:anywhere;}
 .plan-img{width:100%; max-height:220px; object-fit:cover; border-radius:var(--radius-sm); display:block; margin-bottom:10px;}
 .plan-auto{margin-bottom:16px;}
 .plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--brand-dark);}
@@ -453,8 +468,14 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.30.0';
+const APP_VERSION = '1.31.0';
 const CHANGELOG = [
+  {version:'1.31.0', notes:[
+    'New Polls section: settle group decisions in the app instead of a scroll of chat messages. Ask a question, add the options, and everyone taps their pick.',
+    'Each option shows the running count, a share-of-the-vote bar and who voted for it, so it\'s clear where things stand and who you\'re still waiting on.',
+    'Tap your own choice again to take it back, or tap another option to change your mind. One vote each, keyed to the name you picked for the trip.',
+    'Close a poll once it\'s decided and the winner is highlighted; reopen it if plans change. The Overview tile tells you when a poll is waiting on your vote.'
+  ]},
   {version:'1.30.0', notes:[
     'Itinerary: each day now shows the weather forecast, high/low temperature, the conditions and the chance of rain, so you can see at a glance which days to plan indoors.',
     'Forecasts only exist about two weeks ahead, so days further out simply show nothing rather than a made-up number.',
@@ -838,7 +859,7 @@ function getTrip(id){ return DB.trips.find(t=>t.id===id); }
 function normalizeTrip(t){
   if(!t) return t;
   ['countries','flights','ferries','carHire','accommodations','documents','docLinks',
-   'itinerary','receipts','moodBoard','participants','editLog'].forEach(k=>{
+   'itinerary','receipts','moodBoard','participants','editLog','polls'].forEach(k=>{
     if(!Array.isArray(t[k])) t[k] = [];
   });
   t.notes = t.notes || {};
@@ -2008,7 +2029,8 @@ const ICONS = {
   checkout: fa('right-from-bracket'),
   walk: fa('person-walking'),
   train: fa('train'),
-  bus: fa('bus')
+  bus: fa('bus'),
+  polls: fa('square-poll-vertical')
 };
 const TABS = [
   ['home','Overview'],
@@ -2016,6 +2038,7 @@ const TABS = [
   ['travel','Travel'],
   ['stay','Accommodation'],
   ['mood','Ideas'],
+  ['polls','Polls'],
   ['money','Money'],
   ['photos','Photos'],
   ['docs','Documents & Links'],
@@ -2204,6 +2227,7 @@ function renderTab(t){
   if(CUR_TAB==='mood')     el.innerHTML = tabMood(t,ro);
   if(CUR_TAB==='contacts') el.innerHTML = tabContacts(t,ro);
   if(CUR_TAB==='notes')    el.innerHTML = tabNotes(t,ro);
+  if(CUR_TAB==='polls')    el.innerHTML = tabPolls(t,ro);
 }
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
@@ -2212,6 +2236,7 @@ function crumbAction(t){
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
+    case 'polls':  return `<button class="btn sm primary" onclick="App.pollForm()">+ New Poll</button>`;
     case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm(-1)">+ Add</button>`;
     default:       return '';
   }
@@ -2257,6 +2282,7 @@ function tabHome(t, ro){
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
     ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
+    ['polls','Polls', pollSummaryLine(t), !(t.polls||[]).length],
     ['money','Money', moneySum, !nRec],
     ['photos','Photos', album ? album+' Linked' : 'No Shared Album Yet', !album],
     ['contacts','Contacts', nContacts ? nContacts+(nContacts===1?' Contact Logged':' Contacts Logged') : 'None Added Yet', !nContacts],
@@ -2287,7 +2313,7 @@ function tabHome(t, ro){
    so those rows aren't made clickable */
 const LOG_SECTION_TAB = {
   Itinerary:'plan', Travel:'travel', Accommodation:'stay', Ideas:'mood', Money:'money',
-  Photos:'photos', Contacts:'contacts', Documents:'docs', Notes:'notes'
+  Photos:'photos', Contacts:'contacts', Documents:'docs', Notes:'notes', Polls:'polls'
 };
 function tabLog(t){
   const log = (t.editLog||[]).slice().sort((a,b)=>b.when-a.when);
@@ -2304,6 +2330,148 @@ function tabLog(t){
     <h2 style="margin-top:36px">Activity</h2>
     ${log.length ? log.map(row).join('') : `<div class="empty">No changes logged yet.</div>`}`;
 }
+/* ================= TAB: polls (group decisions) ================= */
+/* Votes are keyed by the name you picked for this trip, so switching your answer replaces
+   your old one rather than stacking up, and everyone can see who wanted what. Anyone can
+   close a poll (same trust model as the rest of the app: one shared link, one shared PIN). */
+function pollVotes(p){ return (p && p.votes) || {}; }
+function pollCount(p, optId){ return Object.values(pollVotes(p)).filter(v=>v===optId).length; }
+function pollTotal(p){ return Object.keys(pollVotes(p)).length; }
+function pollVotersFor(p, optId){
+  return Object.keys(pollVotes(p)).filter(n=>pollVotes(p)[n]===optId);
+}
+/* the option(s) in front, so a decided poll reads at a glance; ties are kept as ties */
+function pollLeaders(p){
+  const counts = (p.options||[]).map(o=>pollCount(p,o.id));
+  const top = Math.max(0, ...counts);
+  return top===0 ? [] : (p.options||[]).filter((o,i)=>counts[i]===top).map(o=>o.id);
+}
+function pollSummaryLine(t){
+  const polls = t.polls||[];
+  if(!polls.length) return 'No Polls Yet';
+  const me = whoAmI(t.id);
+  const open = polls.filter(p=>!p.closed);
+  const needsMe = me ? open.filter(p=>!pollVotes(p)[me]).length : 0;
+  if(needsMe) return needsMe===1 ? '1 Poll Needs Your Vote' : needsMe+' Polls Need Your Vote';
+  if(open.length) return open.length===1 ? '1 Open Poll' : open.length+' Open Polls';
+  return polls.length===1 ? '1 Poll Closed' : 'All '+polls.length+' Polls Closed';
+}
+function pollCardHTML(t, p, i, ro){
+  const me = whoAmI(t.id);
+  const mine = me ? pollVotes(p)[me] : null;
+  const total = pollTotal(p);
+  const leaders = p.closed ? pollLeaders(p) : [];
+  const rows = (p.options||[]).map(o=>{
+    const n = pollCount(p, o.id);
+    const pct = total ? Math.round(n/total*100) : 0;
+    const voters = pollVotersFor(p, o.id);
+    const picked = mine===o.id;
+    const won = leaders.includes(o.id);
+    const canVote = !ro && !p.closed && me;
+    return `
+      <div class="poll-opt${picked?' picked':''}${won?' won':''}" ${canVote?`role="button" tabindex="0"
+           onclick="App.votePoll('${p.id}','${o.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.votePoll('${p.id}','${o.id}')}"`:''}>
+        <div class="poll-bar" style="width:${pct}%"></div>
+        <div class="poll-opt-row">
+          <span class="poll-opt-text">${picked?fa('circle-check'):(won?fa('trophy'):'')}${esc(o.text)}</span>
+          <span class="poll-opt-n">${n}${total?` · ${pct}%`:''}</span>
+        </div>
+        ${voters.length?`<div class="poll-voters">${esc(voters.join(', '))}</div>`:''}
+      </div>`;
+  }).join('');
+  const yetToVote = (t.participants||[]).filter(n=>!pollVotes(p)[n]);
+  return `
+    <div class="card poll-card">
+      <div class="section-head" style="margin-bottom:10px">
+        <h3>${esc(p.q)}</h3>
+        ${!ro?`<div style="display:flex;gap:2px;flex-shrink:0">
+          <button class="iconbtn" title="${p.closed?'Reopen poll':'Close poll'}" aria-label="${p.closed?'Reopen poll':'Close poll'}" onclick="App.togglePoll('${p.id}')">${p.closed?fa('lock-open'):fa('lock')}</button>
+          <button class="iconbtn del" title="Remove" aria-label="Remove poll" onclick="App.delPoll('${p.id}')">${ICONS.trash}</button>
+        </div>`:''}
+      </div>
+      ${p.closed?`<p class="small muted" style="margin:-4px 0 10px;display:flex;align-items:center;gap:6px">${fa('lock')}Closed${leaders.length?' · '+esc((p.options||[]).filter(o=>leaders.includes(o.id)).map(o=>o.text).join(' / ')):''}</p>`:''}
+      ${rows}
+      <p class="small muted" style="margin-top:10px">
+        ${total?`${total} ${total===1?'vote':'votes'}`:'No votes yet'}${!me?' · pick your name on the Overview to vote':''}${(!p.closed && me && yetToVote.length)?` · waiting on ${esc(yetToVote.join(', '))}`:''}
+      </p>
+    </div>`;
+}
+function tabPolls(t, ro){
+  const polls = t.polls||[];
+  if(!polls.length){
+    return `<div class="empty">No polls yet.${!ro?'<br><br><button class="btn primary" onclick="App.pollForm()">+ New Poll</button>':''}</div>`;
+  }
+  const open = polls.filter(p=>!p.closed), closed = polls.filter(p=>p.closed);
+  return [...open, ...closed].map((p,i)=>pollCardHTML(t, p, i, ro)).join('');
+}
+/* a poll needs a question and at least two things to choose between; blank rows are
+   dropped on save so you can leave the spare boxes empty */
+App.pollForm = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  openModal(`
+    <h2>New Poll</h2>
+    <div class="field"><label class="label" for="po-q">Question</label>
+      <input id="po-q" type="text" placeholder="e.g. Where should we eat on Friday?"></div>
+    <div class="field"><label class="label">Options</label>
+      <div id="po-opts">
+        ${[0,1,2].map(i=>`<input class="po-opt" type="text" placeholder="Option ${i+1}" style="margin-bottom:8px">`).join('')}
+      </div>
+      <button class="btn sm" type="button" onclick="App.addPollOption()">+ Add another option</button>
+    </div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePoll()">Create Poll</button></div>`);
+};
+App.addPollOption = () => {
+  const box = $('#po-opts'); if(!box) return;
+  const n = box.querySelectorAll('.po-opt').length + 1;
+  const inp = document.createElement('input');
+  inp.className = 'po-opt'; inp.type = 'text'; inp.placeholder = 'Option '+n; inp.style.marginBottom = '8px';
+  box.appendChild(inp);
+  inp.focus();
+};
+App.savePoll = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const q = ($('#po-q').value||'').trim();
+  if(!q) return markErr('#po-q','Ask a question first');
+  const opts = [...document.querySelectorAll('.po-opt')].map(el=>(el.value||'').trim()).filter(Boolean);
+  if(opts.length<2) return markErr('#po-q','Add at least two options');
+  t.polls = t.polls||[];
+  t.polls.unshift({id:uid(), q, options:opts.map(text=>({id:uid(), text})), votes:{}, closed:false, createdBy:whoAmI(t.id)||t.organiser||''});
+  logEdit('Polls','started a poll');
+  save(); closeModal(); CUR_TAB='polls'; rerender(); toast('Poll created');
+};
+App.votePoll = (pollId, optId) => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const p = (t.polls||[]).find(x=>x.id===pollId); if(!p || p.closed) return;
+  const me = whoAmI(t.id);
+  if(!me){ toast('Pick your name on the Overview first, so everyone knows who voted.'); return; }
+  p.votes = p.votes||{};
+  if(p.votes[me]===optId) delete p.votes[me];   // tapping your own choice again clears it
+  else p.votes[me] = optId;
+  logEdit('Polls','voted in a poll');
+  save(); rerender();
+};
+App.togglePoll = pollId => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const p = (t.polls||[]).find(x=>x.id===pollId); if(!p) return;
+  p.closed = !p.closed;
+  logEdit('Polls', p.closed?'closed a poll':'reopened a poll');
+  save(); rerender();
+};
+App.delPoll = pollId => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
+  const i = (t.polls||[]).findIndex(x=>x.id===pollId); if(i<0) return;
+  const removed = t.polls[i];
+  t.polls.splice(i,1);
+  logEdit('Polls','removed a poll'); save(); rerender();
+  toast('Poll removed', ()=>{
+    const t2 = getTrip(tripId); if(!t2) return;
+    t2.polls = t2.polls||[];
+    t2.polls.splice(Math.min(i,t2.polls.length),0,removed);
+    logEdit('Polls','restored a poll'); save(); rerender();
+  });
+};
+
 /* ================= weather (Open-Meteo: free, no API key, no sign-up) ================= */
 /* Only the next couple of weeks have a real forecast, so days beyond that show nothing
    rather than an invented number. Coordinates are cached in localStorage (a place doesn't
