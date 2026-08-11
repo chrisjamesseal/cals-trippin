@@ -372,6 +372,27 @@ a.dash-tile{text-decoration:none;}
 .wx-note{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:4px 0 -4px; font-size:.78rem; color:var(--muted);}
 .wx-note-text{display:inline-flex; align-items:center; gap:6px;}
 
+/* ---------- packing list ---------- */
+.pack-add{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+.pack-add input{flex:1 1 160px; min-width:0;}
+.pack-add select{flex:0 1 140px;}
+.pack-nudge{display:flex; align-items:center; gap:10px; border-left:3px solid var(--brand); border-radius:var(--radius-sm); background:var(--brand-tint); color:var(--brand-dark); padding:11px 14px; margin-bottom:16px; font-size:.82rem;}
+.pack-nudge .icon{flex-shrink:0;}
+.pack-progress{position:relative; overflow:hidden; border:1px solid var(--line); border-radius:999px; background:var(--bg); padding:5px 12px; margin-bottom:14px; font-size:.72rem; font-weight:700; color:var(--muted);}
+.pack-progress-bar{position:absolute; inset:0 auto 0 0; background:var(--brand-tint); transition:width .2s;}
+.pack-progress span{position:relative;}
+.pack-heading{margin:20px 0 10px; font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted);}
+.pack-row{display:flex; align-items:flex-start; gap:11px; padding:9px 2px; border-bottom:1px solid var(--line);}
+.pack-check{flex-shrink:0; width:21px; height:21px; margin-top:1px; border:2px solid var(--line-strong); border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:.66rem; color:#fff; background:var(--paper);}
+.pack-check[role=checkbox]{cursor:pointer;}
+.pack-check[role=checkbox]:hover,.pack-check[role=checkbox]:focus-visible{border-color:var(--brand); outline:none;}
+.pack-check.on{background:var(--brand); border-color:var(--brand);}
+.pack-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.pack-label{font-size:.88rem; overflow-wrap:anywhere;}
+.pack-row.done .pack-label{text-decoration:line-through; color:var(--muted);}
+.pack-who{font-size:.7rem; color:var(--muted);}
+.pack-who.done{color:var(--brand-dark);}
+
 /* ---------- polls ---------- */
 .poll-card{margin-bottom:14px;}
 .poll-opt{position:relative; overflow:hidden; border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:9px 12px; margin-bottom:8px; background:var(--paper);}
@@ -468,8 +489,14 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.31.0';
+const APP_VERSION = '1.32.0';
 const CHANGELOG = [
+  {version:'1.32.0', notes:[
+    'New Packing section: a shared list for the trip, with a one-tap starter list of the usual essentials to get going.',
+    'Ticking is per person, so you and everyone else get your own boxes on the same list. An item can also be assigned to one person when it\'s only theirs to bring.',
+    'A progress bar shows how much of the list is fully packed, and as the trip gets close the section reminds you how many things you\'ve still got to do.',
+    '"Remind me" saves a calendar reminder for the evening before you travel, listing everything you haven\'t packed yet, and "Copy list" puts the whole thing on your clipboard.'
+  ]},
   {version:'1.31.0', notes:[
     'New Polls section: settle group decisions in the app instead of a scroll of chat messages. Ask a question, add the options, and everyone taps their pick.',
     'Each option shows the running count, a share-of-the-vote bar and who voted for it, so it\'s clear where things stand and who you\'re still waiting on.',
@@ -859,7 +886,7 @@ function getTrip(id){ return DB.trips.find(t=>t.id===id); }
 function normalizeTrip(t){
   if(!t) return t;
   ['countries','flights','ferries','carHire','accommodations','documents','docLinks',
-   'itinerary','receipts','moodBoard','participants','editLog','polls'].forEach(k=>{
+   'itinerary','receipts','moodBoard','participants','editLog','polls','packing'].forEach(k=>{
     if(!Array.isArray(t[k])) t[k] = [];
   });
   t.notes = t.notes || {};
@@ -1971,19 +1998,23 @@ App.copyShare = () => {
 /* generic click-to-copy for any location/address/reference text, reads the raw value off
    data-copy (set via esc()) rather than threading it through an onclick string, so quotes
    and other special characters in addresses etc. can't break the attribute */
-App.copyFromEl = el => {
-  const text = el.getAttribute('data-copy'); if(!text) return;
-  const done = () => toast('Copied to clipboard');
+/* clipboard with the old-school textarea fallback, for browsers (and insecure origins)
+   where navigator.clipboard isn't available or refuses */
+function copyText(text, msg){
+  if(!text) return;
+  const done = () => toast(msg || 'Copied to clipboard');
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta); done();
+  };
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(done).catch(()=>{
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
-      document.body.appendChild(ta); ta.select();
-      try{ document.execCommand('copy'); }catch(e){}
-      document.body.removeChild(ta); done();
-    });
-  }
-};
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else fallback();
+}
+App.copyFromEl = el => copyText(el.getAttribute('data-copy'));
 App.nativeShare = () => {
   navigator.share({title:"Trip invite", url: $('#share-url').value}).catch(()=>{});
 };
@@ -2030,7 +2061,9 @@ const ICONS = {
   walk: fa('person-walking'),
   train: fa('train'),
   bus: fa('bus'),
-  polls: fa('square-poll-vertical')
+  polls: fa('square-poll-vertical'),
+  pack: fa('suitcase-rolling'),
+  bell: fa('bell')
 };
 const TABS = [
   ['home','Overview'],
@@ -2038,6 +2071,7 @@ const TABS = [
   ['travel','Travel'],
   ['stay','Accommodation'],
   ['mood','Ideas'],
+  ['pack','Packing'],
   ['polls','Polls'],
   ['money','Money'],
   ['photos','Photos'],
@@ -2228,6 +2262,7 @@ function renderTab(t){
   if(CUR_TAB==='contacts') el.innerHTML = tabContacts(t,ro);
   if(CUR_TAB==='notes')    el.innerHTML = tabNotes(t,ro);
   if(CUR_TAB==='polls')    el.innerHTML = tabPolls(t,ro);
+  if(CUR_TAB==='pack')     el.innerHTML = tabPack(t,ro);
 }
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
@@ -2282,6 +2317,7 @@ function tabHome(t, ro){
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
     ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
+    ['pack','Packing', packSummaryLine(t), !(t.packing||[]).length || !!packStats(t).myLeft],
     ['polls','Polls', pollSummaryLine(t), !(t.polls||[]).length],
     ['money','Money', moneySum, !nRec],
     ['photos','Photos', album ? album+' Linked' : 'No Shared Album Yet', !album],
@@ -2313,7 +2349,8 @@ function tabHome(t, ro){
    so those rows aren't made clickable */
 const LOG_SECTION_TAB = {
   Itinerary:'plan', Travel:'travel', Accommodation:'stay', Ideas:'mood', Money:'money',
-  Photos:'photos', Contacts:'contacts', Documents:'docs', Notes:'notes', Polls:'polls'
+  Photos:'photos', Contacts:'contacts', Documents:'docs', Notes:'notes', Polls:'polls',
+  Packing:'pack'
 };
 function tabLog(t){
   const log = (t.editLog||[]).slice().sort((a,b)=>b.when-a.when);
@@ -2330,6 +2367,230 @@ function tabLog(t){
     <h2 style="margin-top:36px">Activity</h2>
     ${log.length ? log.map(row).join('') : `<div class="empty">No changes logged yet.</div>`}`;
 }
+/* ================= TAB: packing (shared checklist + calendar reminder) ================= */
+/* Items are shared like everything else, but the tick is per person: two people packing
+   the same trip need their own boxes, and "who's still got things to pack" only means
+   anything if each person's list is tracked separately. An item with a name against it
+   belongs to that person alone; an item with no name is everyone's. */
+const PACK_STARTERS = [
+  'Passport','Travel insurance','Phone charger','Adapter plug','Toothbrush','Sun cream',
+  'Medication','Cards and cash','Headphones','Reusable water bottle'
+];
+function packMine(t, it){
+  const me = whoAmI(t.id);
+  return !it.who || (me && it.who===me);
+}
+function packDoneBy(it, who){ return !!((it.done||{})[who]); }
+/* an item counts as packed when everyone it applies to has ticked it */
+function packOwners(t, it){
+  return it.who ? [it.who] : (t.participants||[]).slice();
+}
+function packIsDone(t, it){
+  const owners = packOwners(t, it);
+  if(!owners.length) return packDoneBy(it, '_');
+  return owners.every(o=>packDoneBy(it, o));
+}
+function packStats(t){
+  const items = t.packing||[];
+  const me = whoAmI(t.id);
+  const mine = items.filter(it=>packMine(t,it));
+  const myLeft = me ? mine.filter(it=>!packDoneBy(it, me)).length : mine.filter(it=>!packIsDone(t,it)).length;
+  return {
+    total: items.length,
+    done: items.filter(it=>packIsDone(t,it)).length,
+    mine: mine.length,
+    myLeft
+  };
+}
+function packSummaryLine(t){
+  const s = packStats(t);
+  if(!s.total) return 'Nothing Listed Yet';
+  if(!s.myLeft) return `All Packed (${s.done} of ${s.total})`;
+  return `${s.myLeft} Still To Pack`;
+}
+/* how many days until the trip starts, or null once it's begun, used for the nudge */
+function packDaysToGo(t){
+  if(!t.startDate) return null;
+  const day = 86400000, today = new Date(); today.setHours(0,0,0,0);
+  const s = new Date(t.startDate+'T00:00:00');
+  const n = Math.round((s-today)/day);
+  return n >= 0 ? n : null;
+}
+function packNudgeHTML(t){
+  const s = packStats(t);
+  const n = packDaysToGo(t);
+  if(n===null || !s.myLeft) return '';
+  if(n > 14) return '';   // no point nagging months out
+  const when = n===0 ? 'You leave today' : n===1 ? 'You leave tomorrow' : `${n} days to go`;
+  return `<div class="pack-nudge">${ICONS.bell}<span><strong>${esc(when)}</strong> and you've still got ${s.myLeft} thing${s.myLeft===1?'':'s'} to pack.</span></div>`;
+}
+function packRowHTML(t, it, i, ro){
+  const me = whoAmI(t.id);
+  const tickAs = me || '_';
+  const ticked = packDoneBy(it, tickAs);
+  const owners = packOwners(t, it);
+  const others = owners.filter(o=>o!==me && packDoneBy(it,o));
+  const canTick = !ro;
+  return `
+    <div class="pack-row${ticked?' done':''}">
+      <span class="pack-check${ticked?' on':''}" ${canTick?`role="checkbox" aria-checked="${ticked}" tabindex="0"
+        onclick="App.togglePack('${it.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.togglePack('${it.id}')}"`:''}
+        aria-label="${esc(it.text)}">${ticked?fa('check'):''}</span>
+      <span class="pack-text">
+        <span class="pack-label">${esc(it.text)}</span>
+        ${it.who?`<span class="pack-who">${esc(it.who)}</span>`:''}
+        ${others.length?`<span class="pack-who done">${esc(others.join(', '))} packed</span>`:''}
+      </span>
+      ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove ${esc(it.text)}" onclick="App.delPack('${it.id}')">${ICONS.trash}</button>`:''}
+    </div>`;
+}
+function tabPack(t, ro){
+  const items = t.packing||[];
+  const s = packStats(t);
+  const addRow = ro ? '' : `
+    <div class="pack-add">
+      <input type="text" id="pk-new" placeholder="Add an item…" onkeydown="if(event.key==='Enter'){event.preventDefault();App.addPack()}">
+      <select id="pk-who" aria-label="Who is this for">
+        <option value="">Everyone</option>
+        ${(t.participants||[]).map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('')}
+      </select>
+      <button class="btn" type="button" onclick="App.addPack()">+ Add</button>
+    </div>`;
+  if(!items.length){
+    return `${addRow}
+      <div class="empty">Nothing on the packing list yet.${!ro?`<br><br>
+        <button class="btn primary" onclick="App.addPackStarters()">Add the usual essentials</button>`:''}</div>`;
+  }
+  const todo = items.filter(it=>!packDoneBy(it, whoAmI(t.id)||'_'));
+  const done = items.filter(it=>packDoneBy(it, whoAmI(t.id)||'_'));
+  return `
+    ${packNudgeHTML(t)}
+    ${addRow}
+    <div class="pack-progress">
+      <div class="pack-progress-bar" style="width:${s.total?Math.round(s.done/s.total*100):0}%"></div>
+      <span>${s.done} of ${s.total} fully packed</span>
+    </div>
+    ${todo.map((it,i)=>packRowHTML(t,it,i,ro)).join('')}
+    ${done.length?`<h3 class="pack-heading">Packed</h3>${done.map((it,i)=>packRowHTML(t,it,i,ro)).join('')}`:''}
+    ${!ro?`<div class="btn-row" style="margin-top:18px">
+      <button class="btn" onclick="App.packReminder()">${ICONS.bell} Remind me</button>
+      <button class="btn" onclick="App.copyPacking()">${ICONS.copy} Copy list</button>
+    </div>
+    <p class="muted small" style="margin-top:8px">"Remind me" saves a calendar reminder for the night before you leave, with everything still unpacked listed in it.</p>`:''}`;
+}
+App.addPack = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const el = $('#pk-new'); if(!el) return;
+  const text = (el.value||'').trim();
+  if(!text) return markErr('#pk-new','Type something to pack');
+  const who = ($('#pk-who')||{}).value || '';
+  t.packing = t.packing||[];
+  t.packing.push({id:uid(), text, who, done:{}});
+  logEdit('Packing','added a packing item');
+  save(); rerender();
+  const again = $('#pk-new'); if(again) again.focus();
+};
+App.addPackStarters = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  t.packing = t.packing||[];
+  const have = new Set(t.packing.map(it=>it.text.toLowerCase()));
+  PACK_STARTERS.forEach(text=>{ if(!have.has(text.toLowerCase())) t.packing.push({id:uid(), text, who:'', done:{}}); });
+  logEdit('Packing','added the starter packing list');
+  save(); rerender(); toast('Essentials added, edit away');
+};
+App.togglePack = itemId => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const it = (t.packing||[]).find(x=>x.id===itemId); if(!it) return;
+  const who = whoAmI(t.id) || '_';
+  it.done = it.done||{};
+  if(it.done[who]) delete it.done[who]; else it.done[who] = true;
+  save(); rerender();
+};
+App.delPack = itemId => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
+  const i = (t.packing||[]).findIndex(x=>x.id===itemId); if(i<0) return;
+  const removed = t.packing[i];
+  t.packing.splice(i,1);
+  logEdit('Packing','removed a packing item'); save(); rerender();
+  toast('Item removed', ()=>{
+    const t2 = getTrip(tripId); if(!t2) return;
+    t2.packing = t2.packing||[];
+    t2.packing.splice(Math.min(i,t2.packing.length),0,removed);
+    logEdit('Packing','restored a packing item'); save(); rerender();
+  });
+};
+function packUnpackedFor(t){
+  const me = whoAmI(t.id) || '_';
+  return (t.packing||[]).filter(it=>packMine(t,it) && !packDoneBy(it, me));
+}
+App.copyPacking = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const lines = (t.packing||[]).map(it=>`${packIsDone(t,it)?'[x]':'[ ]'} ${it.text}${it.who?' ('+it.who+')':''}`);
+  if(!lines.length) return toast('Nothing on the list yet');
+  const text = `Packing for ${t.name}\n\n${lines.join('\n')}`;
+  copyText(text, 'Packing list copied');
+};
+/* A calendar event imports cleanly everywhere (iOS, Android, desktop) and actually fires an
+   alert, which is what "remind me" needs to mean for a static site with no server to push
+   from. VTODO would map more neatly onto a reminders app but is widely ignored on import. */
+function icsEscape(s){
+  return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
+}
+function icsStamp(d){
+  return d.getUTCFullYear()+String(d.getUTCMonth()+1).padStart(2,'0')+String(d.getUTCDate()).padStart(2,'0')
+    +'T'+String(d.getUTCHours()).padStart(2,'0')+String(d.getUTCMinutes()).padStart(2,'0')+'00Z';
+}
+/* RFC 5545 wants content lines folded at 75 octets, with continuations starting with a
+   space. A long packing list blows past that easily, and stricter importers reject the
+   file outright rather than just wrapping it themselves. */
+function icsFold(line){
+  const bytes = new TextEncoder().encode(line);
+  if(bytes.length <= 75) return line;
+  const out = [];
+  let cur = '', curLen = 0, limit = 75;
+  for(const ch of line){                       // iterate by code point, never split one
+    const n = new TextEncoder().encode(ch).length;
+    if(curLen + n > limit){ out.push(cur); cur = ' '; curLen = 1; limit = 75; }
+    cur += ch; curLen += n;
+  }
+  if(cur) out.push(cur);
+  return out.join('\r\n');
+}
+App.packReminder = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  if(!t.startDate) return toast("Add a start date to the trip first, so there's a day to remind you on");
+  const left = packUnpackedFor(t);
+  // the evening before you travel, local time, which is when packing actually happens
+  const start = new Date(t.startDate+'T00:00:00');
+  start.setDate(start.getDate()-1);
+  start.setHours(19,0,0,0);
+  const end = new Date(start.getTime() + 30*60000);
+  const body = left.length
+    ? 'Still to pack:\n' + left.map(it=>'- '+it.text).join('\n')
+    : 'Everything on the list is already ticked off. Nice.';
+  const ics = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//My Trips//Packing//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    'UID:pack-'+t.id+'-'+Date.now()+'@cals-trippin',
+    'DTSTAMP:'+icsStamp(new Date()),
+    'DTSTART:'+icsStamp(start),
+    'DTEND:'+icsStamp(end),
+    'SUMMARY:'+icsEscape('Pack for '+t.name),
+    'DESCRIPTION:'+icsEscape(body),
+    'BEGIN:VALARM','TRIGGER:PT0S','ACTION:DISPLAY','DESCRIPTION:'+icsEscape('Pack for '+t.name),'END:VALARM',
+    'END:VEVENT','END:VCALENDAR'
+  ].map(icsFold).join('\r\n');
+  const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `pack-for-${(t.name||'trip').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}.ics`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('Reminder saved, open it to add it to your calendar');
+};
+
 /* ================= TAB: polls (group decisions) ================= */
 /* Votes are keyed by the name you picked for this trip, so switching your answer replaces
    your old one rather than stacking up, and everyone can see who wanted what. Anyone can
