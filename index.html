@@ -115,15 +115,20 @@ a{color:var(--brand-dark);}
 .trip-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 .trip-card.archived{opacity:.55; filter:grayscale(1);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
-.places-home-card{background:var(--brand-tint); border-color:var(--brand);}
-.places-home-card h3{display:flex; align-items:center; gap:8px; font-size:1.05rem;}
-/* the two personal counts sit side by side; the world total is context, not a score, so it
-   goes on its own line underneath */
-.places-stats{display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:10px;}
-.places-stat{display:inline-flex; align-items:center; gap:7px; font-size:.85rem; color:var(--ink);}
-.places-total{display:inline-flex; align-items:center; gap:7px; margin-top:8px; font-size:.78rem; color:var(--muted);}
-.places-stat-emoji{font-size:.9rem; line-height:1; flex-shrink:0;
+/* three equal columns at any width: they're a single glanceable row, so they shouldn't
+   reflow into an awkward 2 + 1 on a narrow phone */
+.stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:18px;}
+.stat-card{
+  border:1px solid var(--brand); border-radius:var(--radius); background:var(--brand-tint);
+  padding:15px 8px; cursor:pointer; min-width:0;
+  display:flex; flex-direction:column; align-items:center; text-align:center; gap:5px;
+  transition:transform .1s, box-shadow .1s;
+}
+.stat-card:hover,.stat-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
+.stat-emoji{font-size:1.45rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.stat-n{font-size:1.4rem; font-weight:800; line-height:1; color:var(--brand-dark);}
+.stat-label{font-size:.7rem; font-weight:600; line-height:1.25; color:var(--muted); overflow-wrap:anywhere;}
 .trip-card .trip-flags{margin-bottom:4px;}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 
@@ -505,8 +510,14 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.33.3';
+const APP_VERSION = '1.34.0';
 const CHANGELOG = [
+  {version:'1.34.0', notes:[
+    'The home page now opens with three cards, Places I\'ve Been, Want to Go and Countries. Tapping one goes straight to that list, already filtered.',
+    'Your Trips now sits below those three cards.',
+    'On an iPhone, with the app added to your home screen, Search Flights now hands over to Safari itself instead of the cut-down in-app browser, so you keep your Google login and can open the Google Flights app.',
+    'Africa\'s emoji on Places I\'ve Been is now a lion.'
+  ]},
   {version:'1.33.3', notes:[
     'The "Places I\'ve Been" card on the home page now shows its three stats as separate items, each with its own emoji, with the world total on its own line underneath.'
   ]},
@@ -1015,7 +1026,7 @@ const continentOf = c => Object.keys(COUNTRY_CONTINENT).find(k => COUNTRY_CONTIN
 const CONTINENT_EMOJI = {
   Europe: '🏰',
   Asia: '🏯',
-  Africa: '🌍',
+  Africa: '🦁',
   'North America': '🗽',
   'South America': '🌎',
   Oceania: '🏝️'
@@ -1584,11 +1595,11 @@ function headerActionsHTML(){
 }
 /* opening Places leaves whatever trip/home page was showing untouched underneath,
    same pattern as renderChangelog above */
-function renderPlaces(){
+function renderPlaces(filter){
   $('#header-actions').innerHTML = headerActionsHTML();
   applyArchiveTransitions();
   CUR_PLACES_REGION = null;
-  CUR_PLACES_FILTER = 'all';
+  CUR_PLACES_FILTER = PLACES_FILTERS.some(f=>f[0]===filter) ? filter : 'all';
   $('#app').innerHTML = `
     <div class="crumb" style="margin-top:26px">
       <div class="crumb-titlerow">
@@ -1606,7 +1617,7 @@ function renderPlaces(){
   loadPlacesCloud(cloud => {
     DB.places = cloud||{};
     saveLocal();
-    if(location.hash==='#/places'){ drawPlacesGrid(); }
+    if(location.hash.startsWith('#/places')){ drawPlacesGrid(); }
   });
 }
 function placeCardHTML(co, goingCount){
@@ -1628,7 +1639,9 @@ function placeCardHTML(co, goingCount){
           <span class="chip pick mode-pick ${status==='been'?'on':''}" role="button" tabindex="0" aria-label="Been" title="Been" onclick="App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})}">${fa('check')}</span>
           <span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0" aria-label="Want to Go" title="Want to Go" onclick="App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})}">${fa('star')}</span>
         </div>
-        <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener" aria-label="Search flights to ${esc(co.name)}" title="Search Flights">${fa('plane')}</a>
+        <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener"
+         onclick="return App.openExternal(event, '${esc(flightUrl)}')"
+         aria-label="Search flights to ${esc(co.name)}" title="Search Flights">${fa('plane')}</a>
       </div>
     </div>`;
 }
@@ -1669,8 +1682,10 @@ function route(){
   if(h === '#/changelog'){
     renderChangelog(); window.scrollTo(0,0); return;
   }
-  if(h === '#/places'){
-    renderPlaces(); window.scrollTo(0,0); return;
+  if(h === '#/places' || h.startsWith('#/places/')){
+    // '#/places/been' opens the page already filtered, so the home cards can deep-link
+    // straight to what they're counting and a refresh keeps you there
+    renderPlaces(h.split('/')[2] || 'all'); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
@@ -1773,7 +1788,10 @@ App.toggleChangelog = () => {
   else { PRE_CHANGELOG_HASH = location.hash; location.hash = '#/changelog'; }
 };
 let PRE_PLACES_HASH = ''; // where we were before opening Places, so Back returns there
-App.goPlaces = () => { PRE_PLACES_HASH = location.hash; location.hash = '#/places'; };
+App.goPlaces = filter => {
+  PRE_PLACES_HASH = location.hash;
+  location.hash = '#/places' + (filter && filter!=='all' ? '/'+filter : '');
+};
 App.leavePlaces = () => { location.hash = PRE_PLACES_HASH; };
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
@@ -1824,33 +1842,35 @@ function tripCardHTML(t){
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
 }
-function placesHomeCardHTML(){
-  const counts = placesCounts();
-  return `
-    <div class="trip-card places-home-card" role="button" tabindex="0"
-         onclick="App.goPlaces()"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
-      <h3><span class="sec-emoji" aria-hidden="true">🌍</span> Places I've Been</h3>
-      <div class="places-stats">
-        <span class="places-stat"><span class="places-stat-emoji" aria-hidden="true">✅</span><strong>${counts.been}</strong> been</span>
-        <span class="places-stat"><span class="places-stat-emoji" aria-hidden="true">⭐</span><strong>${counts.want}</strong> want to go</span>
-      </div>
-      <div class="places-total"><span class="places-stat-emoji" aria-hidden="true">🌐</span><strong>${counts.all}</strong> countries</div>
+/* three at-a-glance counts, each opening Places already filtered to what it's counting */
+function placesHomeCardsHTML(){
+  const c = placesCounts();
+  const card = (filter, emoji, n, label) => `
+    <div class="stat-card" role="button" tabindex="0" aria-label="${esc(label)}: ${n}"
+         onclick="App.goPlaces('${filter}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('${filter}')}">
+      <span class="stat-emoji" aria-hidden="true">${emoji}</span>
+      <span class="stat-n">${n}</span>
+      <span class="stat-label">${esc(label)}</span>
     </div>`;
+  return `<div class="stat-grid">
+    ${card('been','✅', c.been, "Places I've Been")}
+    ${card('want','⭐', c.want, 'Want to Go')}
+    ${card('all','🌐', c.all, 'Countries')}
+  </div>`;
 }
 function homeGridHTML(trips, loading){
-  const placesCard = placesHomeCardHTML();
   if(!trips.length){
     // while trips are still being fetched from the cloud, "No trips yet" would be
     // misleading, it hasn't actually checked yet, so say so instead
-    return loading ? `<div class="trip-grid">${placesCard}</div><div class="empty" style="margin-top:24px">Loading trips…</div>` : `<div class="trip-grid">${placesCard}</div><div class="empty" style="margin-top:24px">
+    return loading ? `<div class="empty" style="margin-top:24px">Loading trips…</div>` : `<div class="empty" style="margin-top:24px">
       No trips yet.<br><br>
       <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
     </div>`;
   }
   const active = trips.filter(t=>!isArchived(t));
   const arch = trips.filter(t=>isArchived(t));
-  return `<div class="trip-grid">${placesCard}${active.map(tripCardHTML).join('')}${arch.map(tripCardHTML).join('')}</div>`;
+  return `<div class="trip-grid">${active.map(tripCardHTML).join('')}${arch.map(tripCardHTML).join('')}</div>`;
 }
 /* everyone who's entered the PIN can see every trip, not just the ones this particular
    browser happened to create or open before, so the full list comes from Firebase itself
@@ -1883,7 +1903,8 @@ function renderHome(){
   renderSidebar(null);
   $('#app').innerHTML = `
     <div style="padding-top:28px">
-      <h1>Your Trips</h1>
+      ${placesHomeCardsHTML()}
+      <h1 style="margin-top:26px">Your Trips</h1>
       <p class="muted" style="margin-top:4px">${cloudEnabled()?'Everyone with the PIN sees every trip.':'One organiser runs the trip. Everyone else gets a link.'}</p>
       <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
       <div class="backup-bar" style="margin-top:22px">
@@ -2122,6 +2143,28 @@ function tileIcon(k){
 }
 /* emoji for a section heading, hidden from screen readers since the heading text says it */
 function secEmoji(e){ return `<span class="sec-emoji" aria-hidden="true">${e}</span>`; }
+/* Inside an iOS home-screen web app a target=_blank link opens Apple's cut-down in-app
+   browser: no saved Google login, no password autofill, and no handoff to the Google Flights
+   app. x-safari-https: hands the URL to Safari proper instead. It's an undocumented Apple
+   scheme, so if it does nothing we're still here a moment later and fall back to the ordinary
+   new tab. Every other platform is left completely alone. */
+function iosStandalone(){
+  return /iP(hone|ad|od)/.test(navigator.userAgent) && window.navigator.standalone === true;
+}
+App.openExternal = (ev, url) => {
+  if(!iosStandalone()) return true;          // let the plain link do its job everywhere else
+  ev.preventDefault();
+  const fallback = setTimeout(()=>window.open(url, '_blank', 'noopener'), 600);
+  const cancel = () => {
+    if(document.hidden){                     // Safari took over, so don't also open a tab
+      clearTimeout(fallback);
+      document.removeEventListener('visibilitychange', cancel);
+    }
+  };
+  document.addEventListener('visibilitychange', cancel);
+  location.href = 'x-safari-' + url;
+  return false;
+};
 const TABS = [
   ['home','Overview'],
   ['plan','Itinerary'],
