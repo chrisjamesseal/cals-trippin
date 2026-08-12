@@ -40,13 +40,12 @@ The app works out of the box **on a single device** with no setup. To get everyo
          ".read": true,
          "$id": { ".write": true }
        },
-       "appPin": { ".read": true, ".write": true },
        "places": { ".read": true, ".write": true }
      }
    }
    ```
 
-   Note the `trips` node needs its own top-level `.read: true`, Realtime Database rules don't cascade upward from `trips/$id` to `trips`, and the app needs to read the *whole* `trips` node at once to list every trip on the "Your Trips" page. Without it, the app silently falls back to only showing trips this particular browser already knows about (looks like "no trips saved"), and the in-app PIN-change screen will fail to save. The same non-cascading rule applies to `places`, the shared Places I've Been checklist: without it, ticked countries stay stuck on the device that ticked them instead of syncing to the group.
+   Note the `trips` node needs its own top-level `.read: true`, Realtime Database rules don't cascade upward from `trips/$id` to `trips`, and the app needs to read the *whole* `trips` node at once to list every trip on the "Your Trips" page. Without it, the app silently falls back to only showing trips this particular browser already knows about (looks like "no trips saved"). The same non-cascading rule applies to `places`, the shared Places I've Been checklist: without it, ticked countries stay stuck on the device that ticked them instead of syncing to the group.
 
 That's it, the app now shows every trip that exists (not just ones this browser made), and share buttons hand out `…/#/trip/<id>` links that stay the same forever and sync everyone's edits. Without a config, the app quietly falls back to single-device mode, a fixed local PIN, and the Share button produces a portable snapshot link instead.
 
@@ -54,6 +53,7 @@ That's it, the app now shows every trip that exists (not just ones this browser 
 
 - Static site, no backend of its own, hosted on GitHub Pages. The optional shared store is Firebase, called directly from the browser.
 - **Security is deliberately light:** the PIN gate is a client-side deterrent, not real access control, anyone who reads the page source can find it. It stops casual visitors, not a determined stranger. Keep the URL and PIN to your group.
+- **Changing the PIN needs a deploy.** It lives in `APP_PIN` near the top of the `<script>` in `index.html`, and nowhere else. It used to be editable in-app (stored in Firebase), but that meant anyone who got past the gate once could lock everyone else out, so the in-app screen was removed. If you set a PIN through that old screen, delete the leftover `appPin` node in your Firebase console: it is no longer read, so it does nothing, it is just stale.
 - Large uploaded files and mood-board images stay on the uploader's device (only smaller ones sync); their details still appear for everyone.
 
 Inside a trip, everything is reached from the **dashboard tiles** (each with its own emoji) or the **☰ Menu**: Overview, Itinerary, Travel (flights, ferries, car hire), Accommodation, Ideas, Packing, Polls, Money, Photos, Documents & Links, Notes, Emergency Contacts and Activity: no horizontal tab scrolling. Countries and people are managed from **Edit Trip** on the Overview.
