@@ -145,7 +145,8 @@ a{color:var(--brand-dark);}
 .menu-bg{position:fixed; inset:0; background:rgba(20,40,47,.45); z-index:120; animation:fadeIn .15s ease-out;}
 .menu{
   position:fixed; top:0; right:0; bottom:0; width:min(320px,86vw); background:var(--paper);
-  z-index:121; box-shadow:var(--shadow-lift); padding:14px; overflow-y:auto;
+  z-index:121; box-shadow:var(--shadow-lift); overflow-y:auto;
+  padding:14px 14px calc(96px + env(safe-area-inset-bottom));   /* clear of the bottom bar */
   display:flex; flex-direction:column; gap:2px; animation:slideIn .2s ease-out;
 }
 @keyframes slideIn{from{transform:translateX(40px); opacity:0;} to{transform:none; opacity:1;}}
@@ -388,19 +389,27 @@ a.dash-tile{text-decoration:none;}
   background:none; border:none; padding:6px 2px; cursor:pointer; color:var(--muted);
   font:inherit; font-size:.62rem; font-weight:700; letter-spacing:.01em;
 }
+/* only while the section menu is open, so the bar never floats over a full-screen form */
+.tabbar.over-menu{z-index:130;}
 .tabbar-item:disabled{opacity:.3; cursor:default;}
 .tabbar-item.active{color:var(--brand-dark);}
 .tabbar-emoji{font-size:1.15rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .tabbar-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
 /* raised centre button, the one thing on the bar that creates rather than navigates */
+/* the plus is drawn rather than typed: a "+" glyph sits off-centre by a different amount in
+   every font, and this needs to look exactly centred in a circle */
 .tabbar-new{
-  justify-self:center; width:52px; height:52px; margin-top:-20px;
+  justify-self:center; position:relative; width:52px; height:52px; margin-top:-20px;
   border:3px solid var(--paper); border-radius:50%;
-  background:var(--brand); color:#fff; font-size:1.7rem; line-height:1; font-weight:400;
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  background:var(--brand); cursor:pointer; padding:0;
   box-shadow:0 4px 12px rgba(14,133,119,.35); transition:transform .1s, background .1s;
 }
+.tabbar-new::before,.tabbar-new::after{
+  content:''; position:absolute; top:50%; left:50%; background:#fff; border-radius:2px;
+}
+.tabbar-new::before{width:20px; height:3px; transform:translate(-50%,-50%);}
+.tabbar-new::after{width:3px; height:20px; transform:translate(-50%,-50%);}
 .tabbar-new:hover,.tabbar-new:focus-visible{background:var(--brand-dark); transform:translateY(-1px); outline:none;}
 /* keep the last of the page clear of the bar (harmless on the PIN gate, where it's hidden) */
 .wrap{padding-bottom:96px;}
@@ -412,12 +421,15 @@ a.dash-tile{text-decoration:none;}
 .mood-emoji{flex-shrink:0; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .mood-emoji.solo{font-size:1.5rem; margin-bottom:2px;}
-.emoji-field{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
-.emoji-input{width:64px; flex:0 0 auto; text-align:center; font-size:1.25rem; line-height:1.2;
+/* the palette sits above the chosen-emoji box: side by side, a tall grid next to a single
+   small input left a big empty column and the two never lined up */
+.emoji-picks{display:grid; grid-template-columns:repeat(auto-fill,minmax(40px,1fr)); gap:6px; margin-bottom:10px;}
+.emoji-chosen{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.emoji-chosen .small{flex:1; min-width:120px;}
+.emoji-input{width:60px; flex:0 0 auto; text-align:center; font-size:1.25rem; line-height:1.2;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.emoji-picks{display:flex; flex-wrap:wrap; gap:6px; flex:1; min-width:0;}
 .emoji-pick{
-  width:36px; height:36px; padding:0; font-size:1.15rem; line-height:1; cursor:pointer;
+  aspect-ratio:1; width:100%; padding:0; font-size:1.15rem; line-height:1; cursor:pointer;
   border:1px solid var(--line-strong); border-radius:10px; background:var(--paper);
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
 }
@@ -481,11 +493,16 @@ a.dash-tile{text-decoration:none;}
 .plan-auto{margin-bottom:16px;}
 .plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--brand-dark);}
 .plan-auto-tag .icon{font-size:.95rem;}
+.plan-auto-tag .sec-emoji{font-size:.95rem;}
 .plan-auto .flight-strip,.plan-auto .card{margin-bottom:0;}
 .plan-click{cursor:pointer;}
 .plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,.card.plan-click:hover{border-color:var(--brand);}
 .plan-auto.plan-click:focus-visible .flight-strip,.plan-auto.plan-click:focus-visible .card,.card.plan-click:focus-visible{outline:none; border-color:var(--brand);}
-.plan-travel-icon{font-size:1.1rem; color:var(--brand); flex-shrink:0;}
+.plan-travel-icon{font-size:1.1rem; color:var(--brand); flex-shrink:0; display:inline-flex;}
+.plan-travel-icon .sec-emoji{font-size:1.05rem;}
+/* the emoji leading a stop's title shouldn't scale with the heading */
+.card > .section-head h3 .sec-emoji{font-size:1rem;}
+.copy-text .sec-emoji{font-size:.85rem;}
 
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
@@ -560,8 +577,16 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.37.0';
+const APP_VERSION = '1.38.0';
 const CHANGELOG = [
+  {version:'1.38.0', notes:[
+    'The bottom bar now stays put when the section menu is open, and the last button turns into Close, so the thumb that opened it can shut it again.',
+    'The three Places counters have moved off the home page onto Places I\'ve Been itself.',
+    'Emoji now run right through the Itinerary: your stops, travel legs, flights, ferries, car hire, check in and check out. Edit and delete stay as plain icons so they don\'t get lost in the colour.',
+    'A stop added from an idea keeps that idea\'s emoji, and stops added by hand get one suggested from their name.',
+    'The emoji picker now sits above the box instead of beside it, with far more activity choices for when the title gives nothing away.',
+    'Centred the + on the new trip button properly.'
+  ]},
   {version:'1.37.0', notes:[
     'Ideas can now have an emoji, and one is suggested from the title as you type: sushi gets a sushi, a hike gets boots, a rooftop bar gets a cocktail.',
     'Tap one of the quick picks or type any emoji you like, and once you have chosen your own the title stops overriding it.'
@@ -1679,6 +1704,7 @@ function renderPlaces(filter){
         <span class="crumb-here"><button class="crumb-backbtn" onclick="App.leavePlaces()" aria-label="Back">${ICONS.back}</button>Places I've Been</span>
       </div>
     </div>
+    ${placesHomeCardsHTML()}
     <div class="chips" id="places-filters" style="margin-bottom:16px">
       ${placesFilterRowHTML()}
     </div>
@@ -1960,8 +1986,7 @@ function renderHome(){
   renderSidebar(null);
   $('#app').innerHTML = `
     <div style="padding-top:12px">
-      ${placesHomeCardsHTML()}
-      <h1 style="margin-top:26px">Your Trips</h1>
+      <h1>Your Trips</h1>
       <p class="muted" style="margin-top:4px">${cloudEnabled()?'Everyone with the PIN sees every trip.':'One organiser runs the trip. Everyone else gets a link.'}</p>
       <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
     </div>`;
@@ -2382,6 +2407,11 @@ function renderTabbar(){
   const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID);
   const onHome   = !t && !location.hash.startsWith('#/places');
   const onPlaces = location.hash.startsWith('#/places');
+  /* with the menu open the bar rides above it, so the same thumb that opened it can close
+     it; anything else you tap from there dismisses the menu on the way through */
+  const menuOpen = menuIsOpen();
+  bar.classList.toggle('over-menu', menuOpen);
+  const go = fn => menuOpen ? 'App.closeMenu();'+fn : fn;
   const item = (label, emoji, fn, active, off) => `
     <button class="tabbar-item${active?' active':''}" ${off?'disabled aria-disabled="true"':''}
             ${off?'':`onclick="${fn}"`} aria-label="${esc(label)}">
@@ -2389,17 +2419,20 @@ function renderTabbar(){
       <span class="tabbar-label">${esc(label)}</span>
     </button>`;
   bar.innerHTML =
-      item('Trips','🧳',"App.goHome()", onHome, false)
-    + item('Places','🌎',"App.goPlaces()", onPlaces, false)
-    + `<button class="tabbar-new" onclick="App.newTrip()" aria-label="New trip"><span aria-hidden="true">+</span></button>`
-    + item('Itinerary','🗺️',"App.tab('plan')", !!t && CUR_TAB==='plan', !t)
-    + item('Menu','☰',"App.openMenu()", false, !t);
+      item('Trips','🧳',go("App.goHome()"), onHome && !menuOpen, false)
+    + item('Places','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
+    + `<button class="tabbar-new" onclick="${go('App.newTrip()')}" aria-label="New trip"></button>`
+    + item('Itinerary','🗺️',go("App.tab('plan')"), !!t && CUR_TAB==='plan' && !menuOpen, !t)
+    + (menuOpen
+        ? item('Close','✕',"App.closeMenu()", true, false)
+        : item('Menu','☰',"App.openMenu()", false, !t));
 }
 function menuIsOpen(){ return !!$('#menu-root').firstChild; }
 function closeMenu(){
   if(!menuIsOpen()) return;
   $('#menu-root').innerHTML='';
   if(!modalOpen()) document.body.style.overflow='';
+  renderTabbar();
 }
 App.closeMenu = closeMenu;
 App.openMenu = () => {
@@ -2413,6 +2446,7 @@ App.openMenu = () => {
       </nav>
     </div>`;
   document.body.style.overflow='hidden';
+  renderTabbar();
   const first = $('#menu-root .menu-item'); if(first) first.focus();
 };
 App.menuGo = k => { closeMenu(); App.tab(k); };
@@ -2447,7 +2481,7 @@ function renderTab(t){
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
   switch(CUR_TAB){
-    case 'plan':   return `<button class="btn sm" onclick="App.tab('mood')">${ICONS.mood} Add Ideas</button><button class="btn sm" onclick="App.travelLegForm(-1)">${ICONS.route} Add Travel</button><button class="btn sm" onclick="App.planForm(-1)">${ICONS.pin} Add Stop</button>`;
+    case 'plan':   return `<button class="btn sm" onclick="App.tab('mood')">${secEmoji('💡')} Add Ideas</button><button class="btn sm" onclick="App.travelLegForm(-1)">${secEmoji('🧭')} Add Travel</button><button class="btn sm" onclick="App.planForm(-1)">${secEmoji('📍')} Add Stop</button>`;
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
@@ -3108,13 +3142,13 @@ function mapQuery(t, name){
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
 const PLAN_PERIODS = {morning:['Morning','06:00'], afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
 const TRAVEL_MODES = {
-  undecided: {label:'Not Decided', icon:ICONS.route},
-  drive: {label:'Drive', icon:ICONS.car},
-  walk: {label:'Walk', icon:ICONS.walk},
-  ferry: {label:'Ferry', icon:ICONS.ferry},
-  flight: {label:'Flight', icon:ICONS.flight},
-  train: {label:'Train', icon:ICONS.train},
-  bus: {label:'Bus', icon:ICONS.bus}
+  undecided: {label:'Not Decided', icon:ICONS.route, emoji:'🧭'},
+  drive: {label:'Drive', icon:ICONS.car, emoji:'🚗'},
+  walk: {label:'Walk', icon:ICONS.walk, emoji:'🚶'},
+  ferry: {label:'Ferry', icon:ICONS.ferry, emoji:'⛴️'},
+  flight: {label:'Flight', icon:ICONS.flight, emoji:'✈️'},
+  train: {label:'Train', icon:ICONS.train, emoji:'🚂'},
+  bus: {label:'Bus', icon:ICONS.bus, emoji:'🚌'}
 };
 function itineraryTimeKey(s){ return s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][1]) || '99:99'; }
 function travelDurationLabel(s){
@@ -3202,22 +3236,22 @@ function tabPlan(t, ro){
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
   const autoFlightCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
-      ${autoTag(ICONS.flight, 'Flight', s.time)}
+      ${autoTag(secEmoji('✈️'), 'Flight', s.time)}
       ${flightStripHTML(s.f, s.fi, '')}
     </div>`;
   const autoFerryCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.ferryForm(${s.fi})`)}>
-      ${autoTag(ICONS.ferry, 'Ferry', s.time)}
+      ${autoTag(secEmoji('⛴️'), 'Ferry', s.time)}
       ${ferryStripHTML(s.f, s.fi, '')}
     </div>`;
   const autoCarCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.carForm(${s.ci})`)}>
-      ${autoTag(ICONS.car, s._autoCar==='pickup'?'Car Hire Pick Up':'Car Hire Drop Off', s.time)}
+      ${autoTag(secEmoji(s._autoCar==='pickup'?'🚗':'🅿️'), s._autoCar==='pickup'?'Car Hire Pick Up':'Car Hire Drop Off', s.time)}
       ${carStripHTML(s.c, s.ci, '')}
     </div>`;
   const autoStayCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
-      ${autoTag(s._autoStay==='checkin'?ICONS.checkin:ICONS.checkout, s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
+      ${autoTag(secEmoji(s._autoStay==='checkin'?'🔑':'👋'), s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
       ${accomCardHTML(s.ac, {showDates:false})}
     </div>`;
   const travelCard = s => {
@@ -3233,7 +3267,7 @@ function tabPlan(t, ro){
     <div class="card plan-travel${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
       <div class="section-head" style="margin-bottom:${duration?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <span class="plan-travel-icon">${mode.icon}</span>
+          <span class="plan-travel-icon">${secEmoji(mode.emoji)}</span>
           <h3>${title}</h3>
         </div>
       </div>
@@ -3244,7 +3278,7 @@ function tabPlan(t, ro){
     <div class="card${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       <div class="section-head" style="margin-bottom:4px">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <h3>${esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
+          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
         ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
@@ -3253,10 +3287,10 @@ function tabPlan(t, ro){
         role="button" tabindex="0" title="Copy address" data-copy="${esc(s.location)}"
         onclick="event.stopPropagation();App.copyFromEl(this)"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
-        ${ICONS.pin}<span>${esc(s.location)}</span><span class="copy-ic">${ICONS.copy}</span>
+        ${secEmoji('📍')}<span>${esc(s.location)}</span><span class="copy-ic">${ICONS.copy}</span>
       </div>` : ''}
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
-      ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px"><a class="btn" style="flex:1" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICONS.pin}Open Map</a></div>` : ''}
+      ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px"><a class="btn" style="flex:1" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('🗺️')}Open Map</a></div>` : ''}
     </div>`;
   const card = s =>
     s._autoFlight ? autoFlightCard(s)
@@ -3269,7 +3303,7 @@ function tabPlan(t, ro){
     const dayItems = groups[k].slice().sort(planCompare);
     const stay = stayingAt(k);
     return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</h3>
-      ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${ICONS.stay}Staying at ${esc(stay)}</p>`:''}
+      ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏨')}Staying at ${esc(stay)}</p>`:''}
       ${dayItems.map(card).join('')}`;
   };
   return `
@@ -3310,6 +3344,7 @@ App.planWhenChange = () => {
 App.planForm = (i, prefill, moodIndex) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const s = prefill || (i>=0 ? (t.itinerary||[])[i] || {} : {});
+  IDEA_EMOJI_TOUCHED = !!s.emoji;   // a stop that already has one keeps it while you edit
   PLAN_IMG = (i>=0 && t.itinerary[i] && t.itinerary[i].image) || (prefill && prefill.image) || null;
   const initWhen = s.time ? 'time' : (s.period || 'morning');
   const {h:initHour, m:initMin} = roundToQuarterHour(s.time);
@@ -3320,7 +3355,8 @@ App.planForm = (i, prefill, moodIndex) => {
   openModal(`
     <h2>${i>=0?'Edit Stop':'Add Stop'}</h2>
     <div class="field"><label class="label" for="pl-name">Place name</label>
-      <input id="pl-name" type="text" value="${esc(s.name||'')}" placeholder="e.g. Time Out Market"></div>
+      <input id="pl-name" type="text" value="${esc(s.name||'')}" placeholder="e.g. Time Out Market" oninput="App.ideaTitleTyped('#pl-name')"></div>
+    ${ideaEmojiFieldHTML(s.emoji || ideaEmojiFor(s.name||''))}
     <div class="grid2">
       <div class="field"><label class="label" for="pl-date">Date</label>
         <input id="pl-date" type="date" value="${esc(s.date || t.startDate || todayStr())}"></div>
@@ -3359,7 +3395,8 @@ App.savePlan = (i, moodIndex) => {
   const period = when==='time' ? '' : when;
   let mapsUrl = $('#pl-maps').value.trim();
   if(mapsUrl && !/^https?:\/\//i.test(mapsUrl)) mapsUrl = 'https://' + mapsUrl;
-  const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name,
+  const emoji = (($('#md-emoji')||{}).value||'').trim() || ideaEmojiFor(name);
+  const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name, emoji,
              date:$('#pl-date').value, time, period, mapsUrl,
              location:$('#pl-loc').value.trim(), notes:$('#pl-notes').value.trim(), image:PLAN_IMG};
   t.itinerary = t.itinerary||[];
@@ -3482,7 +3519,7 @@ App.planFromIdea = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const m = (t.moodBoard||[])[i]; if(!m) return;
   const name = (m.title||'').replace(/^(Do|Eat|Tip):\s*/,'');
-  App.planForm(-1, {name, notes: m.text||'', location: name, mapsUrl: m.mapsUrl||'', image: m.dataUrl||null}, i);
+  App.planForm(-1, {name, emoji: m.emoji||'', notes: m.text||'', location: name, mapsUrl: m.mapsUrl||'', image: m.dataUrl||null}, i);
 };
 App.removeIdeaFromItinerary = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -3653,12 +3690,12 @@ function accomCardHTML(a, opts){
         role="button" tabindex="0" title="Copy address" data-copy="${esc(a.address)}"
         onclick="event.stopPropagation();App.copyFromEl(this)"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
-        ${ICONS.pin}<span>${esc(a.address)}</span><span class="copy-ic">${ICONS.copy}</span>
+        ${secEmoji('📍')}<span>${esc(a.address)}</span><span class="copy-ic">${ICONS.copy}</span>
       </div>` : ''}
       ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
       ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">
         ${a.bookingUrl?`<a class="btn" style="flex:1.4;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking</a>`:''}
-        ${a.address?`<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICONS.pin}Open Map</a>`:''}
+        ${a.address?`<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('🗺️')}Open Map</a>`:''}
       </div>`:''}
       ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
     </div>`;
@@ -4555,7 +4592,7 @@ function tabMood(t, ro){
         ${m.title && !ro?(inItinerary
           ?`<button class="btn sm" style="width:100%" onclick="App.removeIdeaFromItinerary(${i})">Remove from Itinerary</button>`
           :`<button class="btn sm" style="width:100%" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}
-        ${mapsHref?`<a class="btn sm" style="width:100%" href="${esc(mapsHref)}" target="_blank" rel="noopener">${ICONS.pin}Open Map</a>`:''}
+        ${mapsHref?`<a class="btn sm" style="width:100%" href="${esc(mapsHref)}" target="_blank" rel="noopener">${secEmoji('🗺️')}Open Map</a>`:''}
         ${!ro?`<button class="btn sm" style="width:100%" onclick="App.moodForm(${i})">${ICONS.edit}Edit Idea</button>`:''}
       </div>
     </div>`;
@@ -4626,13 +4663,23 @@ function ideaEmojiFor(title){
   const hit = IDEA_EMOJI_RULES.find(([re]) => re.test(s));
   return hit ? hit[1] : IDEA_EMOJI_DEFAULT;
 }
-const IDEA_EMOJI_PICKS = ['💡','🏖️','🍽️','🍸','☕','🏛️','⛰️','🥾','⛵','🏰','🎵','🛍️','📸','🌅'];
+/* leans towards things you'd actually do on a trip, since this row is what you fall back on
+   when the title gives nothing away and the suggestion lands on the default bulb */
+const IDEA_EMOJI_PICKS = [
+  '💡','🍽️','🍸','☕','🍷','🍺',
+  '🏖️','🏊','🤿','🏄','⛵','🛶',
+  '🥾','⛰️','🧗','🚲','🐎','🎿',
+  '🏛️','🏰','⛪','🗼','🎡','🦁',
+  '🎵','🎭','⚽','🛍️','♨️','🧖',
+  '📸','🌅','🎉','🧭'
+];
 let IDEA_EMOJI_TOUCHED = false;   // once you choose one yourself, the title stops overriding it
 App.touchIdeaEmoji = () => { IDEA_EMOJI_TOUCHED = true; };
-App.ideaTitleTyped = () => {
+App.ideaTitleTyped = (titleSel) => {
   if(IDEA_EMOJI_TOUCHED) return;
-  const el = $('#md-emoji'); if(!el) return;
-  el.value = ideaEmojiFor($('#md-title').value);
+  const el = $('#md-emoji'), src = $(titleSel || '#md-title');
+  if(!el || !src) return;
+  el.value = ideaEmojiFor(src.value);
   paintIdeaEmojiPicks(el.value);
 };
 App.pickIdeaEmoji = e => {
@@ -4645,15 +4692,15 @@ function paintIdeaEmojiPicks(cur){
 }
 function ideaEmojiFieldHTML(cur){
   return `<div class="field"><label class="label" for="md-emoji">Emoji</label>
-    <div class="emoji-field">
-      <input id="md-emoji" class="emoji-input" type="text" maxlength="8" value="${esc(cur)}"
-             aria-label="Idea emoji" oninput="App.touchIdeaEmoji()">
-      <div class="emoji-picks">
-        ${IDEA_EMOJI_PICKS.map(e=>`<button type="button" class="emoji-pick${e===cur?' on':''}" data-emoji="${e}"
-            aria-label="Use ${e}" onclick="App.pickIdeaEmoji('${e}')">${e}</button>`).join('')}
-      </div>
+    <div class="emoji-picks">
+      ${IDEA_EMOJI_PICKS.map(e=>`<button type="button" class="emoji-pick${e===cur?' on':''}" data-emoji="${e}"
+          aria-label="Use ${e}" onclick="App.pickIdeaEmoji('${e}')">${e}</button>`).join('')}
     </div>
-    <p class="muted small" style="margin-top:6px">Suggested from the title. Tap one, or type any emoji you like.</p>
+    <div class="emoji-chosen">
+      <input id="md-emoji" class="emoji-input" type="text" maxlength="8" value="${esc(cur)}"
+             aria-label="Chosen emoji" oninput="App.touchIdeaEmoji()">
+      <span class="muted small">Suggested from the title. Tap one above, or type any emoji.</span>
+    </div>
   </div>`;
 }
 let MOOD_IMG = null;   // pending pin image while the form is open
