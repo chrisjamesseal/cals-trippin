@@ -117,14 +117,15 @@ a{color:var(--brand-dark);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
 /* three equal columns at any width: they're a single glanceable row, so they shouldn't
    reflow into an awkward 2 + 1 on a narrow phone */
-.stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:18px;}
+.stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px;}
+/* same shell as the trip cards below them, so the top of the page reads as one set */
 .stat-card{
-  border:1px solid var(--brand); border-radius:var(--radius); background:var(--brand-tint);
-  padding:15px 8px; cursor:pointer; min-width:0;
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
+  box-shadow:var(--shadow); padding:15px 8px; cursor:pointer; min-width:0;
   display:flex; flex-direction:column; align-items:center; text-align:center; gap:5px;
-  transition:transform .1s, box-shadow .1s;
+  transition:transform .1s, box-shadow .1s, border-color .1s;
 }
-.stat-card:hover,.stat-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
+.stat-card:hover,.stat-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
 .stat-emoji{font-size:1.45rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .stat-n{font-size:1.4rem; font-weight:800; line-height:1; color:var(--brand-dark);}
@@ -507,11 +508,20 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
    client-side only: it keeps casual visitors out, but it is NOT real security against
    anyone who reads the page's source (view-source reveals this constant). Don't rely on it
    to protect anything you wouldn't be okay with a determined stranger seeing. */
-const APP_PIN = '2026';
+const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.34.0';
+const APP_VERSION = '1.35.0';
 const CHANGELOG = [
+  {version:'1.35.0', notes:[
+    'The PIN can no longer be changed from inside the app. It now lives only in the code, so it takes a deploy to move it and nobody who gets past the gate can lock everyone else out.',
+    'The PIN button has gone from the header.',
+    'The three cards at the top of the home page sit a little higher up the page.'
+  ]},
+  {version:'1.34.1', notes:[
+    'The three cards at the top of the home page now use the same plain white card style as the trips below them, instead of the filled green.',
+    'Northern Ireland now shows the Irish tricolour on Places I\'ve Been.'
+  ]},
   {version:'1.34.0', notes:[
     'The home page now opens with three cards, Places I\'ve Been, Want to Go and Countries. Tapping one goes straight to that list, already filtered.',
     'Your Trips now sits below those three cards.',
@@ -981,13 +991,14 @@ function fileSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.rou
    handed to a real country) for places that are commonly tracked as their own "country" on a
    travel checklist despite having no ISO code of their own: England, Scotland and Wales use
    their real Unicode flag emoji; XI (Northern Ireland) mirrors the code the UK/EU already use
-   for it in customs contexts, there's no single agreed NI flag so it shows the Union Flag. */
+   for it in customs contexts. There is no Northern Ireland flag emoji, so this shows the Irish
+   tricolour by preference (note that is the Republic's flag; NI is part of the UK). */
 const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CK CL CM CN CO CR CU CV CW CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FK FM FO FR GA GD GE GG GH GI GL GM GN GQ GR GT GW GY HK HN HR HT HU ID IE IL IM IN IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MO MQ MR MS MT MU MV MW MX MY MZ NA NC NE NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PR PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WS YE ZA ZM ZW XE XS XW XI').split(' ');
 /* a few codes where different browsers' Intl.DisplayNames disagree or add a disambiguating
    suffix (e.g. some render CN as "China mainland", HK/MO with a "SAR China" suffix), pinned
    to the plain, consistent name so it doesn't vary browser to browser */
 const CUSTOM_COUNTRY_NAMES = {XE:'England', XS:'Scotland', XW:'Wales', XI:'Northern Ireland', CN:'China', HK:'Hong Kong', MO:'Macao'};
-const CUSTOM_COUNTRY_FLAGS = {XE:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', XS:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', XW:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}', XI:'\u{1F1EC}\u{1F1E7}'};
+const CUSTOM_COUNTRY_FLAGS = {XE:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', XS:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', XW:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}', XI:'\u{1F1EE}\u{1F1EA}'};
 const flagEmoji = c => CUSTOM_COUNTRY_FLAGS[c] || c.replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
 const COUNTRIES = (()=>{
   let dn = null;
@@ -1519,15 +1530,12 @@ function markErr(sel, msg){
 /* ================= PIN gate ================= */
 const PIN_KEY = 'calstrippin_pin_ok';
 function pinOk(){ try{ return localStorage.getItem(PIN_KEY)==='1'; }catch(e){ return false; } }
-/* the real, currently-active PIN, stored in Firebase once someone changes it (via App.savePin)
-   so a change applies to everyone immediately, not just this browser; APP_PIN is only the
-   starting value / the fallback when cloud sync isn't configured at all */
-function currentPin(cb){
-  if(!fbRoot){ cb(APP_PIN); return; }
-  fbRoot.ref('appPin').once('value')
-    .then(snap => cb(snap.exists() ? snap.val() : APP_PIN))
-    .catch(() => cb(APP_PIN));
-}
+/* The PIN lives in the code and nowhere else. It used to be changeable in-app, which wrote it
+   to Firebase, but that meant anyone who got past the gate once could change it for everyone.
+   Now it only moves when the app is redeployed. Deliberately no longer reads the old Firebase
+   'appPin' node: leaving that in would silently outrank this constant and a change here would
+   appear to do nothing. */
+function currentPin(cb){ cb(APP_PIN); }
 function renderPinGate(){
   $('#header-actions').innerHTML = '';
   const sidebarEl = $('#sidebar-root'); if(sidebarEl) sidebarEl.innerHTML = '';
@@ -1588,7 +1596,6 @@ function headerActionsHTML(){
      </div>`;
   }
   return `<div class="btn-row" style="gap:8px">
-      ${cloudEnabled()?`<button class="btn sm" onclick="App.pinSettingsForm()">${fa('key')} PIN</button>`:''}
       <button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>
       ${placesBtnHTML()}
     </div>`;
@@ -1755,32 +1762,6 @@ App.submitPin = () => {
     }
   });
 };
-/* lets the group change the PIN without a code deploy, stored in Firebase so it applies to
-   everyone immediately, not just the browser that changed it (mirrors the shared-PIN model:
-   no accounts, one passphrase for the group) */
-App.pinSettingsForm = () => {
-  if(!cloudEnabled()){ toast("The PIN can't be changed without cloud sync configured."); return; }
-  openModal(`
-    <h2>Group PIN</h2>
-    <p class="small" style="margin-bottom:12px">Anyone with this PIN can see and edit every trip. Changing it here updates it for everyone straight away, friends still on the old PIN will just be asked again next time they open the app.</p>
-    <div class="field"><label class="label" for="pin-new">New PIN</label>
-      <input id="pin-new" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 2026"></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.savePin()">Save PIN</button></div>`);
-};
-App.savePin = () => {
-  const val = ($('#pin-new').value||'').trim();
-  if(!val) return markErr('#pin-new','Enter a PIN');
-  fbRoot.ref('appPin').set(val)
-    .then(()=>{ closeModal(); toast('PIN updated, share the new one with your group'); })
-    .catch(err => {
-      console.error("My Trips, couldn't save the PIN:", err);
-      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
-        toast("Couldn't save: the database rules don't allow writing the PIN. Open the Firebase console → Realtime Database → Rules and add an \"appPin\": { \".read\": true, \".write\": true } rule.");
-      }else{
-        toast("Couldn't save the new PIN. Check your connection and try again.");
-      }
-    });
-};
 App.goHome = () => { if(location.hash){ location.hash=''; } else { route(); } };
 let PRE_CHANGELOG_HASH = ''; // where we were before opening the changelog, so a second tap returns there
 App.toggleChangelog = () => {
@@ -1902,7 +1883,7 @@ function renderHome(){
   $('#header-actions').innerHTML = headerActionsHTML();
   renderSidebar(null);
   $('#app').innerHTML = `
-    <div style="padding-top:28px">
+    <div style="padding-top:12px">
       ${placesHomeCardsHTML()}
       <h1 style="margin-top:26px">Your Trips</h1>
       <p class="muted" style="margin-top:4px">${cloudEnabled()?'Everyone with the PIN sees every trip.':'One organiser runs the trip. Everyone else gets a link.'}</p>
