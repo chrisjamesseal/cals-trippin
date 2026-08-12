@@ -23,6 +23,7 @@
   --line:#E3E9E9; --line-strong:#C9D5D5;
   --paper:#fff; --bg:#F6F8F7;
   --radius:14px; --radius-sm:10px;
+  --page-top:12px; /* the gap above every page title, on top of .wrap's own top padding */
   --shadow:0 1px 2px rgba(20,40,47,.05), 0 4px 16px rgba(20,40,47,.06);
   --shadow-lift:0 10px 28px rgba(20,40,47,.14);
 }
@@ -39,6 +40,9 @@ body{
 /* nothing above the content now, so the page has to clear the status bar / notch itself */
 .wrap{max-width:920px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 16px 96px;}
 .sidebar{display:none;}
+/* every page's title starts the same distance down, whether it's an h1 (Your Trips, a trip's
+   name) or a breadcrumb title (a section, Places). One number, changed in one place. */
+.page-head{padding-top:var(--page-top);}
 
 /* the wordmark is only on the PIN gate now that the top bar is gone */
 .logo{font-weight:800; font-size:1.6rem; letter-spacing:-.03em; line-height:1; color:var(--ink); user-select:none;}
@@ -160,7 +164,7 @@ a{color:var(--brand-dark);}
 .menu-sep{border:none; border-top:1px solid var(--line); margin:8px 4px;}
 
 /* ---------- breadcrumb back to overview ---------- */
-.crumb{display:flex; flex-direction:column; align-items:flex-start; gap:2px; margin:14px 0 18px;}
+.crumb{display:flex; flex-direction:column; align-items:flex-start; gap:2px; margin:var(--page-top) 0 18px;}
 .crumb-here{display:inline-flex; align-items:center; gap:6px; font-weight:800; font-size:1.5rem; letter-spacing:-.02em; color:var(--ink); min-width:0;}
 .crumb-backbtn{display:inline-flex; align-items:center; justify-content:center; background:none; border:none; cursor:pointer; padding:4px; margin-left:-4px; border-radius:50%; color:var(--brand); flex-shrink:0;}
 .crumb-backbtn:hover{background:var(--brand-ghost);}
@@ -558,8 +562,12 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.39.1';
+const APP_VERSION = '1.40.0';
 const CHANGELOG = [
+  {version:'1.40.0', notes:[
+    'The suggested trip to the airport now assumes you want to be there two hours before the flight, so it reads "arrive by 14:00" for a 16:05 departure instead of telling you to leave at the same moment the plane does. Change it like any other travel leg.',
+    'Every page now starts its title the same distance down the screen, so nothing jumps as you move between them.'
+  ]},
   {version:'1.39.1', notes:[
     'The Leave by / Arrive by buttons now sit straight under When, and the question above them has gone: the buttons say it themselves.'
   ]},
@@ -1644,7 +1652,7 @@ function stopSub(){ if(tripSub){ try{ tripSub.ref.off('value', tripSub.cb); }cat
    (no stopSub, no CUR_TRIP_ID reset), a second tap just restores the hash from before */
 function renderChangelog(){
   $('#app').innerHTML = `
-    <div class="crumb" style="margin-top:26px">
+    <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here"><button class="crumb-backbtn" onclick="App.toggleChangelog()" aria-label="Back">${ICONS.back}</button>What's New</span>
       </div>
@@ -1665,7 +1673,7 @@ function renderPlaces(filter){
   CUR_PLACES_REGION = null;
   CUR_PLACES_FILTER = PLACES_FILTERS.some(f=>f[0]===filter) ? filter : 'all';
   $('#app').innerHTML = `
-    <div class="crumb" style="margin-top:26px">
+    <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Places I've Been</span>
       </div>
@@ -1944,7 +1952,7 @@ function fetchAllTrips(cb){
 function renderHome(){
   renderSidebar(null);
   $('#app').innerHTML = `
-    <div style="padding-top:12px">
+    <div class="page-head">
       <h1>Your Trips</h1>
       <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
       <div class="home-foot">
@@ -2206,7 +2214,7 @@ function renderTrip(t){
   $('#app').innerHTML = `
     ${arch?bannerHTML('🗄 This trip ended over a month ago and is now archived and read-only.'):''}
     ${CUR_TAB==='home' ? `
-    <div style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
+    <div class="page-head" style="${arch?'padding-top:4px;':''}margin-bottom:22px">
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
       <p class="muted trip-meta">
         <span><span class="meta-emoji" aria-hidden="true">📅</span>${fmtRangeLong(t.startDate,t.endDate)}</span>
@@ -2214,7 +2222,7 @@ function renderTrip(t){
           : (phrase ? `<span><span class="meta-emoji" aria-hidden="true">📍</span>${esc(phrase)}</span>` : '')}
       </p>
     </div>` : `
-    <div class="crumb" style="margin-top:26px">
+    <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here"><button class="crumb-backbtn" onclick="App.tab('home')" aria-label="Back to overview">${ICONS.back}</button>${esc((TABS.find(x=>x[0]===CUR_TAB)||[])[1]||'')}</span>
         <span class="crumb-action">${ro?'':crumbAction(t)}</span>
@@ -3106,6 +3114,21 @@ function planCompare(a, b){
   }
   return itineraryTimeKey(a).localeCompare(itineraryTimeKey(b));
 }
+/* how early to be at the airport. Two hours is the usual short-haul advice and, more to the
+   point, "leave at 16:05 for a 16:05 flight" was nonsense: the suggestion is about when you
+   need to BE there, not when the plane goes. Clamped to 00:00 rather than rolling back a day,
+   so the card stays on the flight's own date where you'd look for it. */
+const AIRPORT_LEAD_MINS = 120;
+function airportArriveBy(depTime){
+  const m = /^(\d{1,2}):(\d{2})$/.exec(depTime||''); if(!m) return '';
+  let total = (+m[1])*60 + (+m[2]) - AIRPORT_LEAD_MINS;
+  if(total < 0) return '00:00';
+  /* down to the quarter hour, so the suggestion is a time the form's minute dropdown can
+     actually hold (it offers 00/15/30/45) and the card doesn't shift by five minutes the
+     moment you open it. Down rather than nearest: earlier is the safe direction here. */
+  total -= total % 15;
+  return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+}
 function tabPlan(t, ro){
   const items = (t.itinerary||[]);
   const groups = {};
@@ -3123,7 +3146,9 @@ function tabPlan(t, ro){
     const alreadyAdded = (t.itinerary||[]).some(s=>s._autoForFlight===fi);
     if(f.from && !alreadyAdded){
       const name = airportName(f.from) || f.from;
-      (groups[k]=groups[k]||[]).push({kind:'travel', mode:'undecided', from:'', to:name, time:f.depTime||'', fi});
+      const beThereBy = airportArriveBy(f.depTime);
+      (groups[k]=groups[k]||[]).push({kind:'travel', mode:'undecided', from:'', to:name,
+        time:beThereBy, timing:beThereBy?'arrive':'', fi});
     }
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
@@ -3461,13 +3486,16 @@ App.saveTravelLeg = i => {
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
 };
 /* the auto "travel to the airport" card opens the exact same Add Travel form, pre-filled
-   with the departure airport as the destination, an empty starting point, and the flight's
-   date, from/to/date/duration all editable exactly like a manually-added travel leg */
+   with the departure airport as the destination, an empty starting point, the flight's date
+   and "arrive by" two hours before it departs, all editable exactly like a manually-added
+   travel leg */
 App.airportTravelForm = fi => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const f = (t.flights||[])[fi]; if(!f) return;
   const name = airportName(f.from) || f.from;
-  App.travelLegForm(-1, {mode:'undecided', from:'', to:name, date:f.date||'', _autoForFlight:fi});
+  const beThereBy = airportArriveBy(f.depTime);
+  App.travelLegForm(-1, {mode:'undecided', from:'', to:name, date:f.date||'',
+    time:beThereBy, timing:beThereBy?'arrive':'', _autoForFlight:fi});
 };
 /* send an Ideas pin straight into the itinerary, pre-filled, linked back to the pin so it
    can be toggled to Remove from Itinerary instead of being addable again */
