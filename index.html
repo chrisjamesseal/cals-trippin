@@ -36,25 +36,19 @@ body{
 ::selection{background:var(--brand-tint); color:var(--brand-dark);}
 
 /* ---------- layout ---------- */
-.wrap{max-width:920px; margin:0 auto; padding:0 16px 96px;}
-header.top{
-  border-bottom:1px solid var(--line); background:var(--paper);
-  position:sticky; top:0; z-index:50;
-}
+/* nothing above the content now, so the page has to clear the status bar / notch itself */
+.wrap{max-width:920px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 16px 96px;}
 .sidebar{display:none;}
-.top-inner{max-width:920px; margin:0 auto; padding:13px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;}
 
-/* ---------- wordmark ---------- */
-.logo{
-  font-weight:800; font-size:1.28rem; letter-spacing:-.03em; line-height:1;
-  color:var(--ink); cursor:pointer; user-select:none; white-space:nowrap;
-}
+/* the wordmark is only on the PIN gate now that the top bar is gone */
+.logo{font-weight:800; font-size:1.6rem; letter-spacing:-.03em; line-height:1; color:var(--ink); user-select:none;}
 .logo .lg2{color:var(--brand);}
-@media(max-width:400px){.logo{font-size:1.12rem;}}
-.logo-wrap{display:flex; align-items:baseline; gap:8px; min-width:0;}
-.version-tag{background:none; border:none; padding:0; margin:0; color:var(--muted); font-size:.72rem; font-weight:600;
-  cursor:pointer; text-decoration:underline; text-decoration-color:transparent; transition:text-decoration-color .15s; flex-shrink:0;}
-.version-tag:hover{text-decoration-color:currentColor;}
+
+/* the version now lives quietly at the foot of Your Trips instead of a top bar */
+.home-foot{display:flex; justify-content:center; border-top:1px solid var(--line); margin-top:30px; padding-top:16px;}
+.version-tag{background:none; border:none; padding:6px; margin:0; color:var(--muted); font-size:.75rem; font-weight:600;
+  cursor:pointer; text-decoration:underline; text-decoration-color:transparent; transition:text-decoration-color .15s;}
+.version-tag:hover{text-decoration-color:currentColor; color:var(--brand-dark);}
 
 /* ---------- type ---------- */
 h1{font-size:1.9rem; font-weight:800; letter-spacing:-.03em; line-height:1.15; color:var(--ink);}
@@ -144,7 +138,6 @@ a{color:var(--brand-dark);}
 }
 .menu-btn:hover{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-ghost);}
 .menu-btn .icon{font-size:.95rem;}
-#header-actions .btn-row .btn.sm,#header-actions .btn-row .menu-btn{height:34px; padding-top:0; padding-bottom:0; box-sizing:border-box;}
 .menu-bg{position:fixed; inset:0; background:rgba(20,40,47,.45); z-index:120; animation:fadeIn .15s ease-out;}
 .menu{
   position:fixed; top:0; right:0; bottom:0; width:min(320px,86vw); background:var(--paper);
@@ -285,10 +278,6 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .flight-arrow .icon{font-size:1.3rem; color:var(--line-strong);}
 .loc-arrow-down{color:var(--g3,#c9d5d5);}
 .loc-arrow-down .icon{font-size:1.2rem; color:var(--line-strong);}
-.copy-text{cursor:pointer;}
-.copy-text .copy-ic{font-size:.8rem; opacity:.4; margin-left:6px;}
-.copy-text:hover .copy-ic,.copy-text:focus-visible .copy-ic{opacity:.85;}
-.copy-text:focus-visible{outline:none; color:var(--brand);}
 .flight-meta{padding:0 14px 12px; display:flex; gap:8px 18px; flex-wrap:wrap; font-size:.8rem; color:var(--muted); align-items:center;}
 .incl-chips{display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 12px;}
 .incl-chip{font-size:.7rem; font-weight:600; color:var(--brand-dark); background:var(--brand-tint); border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:4px;}
@@ -333,11 +322,11 @@ details .d-body{padding:14px 16px;}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 @media(max-width:560px){
   h1{font-size:1.5rem;}
-  .wrap{padding:0 12px 80px;}
+  .wrap{padding:calc(14px + env(safe-area-inset-top)) 12px 80px;}
   .modal{padding:6px 12px 40px;}
   .flight-apt{font-size:1.2rem;}
 }
-@media print{.btn,.menu-btn,header.top,.crumb{display:none!important;}}
+@media print{.btn,.menu-btn,.tabbar,.crumb{display:none!important;}}
 
 /* ---------- sticky screen footer ---------- */
 .modal-actions{
@@ -414,7 +403,9 @@ a.dash-tile{text-decoration:none;}
 .tabbar-new::before{width:20px; height:3px; transform:translate(-50%,-50%);}
 .tabbar-new::after{width:3px; height:20px; transform:translate(-50%,-50%);}
 .tabbar-new:hover,.tabbar-new:focus-visible{background:var(--brand-dark); transform:translateY(-1px); outline:none;}
-/* keep the last of the page clear of the bar (harmless on the PIN gate, where it's hidden) */
+/* keep the last of the page clear of the bar (harmless on the PIN gate, where it's hidden),
+   set after the narrow-screen rule above so it wins on phones too, where the bar still needs
+   the same clearance the wider layouts give it */
 .wrap{padding-bottom:96px;}
 .trip-people{display:flex; align-items:center; gap:7px; margin-top:6px;}
 .trip-people .icon{font-size:.72rem;}
@@ -424,12 +415,9 @@ a.dash-tile{text-decoration:none;}
 .mood-emoji{flex-shrink:0; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .mood-emoji.solo{font-size:1.5rem; margin-bottom:2px;}
-/* the palette sits above the chosen-emoji box: side by side, a tall grid next to a single
-   small input left a big empty column and the two never lined up */
-.emoji-picks{display:grid; grid-template-columns:repeat(auto-fill,minmax(40px,1fr)); gap:6px; margin-bottom:10px;}
-.emoji-chosen{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
-.emoji-chosen .small{flex:1; min-width:120px;}
-.emoji-input{width:60px; flex:0 0 auto; text-align:center; font-size:1.25rem; line-height:1.2;
+/* chosen emoji directly under the name it belongs to, palette underneath that */
+.emoji-picks{display:grid; grid-template-columns:repeat(auto-fill,minmax(40px,1fr)); gap:6px; margin-top:8px;}
+.emoji-input{width:60px; text-align:center; font-size:1.25rem; line-height:1.2;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .emoji-pick{
   aspect-ratio:1; width:100%; padding:0; font-size:1.15rem; line-height:1; cursor:pointer;
@@ -467,12 +455,13 @@ a.dash-tile{text-decoration:none;}
 .pack-progress-bar{position:absolute; inset:0 auto 0 0; background:var(--brand-tint); transition:width .2s;}
 .pack-progress span{position:relative;}
 .pack-heading{margin:20px 0 10px; font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted);}
-.pack-row{display:flex; align-items:flex-start; gap:11px; padding:9px 2px; border-bottom:1px solid var(--line);}
-.pack-check{flex-shrink:0; width:21px; height:21px; margin-top:1px; border:2px solid var(--line-strong); border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:.66rem; color:#fff; background:var(--paper);}
+.pack-row{display:flex; align-items:center; gap:12px; padding:11px 2px; border-bottom:1px solid var(--line); min-height:48px;}
+.pack-row .iconbtn{flex-shrink:0; align-self:center;}
+.pack-check{flex-shrink:0; width:21px; height:21px; border:2px solid var(--line-strong); border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:.66rem; color:#fff; background:var(--paper);}
 .pack-check[role=checkbox]{cursor:pointer;}
 .pack-check[role=checkbox]:hover,.pack-check[role=checkbox]:focus-visible{border-color:var(--brand); outline:none;}
 .pack-check.on{background:var(--brand); border-color:var(--brand);}
-.pack-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.pack-text{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px;}
 .pack-label{font-size:.88rem; overflow-wrap:anywhere;}
 .pack-row.done .pack-label{text-decoration:line-through; color:var(--muted);}
 .pack-who{font-size:.7rem; color:var(--muted);}
@@ -505,7 +494,6 @@ a.dash-tile{text-decoration:none;}
 .plan-travel-icon .sec-emoji{font-size:1.05rem;}
 /* the emoji leading a stop's title shouldn't scale with the heading */
 .card > .section-head h3 .sec-emoji{font-size:1rem;}
-.copy-text .sec-emoji{font-size:.85rem;}
 
 /* ---------- edit log ---------- */
 .log-row{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:baseline;}
@@ -526,9 +514,8 @@ a.dash-tile{text-decoration:none;}
   }
   .sidebar .menu-item{padding:10px 12px; font-size:.88rem;}
   .menu-btn{display:none;}
-  .wrap{max-width:1160px; margin:0; padding:0 40px 96px 32px; flex:1; min-width:0;}
+  .wrap{max-width:1160px; margin:0; padding:calc(14px + env(safe-area-inset-top)) 40px 96px 32px; flex:1; min-width:0;}
   .dash-grid{grid-template-columns:repeat(3,1fr);}
-  .top-inner{max-width:none; padding:13px 40px 13px 32px;}
 }
 @media(min-width:1024px) and (max-width:1279px){
   .sidebar{width:216px;}
@@ -536,15 +523,6 @@ a.dash-tile{text-decoration:none;}
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="top-inner">
-    <div class="logo-wrap">
-      <div class="logo" onclick="App.goHome()" role="button" tabindex="0" aria-label="My Trips home">My <span class="lg2">Trips</span></div>
-      <button id="version-tag" class="version-tag" onclick="App.toggleChangelog()" aria-label="View what's new"></button>
-    </div>
-    <div id="header-actions"></div>
-  </div>
-</header>
 <div class="app-shell">
   <aside class="sidebar" id="sidebar-root"></aside>
   <main class="wrap" id="app"></main>
@@ -580,8 +558,19 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.38.1';
+const APP_VERSION = '1.39.0';
 const CHANGELOG = [
+  {version:'1.39.0', notes:[
+    'The top header is gone. Everything it held is now either on the page itself or on the bottom bar, so there is more room for the trip.',
+    'The version number and What\'s new have moved to the foot of Your Trips.',
+    'Share Trip now sits above Delete Trip on the trip overview, so the destructive button is the last thing on the page.',
+    'Travel legs can say whether the time is when you leave or when you need to be there, and the card reads "leave by 16:05" or "arrive by 09:30" instead of a bare time.',
+    'Fixed a travel leg you saved from a flight\'s suggestion duplicating itself when you went back and changed the mode.',
+    'The emoji box on an idea now sits directly under its name, with the quick picks below it.',
+    'Packing rows line up properly with their tick boxes, labels and delete buttons, and Remind me has moved up beside the section title.',
+    'Dropped the tap-to-copy on locations and addresses, and the Copy list button on packing.',
+    'Removed the back button on Places I\'ve Been and added some breathing room above the search box.'
+  ]},
   {version:'1.38.1', notes:[
     'Places I\'ve Been: dropped the row of filter buttons, since the three cards above them now do the same job. The card you\'re filtering by is highlighted.'
   ]},
@@ -731,7 +720,7 @@ const CHANGELOG = [
   {version:'1.1.0', notes:['Turned on multi-device cloud sync via one shareable trip link.', 'Switched every icon in the app over to Font Awesome.']},
   {version:'1.0.0', notes:['First release: trip dashboard, itinerary, travel, accommodation, documents, money, photos, emergency contacts and notes.']},
 ];
-document.getElementById('version-tag').textContent = 'v'+APP_VERSION;
+
 
 /* ================= state ================= */
 const LS_KEY = 'calstrippin_v1';
@@ -1487,15 +1476,12 @@ function parseAirport(v){
   return v.toUpperCase().slice(0,3);
 }
 const airportInputVal = code => code ? (airportName(code) ? code+' · '+airportName(code) : code) : '';
-/* a big location line that copies its text to the clipboard on click, shared by every
-   location shown in travel/itinerary cards (airport codes, ferry ports, car hire spots) */
+/* a big location line, shared by every location shown in travel/itinerary cards
+   (airport codes, ferry ports, car hire spots) */
 function copyRow(text, right){
   if(!text) return `<div class="flight-apt">TBC</div>`;
-  return `<div class="flight-apt copy-text" style="display:flex;align-items:center;gap:6px;${right?'justify-content:flex-end':''}"
-    role="button" tabindex="0" title="Copy" data-copy="${esc(text)}"
-    onclick="event.stopPropagation();App.copyFromEl(this)"
-    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
-    <span>${esc(text)}</span><span class="copy-ic">${ICONS.copy}</span>
+  return `<div class="flight-apt" style="display:flex;align-items:center;gap:6px;${right?'justify-content:flex-end':''}">
+    <span>${esc(text)}</span>
   </div>`;
 }
 /* code prominent, name in grey underneath */
@@ -1513,11 +1499,7 @@ function airportBlock(code, time, right){
    the two rather than squeezed side-by-side */
 function addrRow(text, time){
   if(!text) return `<div class="loc-addr">TBC</div>`;
-  return `<div class="loc-addr copy-text" role="button" tabindex="0" title="Copy" data-copy="${esc(text)}"
-    onclick="event.stopPropagation();App.copyFromEl(this)"
-    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
-    <span>${esc(text)}</span><span class="copy-ic">${ICONS.copy}</span>
-  </div>${time?`<div class="muted small mono" style="margin-top:4px">${esc(time)}</div>`:''}`;
+  return `<div class="loc-addr"><span>${esc(text)}</span></div>${time?`<div class="muted small mono" style="margin-top:4px">${esc(time)}</div>`:''}`;
 }
 
 /* ================= airlines ================= */
@@ -1633,7 +1615,6 @@ function pinOk(){ try{ return localStorage.getItem(PIN_KEY)==='1'; }catch(e){ re
    appear to do nothing. */
 function currentPin(cb){ cb(APP_PIN); }
 function renderPinGate(){
-  $('#header-actions').innerHTML = '';
   const sidebarEl = $('#sidebar-root'); if(sidebarEl) sidebarEl.innerHTML = '';
   $('#app').innerHTML = `
     <div style="max-width:320px; margin:80px auto 0; text-align:center">
@@ -1659,7 +1640,6 @@ function stopSub(){ if(tripSub){ try{ tripSub.ref.off('value', tripSub.cb); }cat
 /* opening the changelog leaves whatever trip/home page was showing untouched underneath
    (no stopSub, no CUR_TRIP_ID reset), a second tap just restores the hash from before */
 function renderChangelog(){
-  $('#header-actions').innerHTML = '';
   $('#app').innerHTML = `
     <div class="crumb" style="margin-top:26px">
       <div class="crumb-titlerow">
@@ -1675,39 +1655,20 @@ function renderChangelog(){
         </ul>
       </div>`).join('')}`;
 }
-/* used in the header-actions button row on Home and inside a trip, next to whichever
-   other button lives there (+ New Trip, or the Menu button) */
-function placesBtnHTML(){
-  return `<button id="places-btn" class="btn sm" onclick="App.goPlaces()" aria-label="Places I've Been" title="Places I've Been">${fa('earth-europe')}</button>`;
-}
-/* the Share/Menu row (inside a trip) or PIN/+New Trip row (on Home) — shared so it can
-   stay put on the Places page too instead of vanishing while you're still in that context */
-/* Places, New Trip and the section menu all live in the bottom bar now, so the header only
-   keeps Share, which is trip-specific and has nowhere else sensible to go */
-function headerActionsHTML(){
-  const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID);
-  if(t){
-    return `<div class="btn-row" style="gap:8px">
-       <button class="btn sm primary" onclick="App.share('${t.id}')">Share</button>
-     </div>`;
-  }
-  return '';
-}
 /* opening Places leaves whatever trip/home page was showing untouched underneath,
    same pattern as renderChangelog above */
 function renderPlaces(filter){
-  $('#header-actions').innerHTML = headerActionsHTML();
   applyArchiveTransitions();
   CUR_PLACES_REGION = null;
   CUR_PLACES_FILTER = PLACES_FILTERS.some(f=>f[0]===filter) ? filter : 'all';
   $('#app').innerHTML = `
     <div class="crumb" style="margin-top:26px">
       <div class="crumb-titlerow">
-        <span class="crumb-here"><button class="crumb-backbtn" onclick="App.leavePlaces()" aria-label="Back">${ICONS.back}</button>Places I've Been</span>
+        <span class="crumb-here">Places I've Been</span>
       </div>
     </div>
     ${placesStatCardsHTML()}
-    <div class="field" style="margin-bottom:16px">
+    <div class="field" style="margin:22px 0 16px">
       <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
     </div>
     <div id="places-grid"></div>`;
@@ -1795,8 +1756,7 @@ function route(){
       location.hash = '#/trip/'+snap.id; return;
     }catch(e){
       CUR_TRIP_ID = null; stopSub();
-      $('#header-actions').innerHTML = '';
-      $('#app').innerHTML = `<div class="empty" style="margin-top:40px">This trip link appears to be broken or incomplete.<br>Ask whoever set it up to send it again.</div>`;
+          $('#app').innerHTML = `<div class="empty" style="margin-top:40px">This trip link appears to be broken or incomplete.<br>Ask whoever set it up to send it again.</div>`;
     }
   } else if(h.startsWith('#/trip/')){
     openTrip(h.slice(7).split('/')[0]);
@@ -1817,8 +1777,7 @@ function openTrip(id){
     renderTrip(local);
     if(!whoAmI(id)) identityModal(local, ()=>{});
   } else if(fbRoot){
-    $('#header-actions').innerHTML = '';
-    $('#app').innerHTML = `<div class="empty" style="margin-top:40px">Loading trip…</div>`;
+      $('#app').innerHTML = `<div class="empty" style="margin-top:40px">Loading trip…</div>`;
     fetchTripOnce(id, remote=>{
       if(CUR_TRIP_ID!==id) return;
       if(remote){
@@ -1831,8 +1790,7 @@ function openTrip(id){
       }
     });
   } else {
-    $('#header-actions').innerHTML = '';
-    $('#app').innerHTML = `<div class="empty" style="margin-top:40px">This trip isn't saved on this device.<br>Shared trips need the app's cloud config set up first.</div>`;
+      $('#app').innerHTML = `<div class="empty" style="margin-top:40px">This trip isn't saved on this device.<br>Shared trips need the app's cloud config set up first.</div>`;
   }
 }
 
@@ -1981,13 +1939,14 @@ function fetchAllTrips(cb){
     });
 }
 function renderHome(){
-  $('#header-actions').innerHTML = headerActionsHTML();
   renderSidebar(null);
   $('#app').innerHTML = `
     <div style="padding-top:12px">
       <h1>Your Trips</h1>
-      <p class="muted" style="margin-top:4px">${cloudEnabled()?'Everyone with the PIN sees every trip.':'One organiser runs the trip. Everyone else gets a link.'}</p>
       <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
+      <div class="home-foot">
+        <button class="version-tag" onclick="App.toggleChangelog()">v${esc(APP_VERSION)} · What's new</button>
+      </div>
     </div>`;
   if(cloudEnabled()){
     fetchAllTrips(all => {
@@ -2135,26 +2094,6 @@ App.copyShare = () => {
   const el = $('#share-url'); el.select();
   navigator.clipboard.writeText(el.value).then(()=>toast('Link copied')).catch(()=>{ document.execCommand('copy'); toast('Link copied'); });
 };
-/* generic click-to-copy for any location/address/reference text, reads the raw value off
-   data-copy (set via esc()) rather than threading it through an onclick string, so quotes
-   and other special characters in addresses etc. can't break the attribute */
-/* clipboard with the old-school textarea fallback, for browsers (and insecure origins)
-   where navigator.clipboard isn't available or refuses */
-function copyText(text, msg){
-  if(!text) return;
-  const done = () => toast(msg || 'Copied to clipboard');
-  const fallback = () => {
-    const ta = document.createElement('textarea');
-    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
-    document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); }catch(e){}
-    document.body.removeChild(ta); done();
-  };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(done).catch(fallback);
-  } else fallback();
-}
-App.copyFromEl = el => copyText(el.getAttribute('data-copy'));
 App.nativeShare = () => {
   navigator.share({title:"Trip invite", url: $('#share-url').value}).catch(()=>{});
 };
@@ -2191,7 +2130,6 @@ const ICONS = {
   notes: fa('note-sticky'),
   edit: fa('pen'),
   trash: fa('trash'),
-  copy: fa('copy'),
   view: fa('eye'),
   route: fa('route'),
   filePdf: fa('file-pdf'),
@@ -2258,7 +2196,6 @@ const TABS = [
 function renderTrip(t){
   const ro = readOnly(t);
   const arch = isArchived(t);
-  $('#header-actions').innerHTML = headerActionsHTML();
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
   renderSidebar(t);
   const phrase = statusPhrase(t);
@@ -2281,8 +2218,10 @@ function renderTrip(t){
       </div>
     </div>`}
     <div id="tab-body"></div>
+    ${CUR_TAB==='home' ? `
+    <button class="btn" style="width:100%;margin-top:40px" onclick="App.share('${t.id}')">${secEmoji('🔗')} Share Trip</button>`:''}
     ${CUR_TAB==='home' && !ro ? `
-    <button class="btn danger" style="width:100%;margin-top:40px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
+    <button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
     ${CUR_TAB==='home' ? tabLog(t) : ''}`;
   renderTab(t);
 }
@@ -2485,6 +2424,7 @@ function crumbAction(t){
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
     case 'polls':  return `<button class="btn sm primary" onclick="App.pollForm()">+ New Poll</button>`;
+    case 'pack':   return `<button class="btn sm" onclick="App.packReminder()">${secEmoji('🔔')} Remind me</button>`;
     case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm(-1)">+ Add</button>`;
     default:       return '';
   }
@@ -2692,12 +2632,7 @@ function tabPack(t, ro){
       <span>${s.done} of ${s.total} fully packed</span>
     </div>
     ${todo.map((it,i)=>packRowHTML(t,it,i,ro)).join('')}
-    ${done.length?`<h3 class="pack-heading">Packed</h3>${done.map((it,i)=>packRowHTML(t,it,i,ro)).join('')}`:''}
-    ${!ro?`<div class="btn-row" style="margin-top:18px">
-      <button class="btn" onclick="App.packReminder()">${ICONS.bell} Remind me</button>
-      <button class="btn" onclick="App.copyPacking()">${ICONS.copy} Copy list</button>
-    </div>
-    <p class="muted small" style="margin-top:8px">"Remind me" saves a calendar reminder for the night before you leave, with everything still unpacked listed in it.</p>`:''}`;
+    ${done.length?`<h3 class="pack-heading">Packed</h3>${done.map((it,i)=>packRowHTML(t,it,i,ro)).join('')}`:''}`;
 }
 App.addPack = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -2745,13 +2680,6 @@ function packUnpackedFor(t){
   const me = whoAmI(t.id) || '_';
   return (t.packing||[]).filter(it=>packMine(t,it) && !packDoneBy(it, me));
 }
-App.copyPacking = () => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const lines = (t.packing||[]).map(it=>`${packIsDone(t,it)?'[x]':'[ ]'} ${it.text}${it.who?' ('+it.who+')':''}`);
-  if(!lines.length) return toast('Nothing on the list yet');
-  const text = `Packing for ${t.name}\n\n${lines.join('\n')}`;
-  copyText(text, 'Packing list copied');
-};
 /* A calendar event imports cleanly everywhere (iOS, Android, desktop) and actually fires an
    alert, which is what "remind me" needs to mean for a static site with no server to push
    from. VTODO would map more neatly onto a reminders app but is widely ignored on import. */
@@ -3256,7 +3184,10 @@ function tabPlan(t, ro){
   const travelCard = s => {
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
-    const title = place + (timeBadge(s)?' - '+esc(timeBadge(s)):'');
+    // a bare time is ambiguous on a journey, so say which end of it the time refers to
+    const when = timeBadge(s) ? (s.time && s.timing==='arrive' ? 'arrive by '+timeBadge(s)
+                              : s.time ? 'leave by '+timeBadge(s) : timeBadge(s)) : '';
+    const title = place + (when?' - '+esc(when):'');
     const duration = travelDurationLabel(s);
     // an auto-suggested "travel to the airport" entry has no itinerary index yet (it isn't
     // saved until you actually edit it), so it opens the same Add Travel form pre-filled
@@ -3282,11 +3213,8 @@ function tabPlan(t, ro){
         ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove stop" onclick="event.stopPropagation();App.delPlan(${s._i})">${ICONS.trash}</button>`:''}
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
-      ${s.location ? `<div class="small copy-text" style="display:flex;align-items:center;gap:8px;margin-bottom:10px"
-        role="button" tabindex="0" title="Copy address" data-copy="${esc(s.location)}"
-        onclick="event.stopPropagation();App.copyFromEl(this)"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
-        ${secEmoji('📍')}<span>${esc(s.location)}</span><span class="copy-ic">${ICONS.copy}</span>
+      ${s.location ? `<div class="small" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        ${secEmoji('📍')}<span>${esc(s.location)}</span>
       </div>` : ''}
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
       ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px"><a class="btn" style="flex:1" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('🗺️')}Open Map</a></div>` : ''}
@@ -3417,6 +3345,15 @@ App.travelWhenChange = () => {
    point it becomes a normal travel leg like any other (tagged so the auto-suggestion isn't
    generated again alongside it) */
 let TRAVEL_AUTO_LINK = null;
+App.setTravelTiming = k => {
+  const el = $('#tv-timing'); if(!el) return;
+  el.value = k;
+  document.querySelectorAll('.timing-pick').forEach(x=>{
+    const on = x.dataset.timing === k;
+    x.classList.toggle('on', on);
+    x.setAttribute('aria-checked', String(on));
+  });
+};
 App.setTravelMode = k => {
   $('#tv-mode').value = k;
   document.querySelectorAll('.mode-picker .mode-pick').forEach(el => {
@@ -3468,11 +3405,22 @@ App.travelLegForm = (i, prefill) => {
           <option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>
         </select></div>
     </div>
-    <div class="grid2" id="tv-time-wrap" style="${initWhen==='time'?'':'display:none'}">
-      <div class="field"><label class="label" for="tv-hour">Hour</label>
-        <select id="tv-hour">${hourOpts}</select></div>
-      <div class="field"><label class="label" for="tv-min">Minute</label>
-        <select id="tv-min">${minOpts}</select></div>
+    <div id="tv-time-wrap" style="${initWhen==='time'?'':'display:none'}">
+      <div class="grid2">
+        <div class="field"><label class="label" for="tv-hour">Hour</label>
+          <select id="tv-hour">${hourOpts}</select></div>
+        <div class="field"><label class="label" for="tv-min">Minute</label>
+          <select id="tv-min">${minOpts}</select></div>
+      </div>
+      <div class="field"><label class="label" id="tv-timing-label">Is that when you leave or when you need to be there?</label>
+        <input type="hidden" id="tv-timing" value="${s.timing==='arrive'?'arrive':'leave'}">
+        <div class="chips" role="radiogroup" aria-labelledby="tv-timing-label">
+          ${[['leave','Leave by'],['arrive','Arrive by']].map(([k,l])=>`
+            <span class="chip pick timing-pick ${((s.timing==='arrive'?'arrive':'leave')===k)?'on':''}"
+                  data-timing="${k}" role="radio" tabindex="0" aria-checked="${((s.timing==='arrive'?'arrive':'leave')===k)}"
+                  onclick="App.setTravelTiming('${k}')"
+                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setTravelTiming('${k}')}">${l}</span>`).join('')}
+        </div></div>
     </div>
     <div class="field"><label class="label">Duration</label>
       <div class="grid2">
@@ -3495,9 +3443,13 @@ App.saveTravelLeg = i => {
   const durationH = +$('#tv-dur-h').value, durationM = +$('#tv-dur-m').value;
   t.itinerary = t.itinerary||[];
   const existing = i>=0 ? t.itinerary[i] : null;
+  /* the link back to the flight this leg was suggested for has to survive an edit: drop it
+     and the auto "travel to the airport" card reappears alongside the leg you already saved */
+  const autoLink = i<0 ? TRAVEL_AUTO_LINK : (existing ? existing._autoForFlight : null);
+  const timing = time ? (($('#tv-timing')||{}).value === 'arrive' ? 'arrive' : 'leave') : '';
   const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
-             from, to, date:$('#tv-date').value, time, period, durationH, durationM,
-             ...(i<0 && TRAVEL_AUTO_LINK!=null ? {_autoForFlight:TRAVEL_AUTO_LINK} : {})};
+             from, to, date:$('#tv-date').value, time, period, timing, durationH, durationM,
+             ...(autoLink!=null ? {_autoForFlight:autoLink} : {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
@@ -3685,11 +3637,8 @@ function accomCardHTML(a, opts){
         ${opts.headerActions?`<span class="btn-row" onclick="event.stopPropagation()">${opts.headerActions}</span>`:''}
       </div>
       ${opts.showDates!==false && stayRange ? `<div class="small" style="display:flex;align-items:center;gap:8px;margin-top:10px">${ICONS.calendar}<span>${esc(stayRange)}</span></div>` : ''}
-      ${a.address ? `<div class="small copy-text" style="display:flex;align-items:center;gap:8px;margin-top:10px"
-        role="button" tabindex="0" title="Copy address" data-copy="${esc(a.address)}"
-        onclick="event.stopPropagation();App.copyFromEl(this)"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.copyFromEl(this)}">
-        ${secEmoji('📍')}<span>${esc(a.address)}</span><span class="copy-ic">${ICONS.copy}</span>
+      ${a.address ? `<div class="small" style="display:flex;align-items:center;gap:8px;margin-top:10px">
+        ${secEmoji('📍')}<span>${esc(a.address)}</span>
       </div>` : ''}
       ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
       ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">
@@ -4691,14 +4640,11 @@ function paintIdeaEmojiPicks(cur){
 }
 function ideaEmojiFieldHTML(cur){
   return `<div class="field"><label class="label" for="md-emoji">Emoji</label>
+    <input id="md-emoji" class="emoji-input" type="text" maxlength="8" value="${esc(cur)}"
+           aria-label="Chosen emoji" oninput="App.touchIdeaEmoji()">
     <div class="emoji-picks">
       ${IDEA_EMOJI_PICKS.map(e=>`<button type="button" class="emoji-pick${e===cur?' on':''}" data-emoji="${e}"
           aria-label="Use ${e}" onclick="App.pickIdeaEmoji('${e}')">${e}</button>`).join('')}
-    </div>
-    <div class="emoji-chosen">
-      <input id="md-emoji" class="emoji-input" type="text" maxlength="8" value="${esc(cur)}"
-             aria-label="Chosen emoji" oninput="App.touchIdeaEmoji()">
-      <span class="muted small">Suggested from the title. Tap one above, or type any emoji.</span>
     </div>
   </div>`;
 }
