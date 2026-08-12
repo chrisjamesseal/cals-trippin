@@ -558,8 +558,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.39.0';
+const APP_VERSION = '1.39.1';
 const CHANGELOG = [
+  {version:'1.39.1', notes:[
+    'The Leave by / Arrive by buttons now sit straight under When, and the question above them has gone: the buttons say it themselves.'
+  ]},
   {version:'1.39.0', notes:[
     'The top header is gone. Everything it held is now either on the page itself or on the bottom bar, so there is more room for the trip.',
     'The version number and What\'s new have moved to the foot of Your Trips.',
@@ -3406,21 +3409,23 @@ App.travelLegForm = (i, prefill) => {
         </select></div>
     </div>
     <div id="tv-time-wrap" style="${initWhen==='time'?'':'display:none'}">
-      <div class="grid2">
-        <div class="field"><label class="label" for="tv-hour">Hour</label>
-          <select id="tv-hour">${hourOpts}</select></div>
-        <div class="field"><label class="label" for="tv-min">Minute</label>
-          <select id="tv-min">${minOpts}</select></div>
-      </div>
-      <div class="field"><label class="label" id="tv-timing-label">Is that when you leave or when you need to be there?</label>
+      <!-- the chips read as their own question, so they carry no visible label and sit
+           straight under "When", ahead of the hour/minute the choice qualifies -->
+      <div class="field">
         <input type="hidden" id="tv-timing" value="${s.timing==='arrive'?'arrive':'leave'}">
-        <div class="chips" role="radiogroup" aria-labelledby="tv-timing-label">
+        <div class="chips" role="radiogroup" aria-label="Is that time when you leave or when you need to be there?">
           ${[['leave','Leave by'],['arrive','Arrive by']].map(([k,l])=>`
             <span class="chip pick timing-pick ${((s.timing==='arrive'?'arrive':'leave')===k)?'on':''}"
                   data-timing="${k}" role="radio" tabindex="0" aria-checked="${((s.timing==='arrive'?'arrive':'leave')===k)}"
                   onclick="App.setTravelTiming('${k}')"
                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setTravelTiming('${k}')}">${l}</span>`).join('')}
         </div></div>
+      <div class="grid2">
+        <div class="field"><label class="label" for="tv-hour">Hour</label>
+          <select id="tv-hour">${hourOpts}</select></div>
+        <div class="field"><label class="label" for="tv-min">Minute</label>
+          <select id="tv-min">${minOpts}</select></div>
+      </div>
     </div>
     <div class="field"><label class="label">Duration</label>
       <div class="grid2">
