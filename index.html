@@ -374,7 +374,38 @@ details .d-body{padding:14px 16px;}
 a.dash-tile{text-decoration:none;}
 
 /* ---------- backup / restore bar ---------- */
-.backup-bar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px solid var(--line); margin-top:28px; padding-top:16px;}
+/* ---------- bottom bar ---------- */
+.tabbar{display:none;}
+.tabbar.on{
+  display:grid; grid-template-columns:repeat(5,1fr); align-items:center;
+  position:fixed; left:0; right:0; bottom:0; z-index:60;
+  background:var(--paper); border-top:1px solid var(--line);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  box-shadow:0 -2px 14px rgba(20,40,47,.06);
+}
+.tabbar-item{
+  display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
+  background:none; border:none; padding:6px 2px; cursor:pointer; color:var(--muted);
+  font:inherit; font-size:.62rem; font-weight:700; letter-spacing:.01em;
+}
+.tabbar-item:disabled{opacity:.3; cursor:default;}
+.tabbar-item.active{color:var(--brand-dark);}
+.tabbar-emoji{font-size:1.15rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.tabbar-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
+/* raised centre button, the one thing on the bar that creates rather than navigates */
+.tabbar-new{
+  justify-self:center; width:52px; height:52px; margin-top:-20px;
+  border:3px solid var(--paper); border-radius:50%;
+  background:var(--brand); color:#fff; font-size:1.7rem; line-height:1; font-weight:400;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 12px rgba(14,133,119,.35); transition:transform .1s, background .1s;
+}
+.tabbar-new:hover,.tabbar-new:focus-visible{background:var(--brand-dark); transform:translateY(-1px); outline:none;}
+/* keep the last of the page clear of the bar (harmless on the PIN gate, where it's hidden) */
+.wrap{padding-bottom:96px;}
+.trip-people{display:flex; align-items:center; gap:7px; margin-top:6px;}
+.trip-people .icon{font-size:.72rem;}
 
 /* ---------- trip status pill ---------- */
 .status-pill{display:inline-block; font-size:.64rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--line-strong); border-radius:999px; padding:3px 11px; white-space:nowrap; color:var(--muted); background:var(--paper);}
@@ -481,6 +512,7 @@ a.dash-tile{text-decoration:none;}
   <aside class="sidebar" id="sidebar-root"></aside>
   <main class="wrap" id="app"></main>
 </div>
+<nav class="tabbar" id="tabbar" aria-label="Main"></nav>
 <div id="modal-root"></div>
 <div id="menu-root"></div>
 <div id="toast"></div>
@@ -511,8 +543,15 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.35.1';
+const APP_VERSION = '1.36.0';
 const CHANGELOG = [
+  {version:'1.36.0', notes:[
+    'Added a bottom bar as the main way around the app: Trips, Places, a green + in the middle for a new trip, and inside a trip, Itinerary and the menu.',
+    'The globe has gone from the top header now that Places lives on the bottom bar.',
+    'Trip dates now read "23 Sep - 1 Oct 2026" instead of repeating the year twice.',
+    'Trip cards on the home page now show who\'s going.',
+    'Removed the Back Up Trips and Restore buttons: trips sync to the cloud, so they were doing nothing useful.'
+  ]},
   {version:'1.35.1', notes:[
     'Reordered the trip dashboard: Itinerary and Ideas now lead, and Edit Trip has moved to the end.',
     'Places I\'ve Been: "All" is now the globe, and South America has a llama, so no continent shares the globe with it any more.'
@@ -880,9 +919,15 @@ function todayStr(){
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+/* "23 Sep - 1 Oct 2026": the year is said once at the end, unless the trip crosses new year
+   and both halves need their own */
 function fmtRange(a,b){
   if(!a && !b) return 'Dates TBC';
-  return (a?fmtDate(a):'?') + ' to ' + (b?fmtDate(b):'?');
+  if(!a || !b) return a ? 'From '+fmtDate(a) : 'Until '+fmtDate(b);
+  const da = new Date(a+'T00:00:00'), db = new Date(b+'T00:00:00');
+  if(da.getFullYear() !== db.getFullYear()) return fmtDate(a)+' - '+fmtDate(b);
+  const dayMonth = d => d.toLocaleDateString(undefined, {day:'numeric', month:'short'});
+  return dayMonth(da)+' - '+dayMonth(db)+' '+db.getFullYear();
 }
 /* compact numeric range for the trip header: "23/9/26 - 25/9/26" */
 function fmtRangeLong(a,b){
@@ -1589,19 +1634,16 @@ function placesBtnHTML(){
 }
 /* the Share/Menu row (inside a trip) or PIN/+New Trip row (on Home) — shared so it can
    stay put on the Places page too instead of vanishing while you're still in that context */
+/* Places, New Trip and the section menu all live in the bottom bar now, so the header only
+   keeps Share, which is trip-specific and has nowhere else sensible to go */
 function headerActionsHTML(){
   const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID);
   if(t){
     return `<div class="btn-row" style="gap:8px">
        <button class="btn sm primary" onclick="App.share('${t.id}')">Share</button>
-       ${placesBtnHTML()}
-       <button class="menu-btn" onclick="App.openMenu()" aria-label="Trip menu" aria-haspopup="true">${ICONS.menu}<span>Menu</span></button>
      </div>`;
   }
-  return `<div class="btn-row" style="gap:8px">
-      <button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>
-      ${placesBtnHTML()}
-    </div>`;
+  return '';
 }
 /* opening Places leaves whatever trip/home page was showing untouched underneath,
    same pattern as renderChangelog above */
@@ -1687,7 +1729,8 @@ function drawPlacesGrid(){
 }
 function route(){
   closeModal(); closeMenu();
-  if(!pinOk()){ CUR_TRIP_ID = null; stopSub(); renderPinGate(); return; }
+  if(!pinOk()){ CUR_TRIP_ID = null; stopSub(); renderPinGate(); renderTabbar(); return; }
+  setTimeout(renderTabbar, 0);   // after whichever render below has settled CUR_TRIP_ID/CUR_TAB
   const h = location.hash;
   if(h === '#/changelog'){
     renderChangelog(); window.scrollTo(0,0); return;
@@ -1814,7 +1857,15 @@ App.changeIdentity = () => {
 };
 
 /* ================= home (trip list) ================= */
+/* who's coming, trimmed so a big group can't push a card out of shape */
+function peopleSummary(t, empty){
+  const people = t.participants||[];
+  if(!people.length) return empty || '';
+  if(people.length <= 3) return people.join(', ');
+  return `${people.slice(0,2).join(', ')} +${people.length-2} more`;
+}
 function tripCardHTML(t){
+  const people = peopleSummary(t);
   return `
     <div class="trip-card ${isArchived(t)?'archived':''}" role="button" tabindex="0"
          onclick="location.hash='#/trip/${t.id}'"
@@ -1823,6 +1874,7 @@ function tripCardHTML(t){
       <h3>${esc(t.name)}</h3>
       ${t.destination?`<div class="muted">${esc(t.destination)}</div>`:''}
       <div class="small" style="margin-top:8px">${fmtRange(t.startDate,t.endDate)}</div>
+      ${people?`<div class="small muted trip-people">${fa('user')}${esc(people)}</div>`:''}
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
 }
@@ -1891,14 +1943,6 @@ function renderHome(){
       <h1 style="margin-top:26px">Your Trips</h1>
       <p class="muted" style="margin-top:4px">${cloudEnabled()?'Everyone with the PIN sees every trip.':'One organiser runs the trip. Everyone else gets a link.'}</p>
       <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
-      <div class="backup-bar" style="margin-top:22px">
-        <span class="muted small">${cloudEnabled()?'Trips sync automatically and stay backed up in the cloud.':'Trips are saved in this browser. Moving to a new phone or browser?'}</span>
-        <span class="btn-row">
-          <button class="btn sm" onclick="App.exportTrips()">${ICONS.download} Back Up Trips</button>
-          <label class="btn sm" style="cursor:pointer">${ICONS.upload} Restore
-            <input type="file" accept="application/json,.json" style="display:none" onchange="App.importTrips(this)"></label>
-        </span>
-      </div>
     </div>`;
   if(cloudEnabled()){
     fetchAllTrips(all => {
@@ -1907,7 +1951,10 @@ function renderHome(){
     });
   }
 }
-/* ---- backup / restore: carry trips to another browser without an account ---- */
+/* ---- backup / restore ----
+   No longer surfaced anywhere: trips sync to the cloud, so the buttons were clutter. Kept
+   reachable from the console (App.exportTrips() / App.importTrips(input)) as a manual escape
+   hatch, since losing every trip with no way to pull a copy out would be a bad day. */
 App.exportTrips = () => {
   const blob = new Blob([JSON.stringify({app:'cals-trippin', schema:SCHEMA, exportedAt:Date.now(), trips:DB.trips}, null, 0)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -2304,6 +2351,29 @@ function renderSidebar(t){
   const root = $('#sidebar-root'); if(!root) return;
   root.innerHTML = t ? tripNavItems(t) : '';
 }
+/* ---- bottom bar: the app's main navigation, always within thumb reach ----
+   Trip-specific slots stay in place but go inert on the home and Places pages, so the
+   green New Trip button never shifts sideways as you move around. */
+function renderTabbar(){
+  const bar = $('#tabbar'); if(!bar) return;
+  if(!pinOk()){ bar.innerHTML = ''; bar.classList.remove('on'); return; }
+  bar.classList.add('on');
+  const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID);
+  const onHome   = !t && !location.hash.startsWith('#/places');
+  const onPlaces = location.hash.startsWith('#/places');
+  const item = (label, emoji, fn, active, off) => `
+    <button class="tabbar-item${active?' active':''}" ${off?'disabled aria-disabled="true"':''}
+            ${off?'':`onclick="${fn}"`} aria-label="${esc(label)}">
+      <span class="tabbar-emoji" aria-hidden="true">${emoji}</span>
+      <span class="tabbar-label">${esc(label)}</span>
+    </button>`;
+  bar.innerHTML =
+      item('Trips','🧳',"App.goHome()", onHome, false)
+    + item('Places','🌎',"App.goPlaces()", onPlaces, false)
+    + `<button class="tabbar-new" onclick="App.newTrip()" aria-label="New trip"><span aria-hidden="true">+</span></button>`
+    + item('Itinerary','🗺️',"App.tab('plan')", !!t && CUR_TAB==='plan', !t)
+    + item('Menu','☰',"App.openMenu()", false, !t);
+}
 function menuIsOpen(){ return !!$('#menu-root').firstChild; }
 function closeMenu(){
   if(!menuIsOpen()) return;
@@ -2333,6 +2403,7 @@ App.tab = k => {
     // 'hashchange' (that would re-run route()/openTrip(), which resets CUR_TAB to 'home')
     if(location.hash !== '#/trip/'+CUR_TRIP_ID) history.replaceState(null, '', location.pathname + '#/trip/' + CUR_TRIP_ID);
     renderTrip(t);
+    renderTabbar();   // this path skips route(), so the bar's active slot needs telling
   }
   window.scrollTo(0,0);
 };
@@ -2367,6 +2438,7 @@ function crumbAction(t){
 function rerender(){
   const t = getTrip(CUR_TRIP_ID);
   if(t) renderTrip(t);
+  renderTabbar();
 }
 /* ================= TAB: home (dashboard) ================= */
 function tabHome(t, ro){
@@ -2429,15 +2501,12 @@ function tabHome(t, ro){
   // least-used thing here, so the sections you actually open lead. Its summary lists who's
   // coming, since people are managed from this same Edit Trip screen (the countdown lives in
   // the header now, so repeating it here would just say the same thing twice)
-  const going = (t.participants||[]);
-  const goingSum = !going.length ? 'No One Added Yet'
-    : going.length <= 3 ? going.join(', ')
-    : `${going.slice(0,2).join(', ')} +${going.length-2} more`;
+  const goingSum = peopleSummary(t, 'No One Added Yet');
   const editTile = !ro ? `
     <div class="dash-tile" role="button" tabindex="0" aria-label="Edit Trip"
          onclick="App.tripForm()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tripForm()}">
       <span class="dash-icon">${tileIcon('edit')}</span>
-      <span class="dash-text"><span class="dash-label">Edit Trip</span><span class="dash-sum${going.length?'':' unfilled'}">${esc(goingSum)}</span></span>
+      <span class="dash-text"><span class="dash-label">Edit Trip</span><span class="dash-sum${(t.participants||[]).length?'':' unfilled'}">${esc(goingSum)}</span></span>
     </div>` : '';
   return `<div class="dash-grid">${tiles.map(tile).join('')}${editTile}</div>`;
 }
