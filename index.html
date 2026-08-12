@@ -126,6 +126,9 @@ a{color:var(--brand-dark);}
   transition:transform .1s, box-shadow .1s, border-color .1s;
 }
 .stat-card:hover,.stat-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
+/* the cards are the filter, so the one in force has to be obvious at a glance */
+.stat-card.on{border-color:var(--brand); background:var(--brand-tint); box-shadow:none;}
+.stat-card.on .stat-label{color:var(--brand-dark);}
 .stat-emoji{font-size:1.45rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .stat-n{font-size:1.4rem; font-weight:800; line-height:1; color:var(--brand-dark);}
@@ -577,8 +580,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.38.0';
+const APP_VERSION = '1.38.1';
 const CHANGELOG = [
+  {version:'1.38.1', notes:[
+    'Places I\'ve Been: dropped the row of filter buttons, since the three cards above them now do the same job. The card you\'re filtering by is highlighted.'
+  ]},
   {version:'1.38.0', notes:[
     'The bottom bar now stays put when the section menu is open, and the last button turns into Close, so the thumb that opened it can shut it again.',
     'The three Places counters have moved off the home page onto Places I\'ve Been itself.',
@@ -1425,10 +1431,6 @@ function placesCounts(){
 const PLACES_FILTERS = [['all','All'],['been','Been'],['want','Want to Go']];
 let CUR_PLACES_REGION = null;   // continent name, or null to show the region picker
 let CUR_PLACES_FILTER = 'all';  // one of PLACES_FILTERS' keys
-function placesFilterRowHTML(){
-  const counts = placesCounts();
-  return PLACES_FILTERS.map(([k,label])=>`<span class="chip pick ${CUR_PLACES_FILTER===k?'on':''}" role="button" tabindex="0" data-filter="${k}" onclick="App.setPlacesFilter('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlacesFilter('${k}')}">${esc(label)} (${counts[k]})</span>`).join('');
-}
 function placesRegionTileHTML(k, codes, emoji, wide, going){
   const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, going[c]||0)!=='none' : placesStatusOf(c, going[c]||0)===CUR_PLACES_FILTER);
   const pct = codes.length ? Math.round(shown.length/codes.length*100) : 0;
@@ -1704,10 +1706,7 @@ function renderPlaces(filter){
         <span class="crumb-here"><button class="crumb-backbtn" onclick="App.leavePlaces()" aria-label="Back">${ICONS.back}</button>Places I've Been</span>
       </div>
     </div>
-    ${placesHomeCardsHTML()}
-    <div class="chips" id="places-filters" style="margin-bottom:16px">
-      ${placesFilterRowHTML()}
-    </div>
+    ${placesStatCardsHTML()}
     <div class="field" style="margin-bottom:16px">
       <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
     </div>
@@ -1871,7 +1870,7 @@ App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
   if(status) DB.places[code] = status; else delete DB.places[code];
   savePlaces();
-  const fr = $('#places-filters'); if(fr) fr.innerHTML = placesFilterRowHTML();
+  const stats = $('#places-stats'); if(stats) stats.outerHTML = placesStatCardsHTML();
   drawPlacesGrid();
 };
 App.selectPlacesRegion = k => {
@@ -1880,11 +1879,6 @@ App.selectPlacesRegion = k => {
   drawPlacesGrid();
 };
 App.clearPlacesRegion = () => { CUR_PLACES_REGION = null; drawPlacesGrid(); };
-App.setPlacesFilter = k => {
-  CUR_PLACES_FILTER = k;
-  const fr = $('#places-filters'); if(fr) fr.innerHTML = placesFilterRowHTML();
-  drawPlacesGrid();
-};
 
 App.confirmIdentity = id => {
   const t = getTrip(id); if(!t) return;
@@ -1925,18 +1919,23 @@ function tripCardHTML(t){
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
 }
-/* three at-a-glance counts, each opening Places already filtered to what it's counting */
-function placesHomeCardsHTML(){
+/* three at-a-glance counts that double as the page's filter, which is why there's no
+   separate row of filter chips: these say the same thing */
+function placesStatCardsHTML(){
   const c = placesCounts();
-  const card = (filter, emoji, n, label) => `
-    <div class="stat-card" role="button" tabindex="0" aria-label="${esc(label)}: ${n}"
+  const card = (filter, emoji, n, label) => {
+    const on = CUR_PLACES_FILTER === filter;
+    return `
+    <div class="stat-card${on?' on':''}" role="button" tabindex="0" aria-pressed="${on}"
+         aria-label="${esc(label)}: ${n}"
          onclick="App.goPlaces('${filter}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('${filter}')}">
       <span class="stat-emoji" aria-hidden="true">${emoji}</span>
       <span class="stat-n">${n}</span>
       <span class="stat-label">${esc(label)}</span>
     </div>`;
-  return `<div class="stat-grid">
+  };
+  return `<div class="stat-grid" id="places-stats">
     ${card('been','✅', c.been, "Places I've Been")}
     ${card('want','⭐', c.want, 'Want to Go')}
     ${card('all','🌐', c.all, 'Countries')}
