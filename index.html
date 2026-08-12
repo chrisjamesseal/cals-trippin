@@ -196,6 +196,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .chip.country{padding:5px 12px;}
 .chip.country .flag{font-size:1.05rem; line-height:1;}
 .trip-flags{font-size:1.05rem; letter-spacing:.08em;}
+.trip-meta{margin-top:4px; display:flex; align-items:center; gap:6px 18px; flex-wrap:wrap;}
+.trip-meta > span{display:inline-flex; align-items:center; gap:7px;}
+.meta-emoji{font-size:1rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .places-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-bottom:22px;}
 .place-card{border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; background:var(--paper);}
 .place-card .flag{font-size:1.7rem; line-height:1; display:block; margin-bottom:4px;}
@@ -372,9 +376,8 @@ a.dash-tile{text-decoration:none;}
 /* ---------- itinerary ---------- */
 .plan-day{margin:24px 0 10px; font-size:.95rem; font-weight:800; color:var(--brand-dark); display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .wx-chip{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
-.wx-chip .icon{font-size:.78rem;}
-.wx-note{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:4px 0 -4px; font-size:.78rem; color:var(--muted);}
-.wx-note-text{display:inline-flex; align-items:center; gap:6px;}
+.wx-emoji{font-size:.9rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 
 /* ---------- packing list ---------- */
 .pack-add{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
@@ -493,8 +496,13 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.32.1';
+const APP_VERSION = '1.33.0';
 const CHANGELOG = [
+  {version:'1.33.0', notes:[
+    'The itinerary now works out where you are on each day by itself: flights, ferries and check-ins move the forecast along with you, so a multi-country trip shows the right town\'s weather on the right days. The "Weather for..." bar and its Change button are gone, there\'s nothing to set up any more.',
+    'Weather now shows as an emoji (sun, rain, thunder) next to the temperatures.',
+    'The trip header now shows a calendar next to the dates and, for a trip that hasn\'t started, an hourglass with how many days to go.'
+  ]},
   {version:'1.32.1', notes:[
     'The trip dashboard tiles now use colourful emoji instead of flat green icons, so the page has more life to it and sits better next to the country flags at the top.'
   ]},
@@ -2111,7 +2119,11 @@ function renderTrip(t){
     ${CUR_TAB==='home' ? `
     <div style="padding-top:${arch?'4px':'26px'}; margin-bottom:22px">
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
-      <p class="muted" style="margin-top:4px">${fmtRangeLong(t.startDate,t.endDate)}${(phrase && !upcoming)?` (${phrase})`:''}</p>
+      <p class="muted trip-meta">
+        <span><span class="meta-emoji" aria-hidden="true">📅</span>${fmtRangeLong(t.startDate,t.endDate)}</span>
+        ${upcoming ? `<span><span class="meta-emoji" aria-hidden="true">⏳</span>${esc(daysToGoCount(upcoming))}</span>`
+          : (phrase ? `<span><span class="meta-emoji" aria-hidden="true">📍</span>${esc(phrase)}</span>` : '')}
+      </p>
     </div>` : `
     <div class="crumb" style="margin-top:26px">
       <div class="crumb-titlerow">
@@ -2760,28 +2772,26 @@ App.delPoll = pollId => {
 const WX_FORECAST_DAYS = 16;
 const WX_GEO_KEY = 'calstrippin_wx_geo';
 const WX_STATE = {};   // place -> {status:'loading'|'ok'|'fail', days:{'YYYY-MM-DD':{...}}, label}
-/* WMO weather codes, grouped down to the handful of conditions worth showing on a trip plan */
+/* WMO weather codes, grouped down to the handful of conditions worth showing on a trip plan.
+   Emoji rather than icon-font glyphs: the weather is the one thing on the page that is
+   genuinely worth a splash of colour, and it keeps rendering even if the icon font doesn't. */
 const WX_CODES = {
-  0:['Clear','sun'], 1:['Mainly clear','sun'], 2:['Partly cloudy','cloud-sun'], 3:['Overcast','cloud'],
-  45:['Fog','smog'], 48:['Fog','smog'],
-  51:['Light drizzle','cloud-rain'], 53:['Drizzle','cloud-rain'], 55:['Heavy drizzle','cloud-rain'],
-  56:['Freezing drizzle','cloud-rain'], 57:['Freezing drizzle','cloud-rain'],
-  61:['Light rain','cloud-rain'], 63:['Rain','cloud-showers-heavy'], 65:['Heavy rain','cloud-showers-heavy'],
-  66:['Freezing rain','cloud-rain'], 67:['Freezing rain','cloud-rain'],
-  71:['Light snow','snowflake'], 73:['Snow','snowflake'], 75:['Heavy snow','snowflake'], 77:['Snow','snowflake'],
-  80:['Showers','cloud-sun-rain'], 81:['Showers','cloud-showers-heavy'], 82:['Heavy showers','cloud-showers-heavy'],
-  85:['Snow showers','snowflake'], 86:['Snow showers','snowflake'],
-  95:['Thunderstorm','cloud-bolt'], 96:['Thunderstorm','cloud-bolt'], 99:['Thunderstorm','cloud-bolt']
+  0:['Clear','☀️'], 1:['Mainly clear','🌤️'], 2:['Partly cloudy','⛅'], 3:['Overcast','☁️'],
+  45:['Fog','🌫️'], 48:['Fog','🌫️'],
+  51:['Light drizzle','🌦️'], 53:['Drizzle','🌦️'], 55:['Heavy drizzle','🌦️'],
+  56:['Freezing drizzle','🌧️'], 57:['Freezing drizzle','🌧️'],
+  61:['Light rain','🌦️'], 63:['Rain','🌧️'], 65:['Heavy rain','🌧️'],
+  66:['Freezing rain','🌧️'], 67:['Freezing rain','🌧️'],
+  71:['Light snow','🌨️'], 73:['Snow','🌨️'], 75:['Heavy snow','❄️'], 77:['Snow','🌨️'],
+  80:['Showers','🌦️'], 81:['Showers','🌧️'], 82:['Heavy showers','🌧️'],
+  85:['Snow showers','🌨️'], 86:['Snow showers','🌨️'],
+  95:['Thunderstorm','⛈️'], 96:['Thunderstorm','⛈️'], 99:['Thunderstorm','⛈️']
 };
-/* which town the forecast is for: an explicit override wins, otherwise fall back to the
-   trip's destination and finally its first country */
-function wxPlaceOf(t){
-  return (t.weatherPlace||'').trim()
-      || (t.destination||'').trim()
-      || ((t.countries||[]).length ? ((countryByCode(t.countries[0])||{}).name||'') : '');
-}
 function wxGeoGet(place){
-  try{ return JSON.parse(localStorage.getItem(WX_GEO_KEY)||'{}')[place.toLowerCase()] || null; }catch(e){ return null; }
+  try{
+    const v = JSON.parse(localStorage.getItem(WX_GEO_KEY)||'{}')[place.toLowerCase()];
+    return v === undefined ? null : v;   // `false` is a remembered miss, not "not looked up"
+  }catch(e){ return null; }
 }
 function wxGeoSet(place, val){
   try{
@@ -2793,100 +2803,145 @@ function wxGeoSet(place, val){
 function wxDayStr(d){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
-function wxLoad(place, done){
-  const cur = WX_STATE[place];
-  if(cur && cur.status!=='fail'){ done(); return; }   // already loaded, or already in flight
-  const st = WX_STATE[place] = {status:'loading', days:{}, label:place};
-  const fail = () => { st.status = 'fail'; done(); };
-  const fetchForecast = geo => {
-    st.label = geo.label || place;
-    const today = new Date();
-    const end = new Date(today.getTime() + (WX_FORECAST_DAYS-1)*86400000);
-    fetch('https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(geo.lat)
-      + '&longitude='+encodeURIComponent(geo.lon)
-      + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max'
-      + '&timezone=auto&start_date='+wxDayStr(today)+'&end_date='+wxDayStr(end))
+/* --- working out where you are on any given day, with no input from anyone ---
+   Walk the trip in date order keeping a "current place": a flight or ferry moves you to
+   its destination, checking into a stay moves you to that stay's town, and every day in
+   between inherits wherever you were last. A multi-country trip therefore switches its
+   forecast on the day you actually travel. Each day ends up with a list of candidates,
+   best guess first, tried in turn until one geocodes, so a hotel name that means nothing
+   to a gazetteer falls through to the airport city and finally to the country. */
+function wxAirportPlaces(code){
+  const name = AIRPORTS[String(code||'').toUpperCase()];
+  if(!name) return [];
+  const first = name.split(' ')[0];
+  // try the full airport name first ("Nice", "Gran Canaria"), then just the city it starts
+  // with, which is what rescues "Rome Fiumicino" and "Amsterdam Schiphol"
+  return first && first !== name ? [name, first] : [name];
+}
+function wxStayPlaces(a){
+  const parts = String((a&&a.address)||'').split(',').map(s=>s.trim())
+    .filter(s => s && /[a-z]{3}/i.test(s) && !/^\d/.test(s));   // drop house numbers and postcodes
+  if(!parts.length) return [];
+  // the town is usually the second-to-last comma part, with the country last
+  return parts.length >= 2 ? [parts[parts.length-2], parts[parts.length-1]] : [parts[0]];
+}
+function wxDayPlaces(t, dayKeys){
+  const fallback = (t.countries||[]).map(c=>(countryByCode(c)||{}).name).filter(Boolean);
+  const events = [];
+  // rank keeps a stay ahead of the flight that delivered you on the same date, since the
+  // stay's address is the more precise of the two
+  (t.flights||[]).forEach(f=>{ if(f.date && f.to) events.push({date:f.date, rank:0, cands:wxAirportPlaces(f.to)}); });
+  (t.ferries||[]).forEach(f=>{ if(f.date && f.to) events.push({date:f.date, rank:0, cands:[f.to]}); });
+  (t.accommodations||[]).forEach(a=>{ if(a.checkin) events.push({date:a.checkin, rank:1, cands:wxStayPlaces(a)}); });
+  events.sort((a,b)=> a.date.localeCompare(b.date) || a.rank-b.rank);
+
+  const keys = dayKeys.filter(Boolean).slice().sort();
+  const map = {};
+  let cur = fallback, ei = 0;
+  keys.forEach(k=>{
+    while(ei < events.length && events[ei].date <= k){
+      if(events[ei].cands.length) cur = [...new Set(events[ei].cands.concat(fallback))];
+      ei++;
+    }
+    map[k] = cur;
+  });
+  return map;
+}
+let WX_DAY_PLACES = {};   // 'YYYY-MM-DD' -> candidate place list, rebuilt on each itinerary render
+const WX_LIST_GEO = {};   // candidate-list key -> resolved {lat,lon,label}, or false once all missed
+/* try each candidate in turn; a miss is remembered so a vague name isn't re-queried forever */
+function wxResolve(cands, cb){
+  let i = 0;
+  const tryNext = () => {
+    if(i >= cands.length) return cb(null);
+    const place = cands[i++];
+    const cached = wxGeoGet(place);
+    if(cached === false) return tryNext();
+    if(cached && typeof cached.lat === 'number') return cb(cached);
+    fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&name='+encodeURIComponent(place))
       .then(r=>r.json())
       .then(j=>{
-        const d = j && j.daily;
-        if(!d || !Array.isArray(d.time)) throw 0;
-        d.time.forEach((day,i)=>{
-          st.days[day] = {
-            code: (d.weather_code||[])[i],
-            max:  (d.temperature_2m_max||[])[i],
-            min:  (d.temperature_2m_min||[])[i],
-            pop:  (d.precipitation_probability_max||[])[i]
-          };
-        });
-        st.status = 'ok';
-        done();
+        const r0 = j && j.results && j.results[0];
+        if(!r0 || typeof r0.latitude !== 'number'){ wxGeoSet(place, false); return tryNext(); }
+        // "Greece, Greece" reads badly, so only add the country when it differs from the name
+        const label = (r0.country && r0.country !== r0.name) ? r0.name+', '+r0.country : r0.name;
+        const geo = {lat:r0.latitude, lon:r0.longitude, label};
+        wxGeoSet(place, geo);
+        cb(geo);
       })
-      .catch(fail);
+      .catch(tryNext);
   };
-  const cached = wxGeoGet(place);
-  if(cached && typeof cached.lat === 'number'){ fetchForecast(cached); return; }
-  fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&name='+encodeURIComponent(place))
+  tryNext();
+}
+/* forecasts are keyed by coordinate, so two towns that resolve to the same spot, or a day
+   list that repeats a place, only ever cost one request */
+function wxForecast(geo, done){
+  const key = geo.lat.toFixed(2)+','+geo.lon.toFixed(2);
+  const cur = WX_STATE[key];
+  if(cur){
+    if(cur.status === 'loading') cur.waiting.push(done); else done();
+    return;
+  }
+  const st = WX_STATE[key] = {status:'loading', days:{}, label:geo.label||'', waiting:[]};
+  const finish = () => { const w = st.waiting; st.waiting = []; done(); w.forEach(fn=>fn()); };
+  const today = new Date();
+  const end = new Date(today.getTime() + (WX_FORECAST_DAYS-1)*86400000);
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(geo.lat)
+    + '&longitude='+encodeURIComponent(geo.lon)
+    + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max'
+    + '&timezone=auto&start_date='+wxDayStr(today)+'&end_date='+wxDayStr(end))
     .then(r=>r.json())
     .then(j=>{
-      const r0 = j && j.results && j.results[0];
-      if(!r0 || typeof r0.latitude !== 'number') throw 0;
-      const geo = {lat:r0.latitude, lon:r0.longitude, label:[r0.name, r0.country].filter(Boolean).join(', ')};
-      wxGeoSet(place, geo);
-      fetchForecast(geo);
+      const d = j && j.daily;
+      if(!d || !Array.isArray(d.time)) throw 0;
+      d.time.forEach((day,i)=>{
+        st.days[day] = {
+          code: (d.weather_code||[])[i],
+          max:  (d.temperature_2m_max||[])[i],
+          min:  (d.temperature_2m_min||[])[i],
+          pop:  (d.precipitation_probability_max||[])[i]
+        };
+      });
+      st.status = 'ok';
+      finish();
     })
-    .catch(fail);
+    .catch(()=>{ st.status = 'fail'; finish(); });
 }
-/* the small chip that sits next to a day heading, empty whenever there's nothing honest to say */
-function wxDayHTML(place, dateKey){
-  const st = WX_STATE[place];
+/* the small chip beside a day heading, empty whenever there's nothing honest to say */
+function wxDayHTML(dateKey){
+  const cands = WX_DAY_PLACES[dateKey];
+  if(!cands || !cands.length) return '';
+  const geo = WX_LIST_GEO[cands.join('|')];
+  if(!geo) return '';
+  const st = WX_STATE[geo.lat.toFixed(2)+','+geo.lon.toFixed(2)];
   if(!st || st.status !== 'ok') return '';
   const d = st.days[dateKey];
   if(!d || typeof d.max !== 'number') return '';
-  const [label, icon] = WX_CODES[d.code] || ['', 'cloud'];
+  const [label, emoji] = WX_CODES[d.code] || ['', '☁️'];
   const rain = (typeof d.pop === 'number' && d.pop >= 20) ? ` · ${Math.round(d.pop)}%` : '';
-  return `<span class="wx-chip" title="${esc(label)}${st.label?' in '+esc(st.label):''}">${fa(icon)}${Math.round(d.max)}°/${Math.round(d.min)}°${rain}</span>`;
+  const where = geo.label ? ' in '+geo.label : '';
+  return `<span class="wx-chip" title="${esc(label+where)}"><span class="wx-emoji" aria-hidden="true">${emoji}</span>${Math.round(d.max)}°/${Math.round(d.min)}°${rain}</span>`;
 }
-function paintWeather(t){
-  const place = wxPlaceOf(t);
+function paintWeather(){
   document.querySelectorAll('#tab-body [data-wx-date]').forEach(el=>{
-    el.innerHTML = place ? wxDayHTML(place, el.dataset.wxDate) : '';
+    el.innerHTML = wxDayHTML(el.dataset.wxDate);
   });
-  const note = $('#wx-note');
-  if(note){
-    const st = WX_STATE[place];
-    note.innerHTML = wxNoteHTML(t, st);
-  }
-}
-function wxNoteHTML(t, st){
-  const place = wxPlaceOf(t);
-  if(!place) return `<button class="btn sm" onclick="App.weatherPlaceForm()">${fa('cloud-sun')} Add weather location</button>`;
-  const status = !st ? '' : st.status==='loading' ? ' · loading…' : st.status==='fail' ? " · couldn't load" : '';
-  const shown = (st && st.status==='ok' && st.label) ? st.label : place;
-  return `<span class="wx-note-text">${fa('cloud-sun')}Weather for ${esc(shown)}${esc(status)}</span>
-    <button class="btn sm" onclick="App.weatherPlaceForm()">Change</button>`;
 }
 function initWeather(t){
-  const place = wxPlaceOf(t);
-  if(!place){ paintWeather(t); return; }
-  paintWeather(t);   // paint the "loading" note straight away
-  wxLoad(place, ()=>{ if(CUR_TAB==='plan' && CUR_TRIP_ID===t.id) paintWeather(t); });
+  const keys = [...document.querySelectorAll('#tab-body [data-wx-date]')].map(el=>el.dataset.wxDate);
+  WX_DAY_PLACES = wxDayPlaces(t, keys);
+  const repaint = () => { if(CUR_TAB==='plan' && CUR_TRIP_ID===t.id) paintWeather(); };
+  [...new Set(Object.values(WX_DAY_PLACES).map(c=>c.join('|')))].forEach(listKey=>{
+    if(!listKey) return;
+    const known = WX_LIST_GEO[listKey];
+    if(known){ wxForecast(known, repaint); return; }
+    if(known === false) return;                       // every candidate already missed
+    wxResolve(listKey.split('|'), geo=>{
+      WX_LIST_GEO[listKey] = geo || false;
+      if(geo) wxForecast(geo, repaint);
+    });
+  });
 }
-App.weatherPlaceForm = () => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  openModal(`
-    <h2>Weather location</h2>
-    <p class="small" style="margin-bottom:12px">Which town should the forecast be for? Leave it blank to use the trip's country.</p>
-    <div class="field"><label class="label" for="wx-place">Town or city</label>
-      <input id="wx-place" type="text" placeholder="e.g. Lisbon" value="${esc(t.weatherPlace||'')}"
-             onkeydown="if(event.key==='Enter'){event.preventDefault();App.saveWeatherPlace()}"></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveWeatherPlace()">Save</button></div>`);
-};
-App.saveWeatherPlace = () => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  t.weatherPlace = ($('#wx-place').value||'').trim();
-  logEdit('Itinerary', t.weatherPlace ? 'set the weather location' : 'cleared the weather location');
-  save(); closeModal(); CUR_TAB='plan'; rerender();
-};
 
 /* ================= TAB: itinerary (day-by-day plan with maps) ================= */
 function mapQuery(t, name){
@@ -3061,7 +3116,6 @@ function tabPlan(t, ro){
       ${dayItems.map(card).join('')}`;
   };
   return `
-    ${hasAny ? `<div class="wx-note" id="wx-note"></div>` : ''}
     ${hasAny ? keys.map(dayBlock).join('')
     : `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
         <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
