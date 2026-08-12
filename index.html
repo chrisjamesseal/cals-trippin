@@ -511,8 +511,12 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.35.0';
+const APP_VERSION = '1.35.1';
 const CHANGELOG = [
+  {version:'1.35.1', notes:[
+    'Reordered the trip dashboard: Itinerary and Ideas now lead, and Edit Trip has moved to the end.',
+    'Places I\'ve Been: "All" is now the globe, and South America has a llama, so no continent shares the globe with it any more.'
+  ]},
   {version:'1.35.0', notes:[
     'The PIN can no longer be changed from inside the app. It now lives only in the code, so it takes a deploy to move it and nobody who gets past the gate can lock everyone else out.',
     'The PIN button has gone from the header.',
@@ -1031,18 +1035,17 @@ const COUNTRY_CONTINENT = {
 };
 const CONTINENT_ORDER = ['Europe','Asia','Africa','North America','South America','Oceania'];
 const continentOf = c => Object.keys(COUNTRY_CONTINENT).find(k => COUNTRY_CONTINENT[k].split(' ').includes(String(c||'').toUpperCase())) || 'Other';
-/* One emoji per continent. There are only three globe emoji for six continents, so the two
-   where a globe genuinely shows that landmass keep one (Africa fills the centre of 🌍,
-   South America the lower half of 🌎) and the rest use a widely-read landmark instead. */
+/* One emoji per continent: a landmark or a native animal, none of them a globe, since the
+   globe now belongs to the "All" card and reusing it would blur the two. */
 const CONTINENT_EMOJI = {
   Europe: '🏰',
   Asia: '🏯',
   Africa: '🦁',
   'North America': '🗽',
-  'South America': '🌎',
+  'South America': '🦙',
   Oceania: '🏝️'
 };
-const PLACES_ALL_EMOJI = '🌐';
+const PLACES_ALL_EMOJI = '🌎';
 /* capital, primary language(s) — sourced from the world-countries dataset (mirrors restcountries.com), a few language orderings hand-corrected for accuracy where the source data listed a minority language first */
 const COUNTRY_INFO = {
   AD:['Andorra la Vella','Catalan'],
@@ -2404,9 +2407,9 @@ function tabHome(t, ro){
     : 'Nothing Planned Yet';
   const tiles = [
     ['plan','Itinerary', planSum, !(nStops || nLegs)],
+    ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
-    ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
     ['pack','Packing', packSummaryLine(t), !(t.packing||[]).length || !!packStats(t).myLeft],
     ['polls','Polls', pollSummaryLine(t), !(t.polls||[]).length],
     ['money','Money', moneySum, !nRec],
@@ -2422,7 +2425,8 @@ function tabHome(t, ro){
       <span class="dash-icon">${tileIcon(k)}</span>
       <span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum${empty?' unfilled':''}">${esc(sum)}</span></span>
     </div>`;
-  // first tile in the grid rather than a separate full-width button; its summary lists who's
+  // last tile in the grid rather than a separate full-width button: trip settings are the
+  // least-used thing here, so the sections you actually open lead. Its summary lists who's
   // coming, since people are managed from this same Edit Trip screen (the countdown lives in
   // the header now, so repeating it here would just say the same thing twice)
   const going = (t.participants||[]);
@@ -2435,7 +2439,7 @@ function tabHome(t, ro){
       <span class="dash-icon">${tileIcon('edit')}</span>
       <span class="dash-text"><span class="dash-label">Edit Trip</span><span class="dash-sum${going.length?'':' unfilled'}">${esc(goingSum)}</span></span>
     </div>` : '';
-  return `<div class="dash-grid">${editTile}${tiles.map(tile).join('')}</div>`;
+  return `<div class="dash-grid">${tiles.map(tile).join('')}${editTile}</div>`;
 }
 /* ================= TAB: log (who changed what) ================= */
 /* which tab a log entry's section belongs to, so each row can jump straight there,
