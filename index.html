@@ -117,6 +117,13 @@ a{color:var(--brand-dark);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
 .places-home-card{background:var(--brand-tint); border-color:var(--brand);}
 .places-home-card h3{display:flex; align-items:center; gap:8px; font-size:1.05rem;}
+/* the two personal counts sit side by side; the world total is context, not a score, so it
+   goes on its own line underneath */
+.places-stats{display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:10px;}
+.places-stat{display:inline-flex; align-items:center; gap:7px; font-size:.85rem; color:var(--ink);}
+.places-total{display:inline-flex; align-items:center; gap:7px; margin-top:8px; font-size:.78rem; color:var(--muted);}
+.places-stat-emoji{font-size:.9rem; line-height:1; flex-shrink:0;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .trip-card .trip-flags{margin-bottom:4px;}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 
@@ -498,8 +505,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.33.2';
+const APP_VERSION = '1.33.3';
 const CHANGELOG = [
+  {version:'1.33.3', notes:[
+    'The "Places I\'ve Been" card on the home page now shows its three stats as separate items, each with its own emoji, with the world total on its own line underneath.'
+  ]},
   {version:'1.33.2', notes:[
     'Fixed the Itinerary tile counting travel legs as activities, so a day with one thing planned and a couple of journeys no longer reads as "4 Activities Planned".',
     'The Flights, Ferries and Car Hire headings on the Travel tab now use emoji to match the rest of the app.'
@@ -1820,8 +1830,12 @@ function placesHomeCardHTML(){
     <div class="trip-card places-home-card" role="button" tabindex="0"
          onclick="App.goPlaces()"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
-      <h3>${fa('earth-europe')} Places I've Been</h3>
-      <div class="small" style="margin-top:8px">${counts.been} been · ${counts.want} want to go · ${counts.all} countries</div>
+      <h3><span class="sec-emoji" aria-hidden="true">🌍</span> Places I've Been</h3>
+      <div class="places-stats">
+        <span class="places-stat"><span class="places-stat-emoji" aria-hidden="true">✅</span><strong>${counts.been}</strong> been</span>
+        <span class="places-stat"><span class="places-stat-emoji" aria-hidden="true">⭐</span><strong>${counts.want}</strong> want to go</span>
+      </div>
+      <div class="places-total"><span class="places-stat-emoji" aria-hidden="true">🌐</span><strong>${counts.all}</strong> countries</div>
     </div>`;
 }
 function homeGridHTML(trips, loading){
