@@ -407,6 +407,23 @@ a.dash-tile{text-decoration:none;}
 .trip-people{display:flex; align-items:center; gap:7px; margin-top:6px;}
 .trip-people .icon{font-size:.72rem;}
 
+/* ---------- idea emoji ---------- */
+.mood-title{display:flex; align-items:baseline; gap:8px;}
+.mood-emoji{flex-shrink:0; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.mood-emoji.solo{font-size:1.5rem; margin-bottom:2px;}
+.emoji-field{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.emoji-input{width:64px; flex:0 0 auto; text-align:center; font-size:1.25rem; line-height:1.2;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.emoji-picks{display:flex; flex-wrap:wrap; gap:6px; flex:1; min-width:0;}
+.emoji-pick{
+  width:36px; height:36px; padding:0; font-size:1.15rem; line-height:1; cursor:pointer;
+  border:1px solid var(--line-strong); border-radius:10px; background:var(--paper);
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+}
+.emoji-pick:hover,.emoji-pick:focus-visible{border-color:var(--brand); outline:none;}
+.emoji-pick.on{border-color:var(--brand); background:var(--brand-tint);}
+
 /* ---------- trip status pill ---------- */
 .status-pill{display:inline-block; font-size:.64rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--line-strong); border-radius:999px; padding:3px 11px; white-space:nowrap; color:var(--muted); background:var(--paper);}
 .status-pill.now{background:var(--accent); border-color:var(--accent); color:#fff;}
@@ -543,8 +560,12 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.36.0';
+const APP_VERSION = '1.37.0';
 const CHANGELOG = [
+  {version:'1.37.0', notes:[
+    'Ideas can now have an emoji, and one is suggested from the title as you type: sushi gets a sushi, a hike gets boots, a rooftop bar gets a cocktail.',
+    'Tap one of the quick picks or type any emoji you like, and once you have chosen your own the title stops overriding it.'
+  ]},
   {version:'1.36.0', notes:[
     'Added a bottom bar as the main way around the app: Trips, Places, a green + in the middle for a new trip, and inside a trip, Itinerary and the menu.',
     'The globe has gone from the top header now that Places lives on the bottom bar.',
@@ -4526,7 +4547,9 @@ function tabMood(t, ro){
       ${embed
         ? videoThumbHTML(embed, m.videoUrl)
         : (m.dataUrl ? `<img src="${m.dataUrl}" alt="${esc(m.title||'Idea image')}">` : '')}
-      ${m.title?`<h3 style="margin-bottom:4px">${esc(m.title)}</h3>`:''}
+      ${m.title
+        ? `<h3 class="mood-title" style="margin-bottom:4px">${m.emoji?`<span class="mood-emoji" aria-hidden="true">${esc(m.emoji)}</span>`:''}${esc(m.title)}</h3>`
+        : (m.emoji?`<div class="mood-emoji solo" aria-hidden="true">${esc(m.emoji)}</div>`:'')}
       ${m.text?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(m.text)}</p>`:''}
       <div class="mood-actions">
         ${m.title && !ro?(inItinerary
@@ -4539,6 +4562,99 @@ function tabMood(t, ro){
   }).join('');
   return `
     ${cards ? `<div class="mood-grid">${cards}</div>` : `<div class="empty">No ideas yet.</div>`}`;
+}
+/* ---- picking an emoji for an idea ----
+   First match wins, so the specific rules sit above the general ones ("sushi" before
+   "restaurant", "wine bar" before "bar"). Titles are lower-cased and stripped of accents
+   first so "Café" and "Cafe" both land on the same rule. */
+const IDEA_EMOJI_DEFAULT = '💡';
+const IDEA_EMOJI_RULES = [
+  [/\b(sunset|sunrise)\b/, '🌅'],
+  [/\b(snorkel|scuba|diving|dive)\b/, '🤿'],
+  [/\b(surf\w*)\b/, '🏄'],
+  [/\b(swim\w*|pool|lido)\b/, '🏊'],
+  [/\b(beach|sand|seaside|shore|cove)\b/, '🏖️'],
+  [/\b(island)\b/, '🏝️'],
+  [/\b(ferry)\b/, '⛴️'],
+  [/\b(boat|sail\w*|yacht|cruise|kayak|canoe)\b/, '⛵'],
+  [/\b(waterfall|falls)\b/, '💦'],
+  [/\b(lake|river|gorge)\b/, '🏞️'],
+  [/\b(volcano|crater)\b/, '🌋'],
+  [/\b(mountain\w*|peak|summit|alps|andes|dolomites)\b/, '⛰️'],
+  [/\b(hike|hiking|trek\w*|trail|walk|walking)\b/, '🥾'],
+  [/\b(cave|caves|grotto)\b/, '🕳️'],
+  [/\b(forest|jungle|woods|rainforest|park|garden|botanic\w*)\b/, '🌳'],
+  [/\b(safari|zoo|wildlife)\b/, '🦁'],
+  [/\b(aquarium)\b/, '🐠'],
+  [/\b(museum|gallery|exhibition)\b/, '🏛️'],
+  [/\b(castle|palace|fort|fortress)\b/, '🏰'],
+  [/\b(cathedral|church|basilica|chapel|monastery|abbey)\b/, '⛪'],
+  [/\b(mosque)\b/, '🕌'],
+  [/\b(temple|shrine|pagoda)\b/, '⛩️'],
+  [/\b(ruins?|ancient|acropolis|amphitheat\w*|colosseum|archaeolog\w*)\b/, '🏺'],
+  [/\b(tower|viewpoint|lookout|miradouro|panoram\w*|observation)\b/, '🗼'],
+  [/\b(bridge)\b/, '🌉'],
+  [/\b(spa|thermal|sauna|massage|hot spring\w*)\b/, '♨️'],
+  [/\b(restaurant|dinner|lunch|eat|food|dining|tapas)\b/, '🍽️'],
+  [/\b(market|bazaar|souk)\b/, '🧺'],
+  [/\b(shop\w*|mall|boutique)\b/, '🛍️'],
+  [/\b(wine|winery|vineyard)\b/, '🍷'],
+  [/\b(beer|brewery|brewpub)\b/, '🍺'],
+  [/\b(coffee|cafe|espresso)\b/, '☕'],
+  [/\b(breakfast|brunch|bakery|pastr\w*)\b/, '🥐'],
+  [/\b(ice cream|gelato)\b/, '🍦'],
+  [/\b(pizza)\b/, '🍕'],
+  [/\b(sushi|ramen)\b/, '🍣'],
+  [/\b(taco\w*|burrito)\b/, '🌮'],
+  [/\b(seafood|oyster\w*|lobster)\b/, '🦞'],
+  [/\b(bar|pub|cocktail\w*|drinks?)\b/, '🍸'],
+  [/\b(club|nightlife|dancing|party)\b/, '🎉'],
+  [/\b(music|concert|gig|festival|live)\b/, '🎵'],
+  [/\b(football|stadium|match|game)\b/, '⚽'],
+  [/\b(bike|cycling|cycle)\b/, '🚲'],
+  [/\b(train|railway)\b/, '🚂'],
+  [/\b(road trip|drive|driving)\b/, '🚗'],
+  [/\b(flight|airport|fly)\b/, '✈️'],
+  [/\b(hotel|hostel|airbnb|stay)\b/, '🏨'],
+  [/\b(tour|guided|guide)\b/, '🧭'],
+  [/\b(ticket\w*|show|theatre|theater|cinema)\b/, '🎟️'],
+  [/\b(photo\w*|instagram|insta)\b/, '📸']
+];
+function ideaEmojiFor(title){
+  const s = String(title||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(!s.trim()) return IDEA_EMOJI_DEFAULT;
+  const hit = IDEA_EMOJI_RULES.find(([re]) => re.test(s));
+  return hit ? hit[1] : IDEA_EMOJI_DEFAULT;
+}
+const IDEA_EMOJI_PICKS = ['💡','🏖️','🍽️','🍸','☕','🏛️','⛰️','🥾','⛵','🏰','🎵','🛍️','📸','🌅'];
+let IDEA_EMOJI_TOUCHED = false;   // once you choose one yourself, the title stops overriding it
+App.touchIdeaEmoji = () => { IDEA_EMOJI_TOUCHED = true; };
+App.ideaTitleTyped = () => {
+  if(IDEA_EMOJI_TOUCHED) return;
+  const el = $('#md-emoji'); if(!el) return;
+  el.value = ideaEmojiFor($('#md-title').value);
+  paintIdeaEmojiPicks(el.value);
+};
+App.pickIdeaEmoji = e => {
+  const el = $('#md-emoji'); if(!el) return;
+  el.value = e; IDEA_EMOJI_TOUCHED = true;
+  paintIdeaEmojiPicks(e);
+};
+function paintIdeaEmojiPicks(cur){
+  document.querySelectorAll('.emoji-pick').forEach(x=>x.classList.toggle('on', x.dataset.emoji===cur));
+}
+function ideaEmojiFieldHTML(cur){
+  return `<div class="field"><label class="label" for="md-emoji">Emoji</label>
+    <div class="emoji-field">
+      <input id="md-emoji" class="emoji-input" type="text" maxlength="8" value="${esc(cur)}"
+             aria-label="Idea emoji" oninput="App.touchIdeaEmoji()">
+      <div class="emoji-picks">
+        ${IDEA_EMOJI_PICKS.map(e=>`<button type="button" class="emoji-pick${e===cur?' on':''}" data-emoji="${e}"
+            aria-label="Use ${e}" onclick="App.pickIdeaEmoji('${e}')">${e}</button>`).join('')}
+      </div>
+    </div>
+    <p class="muted small" style="margin-top:6px">Suggested from the title. Tap one, or type any emoji you like.</p>
+  </div>`;
 }
 let MOOD_IMG = null;   // pending pin image while the form is open
 function moodImgStatus(){
@@ -4564,9 +4680,13 @@ App.moodForm = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const m = (i>=0 && (t.moodBoard||[])[i]) || {};
   MOOD_IMG = m.dataUrl || null;
+  // an idea you've already given an emoji keeps it; a new one follows the title until you pick
+  IDEA_EMOJI_TOUCHED = !!m.emoji;
+  const emoji = m.emoji || ideaEmojiFor(m.title||'');
   openModal(`
     <h2>${i>=0?'Edit Idea':'New Idea'}</h2>
-    <div class="field"><label class="label" for="md-title">Title</label><input id="md-title" type="text" value="${esc(m.title||'')}" placeholder="e.g. Sunset at Miradouro"></div>
+    <div class="field"><label class="label" for="md-title">Title</label><input id="md-title" type="text" value="${esc(m.title||'')}" placeholder="e.g. Sunset at Miradouro" oninput="App.ideaTitleTyped()"></div>
+    ${ideaEmojiFieldHTML(emoji)}
     <div class="field"><label class="label" for="md-video">TikTok or Instagram link</label><input id="md-video" type="url" value="${esc(m.videoUrl||'')}" placeholder="https://www.tiktok.com/@user/video/…"></div>
     <div class="field"><label class="label" for="md-maps">Google Maps link</label><input id="md-maps" type="url" value="${esc(m.mapsUrl||'')}" placeholder="https://maps.google.com/…"></div>
     <div class="field"><label class="label">Image</label>
@@ -4587,8 +4707,9 @@ App.saveMood = i => {
   if(mapsUrl && !/^https?:\/\//i.test(mapsUrl)) mapsUrl = 'https://' + mapsUrl;
   if(!title && !videoUrl && !mapsUrl && !MOOD_IMG) return markErr('#md-title','Add a title, video link, maps link or image');
   t.moodBoard = t.moodBoard||[];
+  const emoji = (($('#md-emoji')||{}).value||'').trim() || ideaEmojiFor(title);
   const idea = {id: i>=0 && t.moodBoard[i] ? t.moodBoard[i].id : uid(),
-    title, videoUrl, mapsUrl, ...(MOOD_IMG?{dataUrl:MOOD_IMG}:{})};
+    title, emoji, videoUrl, mapsUrl, ...(MOOD_IMG?{dataUrl:MOOD_IMG}:{})};
   if(i>=0) t.moodBoard[i]=idea; else t.moodBoard.push(idea);
   MOOD_IMG = null;
   logEdit('Ideas', (i>=0?'edited ':'added ')+(title||videoUrl||'an idea'));
