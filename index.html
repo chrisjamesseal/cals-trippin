@@ -312,6 +312,8 @@ details .d-body{padding:14px 16px;}
 .section-head h2{margin-bottom:0;}
 .section-head h3{display:inline-flex; align-items:center; gap:8px;}
 .section-head h3 .icon{font-size:1.3rem; color:var(--brand); flex-shrink:0;}
+.sec-emoji{font-size:1.15rem; line-height:1; flex-shrink:0;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 @media(max-width:560px){
   h1{font-size:1.5rem;}
   .wrap{padding:0 12px 80px;}
@@ -496,8 +498,12 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.33.1';
+const APP_VERSION = '1.33.2';
 const CHANGELOG = [
+  {version:'1.33.2', notes:[
+    'Fixed the Itinerary tile counting travel legs as activities, so a day with one thing planned and a couple of journeys no longer reads as "4 Activities Planned".',
+    'The Flights, Ferries and Car Hire headings on the Travel tab now use emoji to match the rest of the app.'
+  ]},
   {version:'1.33.1', notes:[
     'The Edit Trip tile now lists who\'s going instead of repeating the countdown that already sits in the header.',
     'Places I\'ve Been: each continent card now has its own emoji, and "All" is a globe.',
@@ -2100,6 +2106,8 @@ const TAB_EMOJI = {
 function tileIcon(k){
   return TAB_EMOJI[k] ? `<span class="dash-emoji" aria-hidden="true">${TAB_EMOJI[k]}</span>` : (ICONS[k]||'');
 }
+/* emoji for a section heading, hidden from screen readers since the heading text says it */
+function secEmoji(e){ return `<span class="sec-emoji" aria-hidden="true">${e}</span>`; }
 const TABS = [
   ['home','Overview'],
   ['plan','Itinerary'],
@@ -2324,7 +2332,7 @@ function tabHome(t, ro){
   const n = t.notes||{contacts:[],general:''};
   const nTravel = (t.flights||[]).length + (t.ferries||[]).length + (t.carHire||[]).length;
   const nDocs = (t.documents||[]).length, nLinks = (t.docLinks||[]).length,
-        nRec = (t.receipts||[]).length, nStops = (t.itinerary||[]).length,
+        nRec = (t.receipts||[]).length, nStops = (t.itinerary||[]).filter(s=>s.kind!=='travel').length,
         nPins = (t.moodBoard||[]).length,
         nContacts = (n.contacts||[]).length;
   const albumUrl = t.photoAlbum && t.photoAlbum.url || '';
@@ -2350,9 +2358,14 @@ function tabHome(t, ro){
     accoms.length===1 ? (accoms[0].name||'1 Stay Added') :
     accoms.length+' Stays Added';
   const nNotes = (n.items||[]).length;
-  const planSum = nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned') : 'Nothing Planned Yet';
+  /* travel legs live in the same itinerary array as the stops but aren't activities, so they
+     don't inflate the count; a plan that's only travel still isn't "nothing planned" though */
+  const nLegs = (t.itinerary||[]).length - nStops;
+  const planSum = nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned')
+    : nLegs ? nLegs+(nLegs===1?' Travel Leg Planned':' Travel Legs Planned')
+    : 'Nothing Planned Yet';
   const tiles = [
-    ['plan','Itinerary', planSum, !nStops],
+    ['plan','Itinerary', planSum, !(nStops || nLegs)],
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
     ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
@@ -3441,13 +3454,13 @@ function tabTravel(t, ro){
   const cars = (t.carHire||[]).map((c,i)=>carStripHTML(c, i, editDel(`App.carForm(${i})`, `App.delCar(${i})`))).join('');
 
   return `
-    <div class="section-head" style="margin-top:6px"><h3>${ICONS.flight} Flights</h3>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
+    <div class="section-head" style="margin-top:6px"><h3>${secEmoji('✈️')} Flights</h3>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
     ${flights || `<div class="empty">No flights yet.${!ro?' Add one and attach the boarding pass.':''}</div>`}
 
-    <div class="section-head" style="margin-top:30px"><h3>${ICONS.ferry} Ferries</h3>${!ro?`<button class="btn sm" onclick="App.ferryForm(-1)">+ Add Ferry</button>`:''}</div>
+    <div class="section-head" style="margin-top:30px"><h3>${secEmoji('⛴️')} Ferries</h3>${!ro?`<button class="btn sm" onclick="App.ferryForm(-1)">+ Add Ferry</button>`:''}</div>
     ${ferries || `<div class="empty">No ferries yet.</div>`}
 
-    <div class="section-head" style="margin-top:30px"><h3>${ICONS.car} Car Hire</h3>${!ro?`<button class="btn sm" onclick="App.carForm(-1)">+ Add Car Hire</button>`:''}</div>
+    <div class="section-head" style="margin-top:30px"><h3>${secEmoji('🚗')} Car Hire</h3>${!ro?`<button class="btn sm" onclick="App.carForm(-1)">+ Add Car Hire</button>`:''}</div>
     ${cars || `<div class="empty">No car hire yet.</div>`}`;
 }
 
