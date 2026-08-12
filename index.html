@@ -127,9 +127,8 @@ a{color:var(--brand-dark);}
 /* the cards are the filter, so the one in force has to be obvious at a glance */
 .stat-card.on{border-color:var(--brand); background:var(--brand-tint); box-shadow:none;}
 .stat-card.on .stat-label{color:var(--brand-dark);}
-.stat-emoji{font-size:1.45rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.stat-n{font-size:1.4rem; font-weight:800; line-height:1; color:var(--brand-dark);}
+/* no emoji up top: the number is the whole point of these, so it gets the room instead */
+.stat-n{font-size:2.1rem; font-weight:800; line-height:1; color:var(--brand-dark); letter-spacing:-.02em;}
 .stat-label{font-size:.7rem; font-weight:600; line-height:1.25; color:var(--muted); overflow-wrap:anywhere;}
 .trip-card .trip-flags{margin-bottom:4px;}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
@@ -562,8 +561,15 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.40.0';
+const APP_VERSION = '1.41.0';
 const CHANGELOG = [
+  {version:'1.41.0', notes:[
+    'Checking out of one place and into another on the same day now suggests the journey between them, sitting between the two on the itinerary. Tap it to fill in how you\'re getting there, exactly like the trip to the airport.',
+    'Travel with no mode chosen yet is marked with a question mark rather than a compass.',
+    'Places I\'ve Been now opens on the countries you have been to, rather than the full list of 223.',
+    'The three counters have lost their emoji and gained much bigger numbers.',
+    'Searching for a country now finds it whichever counter you are filtered by, so you can always tick a new one.'
+  ]},
   {version:'1.40.0', notes:[
     'The suggested trip to the airport now assumes you want to be there two hours before the flight, so it reads "arrive by 14:00" for a 16:05 departure instead of telling you to leave at the same moment the plane does. Change it like any other travel leg.',
     'Every page now starts its title the same distance down the screen, so nothing jumps as you move between them.'
@@ -1429,8 +1435,10 @@ function placesCounts(){
   return counts;
 }
 const PLACES_FILTERS = [['all','All'],['been','Been'],['want','Want to Go']];
+/* the page opens on where you've actually been, not the full country list */
+const PLACES_DEFAULT_FILTER = 'been';
 let CUR_PLACES_REGION = null;   // continent name, or null to show the region picker
-let CUR_PLACES_FILTER = 'all';  // one of PLACES_FILTERS' keys
+let CUR_PLACES_FILTER = PLACES_DEFAULT_FILTER;  // one of PLACES_FILTERS' keys
 function placesRegionTileHTML(k, codes, emoji, wide, going){
   const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, going[c]||0)!=='none' : placesStatusOf(c, going[c]||0)===CUR_PLACES_FILTER);
   const pct = codes.length ? Math.round(shown.length/codes.length*100) : 0;
@@ -1671,7 +1679,7 @@ function renderChangelog(){
 function renderPlaces(filter){
   applyArchiveTransitions();
   CUR_PLACES_REGION = null;
-  CUR_PLACES_FILTER = PLACES_FILTERS.some(f=>f[0]===filter) ? filter : 'all';
+  CUR_PLACES_FILTER = PLACES_FILTERS.some(f=>f[0]===filter) ? filter : PLACES_DEFAULT_FILTER;
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
@@ -1728,7 +1736,11 @@ function drawPlacesGrid(){
   let list = COUNTRIES;
   if(q) list = list.filter(c=>c.name.toLowerCase().includes(q));
   else if(CUR_PLACES_REGION && CUR_PLACES_REGION!=='All') list = list.filter(c=>continentOf(c.code)===CUR_PLACES_REGION);
-  list = list.filter(c=>CUR_PLACES_FILTER==='all' || placesStatusOf(c.code, going[c.code]||0)===CUR_PLACES_FILTER);
+  /* a search overrides the region the same way it overrides the status filter: you typed a
+     country's name, so you want that country whatever state it's in. Without this, the page
+     opening on Been would mean you could never find a country to tick as Been in the first
+     place, the search would just say it matches nothing. */
+  if(!q) list = list.filter(c=>CUR_PLACES_FILTER==='all' || placesStatusOf(c.code, going[c.code]||0)===CUR_PLACES_FILTER);
 
   if(!list.length){ el.innerHTML = `<div class="empty">No countries match${q?` "${esc(q)}"`:' this filter'}</div>`; return; }
 
@@ -1754,9 +1766,11 @@ function route(){
     renderChangelog(); window.scrollTo(0,0); return;
   }
   if(h === '#/places' || h.startsWith('#/places/')){
-    // '#/places/been' opens the page already filtered, so the home cards can deep-link
-    // straight to what they're counting and a refresh keeps you there
-    renderPlaces(h.split('/')[2] || 'all'); window.scrollTo(0,0); return;
+    // '#/places/been' opens the page already filtered, so the cards can deep-link straight
+    // to what they're counting and a refresh keeps you there. A bare '#/places' means the
+    // countries you've actually been to: the full 223-country list is a reference, not what
+    // you came to look at, so 'all' has to ask for itself by name.
+    renderPlaces(h.split('/')[2] || PLACES_DEFAULT_FILTER); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
@@ -1832,7 +1846,8 @@ App.toggleChangelog = () => {
 let PRE_PLACES_HASH = ''; // where we were before opening Places, so Back returns there
 App.goPlaces = filter => {
   PRE_PLACES_HASH = location.hash;
-  location.hash = '#/places' + (filter && filter!=='all' ? '/'+filter : '');
+  // every filter names itself in the hash except the default, which a bare '#/places' means
+  location.hash = '#/places' + (filter && filter!==PLACES_DEFAULT_FILTER ? '/'+filter : '');
 };
 App.leavePlaces = () => { location.hash = PRE_PLACES_HASH; };
 App.setPlaceStatus = (code, status) => {
@@ -1892,22 +1907,21 @@ function tripCardHTML(t){
    separate row of filter chips: these say the same thing */
 function placesStatCardsHTML(){
   const c = placesCounts();
-  const card = (filter, emoji, n, label) => {
+  const card = (filter, n, label) => {
     const on = CUR_PLACES_FILTER === filter;
     return `
     <div class="stat-card${on?' on':''}" role="button" tabindex="0" aria-pressed="${on}"
          aria-label="${esc(label)}: ${n}"
          onclick="App.goPlaces('${filter}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('${filter}')}">
-      <span class="stat-emoji" aria-hidden="true">${emoji}</span>
       <span class="stat-n">${n}</span>
       <span class="stat-label">${esc(label)}</span>
     </div>`;
   };
   return `<div class="stat-grid" id="places-stats">
-    ${card('been','✅', c.been, "Places I've Been")}
-    ${card('want','⭐', c.want, 'Want to Go')}
-    ${card('all','🌐', c.all, 'Countries')}
+    ${card('been', c.been, "Places I've Been")}
+    ${card('want', c.want, 'Want to Go')}
+    ${card('all', c.all, 'Countries')}
   </div>`;
 }
 function homeGridHTML(trips, loading){
@@ -3080,7 +3094,7 @@ function mapQuery(t, name){
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
 const PLAN_PERIODS = {morning:['Morning','06:00'], afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
 const TRAVEL_MODES = {
-  undecided: {label:'Not Decided', icon:ICONS.route, emoji:'🧭'},
+  undecided: {label:'Not Decided', icon:ICONS.route, emoji:'❓'},
   drive: {label:'Drive', icon:ICONS.car, emoji:'🚗'},
   walk: {label:'Walk', icon:ICONS.walk, emoji:'🚶'},
   ferry: {label:'Ferry', icon:ICONS.ferry, emoji:'⛴️'},
@@ -3129,6 +3143,30 @@ function airportArriveBy(depTime){
   total -= total % 15;
   return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
 }
+/* every same-day "check out of one place, check into another" pair, as the journey between
+   them. Returns one entry per move, already skipping the ones you've saved a real travel leg
+   for. Only pairs a check-out with a check-in at a DIFFERENT accommodation: extending a stay
+   by booking the same place twice back-to-back isn't a journey anywhere. */
+function stayMoves(t){
+  const stays = (t.accommodations||[]);
+  const out = [];
+  stays.forEach((leaving, li)=>{
+    if(!leaving.checkout) return;
+    const arriving = stays.findIndex((a,ai)=>ai!==li && a.checkin===leaving.checkout);
+    if(arriving < 0) return;
+    const to = stays[arriving];
+    const fromName = leaving.name||'', toName = to.name||'';
+    if(!fromName && !toName) return;                       // nothing to name the journey by
+    if(fromName && fromName === toName) return;            // same place under two bookings
+    if((t.itinerary||[]).some(s=>s._autoForStay===arriving)) return;  // you've already saved it
+    /* the check-out time is the hard deadline (you have to be out), so that's what the
+       journey is pinned to. With no check-out time, fall back to being there for check-in. */
+    const time = leaving.checkoutTime || to.checkinTime || '';
+    out.push({date: leaving.checkout, from: fromName, to: toName, aci: arriving,
+      time, timing: time ? (leaving.checkoutTime ? 'leave' : 'arrive') : ''});
+  });
+  return out;
+}
 function tabPlan(t, ro){
   const items = (t.itinerary||[]);
   const groups = {};
@@ -3165,6 +3203,15 @@ function tabPlan(t, ro){
     // the property's generic check-in time
     if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.arrivalTime||ac.checkinTime||'', ac, aci});
     if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac, aci});
+  });
+  /* checking out of one place and into another on the same day means a journey between them
+     that nothing else on the page accounts for. Same deal as the airport suggestion: a real
+     Add Travel card, suggested rather than stored, that disappears once you save it. Pushed
+     after the accommodation loop so a tie on the checkout time sorts it after the check-out
+     card and before the check-in it leads to. */
+  stayMoves(t).forEach(mv=>{
+    (groups[mv.date]=groups[mv.date]||[]).push({kind:'travel', mode:'undecided',
+      from:mv.from, to:mv.to, time:mv.time, timing:mv.timing, aci:mv.aci});
   });
   const hasAny = Object.keys(groups).length > 0;
   const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
@@ -3217,10 +3264,12 @@ function tabPlan(t, ro){
                               : s.time ? 'leave by '+timeBadge(s) : timeBadge(s)) : '';
     const title = place + (when?' - '+esc(when):'');
     const duration = travelDurationLabel(s);
-    // an auto-suggested "travel to the airport" entry has no itinerary index yet (it isn't
-    // saved until you actually edit it), so it opens the same Add Travel form pre-filled
-    // instead of the usual edit-by-index route
-    const editFn = s._i!=null ? `App.travelLegForm(${s._i})` : `App.airportTravelForm(${s.fi})`;
+    // an auto-suggested entry (to the airport, or between two stays) has no itinerary index
+    // yet, it isn't saved until you actually edit it, so it opens the same Add Travel form
+    // pre-filled instead of the usual edit-by-index route
+    const editFn = s._i!=null ? `App.travelLegForm(${s._i})`
+                 : s.fi!=null ? `App.airportTravelForm(${s.fi})`
+                 : `App.stayTravelForm(${s.aci})`;
     return `
     <div class="card plan-travel${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
       <div class="section-head" style="margin-bottom:${duration?'4px':'0'}">
@@ -3368,11 +3417,18 @@ App.travelWhenChange = () => {
 /* a manually-entered travel leg between two points, no geocoding/distance API, just
    the mode/from/to/duration the user types in, stored alongside stops in t.itinerary
    (with kind:'travel') so it shares day-grouping and the up/down reorder system */
-/* set while the form is open for an auto-suggested "travel to the airport" entry, which
-   has no itinerary index of its own until the first time it's actually saved, at which
-   point it becomes a normal travel leg like any other (tagged so the auto-suggestion isn't
-   generated again alongside it) */
-let TRAVEL_AUTO_LINK = null;
+/* set while the form is open for an auto-suggested entry (to the airport, or between two
+   stays), which has no itinerary index of its own until the first time it's actually saved,
+   at which point it becomes a normal travel leg like any other, tagged so the auto-suggestion
+   isn't generated again alongside it. Holds the whole tag rather than a bare index, so one
+   mechanism covers both kinds of suggestion. */
+let TRAVEL_AUTO_LINK = null;   // {_autoForFlight:n} | {_autoForStay:n} | null
+function travelAutoLinkOf(o){
+  if(!o) return null;
+  if(o._autoForFlight!=null) return {_autoForFlight:o._autoForFlight};
+  if(o._autoForStay!=null) return {_autoForStay:o._autoForStay};
+  return null;
+}
 App.setTravelTiming = k => {
   const el = $('#tv-timing'); if(!el) return;
   el.value = k;
@@ -3393,7 +3449,7 @@ App.setTravelMode = k => {
 App.travelLegForm = (i, prefill) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const s = i>=0 ? (t.itinerary||[])[i] || {} : (prefill || {});
-  TRAVEL_AUTO_LINK = (i<0 && prefill && prefill._autoForFlight!=null) ? prefill._autoForFlight : null;
+  TRAVEL_AUTO_LINK = i<0 ? travelAutoLinkOf(prefill) : null;
   const initWhen = s.time ? 'time' : (s.period || 'morning');
   const {h:initHour, m:initMin} = roundToQuarterHour(s.time);
   const hourOpts = Array.from({length:24}, (_,h)=>h)
@@ -3473,13 +3529,13 @@ App.saveTravelLeg = i => {
   const durationH = +$('#tv-dur-h').value, durationM = +$('#tv-dur-m').value;
   t.itinerary = t.itinerary||[];
   const existing = i>=0 ? t.itinerary[i] : null;
-  /* the link back to the flight this leg was suggested for has to survive an edit: drop it
-     and the auto "travel to the airport" card reappears alongside the leg you already saved */
-  const autoLink = i<0 ? TRAVEL_AUTO_LINK : (existing ? existing._autoForFlight : null);
+  /* the link back to the flight or stay this leg was suggested for has to survive an edit:
+     drop it and the auto card reappears alongside the leg you already saved */
+  const autoLink = i<0 ? TRAVEL_AUTO_LINK : travelAutoLinkOf(existing);
   const timing = time ? (($('#tv-timing')||{}).value === 'arrive' ? 'arrive' : 'leave') : '';
   const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
              from, to, date:$('#tv-date').value, time, period, timing, durationH, durationM,
-             ...(autoLink!=null ? {_autoForFlight:autoLink} : {})};
+             ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
@@ -3496,6 +3552,14 @@ App.airportTravelForm = fi => {
   const beThereBy = airportArriveBy(f.depTime);
   App.travelLegForm(-1, {mode:'undecided', from:'', to:name, date:f.date||'',
     time:beThereBy, timing:beThereBy?'arrive':'', _autoForFlight:fi});
+};
+/* and the same for the suggested move between two stays: the check-out date, the place you're
+   leaving and the one you're heading to, all already filled in */
+App.stayTravelForm = aci => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const mv = stayMoves(t).find(m=>m.aci===aci); if(!mv) return;
+  App.travelLegForm(-1, {mode:'undecided', from:mv.from, to:mv.to, date:mv.date,
+    time:mv.time, timing:mv.timing, _autoForStay:aci});
 };
 /* send an Ideas pin straight into the itinerary, pre-filled, linked back to the pin so it
    can be toggled to Remove from Itinerary instead of being addable again */
