@@ -198,7 +198,7 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .trip-flags{font-size:1.05rem; letter-spacing:.08em;}
 .trip-meta{margin-top:4px; display:flex; align-items:center; gap:6px 18px; flex-wrap:wrap;}
 .trip-meta > span{display:inline-flex; align-items:center; gap:7px;}
-.meta-emoji{font-size:1rem; line-height:1;
+.meta-emoji{font-size:.8rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .places-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-bottom:22px;}
 .place-card{border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; background:var(--paper);}
@@ -496,8 +496,13 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.33.0';
+const APP_VERSION = '1.33.1';
 const CHANGELOG = [
+  {version:'1.33.1', notes:[
+    'The Edit Trip tile now lists who\'s going instead of repeating the countdown that already sits in the header.',
+    'Places I\'ve Been: each continent card now has its own emoji, and "All" is a globe.',
+    'Toned down the calendar and hourglass emoji in the trip header, they were sitting too large next to the dates.'
+  ]},
   {version:'1.33.0', notes:[
     'The itinerary now works out where you are on each day by itself: flights, ferries and check-ins move the forecast along with you, so a multi-country trip shows the right town\'s weather on the right days. The "Weather for..." bar and its Change button are gone, there\'s nothing to set up any more.',
     'Weather now shows as an emoji (sun, rain, thunder) next to the temperatures.',
@@ -988,15 +993,18 @@ const COUNTRY_CONTINENT = {
 };
 const CONTINENT_ORDER = ['Europe','Asia','Africa','North America','South America','Oceania'];
 const continentOf = c => Object.keys(COUNTRY_CONTINENT).find(k => COUNTRY_CONTINENT[k].split(' ').includes(String(c||'').toUpperCase())) || 'Other';
-/* Font Awesome has no distinct South America glyph, it shares earth-americas with North America */
-const CONTINENT_ICON = {
-  Europe: 'earth-europe',
-  Asia: 'earth-asia',
-  Africa: 'earth-africa',
-  'North America': 'earth-americas',
-  'South America': 'earth-americas',
-  Oceania: 'earth-oceania'
+/* One emoji per continent. There are only three globe emoji for six continents, so the two
+   where a globe genuinely shows that landmass keep one (Africa fills the centre of 🌍,
+   South America the lower half of 🌎) and the rest use a widely-read landmark instead. */
+const CONTINENT_EMOJI = {
+  Europe: '🏰',
+  Asia: '🏯',
+  Africa: '🌍',
+  'North America': '🗽',
+  'South America': '🌎',
+  Oceania: '🏝️'
 };
+const PLACES_ALL_EMOJI = '🌐';
 /* capital, primary language(s) — sourced from the world-countries dataset (mirrors restcountries.com), a few language orderings hand-corrected for accuracy where the source data listed a minority language first */
 const COUNTRY_INFO = {
   AD:['Andorra la Vella','Catalan'],
@@ -1289,19 +1297,19 @@ function placesFilterRowHTML(){
   const counts = placesCounts();
   return PLACES_FILTERS.map(([k,label])=>`<span class="chip pick ${CUR_PLACES_FILTER===k?'on':''}" role="button" tabindex="0" data-filter="${k}" onclick="App.setPlacesFilter('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlacesFilter('${k}')}">${esc(label)} (${counts[k]})</span>`).join('');
 }
-function placesRegionTileHTML(k, codes, icon, wide, going){
+function placesRegionTileHTML(k, codes, emoji, wide, going){
   const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, going[c]||0)!=='none' : placesStatusOf(c, going[c]||0)===CUR_PLACES_FILTER);
   const pct = codes.length ? Math.round(shown.length/codes.length*100) : 0;
   const label = `${shown.length} of ${codes.length} (${pct}%)`;
   return `<div class="dash-tile${wide?' wide':''}" role="button" tabindex="0" aria-label="${esc(k)}"
       onclick="App.selectPlacesRegion('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.selectPlacesRegion('${k}')}">
-    <span class="dash-icon">${fa(icon)}</span>
+    <span class="dash-icon"><span class="dash-emoji" aria-hidden="true">${emoji}</span></span>
     <span class="dash-text"><span class="dash-label">${esc(k)}</span><span class="dash-sum${shown.length===0?' unfilled':''}">${esc(label)}</span></span>
   </div>`;
 }
 function placesRegionGridHTML(going){
-  const allTile = placesRegionTileHTML('All', COUNTRY_CODES, 'list', true, going);
-  const tiles = CONTINENT_ORDER.map(k => placesRegionTileHTML(k, COUNTRY_CONTINENT[k].split(' '), CONTINENT_ICON[k], false, going)).join('');
+  const allTile = placesRegionTileHTML('All', COUNTRY_CODES, PLACES_ALL_EMOJI, true, going);
+  const tiles = CONTINENT_ORDER.map(k => placesRegionTileHTML(k, COUNTRY_CONTINENT[k].split(' '), CONTINENT_EMOJI[k], false, going)).join('');
   return `<div class="dash-grid">${allTile}${tiles}</div>`;
 }
 
@@ -2363,14 +2371,18 @@ function tabHome(t, ro){
       <span class="dash-icon">${tileIcon(k)}</span>
       <span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum${empty?' unfilled':''}">${esc(sum)}</span></span>
     </div>`;
-  // first tile in the grid rather than a separate full-width button; its summary is the
-  // days-to-go countdown for an upcoming trip (the header itself shows the plain dates)
-  const upcoming = upcomingStartDate(t);
+  // first tile in the grid rather than a separate full-width button; its summary lists who's
+  // coming, since people are managed from this same Edit Trip screen (the countdown lives in
+  // the header now, so repeating it here would just say the same thing twice)
+  const going = (t.participants||[]);
+  const goingSum = !going.length ? 'No One Added Yet'
+    : going.length <= 3 ? going.join(', ')
+    : `${going.slice(0,2).join(', ')} +${going.length-2} more`;
   const editTile = !ro ? `
     <div class="dash-tile" role="button" tabindex="0" aria-label="Edit Trip"
          onclick="App.tripForm()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tripForm()}">
       <span class="dash-icon">${tileIcon('edit')}</span>
-      <span class="dash-text"><span class="dash-label">Edit Trip</span>${upcoming?`<span class="dash-sum">${esc(daysToGoCount(upcoming))}</span>`:''}</span>
+      <span class="dash-text"><span class="dash-label">Edit Trip</span><span class="dash-sum${going.length?'':' unfilled'}">${esc(goingSum)}</span></span>
     </div>` : '';
   return `<div class="dash-grid">${editTile}${tiles.map(tile).join('')}</div>`;
 }
