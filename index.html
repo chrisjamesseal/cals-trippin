@@ -343,6 +343,10 @@ details .d-body{padding:14px 16px;}
 }
 .dash-tile:hover,.dash-tile:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
 .dash-tile > .dash-icon{font-size:1.5rem; color:var(--brand);}
+/* emoji carry their own colour, so they only need sizing; the slightly larger size and
+   flat line-height keep them optically level with the icon-font tiles they replaced */
+.dash-emoji{font-size:1.65rem; line-height:1; display:inline-block; font-style:normal;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .dash-text{display:flex; flex-direction:column; min-width:0; width:100%;}
 .dash-tile .dash-label{font-weight:700; font-size:.95rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .dash-tile .dash-sum{color:var(--muted); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -489,8 +493,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '2026';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.32.0';
+const APP_VERSION = '1.32.1';
 const CHANGELOG = [
+  {version:'1.32.1', notes:[
+    'The trip dashboard tiles now use colourful emoji instead of flat green icons, so the page has more life to it and sits better next to the country flags at the top.'
+  ]},
   {version:'1.32.0', notes:[
     'New Packing section: a shared list for the trip, with a one-tap starter list of the usual essentials to get going.',
     'Ticking is per person, so you and everyone else get your own boxes on the same list. An item can also be assigned to one person when it\'s only theirs to bring.',
@@ -2065,6 +2072,18 @@ const ICONS = {
   pack: fa('suitcase-rolling'),
   bell: fa('bell')
 };
+/* Emoji rather than icon-font glyphs for the big dashboard tiles: they bring their own
+   colour, which lifts the grid and sits naturally beside the country flags in the header.
+   Keyed by tab so anything without an entry quietly falls back to its Font Awesome icon.
+   The compact menu and in-button icons stay on Font Awesome, where a single-colour glyph
+   lines up better at small sizes. */
+const TAB_EMOJI = {
+  edit:'✏️', plan:'🗺️', travel:'✈️', stay:'🏨', mood:'💡', pack:'🧳',
+  polls:'📊', money:'💰', photos:'📸', contacts:'📞', docs:'📎', notes:'📝'
+};
+function tileIcon(k){
+  return TAB_EMOJI[k] ? `<span class="dash-emoji" aria-hidden="true">${TAB_EMOJI[k]}</span>` : (ICONS[k]||'');
+}
 const TABS = [
   ['home','Overview'],
   ['plan','Itinerary'],
@@ -2329,7 +2348,7 @@ function tabHome(t, ro){
   const tile = ([k,label,sum,empty]) => `
     <div class="dash-tile" role="button" tabindex="0" aria-label="${esc(label)}"
          onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}">
-      <span class="dash-icon">${ICONS[k]}</span>
+      <span class="dash-icon">${tileIcon(k)}</span>
       <span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum${empty?' unfilled':''}">${esc(sum)}</span></span>
     </div>`;
   // first tile in the grid rather than a separate full-width button; its summary is the
@@ -2338,7 +2357,7 @@ function tabHome(t, ro){
   const editTile = !ro ? `
     <div class="dash-tile" role="button" tabindex="0" aria-label="Edit Trip"
          onclick="App.tripForm()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tripForm()}">
-      <span class="dash-icon">${ICONS.edit}</span>
+      <span class="dash-icon">${tileIcon('edit')}</span>
       <span class="dash-text"><span class="dash-label">Edit Trip</span>${upcoming?`<span class="dash-sum">${esc(daysToGoCount(upcoming))}</span>`:''}</span>
     </div>` : '';
   return `<div class="dash-grid">${editTile}${tiles.map(tile).join('')}</div>`;
