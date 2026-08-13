@@ -139,10 +139,18 @@ a{color:var(--brand-dark);}
 
 /* ---------- games (PSN progress) ---------- */
 .games-list{display:flex; flex-direction:column; gap:10px;}
+/* the fixed search sits over the foot of the page, same as Places, so the last game (and the
+   Disconnect button after it) need room to clear it */
+#games-grid{padding-bottom:44px;}
 .game-card{
   display:flex; align-items:center; gap:12px; padding:12px; min-width:0;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
+  transition:opacity .15s, filter .15s;
 }
+/* hidden games stay in the list rather than vanishing (easy to bring back), just pushed to the
+   bottom and faded so they read as "out of the way" without losing your place if you change
+   your mind */
+.game-card.hidden-game{opacity:.45; filter:grayscale(.5);}
 .game-icon{width:52px; height:52px; border-radius:var(--radius-sm); object-fit:cover; flex-shrink:0; background:var(--bg);}
 .game-icon-fallback{display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.3rem;}
 .game-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;}
@@ -150,6 +158,7 @@ a{color:var(--brand-dark);}
 .game-progress{position:relative; overflow:hidden; height:6px; border-radius:999px; background:var(--bg);}
 .game-progress-bar{position:absolute; inset:0 auto 0 0; background:var(--brand); border-radius:999px; transition:width .2s;}
 .game-meta{overflow-wrap:anywhere;}
+.game-hide-btn{flex-shrink:0; align-self:center;}
 
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
@@ -256,9 +265,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 /* sits exactly on top of the bar: --bar-h is measured from the real thing each render rather
    than guessed, because guessing left a sliver of page showing between the two on a phone
    whose safe-area inset made the bar taller than the arithmetic said */
-.places-search{position:fixed; left:0; right:0; z-index:55; bottom:var(--bar-h,61px);
+.places-search,.games-search{position:fixed; left:0; right:0; z-index:55; bottom:var(--bar-h,61px);
   padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);}
-.places-search input{background:var(--paper);}
+.places-search input,.games-search input{background:var(--paper);}
 /* one country per row: side by side, a long name and its capital and language had nowhere to
    go and the card grew a paragraph tall. Two columns once the screen is wide enough to give
    each of them a sensible width. */
@@ -662,8 +671,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.47.0';
+const APP_VERSION = '1.48.0';
 const CHANGELOG = [
+  {version:'1.48.0', notes:[
+    'Games: fixed PlayStation connect failing with a 401 (the proxy had the wrong OAuth client secret).',
+    'Games: added a search box and a per-game hide toggle (hidden games sink to the bottom and fade rather than disappearing).',
+    'Games: Disconnect moved to the bottom of the list.'
+  ]},
   {version:'1.47.0', notes:[
     'My Travels cards drop their subheadings and now hug their content instead of stretching to fill the screen, with all four staying the same height.',
     'Country Finder\'s emoji changed from 🌐 to 🌍.',
@@ -2162,11 +2176,16 @@ function drawPlacesGrid(){
    URL is just an address, safe to commit (PSN_PROXY_URL, near FIREBASE_CONFIG); your actual
    PSN login token lives only in this browser's localStorage, never in the source. */
 const PSN_TOKENS_KEY = 'calstrippin_psn_tokens';
+const PSN_HIDDEN_KEY = 'calstrippin_psn_hidden';
+let PSN_TITLES = [];   // the last fetch, held so search/hide can re-filter without refetching
 function psnConfigured(){ return !!PSN_PROXY_URL; }
 function psnTokens(){ try{ return JSON.parse(localStorage.getItem(PSN_TOKENS_KEY)||'null'); }catch(e){ return null; } }
 function savePsnTokens(tok){ try{ localStorage.setItem(PSN_TOKENS_KEY, JSON.stringify(tok)); }catch(e){} }
 function clearPsnTokens(){ try{ localStorage.removeItem(PSN_TOKENS_KEY); }catch(e){} }
 function psnUrl(path){ return PSN_PROXY_URL.replace(/\/$/,'') + path; }
+/* hiding a game is a per-device preference, nothing to do with PSN itself */
+function psnHidden(){ try{ return new Set(JSON.parse(localStorage.getItem(PSN_HIDDEN_KEY)||'[]')); }catch(e){ return new Set(); } }
+function savePsnHidden(set){ try{ localStorage.setItem(PSN_HIDDEN_KEY, JSON.stringify([...set])); }catch(e){} }
 /* one retry on a stale access token: refresh, then replay the request once more */
 async function psnApi(path){
   const tok = psnTokens();
@@ -2197,7 +2216,7 @@ function renderGames(){
   }
   if(!psnTokens()){ renderGamesConnect(body); return; }
   body.innerHTML = `<div class="empty">Loading your games…</div>`;
-  psnApi('/titles').then(data => {
+  psnApi('/titles?limit=200').then(data => {
     if(!$('#games-body')) return;   // navigated away while this was in flight
     renderGamesList(data.titles||[]);
   }).catch(e => {
@@ -2227,19 +2246,38 @@ function renderGamesConnect(body){
 }
 function renderGamesList(titles){
   const body = $('#games-body'); if(!body) return;
+  PSN_TITLES = titles;
   if(!titles.length){ body.innerHTML = `<div class="empty">No games found on this account yet.</div>`; return; }
   body.innerHTML = `
-    <div class="btn-row" style="justify-content:flex-end; margin-bottom:12px">
-      <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
-    </div>
-    <div class="games-list">${titles.map(gameCardHTML).join('')}</div>`;
+    <div id="games-grid"></div>
+    <div class="games-search">
+      <input type="text" id="games-search" placeholder="Search games…" oninput="drawGamesList()">
+    </div>`;
+  drawGamesList();
 }
-function gameCardHTML(g){
+/* re-filters/re-sorts the already-fetched list; leaves the search box and its cursor alone,
+   same pattern as Places' drawPlacesGrid() */
+function drawGamesList(){
+  const grid = $('#games-grid'); if(!grid) return;
+  const q = (($('#games-search')||{}).value||'').trim().toLowerCase();
+  const hidden = psnHidden();
+  let list = PSN_TITLES;
+  if(q) list = list.filter(g => (g.name||'').toLowerCase().includes(q));
+  if(!list.length){ grid.innerHTML = `<div class="empty">No games match "${esc(q)}"</div>`; return; }
+  // hidden games sink to the bottom (faded, not removed) rather than disappearing outright
+  const ordered = list.filter(g=>!hidden.has(g.id)).concat(list.filter(g=>hidden.has(g.id)));
+  grid.innerHTML = `<div class="games-list">${ordered.map(g=>gameCardHTML(g, hidden.has(g.id))).join('')}</div>
+    <div class="btn-row" style="justify-content:center; margin-top:6px">
+      <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
+    </div>`;
+}
+function gameCardHTML(g, isHidden){
   const pct = Math.max(0, Math.min(100, g.progress||0));
   const earned = (g.earnedTrophies&&g.earnedTrophies.total) || 0;
   const total  = (g.definedTrophies&&g.definedTrophies.total) || 0;
+  const hideLabel = (isHidden?'Unhide ':'Hide ') + (g.name||'this game');
   return `
-    <div class="game-card">
+    <div class="game-card${isHidden?' hidden-game':''}">
       ${g.iconUrl ? `<img class="game-icon" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<span class="game-icon game-icon-fallback">${fa('gamepad')}</span>`}
       <div class="game-info">
@@ -2247,6 +2285,8 @@ function gameCardHTML(g){
         <div class="game-progress"><div class="game-progress-bar" style="width:${pct}%"></div></div>
         <div class="game-meta muted small">${pct}% &middot; ${earned}/${total} trophies${g.platform?' &middot; '+esc(g.platform):''}</div>
       </div>
+      <button type="button" class="iconbtn game-hide-btn" aria-label="${esc(hideLabel)}" title="${isHidden?'Unhide':'Hide'}"
+        onclick="App.psnToggleHidden('${esc(g.id)}')">${fa(isHidden?'eye':'eye-slash')}</button>
     </div>`;
 }
 async function psnConnectImpl(){
@@ -2269,6 +2309,12 @@ async function psnConnectImpl(){
   }
 }
 function psnDisconnectImpl(){ clearPsnTokens(); renderGames(); }
+function psnToggleHiddenImpl(id){
+  const hidden = psnHidden();
+  if(hidden.has(id)) hidden.delete(id); else hidden.add(id);
+  savePsnHidden(hidden);
+  drawGamesList();
+}
 
 function route(){
   closeModal(); closeMenu(); closeAddWheel();
@@ -2346,6 +2392,7 @@ App.setWhenMode = setWhenModeImpl;
 App.setWhenKind = setWhenKindImpl;
 App.psnConnect = psnConnectImpl;
 App.psnDisconnect = psnDisconnectImpl;
+App.psnToggleHidden = psnToggleHiddenImpl;
 App.expandBanner = btn => {
   const span = btn.previousElementSibling;
   openModal(`<p class="small" style="white-space:normal">${span.innerHTML}</p>`, {autofocus:false});
