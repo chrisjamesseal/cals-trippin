@@ -594,8 +594,14 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.44.0';
+const APP_VERSION = '1.45.0';
 const CHANGELOG = [
+  {version:'1.45.0', notes:[
+    'A trip no longer needs dates to exist. Pick Rough Idea when you make one and say a month, a season, a range of months, or just a year, plus roughly how many weeks you will be away.',
+    'A trip planned that loosely runs on day numbers: its itinerary reads Day 1, Day 2, Day 3 rather than pretending to know dates.',
+    'Pin the dates down later and every Day 3 becomes the actual third day. Go the other way and the dates fold back into day numbers, so the plan survives either move.',
+    'Trips still being planned say so on their card instead of counting down to nothing.'
+  ]},
   {version:'1.44.0', notes:[
     'A country on a trip you have not taken yet no longer counts as somewhere you have been. Trips only mark a country as Been once they have finished; until then it counts as Going, which has its own counter.',
     'The counters are now four, two by two, and four in a row on a wider screen.',
@@ -1074,6 +1080,130 @@ function daysToGoCount(startDate){
   const n = Math.round((new Date(startDate+'T00:00:00') - today)/86400000);
   return n+' day'+(n===1?'':'s')+' to go';
 }
+/* ---------- trips without dates yet ----------
+   Plenty of trips start as "somewhere hot next summer" long before anyone books anything, so
+   a trip can carry a rough idea of when instead of two exact dates. t.when holds it and
+   startDate/endDate stay empty; the moment real dates are set, t.when goes and everything
+   date-driven (weather, the countdown, archiving, accommodation gaps) starts working again. */
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SEASONS = [['spring','Spring'],['summer','Summer'],['autumn','Autumn'],['winter','Winter']];
+const WHEN_KINDS = [['month','Month'],['season','Season'],['months','Month Range'],['year','Just the Year']];
+const hasRoughWhen = t => !!(t && t.when && t.when.year && !t.startDate && !t.endDate);
+/* "August 2027", "Summer 2027", "August to September 2027", "Sometime in 2027" */
+function whenLabel(w){
+  if(!w || !w.year) return '';
+  const m = n => MONTH_NAMES[Math.max(0,Math.min(11,(n||1)-1))];
+  if(w.kind==='season'){ const s = SEASONS.find(x=>x[0]===w.season); return (s?s[1]:'Sometime')+' '+w.year; }
+  if(w.kind==='month')  return m(w.month)+' '+w.year;
+  if(w.kind==='months'){
+    /* a range that wraps past December runs into the next year, so both need saying */
+    if(w.endMonth < w.month) return m(w.month)+' '+w.year+' to '+m(w.endMonth)+' '+(w.year+1);
+    return w.endMonth===w.month ? m(w.month)+' '+w.year : m(w.month)+' to '+m(w.endMonth)+' '+w.year;
+  }
+  return 'Sometime in '+w.year;
+}
+const weeksLabel = n => !n ? '' : n+' week'+(n===1?'':'s');
+/* how many days a rough trip runs for, when a length has been given */
+const roughTripDays = t => hasRoughWhen(t) && t.when.weeks ? t.when.weeks*7 : 0;
+/* the one line that says when a trip is, whichever way it's been pinned down */
+function tripWhenLine(t){
+  if(hasRoughWhen(t)){
+    const wk = weeksLabel(t.when.weeks);
+    return whenLabel(t.when) + (wk?' · '+wk:'');
+  }
+  return fmtRange(t.startDate, t.endDate);
+}
+/* The "when" block both trip forms share. Exact dates or a rough idea, with only the fields
+   the chosen kind actually needs on screen, so it never looks like a form full of holes.
+   Prefixed ids (f- / et-) so the two forms can't collide. */
+function whenFieldsHTML(p, t){
+  const w = (t && t.when) || {};
+  const rough = hasRoughWhen(t);
+  const yr = new Date().getFullYear();
+  const years = Array.from({length:6},(_,i)=>yr+i);
+  const opts = (list, sel) => list.map(([v,l])=>`<option value="${v}" ${String(v)===String(sel)?'selected':''}>${esc(l)}</option>`).join('');
+  const kind = w.kind || 'month';
+  const pick = (val,label,on) => `<span class="chip pick when-pick ${on?'on':''}" role="radio" tabindex="0"
+      aria-checked="${on}" data-when="${val}" onclick="App.setWhenKind('${p}','${val}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setWhenKind('${p}','${val}')}">${esc(label)}</span>`;
+  return `
+    <div class="field"><label class="label" id="${p}-when-label">When</label>
+      <input type="hidden" id="${p}-mode" value="${rough?'rough':'exact'}">
+      <div class="chips" role="radiogroup" aria-labelledby="${p}-when-label">
+        <span class="chip pick mode-when ${rough?'':'on'}" role="radio" tabindex="0" aria-checked="${!rough}"
+              data-mode="exact" onclick="App.setWhenMode('${p}','exact')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setWhenMode('${p}','exact')}">Exact Dates</span>
+        <span class="chip pick mode-when ${rough?'on':''}" role="radio" tabindex="0" aria-checked="${rough}"
+              data-mode="rough" onclick="App.setWhenMode('${p}','rough')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setWhenMode('${p}','rough')}">Rough Idea</span>
+      </div>
+    </div>
+    <div id="${p}-exact" class="grid2" style="${rough?'display:none':''}">
+      <div class="field"><label class="label" for="${p}-start">Start date</label>
+        <input id="${p}-start" type="date" value="${esc((t&&t.startDate)||todayStr())}"></div>
+      <div class="field"><label class="label" for="${p}-end">End date</label>
+        <input id="${p}-end" type="date" value="${esc((t&&t.endDate)||todayStr())}"></div>
+    </div>
+    <div id="${p}-rough" style="${rough?'':'display:none'}">
+      <input type="hidden" id="${p}-kind" value="${esc(kind)}">
+      <div class="chips" style="margin-bottom:14px" role="radiogroup" aria-label="How pinned down is it">
+        ${WHEN_KINDS.map(([v,l])=>pick(v,l,kind===v)).join('')}
+      </div>
+      <div class="grid2">
+        <div class="field" id="${p}-f-month" style="${kind==='month'||kind==='months'?'':'display:none'}">
+          <label class="label" for="${p}-month">${kind==='months'?'From':'Month'}</label>
+          <select id="${p}-month">${opts(MONTH_NAMES.map((m,i)=>[i+1,m]), w.month||new Date().getMonth()+1)}</select></div>
+        <div class="field" id="${p}-f-endmonth" style="${kind==='months'?'':'display:none'}">
+          <label class="label" for="${p}-endmonth">To</label>
+          <select id="${p}-endmonth">${opts(MONTH_NAMES.map((m,i)=>[i+1,m]), w.endMonth||new Date().getMonth()+2)}</select></div>
+        <div class="field" id="${p}-f-season" style="${kind==='season'?'':'display:none'}">
+          <label class="label" for="${p}-season">Season</label>
+          <select id="${p}-season">${opts(SEASONS, w.season||'summer')}</select></div>
+        <div class="field"><label class="label" for="${p}-year">Year</label>
+          <select id="${p}-year">${opts(years.map(y=>[y,y]), w.year||yr)}</select></div>
+      </div>
+      <div class="field"><label class="label" for="${p}-weeks">How long</label>
+        <select id="${p}-weeks">${opts([[0,'Not sure yet'],[1,'1 week'],[2,'2 weeks'],[3,'3 weeks'],[4,'4 weeks'],[5,'5 weeks'],[6,'6 weeks'],[8,'8 weeks'],[12,'12 weeks']], w.weeks||0)}</select></div>
+    </div>`;
+}
+/* the two click handlers the block needs live with the rest of App, further down: this runs
+   before App exists */
+function setWhenModeImpl(p, mode){
+  const el = $('#'+p+'-mode'); if(!el) return;
+  el.value = mode;
+  $('#'+p+'-exact').style.display = mode==='exact' ? '' : 'none';
+  $('#'+p+'-rough').style.display = mode==='rough' ? '' : 'none';
+  document.querySelectorAll('.mode-when').forEach(x=>{
+    const on = x.dataset.mode === mode;
+    x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on));
+  });
+}
+function setWhenKindImpl(p, kind){
+  const el = $('#'+p+'-kind'); if(!el) return;
+  el.value = kind;
+  document.querySelectorAll('.when-pick').forEach(x=>{
+    const on = x.dataset.when === kind;
+    x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on));
+  });
+  const show = (id, yes) => { const f = $('#'+p+'-f-'+id); if(f) f.style.display = yes ? '' : 'none'; };
+  show('month', kind==='month' || kind==='months');
+  show('endmonth', kind==='months');
+  show('season', kind==='season');
+  /* the month select doubles as the start of a range, so its label has to say which it is */
+  const ml = document.querySelector('label[for="'+p+'-month"]');
+  if(ml) ml.textContent = kind==='months' ? 'From' : 'Month';
+}
+/* what the when block currently says, as the two fields a trip stores */
+function readWhenFields(p){
+  const rough = ($('#'+p+'-mode')||{}).value === 'rough';
+  if(!rough) return {startDate: $('#'+p+'-start').value, endDate: $('#'+p+'-end').value, when: null};
+  const kind = $('#'+p+'-kind').value;
+  const when = {kind, year: +$('#'+p+'-year').value, weeks: +$('#'+p+'-weeks').value};
+  if(kind==='month' || kind==='months') when.month = +$('#'+p+'-month').value;
+  if(kind==='months') when.endMonth = +$('#'+p+'-endmonth').value;
+  if(kind==='season') when.season = $('#'+p+'-season').value;
+  return {startDate:'', endDate:'', when};
+}
 function money(n){ return (n<0?'-':'') + '£' + Math.abs(n).toFixed(2); }
 function isArchived(t){
   if(!t.endDate) return false;
@@ -1112,6 +1242,9 @@ function normalizeTrip(t){
 /* where the trip sits in time, used for at-a-glance status pills */
 function tripStatus(t){
   if(isArchived(t)) return {label:'Archived', cls:'off'};
+  /* a rough trip has nothing to count down to, so the pill says how firm the plan is
+     instead of pretending to know a date */
+  if(hasRoughWhen(t)) return {label:'Being Planned', cls:'soon'};
   const day = 86400000, today = new Date(); today.setHours(0,0,0,0);
   const s = t.startDate ? new Date(t.startDate+'T00:00:00') : null;
   const e = t.endDate ? new Date(t.endDate+'T00:00:00') : null;
@@ -1899,6 +2032,8 @@ function openTrip(id){
 
 const App = {};
 window.App = App;
+App.setWhenMode = setWhenModeImpl;
+App.setWhenKind = setWhenKindImpl;
 App.expandBanner = btn => {
   const span = btn.previousElementSibling;
   openModal(`<p class="small" style="white-space:normal">${span.innerHTML}</p>`, {autofocus:false});
@@ -1976,7 +2111,7 @@ function tripCardHTML(t){
       ${tripFlags(t)?`<div class="trip-flags">${tripFlags(t)}</div>`:''}
       <h3>${esc(t.name)}</h3>
       ${t.destination?`<div class="muted">${esc(t.destination)}</div>`:''}
-      <div class="small" style="margin-top:8px">${fmtRange(t.startDate,t.endDate)}</div>
+      <div class="small" style="margin-top:8px">${esc(tripWhenLine(t))}</div>
       ${people?`<div class="small muted trip-people">${fa('user')}${esc(people)}</div>`:''}
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
@@ -2118,10 +2253,7 @@ App.newTrip = () => {
       ${countryDatalist()}
       <div class="chips" id="f-country-pills" style="margin-top:10px"></div>
     </div>
-    <div class="grid2">
-      <div class="field"><label class="label">Start date</label><input type="date" id="f-start" value="${todayStr()}"></div>
-      <div class="field"><label class="label">End date</label><input type="date" id="f-end" value="${todayStr()}"></div>
-    </div>
+    ${whenFieldsHTML('f', null)}
     <div class="field"><label class="label">Your name (organiser)</label><input type="text" id="f-org" placeholder="e.g. Cal"></div>
     <div class="field"><label class="label">Other people (comma-separated, add more later)</label><input type="text" id="f-ppl" placeholder="e.g. Chris, Sam, Jordan"></div>
     <button class="btn primary" style="width:100%" onclick="App.createTrip()">Create Trip</button>`);
@@ -2146,10 +2278,11 @@ App.createTrip = () => {
   if(!name){ noteModal('Name Needed', 'Give the trip a name first.'); return; }
   const org = $('#f-org').value.trim() || 'Organiser';
   const others = $('#f-ppl').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const w = readWhenFields('f');
   const t = {
     id: uid(), name, destination: '',
     countries: [...NT_COUNTRIES],
-    startDate: $('#f-start').value, endDate: $('#f-end').value,
+    startDate: w.startDate, endDate: w.endDate, ...(w.when?{when:w.when}:{}),
     organiser: org, participants: [org, ...others],
     flights: [], ferries: [], carHire: [], notes: {contacts:[], general:''},
     accommodations: [], documents: [], docLinks: [], itinerary: [],
@@ -2317,7 +2450,7 @@ function renderTrip(t){
     <div class="page-head" style="${arch?'padding-top:4px;':''}margin-bottom:22px">
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
       <p class="muted trip-meta">
-        <span><span class="meta-emoji" aria-hidden="true">📅</span><span class="meta-text">${fmtRangeLong(t.startDate,t.endDate)}</span></span>
+        <span><span class="meta-emoji" aria-hidden="true">📅</span><span class="meta-text">${esc(tripWhenLine(t))}</span></span>
         ${upcoming ? `<span><span class="meta-emoji" aria-hidden="true">⏳</span><span class="meta-text">${esc(daysToGoCount(upcoming))}</span></span>`
           : (phrase ? `<span><span class="meta-emoji" aria-hidden="true">📍</span><span class="meta-text">${esc(phrase)}</span></span>` : '')}
       </p>
@@ -2343,10 +2476,7 @@ App.tripForm = () => {
     <h2>Edit Trip</h2>
     <div class="field"><label class="label" for="et-name">Trip name</label>
       <input id="et-name" type="text" value="${esc(t.name)}"></div>
-    <div class="grid2">
-      <div class="field"><label class="label" for="et-start">Start date</label><input id="et-start" type="date" value="${esc(t.startDate||todayStr())}"></div>
-      <div class="field"><label class="label" for="et-end">End date</label><input id="et-end" type="date" value="${esc(t.endDate||todayStr())}"></div>
-    </div>
+    ${whenFieldsHTML('et', t)}
     <div class="field"><label class="label">Countries</label>
       <div style="display:flex;gap:8px">
         <input type="text" id="et-country" list="country-list" placeholder="e.g. Portugal" style="flex:1"
@@ -2418,7 +2548,24 @@ App.saveTrip = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const name = $('#et-name').value.trim();
   if(!name) return markErr('#et-name','Give the trip a name');
-  t.name = name; t.startDate = $('#et-start').value; t.endDate = $('#et-end').value;
+  const w = readWhenFields('et');
+  const wasRough = hasRoughWhen(t), oldStart = t.startDate;
+  t.name = name; t.startDate = w.startDate; t.endDate = w.endDate;
+  /* switching to exact dates has to clear the rough idea, or hasRoughWhen would keep
+     answering yes and the trip would show both */
+  if(w.when) t.when = w.when; else delete t.when;
+  /* Pinning the dates down shouldn't throw away the plan. A day number becomes the date it
+     lands on, and going the other way a date becomes the day of the trip it fell on, so
+     "Day 3: beach" survives the trip becoming real and vice versa. */
+  if(wasRough && !w.when && t.startDate){
+    (t.itinerary||[]).forEach(s=>{ if(s.day){ s.date = isoAddDays(t.startDate, s.day-1); s.day = 0; } });
+  } else if(!wasRough && w.when && oldStart){
+    (t.itinerary||[]).forEach(s=>{
+      if(!s.date) return;
+      const n = Math.round((new Date(s.date+'T00:00:00') - new Date(oldStart+'T00:00:00'))/DAY_MS) + 1;
+      if(n > 0){ s.day = n; s.date = ''; }
+    });
+  }
   logEdit('Trip info','updated the trip details');
   save(); closeModal(); rerender();
 };
@@ -3312,11 +3459,19 @@ function stayMoves(t){
 function tabPlan(t, ro){
   const items = (t.itinerary||[]);
   const groups = {};
-  items.forEach((s,i)=>{ const k = s.date||''; (groups[k]=groups[k]||[]).push({...s, _i:i}); });
+  /* A trip that's only pencilled in for "next summer" has no calendar to hang things off, so
+     its plan runs on day numbers instead: Day 1, Day 2. Same grouping machinery, the key is
+     just "d3" rather than a date. Anything booked with a real date (a flight, a stay) has no
+     day number to sit under, so it falls into Anytime until the trip gets real dates. */
+  const rough = hasRoughWhen(t);
+  items.forEach((s,i)=>{
+    const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
+    (groups[k]=groups[k]||[]).push({...s, _i:i});
+  });
   // fold travel + accommodation into the schedule, with their full detail, so the whole trip
   // reads in one place, each still lives and is edited in its own section
   (t.flights||[]).forEach((f,fi)=>{
-    const k = f.date||'';
+    const k = rough ? '' : (f.date||'');
     // a lightweight reminder to get to the airport, it's a real Add Travel card (same
     // rendering, same edit form) rather than a bespoke one, just suggested rather than
     // stored until you actually save it, so once you do it behaves exactly like any travel
@@ -3333,33 +3488,39 @@ function tabPlan(t, ro){
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
   (t.ferries||[]).forEach((f,fi)=>{
-    const k = f.date||'';
+    const k = rough ? '' : (f.date||'');
     (groups[k]=groups[k]||[]).push({_autoFerry:1, time:f.depTime||'', f, fi});
   });
   (t.carHire||[]).forEach((c,ci)=>{
-    if(c.pickupDate) (groups[c.pickupDate]=groups[c.pickupDate]||[]).push({_autoCar:'pickup', time:c.pickupTime||'', c, ci});
-    if(c.dropoffDate) (groups[c.dropoffDate]=groups[c.dropoffDate]||[]).push({_autoCar:'dropoff', time:c.dropoffTime||'', c, ci});
+    const pk = rough ? '' : c.pickupDate, dk = rough ? '' : c.dropoffDate;
+    if(c.pickupDate) (groups[pk]=groups[pk]||[]).push({_autoCar:'pickup', time:c.pickupTime||'', c, ci});
+    if(c.dropoffDate) (groups[dk]=groups[dk]||[]).push({_autoCar:'dropoff', time:c.dropoffTime||'', c, ci});
   });
   (t.accommodations||[]).forEach((ac,aci)=>{
     // your actual arrival time, when you've set one, is what the day should sort by, not
     // the property's generic check-in time
-    if(ac.checkin) (groups[ac.checkin]=groups[ac.checkin]||[]).push({_autoStay:'checkin', time:ac.arrivalTime||ac.checkinTime||'', ac, aci});
-    if(ac.checkout) (groups[ac.checkout]=groups[ac.checkout]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac, aci});
+    const ik = rough ? '' : ac.checkin, ok = rough ? '' : ac.checkout;
+    if(ac.checkin) (groups[ik]=groups[ik]||[]).push({_autoStay:'checkin', time:ac.arrivalTime||ac.checkinTime||'', ac, aci});
+    if(ac.checkout) (groups[ok]=groups[ok]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac, aci});
   });
   /* checking out of one place and into another on the same day means a journey between them
      that nothing else on the page accounts for. Same deal as the airport suggestion: a real
      Add Travel card, suggested rather than stored, that disappears once you save it. Pushed
      after the accommodation loop so a tie on the checkout time sorts it after the check-out
      card and before the check-in it leads to. */
-  stayMoves(t).forEach(mv=>{
+  (rough ? [] : stayMoves(t)).forEach(mv=>{
     (groups[mv.date]=groups[mv.date]||[]).push({kind:'travel', mode:'undecided',
       from:mv.from, to:mv.to, time:mv.time, timing:mv.timing, aci:mv.aci});
   });
   const hasAny = Object.keys(groups).length > 0;
-  const keys = Object.keys(groups).sort((a,b)=>(a||'9999').localeCompare(b||'9999'));
+  /* day numbers have to sort as numbers, or Day 10 lands before Day 3 */
+  const keys = Object.keys(groups).sort(rough
+    ? (a,b)=>(a?+a.slice(1):9999)-(b?+b.slice(1):9999)
+    : (a,b)=>(a||'9999').localeCompare(b||'9999'));
   const todayKey = todayStr();
   const dayLabel = k => {
     if(!k) return 'Anytime';
+    if(rough) return 'Day '+k.slice(1);
     let n = '';
     if(t.startDate){
       const d = Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1;
@@ -3448,7 +3609,7 @@ function tabPlan(t, ro){
   const dayBlock = k => {
     const dayItems = groups[k].slice().sort(planCompare);
     const stay = stayingAt(k);
-    return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</h3>
+    return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</h3>
       ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏠')}Staying at ${esc(stay)}</p>`:''}
       ${dayItems.map(card).join('')}`;
   };
@@ -3457,6 +3618,27 @@ function tabPlan(t, ro){
     : `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
         <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
         <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`}`;
+}
+/* A stop or travel leg is pinned to a date on a normal trip and to a day number on one
+   that's still only "next summer". Same slot in the form either way, so the layout doesn't
+   shift about. The day list runs to the trip's length when one's been given, and to a
+   fortnight when it hasn't, plus whatever day the entry already sits on. */
+function dayOrDateFieldHTML(p, t, s){
+  if(!hasRoughWhen(t)){
+    return `<div class="field"><label class="label" for="${p}-date">Date</label>
+      <input id="${p}-date" type="date" value="${esc((s&&s.date) || t.startDate || todayStr())}"></div>`;
+  }
+  const len = Math.max(roughTripDays(t) || 14, (s&&s.day)||0);
+  const cur = (s&&s.day) || 1;
+  return `<div class="field"><label class="label" for="${p}-day">Day</label>
+    <select id="${p}-day">
+      ${Array.from({length:len},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===cur?'selected':''}>Day ${n}</option>`).join('')}
+    </select></div>`;
+}
+/* whichever of the two the form is showing, as the fields an itinerary entry stores */
+function readDayOrDate(p){
+  const d = $('#'+p+'-day');
+  return d ? {date:'', day:+d.value} : {date: $('#'+p+'-date').value, day:0};
 }
 function locationDatalist(t){
   const set = new Set();
@@ -3504,8 +3686,7 @@ App.planForm = (i, prefill, moodIndex) => {
       <input id="pl-name" type="text" value="${esc(s.name||'')}" placeholder="e.g. Time Out Market" oninput="App.ideaTitleTyped('#pl-name')"></div>
     ${ideaEmojiFieldHTML(s.emoji || ideaEmojiFor(s.name||''))}
     <div class="grid2">
-      <div class="field"><label class="label" for="pl-date">Date</label>
-        <input id="pl-date" type="date" value="${esc(s.date || t.startDate || todayStr())}"></div>
+      ${dayOrDateFieldHTML('pl', t, s)}
       <div class="field"><label class="label" for="pl-when">When</label>
         <select id="pl-when" onchange="App.planWhenChange()">
           <option value="morning" ${initWhen==='morning'?'selected':''}>Morning</option>
@@ -3542,8 +3723,9 @@ App.savePlan = (i, moodIndex) => {
   let mapsUrl = $('#pl-maps').value.trim();
   if(mapsUrl && !/^https?:\/\//i.test(mapsUrl)) mapsUrl = 'https://' + mapsUrl;
   const emoji = (($('#md-emoji')||{}).value||'').trim() || ideaEmojiFor(name);
+  const dd = readDayOrDate('pl');
   const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name, emoji,
-             date:$('#pl-date').value, time, period, mapsUrl,
+             date:dd.date, day:dd.day, time, period, mapsUrl,
              location:$('#pl-loc').value.trim(), notes:$('#pl-notes').value.trim(), image:PLAN_IMG};
   t.itinerary = t.itinerary||[];
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
@@ -3621,8 +3803,7 @@ App.travelLegForm = (i, prefill) => {
     </div>
     ${locationDatalist(t)}
     <div class="grid2">
-      <div class="field"><label class="label" for="tv-date">Date</label>
-        <input id="tv-date" type="date" value="${esc(s.date || t.startDate || todayStr())}"></div>
+      ${dayOrDateFieldHTML('tv', t, s)}
       <div class="field"><label class="label" for="tv-when">When</label>
         <select id="tv-when" onchange="App.travelWhenChange()">
           <option value="morning" ${initWhen==='morning'?'selected':''}>Morning</option>
@@ -3675,8 +3856,9 @@ App.saveTravelLeg = i => {
      drop it and the auto card reappears alongside the leg you already saved */
   const autoLink = i<0 ? TRAVEL_AUTO_LINK : travelAutoLinkOf(existing);
   const timing = time ? (($('#tv-timing')||{}).value === 'arrive' ? 'arrive' : 'leave') : '';
+  const dd = readDayOrDate('tv');
   const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
-             from, to, date:$('#tv-date').value, time, period, timing, durationH, durationM,
+             from, to, date:dd.date, day:dd.day, time, period, timing, durationH, durationM,
              ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
