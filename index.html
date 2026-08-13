@@ -37,8 +37,12 @@ body{
 ::selection{background:var(--brand-tint); color:var(--brand-dark);}
 
 /* ---------- layout ---------- */
-/* nothing above the content now, so the page has to clear the status bar / notch itself */
-.wrap{max-width:920px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 16px 96px;}
+/* nothing above the content now, so the page has to clear the status bar / notch itself.
+   max() keeps a floor under that clearance: some mobile browsers report
+   env(safe-area-inset-top) as 0 while the on-screen keyboard is up (the inset is about the
+   notch, not the keyboard, but the value still drops), which without a floor let the title
+   ride up under the status bar the moment a search box was focused. */
+.wrap{max-width:920px; margin:0 auto; padding:max(14px + env(safe-area-inset-top), 54px) 16px 96px;}
 .sidebar{display:none;}
 /* every page's title starts the same distance down, whether it's an h1 (Your Trips, a trip's
    name) or a breadcrumb title (a section, Places). One number, changed in one place. */
@@ -302,6 +306,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .been-card .flag{font-size:2.1rem;}
 .been-card .place-name-text{font-size:.92rem; font-weight:700;}
 .been-delete-btn{position:absolute; top:6px; right:6px;}
+.been-num{position:absolute; top:8px; left:10px; font-size:.72rem; font-weight:800; color:var(--muted);}
+/* a country whose trip hasn't happened yet: shown so it doesn't feel like it vanishes into
+   thin air the day the trip ends, but faded and with nothing to tap, since it isn't Been
+   until that day actually arrives */
+.been-upcoming{opacity:.45; filter:grayscale(.5);}
 
 /* ---------- full-screen form views (no popups) ---------- */
 .modal-bg{position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; overscroll-behavior:contain;}
@@ -393,7 +402,7 @@ details .d-body{padding:14px 16px;}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 @media(max-width:560px){
   h1{font-size:1.5rem;}
-  .wrap{padding:calc(14px + env(safe-area-inset-top)) 12px 80px;}
+  .wrap{padding:max(14px + env(safe-area-inset-top), 54px) 12px 80px;}
   .modal{padding:6px 12px 40px;}
   .flight-apt{font-size:1.2rem;}
 }
@@ -682,8 +691,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.50.0';
+const APP_VERSION = '1.51.0';
 const CHANGELOG = [
+  {version:'1.51.0', notes:[
+    'Places I\'ve Been cards now show a # for the order you visited, and a faded "Coming Up" preview of countries on a booked trip that hasn\'t happened yet.',
+    'Fixed the page title riding up under the status bar when the keyboard opened over a search box.'
+  ]},
   {version:'1.50.0', notes:[
     'Places I\'ve Been drops its region picker again and its capital/language row; it\'s now a flat list, in the order you added each country, with a bigger flag stacked above the name and a delete icon in the corner instead of a switch.',
     'Country Finder gets its region picker back.'
@@ -2156,36 +2169,67 @@ function placeCardHTML(co, tripStatus){
       <div class="place-actions${view==='finder'?' finder':''}" style="margin-top:6px">${actions}</div>
     </div>`;
 }
-/* Been is just a log, not an editor: no capital/language, no add-a-country control, just the
-   flag (stacked above the name now there's nothing to share the row with, so both get more
-   room) and a single way to change anything, taking it back off. */
-function beenCardHTML(co){
+/* Been is just a log, not an editor: no capital/language, no add-a-country control, just a
+   number for when it landed in the order, the flag (stacked above the name now there's
+   nothing to share the row with, so both get more room) and a single way to change anything,
+   taking it back off. */
+function beenCardHTML(co, num){
   const removeLabel = "Remove "+co.name+" from Places I've Been";
   return `
     <div class="place-card been-card" data-code="${co.code}">
+      <span class="been-num" aria-hidden="true">#${num}</span>
       <button type="button" class="iconbtn been-delete-btn" aria-label="${esc(removeLabel)}" title="Remove"
         onclick="App.setPlaceStatus('${co.code}','none')">${fa('trash')}</button>
       <span class="flag">${co.flag}</span>
       <span class="place-name-text">${esc(co.name)}</span>
     </div>`;
 }
-/* the order countries were added to Been: DB.places' own key order for anything explicitly
-   set (a tick, or a trip archiving), falling back to COUNTRY_CODES order for the rare country
-   that's Been purely because a trip finished but hasn't archived yet (so nothing's been
-   written down for it yet) */
+/* a country whose trip is booked but hasn't happened yet: a faded preview, nothing to tap -
+   it promotes itself to a real, numbered Been entry the day the trip's dates pass, same as
+   everywhere else Been is worked out */
+function beenUpcomingCardHTML(co){
+  return `
+    <div class="place-card been-card been-upcoming" data-code="${co.code}">
+      <span class="flag">${co.flag}</span>
+      <span class="place-name-text">${esc(co.name)}</span>
+    </div>`;
+}
+/* the real, remembered order of first sixteen: given by hand rather than derived, since
+   nothing in the data says *when* each of these actually happened. Most recent first.
+   Anything ticked Been from here on (not in this list) is assumed to be more recent than all
+   of these and sorts above them. */
+const BEEN_VISIT_ORDER = ['XE','XW','FR','IE','XS','US','ES','NL','BE','PT','CH','NO','IT','VA','TH','HR'];
+const BEEN_VISIT_SET = new Set(BEEN_VISIT_ORDER);
 function beenOrderedCountries(trips){
   const out = [], seen = new Set();
-  Object.keys(DB.places||{}).forEach(code=>{
-    if(seen.has(code) || placesStatusOf(code, trips[code])!=='been') return;
+  const placesKeys = Object.keys(DB.places||{});
+  /* newest-added first: DB.places preserves insertion order oldest-key-first, so this walks
+     it backwards */
+  for(let i=placesKeys.length-1; i>=0; i--){
+    const code = placesKeys[i];
+    if(seen.has(code) || BEEN_VISIT_SET.has(code) || placesStatusOf(code, trips[code])!=='been') continue;
+    const co = COUNTRIES.find(c=>c.code===code);
+    if(co){ out.push(co); seen.add(code); }
+  }
+  /* the rare country that's Been purely because a trip finished but hasn't archived yet, so
+     nothing's been written down for it anywhere to give it a real position */
+  COUNTRY_CODES.forEach(code=>{
+    if(seen.has(code) || BEEN_VISIT_SET.has(code) || placesStatusOf(code, trips[code])!=='been') return;
     const co = COUNTRIES.find(c=>c.code===code);
     if(co){ out.push(co); seen.add(code); }
   });
-  COUNTRY_CODES.forEach(code=>{
+  BEEN_VISIT_ORDER.forEach(code=>{
     if(seen.has(code) || placesStatusOf(code, trips[code])!=='been') return;
     const co = COUNTRIES.find(c=>c.code===code);
     if(co){ out.push(co); seen.add(code); }
   });
   return out;
+}
+function beenUpcomingCountries(trips){
+  return COUNTRY_CODES
+    .filter(code => placesStatusOf(code, trips[code])==='going')
+    .map(code => COUNTRIES.find(c=>c.code===code))
+    .filter(Boolean);
 }
 function drawPlacesGrid(){
   const el = $('#places-grid'); if(!el) return;
@@ -2194,15 +2238,24 @@ function drawPlacesGrid(){
 
   /* Been isn't a browse-the-world screen like the other two, it's a log of what's already on
      it, so it skips the region picker and continent grouping entirely: just the list, in the
-     order countries were added, searchable but not filterable by region. */
+     order countries were added, searchable but not filterable by region, plus a faded preview
+     of what's coming once a booked trip's dates pass. */
   if(CUR_PLACES_VIEW==='been'){
     let list = beenOrderedCountries(trips);
-    if(q) list = list.filter(co=>co.name.toLowerCase().includes(q));
-    if(!list.length){
+    let upcoming = beenUpcomingCountries(trips);
+    if(q){
+      list = list.filter(co=>co.name.toLowerCase().includes(q));
+      upcoming = upcoming.filter(co=>co.name.toLowerCase().includes(q));
+    }
+    if(!list.length && !upcoming.length){
       el.innerHTML = `<div class="empty">${q ? `No countries match "${esc(q)}"` : "Nowhere yet. Countries fill in here once a trip there has finished, or tick one off in Want to Go."}</div>`;
       return;
     }
-    el.innerHTML = `<div class="places-grid dense">${list.map(beenCardHTML).join('')}</div>`;
+    const beenHTML = list.length ? `<div class="places-grid dense">${list.map((co,i)=>beenCardHTML(co,i+1)).join('')}</div>` : '';
+    const upcomingHTML = upcoming.length ? `
+      <h3 class="places-continent-heading" style="margin-top:${list.length?'22px':'0'}">Coming Up</h3>
+      <div class="places-grid dense">${upcoming.map(beenUpcomingCardHTML).join('')}</div>` : '';
+    el.innerHTML = beenHTML + upcomingHTML;
     return;
   }
 
