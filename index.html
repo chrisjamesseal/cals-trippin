@@ -47,6 +47,7 @@ body{
    Aligned to the top, not centred: the button is taller than the heading, and centring both
    would push "Your Trips" a few pixels down from where every other page's title starts. */
 .home-title{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+.trips-heading{margin-top:26px;}
 .home-title button{align-self:center;}
 
 /* the wordmark is only on the PIN gate now that the top bar is gone */
@@ -276,6 +277,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    on top of the space .wrap already leaves for the bar */
 #places-grid{padding-bottom:44px;}
 @media(min-width:620px){.places-grid{grid-template-columns:repeat(2,1fr);}}
+/* Been only: two columns at any width, see drawPlacesGrid() for why */
+.places-grid.dense{grid-template-columns:repeat(2,1fr);}
+@media(max-width:360px){.places-grid.dense{grid-template-columns:1fr;}}
 .place-card{border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; background:var(--paper);}
 /* the flag now sits beside the name rather than above it, there's room for both on one row */
 .place-card .flag{font-size:1.35rem; line-height:1; flex-shrink:0;}
@@ -671,8 +675,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.48.0';
+const APP_VERSION = '1.49.0';
 const CHANGELOG = [
+  {version:'1.49.0', notes:[
+    'Your Trips now lives on My Travels itself, below the four cards, instead of behind a tap on Going; + New Trip moved up next to the My Travels title.',
+    'Places I\'ve Been gets its region picker back, and its list runs two columns wide (its cards are simpler than Want to Go\'s and Country Finder\'s, so they fit).',
+    'Places I\'ve Been\'s check icon is now a Been / Want to Go switch, so you can mark a wishlist country without leaving the list; tapping the pill that\'s already on clears it.'
+  ]},
   {version:'1.48.0', notes:[
     'Games: fixed PlayStation connect failing with a 401 (the proxy had the wrong OAuth client secret).',
     'Games: added a search box and a per-game hide toggle (hidden games sink to the bottom and fade rather than disappearing).',
@@ -2028,12 +2037,21 @@ function placesHubCardsHTML(){
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
+  renderSidebar(null);
   $('#app').innerHTML = `
     <div class="hub-page">
       <div class="crumb">
-        <div class="crumb-titlerow"><span class="crumb-here">My Travels</span></div>
+        <div class="crumb-titlerow">
+          <span class="crumb-here">My Travels</span>
+          <button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button>
+        </div>
       </div>
       <div class="hub-grid" id="hub-grid">${placesHubCardsHTML()}</div>
+      <h2 class="trips-heading">Your Trips</h2>
+      <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
+      <div class="home-foot">
+        <button class="version-tag" onclick="App.toggleChangelog()">v${esc(APP_VERSION)} &middot; What's new</button>
+      </div>
     </div>`;
   /* repaint the counts, not the page: re-running this whole function from its own callback
      would subscribe again and again */
@@ -2042,12 +2060,17 @@ function renderPlacesHub(){
     saveLocal();
     const g = $('#hub-grid'); if(g) g.innerHTML = placesHubCardsHTML();
   });
+  if(cloudEnabled()){
+    fetchAllTrips(all => {
+      const el = $('#home-grid'); if(el) el.innerHTML = homeGridHTML(all);
+    });
+  }
 }
 /* the three list screens behind the hub, which differ only in what they show and how much
    they let you change: Been ticks off, Want to Go browses by region, Country Finder is the
    whole world with a Want to Go / Not Exploring switch on every row */
 const PLACES_VIEWS = {
-  been:   {title:"Places I've Been", filter:'been', regions:false},
+  been:   {title:"Places I've Been", filter:'been', regions:true},
   want:   {title:'Want to Go',       filter:'want', regions:true},
   finder: {title:'Country Finder',   filter:'all',  regions:false}
 };
@@ -2100,8 +2123,18 @@ function placeCardHTML(co, tripStatus){
       <span class="want-opt ${status==='want'?'':'on'}" role="radio" tabindex="0" aria-checked="${status!=='want'}"
             ${act(`App.setPlaceStatus('${co.code}',null)`)}>Not Exploring</span>
     </div>`;
+  /* Been's own switch: tapping whichever pill is already active clears it (Been resets to
+     'none' so it sticks against a trip re-deriving it, same as the old check icon did; Want
+     resets to null, same as everywhere else Want gets cleared) rather than needing a third
+     "neither" pill to tap instead. */
+  const beenSwitch = `<div class="want-switch" role="radiogroup" aria-label="${esc(co.name)}">
+      <span class="want-opt ${status==='been'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='been'}"
+            ${act(`App.setPlaceStatus('${co.code}', ${status==='been'?"'none'":"'been'"})`)}>Been</span>
+      <span class="want-opt ${status==='want'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='want'}"
+            ${act(`App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})`)}>Want to Go</span>
+    </div>`;
   const actions =
-      view==='been'   ? `<div class="chips">${beenChip}</div>`
+      view==='been'   ? beenSwitch
     : view==='finder' ? wantSwitch
     : `<div class="chips">${beenChip}${starChip}</div>
        <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener"
@@ -2120,7 +2153,7 @@ function placeCardHTML(co, tripStatus){
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
         <span title="Language">${fa('language')}${esc(info[1])}</span>
       </div>` : ''}
-      <div class="place-actions${view==='finder'?' finder':''}" style="margin-top:6px">${actions}</div>
+      <div class="place-actions${(view==='finder'||view==='been')?' finder':''}" style="margin-top:6px">${actions}</div>
     </div>`;
 }
 function drawPlacesGrid(){
@@ -2163,9 +2196,13 @@ function drawPlacesGrid(){
   /* a single-continent region view still needs a title now that the per-continent heading
      it used to inherit is suppressed (there's nothing else on the page saying "Europe") */
   const regionTitle = (!q && CUR_PLACES_REGION && CUR_PLACES_REGION!=='All' && !showHeadings) ? `<h3 class="places-continent-heading">${esc(CUR_PLACES_REGION)}</h3>` : '';
+  /* Been usually has far fewer countries on it than Want to Go or Country Finder, and its
+     card now holds one full-width switch instead of a row of icons and a flight link, so it
+     stays readable at two columns on a phone rather than only from 620px up like the rest. */
+  const gridClass = CUR_PLACES_VIEW==='been' ? 'places-grid dense' : 'places-grid';
   el.innerHTML = backRow + regionTitle + order.map(k => `
     ${showHeadings?`<h3 class="places-continent-heading">${esc(k)}</h3>`:''}
-    <div class="places-grid">${byContinent[k].map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>
+    <div class="${gridClass}">${byContinent[k].map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>
   `).join('');
 }
 
