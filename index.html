@@ -295,6 +295,13 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .place-info{display:flex; flex-wrap:wrap; gap:4px 16px; margin:6px 0; font-size:.74rem; color:var(--muted);}
 .place-info span{display:flex; align-items:center; gap:6px;}
 .place-info .icon{width:13px; text-align:center; flex-shrink:0;}
+/* Been's card: no capital/language row to share space with, so the flag stacks above the
+   name instead of beside it, both a size up from elsewhere; the one action (remove) sits as
+   an icon in the corner instead of a row of its own underneath */
+.been-card{position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; padding:20px 12px 16px;}
+.been-card .flag{font-size:2.1rem;}
+.been-card .place-name-text{font-size:.92rem; font-weight:700;}
+.been-delete-btn{position:absolute; top:6px; right:6px;}
 
 /* ---------- full-screen form views (no popups) ---------- */
 .modal-bg{position:fixed; inset:0; background:var(--bg); z-index:100; overflow-y:auto; overscroll-behavior:contain;}
@@ -675,8 +682,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.49.0';
+const APP_VERSION = '1.50.0';
 const CHANGELOG = [
+  {version:'1.50.0', notes:[
+    'Places I\'ve Been drops its region picker again and its capital/language row; it\'s now a flat list, in the order you added each country, with a bigger flag stacked above the name and a delete icon in the corner instead of a switch.',
+    'Country Finder gets its region picker back.'
+  ]},
   {version:'1.49.0', notes:[
     'Your Trips now lives on My Travels itself, below the four cards, instead of behind a tap on Going; + New Trip moved up next to the My Travels title.',
     'Places I\'ve Been gets its region picker back, and its list runs two columns wide (its cards are simpler than Want to Go\'s and Country Finder\'s, so they fit).',
@@ -2070,9 +2081,9 @@ function renderPlacesHub(){
    they let you change: Been ticks off, Want to Go browses by region, Country Finder is the
    whole world with a Want to Go / Not Exploring switch on every row */
 const PLACES_VIEWS = {
-  been:   {title:"Places I've Been", filter:'been', regions:true},
+  been:   {title:"Places I've Been", filter:'been', regions:false},
   want:   {title:'Want to Go',       filter:'want', regions:true},
-  finder: {title:'Country Finder',   filter:'all',  regions:false}
+  finder: {title:'Country Finder',   filter:'all',  regions:true}
 };
 function renderPlaces(view){
   applyArchiveTransitions();
@@ -2123,19 +2134,8 @@ function placeCardHTML(co, tripStatus){
       <span class="want-opt ${status==='want'?'':'on'}" role="radio" tabindex="0" aria-checked="${status!=='want'}"
             ${act(`App.setPlaceStatus('${co.code}',null)`)}>Not Exploring</span>
     </div>`;
-  /* Been's own switch: tapping whichever pill is already active clears it (Been resets to
-     'none' so it sticks against a trip re-deriving it, same as the old check icon did; Want
-     resets to null, same as everywhere else Want gets cleared) rather than needing a third
-     "neither" pill to tap instead. */
-  const beenSwitch = `<div class="want-switch" role="radiogroup" aria-label="${esc(co.name)}">
-      <span class="want-opt ${status==='been'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='been'}"
-            ${act(`App.setPlaceStatus('${co.code}', ${status==='been'?"'none'":"'been'"})`)}>Been</span>
-      <span class="want-opt ${status==='want'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='want'}"
-            ${act(`App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})`)}>Want to Go</span>
-    </div>`;
   const actions =
-      view==='been'   ? beenSwitch
-    : view==='finder' ? wantSwitch
+      view==='finder' ? wantSwitch
     : `<div class="chips">${beenChip}${starChip}</div>
        <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener"
         onclick="return App.openExternal(event, '${esc(flightUrl)}')"
@@ -2153,17 +2153,61 @@ function placeCardHTML(co, tripStatus){
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
         <span title="Language">${fa('language')}${esc(info[1])}</span>
       </div>` : ''}
-      <div class="place-actions${(view==='finder'||view==='been')?' finder':''}" style="margin-top:6px">${actions}</div>
+      <div class="place-actions${view==='finder'?' finder':''}" style="margin-top:6px">${actions}</div>
     </div>`;
+}
+/* Been is just a log, not an editor: no capital/language, no add-a-country control, just the
+   flag (stacked above the name now there's nothing to share the row with, so both get more
+   room) and a single way to change anything, taking it back off. */
+function beenCardHTML(co){
+  const removeLabel = "Remove "+co.name+" from Places I've Been";
+  return `
+    <div class="place-card been-card" data-code="${co.code}">
+      <button type="button" class="iconbtn been-delete-btn" aria-label="${esc(removeLabel)}" title="Remove"
+        onclick="App.setPlaceStatus('${co.code}','none')">${fa('trash')}</button>
+      <span class="flag">${co.flag}</span>
+      <span class="place-name-text">${esc(co.name)}</span>
+    </div>`;
+}
+/* the order countries were added to Been: DB.places' own key order for anything explicitly
+   set (a tick, or a trip archiving), falling back to COUNTRY_CODES order for the rare country
+   that's Been purely because a trip finished but hasn't archived yet (so nothing's been
+   written down for it yet) */
+function beenOrderedCountries(trips){
+  const out = [], seen = new Set();
+  Object.keys(DB.places||{}).forEach(code=>{
+    if(seen.has(code) || placesStatusOf(code, trips[code])!=='been') return;
+    const co = COUNTRIES.find(c=>c.code===code);
+    if(co){ out.push(co); seen.add(code); }
+  });
+  COUNTRY_CODES.forEach(code=>{
+    if(seen.has(code) || placesStatusOf(code, trips[code])!=='been') return;
+    const co = COUNTRIES.find(c=>c.code===code);
+    if(co){ out.push(co); seen.add(code); }
+  });
+  return out;
 }
 function drawPlacesGrid(){
   const el = $('#places-grid'); if(!el) return;
   const q = (($('#places-filter')||{}).value||'').trim().toLowerCase();
   const trips = placesTripMap();
 
-  /* only Want to Go starts on the region picker. Been is a list of somewhere between none and
-     a couple of dozen countries, and Country Finder is deliberately the lot, so a screen of
-     continents in front of either is a door with nothing behind it. */
+  /* Been isn't a browse-the-world screen like the other two, it's a log of what's already on
+     it, so it skips the region picker and continent grouping entirely: just the list, in the
+     order countries were added, searchable but not filterable by region. */
+  if(CUR_PLACES_VIEW==='been'){
+    let list = beenOrderedCountries(trips);
+    if(q) list = list.filter(co=>co.name.toLowerCase().includes(q));
+    if(!list.length){
+      el.innerHTML = `<div class="empty">${q ? `No countries match "${esc(q)}"` : "Nowhere yet. Countries fill in here once a trip there has finished, or tick one off in Want to Go."}</div>`;
+      return;
+    }
+    el.innerHTML = `<div class="places-grid dense">${list.map(beenCardHTML).join('')}</div>`;
+    return;
+  }
+
+  /* Want to Go and Country Finder both start on the region picker; browsing the whole world
+     benefits from picking a corner of it first, unlike Been above. */
   if(!q && !CUR_PLACES_REGION && PLACES_VIEWS[CUR_PLACES_VIEW].regions){
     el.innerHTML = placesRegionGridHTML(trips);
     return;
@@ -2173,14 +2217,11 @@ function drawPlacesGrid(){
   if(q) list = list.filter(c=>c.name.toLowerCase().includes(q));
   else if(CUR_PLACES_REGION && CUR_PLACES_REGION!=='All') list = list.filter(c=>continentOf(c.code)===CUR_PLACES_REGION);
   /* a search overrides the region the same way it overrides the status filter: you typed a
-     country's name, so you want that country whatever state it's in. Without this, the page
-     opening on Been would mean you could never find a country to tick as Been in the first
-     place, the search would just say it matches nothing. */
+     country's name, so you want that country whatever state it's in */
   if(!q) list = list.filter(c=>CUR_PLACES_FILTER==='all' || placesStatusOf(c.code, trips[c.code])===CUR_PLACES_FILTER);
 
   if(!list.length){
     const empty = q ? `No countries match "${esc(q)}"`
-      : CUR_PLACES_VIEW==='been' ? "Nowhere yet. Countries fill in here once a trip there has finished, or tick one off in Country Finder."
       : CUR_PLACES_VIEW==='want' ? 'Nothing on the wish list yet. Country Finder is where you add them.'
       : 'No countries match this filter';
     el.innerHTML = `<div class="empty">${empty}</div>`; return;
@@ -2190,19 +2231,14 @@ function drawPlacesGrid(){
   const byContinent = {};
   list.forEach(co => { const k = continentOf(co.code); (byContinent[k] = byContinent[k]||[]).push(co); });
   const order = CONTINENT_ORDER.filter(k=>byContinent[k]).concat(Object.keys(byContinent).filter(k=>!CONTINENT_ORDER.includes(k)));
-  /* a grouped list keeps its heading even when everything happens to fall in one continent:
-     without it the Been list of three European countries looks ungrouped rather than grouped */
+  /* a grouped list keeps its heading even when everything happens to fall in one continent */
   const showHeadings = order.length>1 || (!q && !CUR_PLACES_REGION);
   /* a single-continent region view still needs a title now that the per-continent heading
      it used to inherit is suppressed (there's nothing else on the page saying "Europe") */
   const regionTitle = (!q && CUR_PLACES_REGION && CUR_PLACES_REGION!=='All' && !showHeadings) ? `<h3 class="places-continent-heading">${esc(CUR_PLACES_REGION)}</h3>` : '';
-  /* Been usually has far fewer countries on it than Want to Go or Country Finder, and its
-     card now holds one full-width switch instead of a row of icons and a flight link, so it
-     stays readable at two columns on a phone rather than only from 620px up like the rest. */
-  const gridClass = CUR_PLACES_VIEW==='been' ? 'places-grid dense' : 'places-grid';
   el.innerHTML = backRow + regionTitle + order.map(k => `
     ${showHeadings?`<h3 class="places-continent-heading">${esc(k)}</h3>`:''}
-    <div class="${gridClass}">${byContinent[k].map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>
+    <div class="places-grid">${byContinent[k].map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>
   `).join('');
 }
 
