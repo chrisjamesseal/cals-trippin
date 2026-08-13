@@ -255,6 +255,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .chip.country{padding:5px 12px;}
 .chip.country .flag{font-size:1.05rem; line-height:1;}
 .trip-flags{font-size:1.05rem; letter-spacing:.08em;}
+/* the Archived pill sits top right of the title, same shape as My Travels' title + New Trip
+   button, instead of the small pin-emoji phrase it used to share with the countdown */
+.trip-title-row{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+.trip-title-row .status-pill{flex-shrink:0; margin-top:4px;}
 .trip-meta{margin-top:4px; display:flex; align-items:center; gap:6px 18px; flex-wrap:wrap;}
 .trip-meta > span{display:inline-flex; align-items:center; gap:7px;}
 .meta-emoji{font-size:.8rem; line-height:1;
@@ -694,8 +698,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.52.0';
+const APP_VERSION = '1.53.0';
 const CHANGELOG = [
+  {version:'1.53.0', notes:[
+    'An archived trip shows "Archived" as a pill top-right of its title, instead of a small pin-emoji phrase sharing the line with the countdown.'
+  ]},
   {version:'1.52.0', notes:[
     '"How long" (on a trip with a rough idea of when) adds A Day, Weekend and Long Weekend, alongside the week options.',
     'Trip cards show up to 8 names before trimming to "+N more", up from 3.',
@@ -1205,7 +1212,7 @@ function daysToGoPhrase(n){
 }
 /* short parenthetical for the trip header: "1 month 2 weeks to go", "day 2 of 8"… */
 function statusPhrase(t){
-  if(isArchived(t)) return 'archived';
+  if(isArchived(t)) return '';   // shown as a pill top-right of the header instead
   const day = 86400000, today = new Date(); today.setHours(0,0,0,0);
   const s = t.startDate ? new Date(t.startDate+'T00:00:00') : null;
   const e = t.endDate ? new Date(t.endDate+'T00:00:00') : null;
@@ -2934,7 +2941,10 @@ function renderTrip(t){
   $('#app').innerHTML = `
     ${CUR_TAB==='home' ? `
     <div class="page-head" style="margin-bottom:22px">
-      <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
+      <div class="trip-title-row">
+        <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
+        ${isArchived(t) ? statusPill(t) : ''}
+      </div>
       <p class="muted trip-meta">
         <span><span class="meta-emoji" aria-hidden="true">📅</span><span class="meta-text">${esc(tripWhenLine(t))}</span></span>
         ${upcoming ? `<span><span class="meta-emoji" aria-hidden="true">⏳</span><span class="meta-text">${esc(daysToGoCount(upcoming))}</span></span>`
