@@ -118,9 +118,11 @@ a{color:var(--brand-dark);}
 .trip-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 .trip-card.archived{opacity:.55; filter:grayscale(1);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
-/* three equal columns at any width: they're a single glanceable row, so they shouldn't
-   reflow into an awkward 2 + 1 on a narrow phone */
-.stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px;}
+/* two by two on a phone, where four across would squeeze the labels into a stack of single
+   words, and four in a row once there's width for it. Either way they stay a block you read
+   in one go rather than reflowing into an awkward 3 + 1. */
+.stat-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:10px;}
+@media(min-width:620px){.stat-grid{grid-template-columns:repeat(4,1fr);}}
 /* same shell as the trip cards below them, so the top of the page reads as one set */
 .stat-card{
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
@@ -592,8 +594,14 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.43.0';
+const APP_VERSION = '1.44.0';
 const CHANGELOG = [
+  {version:'1.44.0', notes:[
+    'A country on a trip you have not taken yet no longer counts as somewhere you have been. Trips only mark a country as Been once they have finished; until then it counts as Going, which has its own counter.',
+    'The counters are now four, two by two, and four in a row on a wider screen.',
+    'Dates are written out in full everywhere ("24 September 2026"), and a range says the year once at the end unless it runs into the new year.',
+    'Your Trips lists the most recent trip first.'
+  ]},
   {version:'1.43.0', notes:[
     'Accommodation now shows the nights you have nowhere to stay, as a dashed card sitting exactly where the gap falls. Its Add Accommodation button opens the form with those dates already filled in.',
     'The black pop-up that slid over the bottom bar after every action is gone. It mostly told you what you had just done. Deleting still asks before it does anything, and the few messages you actually need to read now wait in a box until you dismiss them.',
@@ -996,37 +1004,37 @@ function noteModal(title, body){
       <button class="btn primary" onclick="closeModal()">OK</button>
     </div>`);
 }
+/* One date format everywhere: "24 September 2026", month written out in full. */
 function fmtDate(d){
   if(!d) return '';
-  const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'});
+  return new Date(d + 'T00:00:00').toLocaleDateString(undefined, {day:'numeric', month:'long', year:'numeric'});
 }
-/* compact numeric date for tight one-line ranges, e.g. "23/9/26" */
-function fmtShortDate(d){
+/* the same date without its year, for the near end of a range that says the year once */
+function fmtDateNoYear(d){
   if(!d) return '';
-  const dt = new Date(d + 'T00:00:00');
-  return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+String(dt.getFullYear()).slice(-2);
+  return new Date(d + 'T00:00:00').toLocaleDateString(undefined, {day:'numeric', month:'long'});
 }
 function todayStr(){
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
-/* "23 Sep - 1 Oct 2026": the year is said once at the end, unless the trip crosses new year
-   and both halves need their own */
+/* The two ends of a range, given separately so a caller can slot times in between them.
+   The year is said once, at the end: "24 September - 26 September 2026". A range that runs
+   into the new year needs both, since one year at the end would be wrong for the first half:
+   "28 December 2026 - 3 January 2027". */
+function rangeParts(a, b){
+  const crosses = new Date(a+'T00:00:00').getFullYear() !== new Date(b+'T00:00:00').getFullYear();
+  return {from: crosses ? fmtDate(a) : fmtDateNoYear(a), to: fmtDate(b)};
+}
 function fmtRange(a,b){
   if(!a && !b) return 'Dates TBC';
   if(!a || !b) return a ? 'From '+fmtDate(a) : 'Until '+fmtDate(b);
-  const da = new Date(a+'T00:00:00'), db = new Date(b+'T00:00:00');
-  if(da.getFullYear() !== db.getFullYear()) return fmtDate(a)+' - '+fmtDate(b);
-  const dayMonth = d => d.toLocaleDateString(undefined, {day:'numeric', month:'short'});
-  return dayMonth(da)+' - '+dayMonth(db)+' '+db.getFullYear();
+  const p = rangeParts(a,b);
+  return p.from+' - '+p.to;
 }
-/* compact numeric range for the trip header: "23/9/26 - 25/9/26" */
-function fmtRangeLong(a,b){
-  if(!a && !b) return 'Dates TBC';
-  if(a && b) return fmtShortDate(a)+' - '+fmtShortDate(b);
-  return a ? 'From '+fmtShortDate(a) : 'Until '+fmtShortDate(b);
-}
+/* kept as its own name because the trip header used to want something more compact; it now
+   reads exactly like every other range */
+const fmtRangeLong = fmtRange;
 /* months/weeks/days breakdown for the "to go" countdown, e.g. "1 month 2 weeks to go" */
 function daysToGoPhrase(n){
   if(n===0) return 'starts today';
@@ -1441,11 +1449,19 @@ function pushPlaces(){
 function savePlaces(){ saveLocal(); pushPlaces(); }
 /* countries on any non-archived trip's itinerary auto-count as Been; archived trips don't
    (those get folded into DB.places directly, see applyArchiveTransitions below) */
-function placesGoingMap(){
+/* What your trips say about each country: 'been' once a trip there has finished, 'going'
+   while it's still ahead of you or under way. A trip you haven't taken yet is not somewhere
+   you've been, which is what this used to claim. A trip with no end date counts as still to
+   come, since there's nothing to say it's over. */
+function placesTripMap(){
   const map = {};
+  const today = todayStr();
   DB.trips.forEach(t=>{
-    if(isArchived(t)) return;
-    (t.countries||[]).forEach(c=>{ map[c] = (map[c]||0)+1; });
+    const finished = t.endDate && t.endDate < today;
+    (t.countries||[]).forEach(c=>{
+      if(finished) map[c] = 'been';
+      else if(map[c] !== 'been') map[c] = 'going';
+    });
   });
   return map;
 }
@@ -1463,29 +1479,31 @@ function applyArchiveTransitions(){
   });
   if(changed) savePlaces();
 }
-/* a country counts as Been once you tick it yourself, or automatically the moment it's on
-   any active (non-archived) trip's itinerary, same as ticking the box for it */
-function placesStatusOf(code, goingCount){
-  if(goingCount) return 'been';
-  return (DB.places||{})[code] || 'none';
+/* Been wins over everything: a finished trip proves it, and so does ticking it yourself, and
+   neither is undone by having a trip back there booked. Going comes next, since a country
+   you're actually travelling to isn't merely one you fancy. */
+function placesStatusOf(code, fromTrips){
+  const manual = (DB.places||{})[code];
+  if(fromTrips === 'been' || manual === 'been') return 'been';
+  if(fromTrips === 'going') return 'going';
+  return manual || 'none';
 }
 function placesCounts(){
-  const going = placesGoingMap();
-  const counts = {all: COUNTRY_CODES.length, been:0, want:0};
+  const trips = placesTripMap();
+  const counts = {all: COUNTRY_CODES.length, been:0, going:0, want:0};
   COUNTRY_CODES.forEach(c=>{
-    const s = placesStatusOf(c, going[c]||0);
-    if(s==='been') counts.been++;
-    else if(s==='want') counts.want++;
+    const s = placesStatusOf(c, trips[c]);
+    if(counts[s]!=null) counts[s]++;
   });
   return counts;
 }
-const PLACES_FILTERS = [['all','All'],['been','Been'],['want','Want to Go']];
+const PLACES_FILTERS = [['all','All'],['been','Been'],['going','Going'],['want','Want to Go']];
 /* the page opens on where you've actually been, not the full country list */
 const PLACES_DEFAULT_FILTER = 'been';
 let CUR_PLACES_REGION = null;   // continent name, or null to show the region picker
 let CUR_PLACES_FILTER = PLACES_DEFAULT_FILTER;  // one of PLACES_FILTERS' keys
-function placesRegionTileHTML(k, codes, emoji, wide, going){
-  const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, going[c]||0)!=='none' : placesStatusOf(c, going[c]||0)===CUR_PLACES_FILTER);
+function placesRegionTileHTML(k, codes, emoji, wide, trips){
+  const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, trips[c])!=='none' : placesStatusOf(c, trips[c])===CUR_PLACES_FILTER);
   const pct = codes.length ? Math.round(shown.length/codes.length*100) : 0;
   const label = `${shown.length} of ${codes.length} (${pct}%)`;
   return `<div class="dash-tile${wide?' wide':''}" role="button" tabindex="0" aria-label="${esc(k)}"
@@ -1494,9 +1512,9 @@ function placesRegionTileHTML(k, codes, emoji, wide, going){
     <span class="dash-text"><span class="dash-label">${esc(k)}</span><span class="dash-sum${shown.length===0?' unfilled':''}">${esc(label)}</span></span>
   </div>`;
 }
-function placesRegionGridHTML(going){
-  const allTile = placesRegionTileHTML('All', COUNTRY_CODES, PLACES_ALL_EMOJI, true, going);
-  const tiles = CONTINENT_ORDER.map(k => placesRegionTileHTML(k, COUNTRY_CONTINENT[k].split(' '), CONTINENT_EMOJI[k], false, going)).join('');
+function placesRegionGridHTML(trips){
+  const allTile = placesRegionTileHTML('All', COUNTRY_CODES, PLACES_ALL_EMOJI, true, trips);
+  const tiles = CONTINENT_ORDER.map(k => placesRegionTileHTML(k, COUNTRY_CONTINENT[k].split(' '), CONTINENT_EMOJI[k], false, trips)).join('');
   return `<div class="dash-grid">${allTile}${tiles}</div>`;
 }
 
@@ -1757,8 +1775,8 @@ function renderPlaces(filter){
     if(location.hash.startsWith('#/places')){ drawPlacesGrid(); }
   });
 }
-function placeCardHTML(co, goingCount){
-  const status = placesStatusOf(co.code, goingCount);
+function placeCardHTML(co, tripStatus){
+  const status = placesStatusOf(co.code, tripStatus);
   const info = COUNTRY_INFO[co.code];
   const flightUrl = 'https://www.google.com/travel/flights?q=' + encodeURIComponent('Flights to '+co.name);
   return `
@@ -1767,6 +1785,7 @@ function placeCardHTML(co, goingCount){
         <span class="flag">${co.flag}</span>
         <span class="place-name-text">${esc(co.name)}</span>
       </div>
+      ${status==='going'?`<div style="margin-top:2px"><span class="status-pill soon">Going</span></div>`:''}
       ${info ? `<div class="place-info">
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
         <span title="Language">${fa('language')}${esc(info[1])}</span>
@@ -1785,10 +1804,10 @@ function placeCardHTML(co, goingCount){
 function drawPlacesGrid(){
   const el = $('#places-grid'); if(!el) return;
   const q = (($('#places-filter')||{}).value||'').trim().toLowerCase();
-  const going = placesGoingMap();
+  const trips = placesTripMap();
 
   if(!q && !CUR_PLACES_REGION){
-    el.innerHTML = placesRegionGridHTML(going);
+    el.innerHTML = placesRegionGridHTML(trips);
     return;
   }
 
@@ -1799,7 +1818,7 @@ function drawPlacesGrid(){
      country's name, so you want that country whatever state it's in. Without this, the page
      opening on Been would mean you could never find a country to tick as Been in the first
      place, the search would just say it matches nothing. */
-  if(!q) list = list.filter(c=>CUR_PLACES_FILTER==='all' || placesStatusOf(c.code, going[c.code]||0)===CUR_PLACES_FILTER);
+  if(!q) list = list.filter(c=>CUR_PLACES_FILTER==='all' || placesStatusOf(c.code, trips[c.code])===CUR_PLACES_FILTER);
 
   if(!list.length){ el.innerHTML = `<div class="empty">No countries match${q?` "${esc(q)}"`:' this filter'}</div>`; return; }
 
@@ -1813,7 +1832,7 @@ function drawPlacesGrid(){
   const regionTitle = (!q && CUR_PLACES_REGION && CUR_PLACES_REGION!=='All' && !showHeadings) ? `<h3 class="places-continent-heading">${esc(CUR_PLACES_REGION)}</h3>` : '';
   el.innerHTML = backRow + regionTitle + order.map(k => `
     ${showHeadings?`<h3 class="places-continent-heading">${esc(k)}</h3>`:''}
-    <div class="places-grid">${byContinent[k].map(co=>placeCardHTML(co, going[co.code]||0)).join('')}</div>
+    <div class="places-grid">${byContinent[k].map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>
   `).join('');
 }
 function route(){
@@ -1977,8 +1996,10 @@ function placesStatCardsHTML(){
       <span class="stat-label">${esc(label)}</span>
     </div>`;
   };
+  /* past, booked, wished for, and the whole world to measure them against */
   return `<div class="stat-grid" id="places-stats">
     ${card('been', c.been, "Places I've Been")}
+    ${card('going', c.going, 'Going')}
     ${card('want', c.want, 'Want to Go')}
     ${card('all', c.all, 'Countries')}
   </div>`;
@@ -1992,8 +2013,12 @@ function homeGridHTML(trips, loading){
       <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
     </div>`;
   }
-  const active = trips.filter(t=>!isArchived(t));
-  const arch = trips.filter(t=>isArchived(t));
+  /* newest first within each group, so whatever you're planning right now is at the top and
+     you're not scrolling past old trips to reach it. A trip with no date yet is the newest
+     thing there is: you only just made it. */
+  const newestFirst = (a,b) => (b.startDate||'9999').localeCompare(a.startDate||'9999');
+  const active = trips.filter(t=>!isArchived(t)).sort(newestFirst);
+  const arch = trips.filter(t=>isArchived(t)).sort(newestFirst);
   return `<div class="trip-grid">${active.map(tripCardHTML).join('')}${arch.map(tripCardHTML).join('')}</div>`;
 }
 /* everyone who's entered the PIN can see every trip, not just the ones this particular
@@ -3839,10 +3864,13 @@ function autoAccomName(url, address){
 function accomCardHTML(a, opts){
   opts = opts || {};
   const arrivalSuffix = a.arrivalTime ? ` (arriving ${esc(a.arrivalTime)})` : '';
-  const stayRange = a.checkin && a.checkout
-    ? `${fmtShortDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix} - ${fmtShortDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
-    : a.checkin ? `${fmtShortDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix}`
-    : a.checkout ? `${fmtShortDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
+  /* the year lands once, on the check-out, with each end's time tucked in after its own date:
+     "23 September 15:00 - 25 September 2026 11:00" */
+  const p = a.checkin && a.checkout ? rangeParts(a.checkin, a.checkout) : null;
+  const stayRange = p
+    ? `${p.from}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix} - ${p.to}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
+    : a.checkin ? `${fmtDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix}`
+    : a.checkout ? `${fmtDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
     : '';
   return `
     <div class="card">
@@ -3894,12 +3922,11 @@ function stayGaps(t){
 }
 function stayGapCardHTML(g, ro){
   const n = g.nights;
-  const when = n===1 ? `the night of ${fmtDate(g.firstNight)}`
-                     : `${fmtDate(g.firstNight)} to ${fmtDate(g.lastNight)}`;
+  const when = n===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.lastNight);
   return `
     <div class="card gap-card">
       <div class="section-head" style="margin-bottom:6px">
-        <h3>${secEmoji('🛏️')}${n} night${n===1?'':'s'} with nowhere to stay</h3>
+        <h3>${secEmoji('🛏️')}${n} Night${n===1?'':'s'} with No Accommodation</h3>
       </div>
       <p class="small muted" style="margin-bottom:${ro?'0':'12px'}">${esc(when)}</p>
       ${ro?'':`<button class="btn primary sm" onclick="App.accomGapForm('${g.firstNight}','${g.checkout}')">+ Add Accommodation</button>`}
