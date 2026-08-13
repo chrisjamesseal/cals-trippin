@@ -2259,8 +2259,9 @@ async function psnConnectImpl(){
     const res = await fetch(psnUrl('/session'), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({npsso})
     });
-    if(!res.ok) throw new Error(res.status===401 ? 'That code was rejected, grab a fresh one' : 'Connection failed');
-    savePsnTokens(await res.json());
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || ('Connection failed (status '+res.status+')'));
+    savePsnTokens(data);
     renderGames();
   }catch(e){
     markErr('#npsso-input', e.message||'Connection failed');
