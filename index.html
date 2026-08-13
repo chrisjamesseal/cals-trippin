@@ -118,19 +118,15 @@ a{color:var(--brand-dark);}
 .trip-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 .trip-card.archived{opacity:.55; filter:grayscale(1);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
-/* The front door: four cards, two by two, filling what's left of the screen under the title.
-   Each one stretches to an equal share of the height rather than sitting in a squat row at
-   the top with dead space beneath, which is the whole point of a page with only four things
-   on it. Capped so it doesn't turn into four billboards on a tall screen. */
-/* the page is a column that fills the screen (less .wrap's own padding, which is what keeps
-   the bottom bar clear), and the grid takes whatever the title doesn't. Measuring it this way
-   rather than subtracting a guessed title height means it lands exactly, with no scroll and
-   no dead band above the bar. */
-.hub-page{display:flex; flex-direction:column; min-height:calc(100dvh - 110px);}
-.hub-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; flex:1; min-height:340px;}
+/* The front door: four cards, two by two, under the title, hugging their content rather than
+   stretching to fill the screen. Grid rows already equalize the height of cards that sit
+   side by side, and since every card holds the same shape (emoji, number, label) both rows
+   land the same height as each other too. */
+.hub-page{display:flex; flex-direction:column;}
+.hub-grid{display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:12px;}
 .hub-card{
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-  text-align:center; padding:14px 10px; min-width:0; text-decoration:none;
+  text-align:center; padding:22px 10px; min-width:0; text-decoration:none;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s, border-color .1s;
 }
@@ -139,8 +135,21 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .hub-n{font-size:2.3rem; font-weight:800; line-height:1; color:var(--brand-dark); letter-spacing:-.02em;}
 .hub-label{font-size:.82rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere;}
-.hub-sub{font-size:.68rem; color:var(--muted); line-height:1.3; overflow-wrap:anywhere;}
-@media(max-width:360px){.hub-emoji{font-size:1.6rem;} .hub-n{font-size:1.9rem;} .hub-sub{display:none;}}
+@media(max-width:360px){.hub-emoji{font-size:1.6rem;} .hub-n{font-size:1.9rem;}}
+
+/* ---------- games (PSN progress) ---------- */
+.games-list{display:flex; flex-direction:column; gap:10px;}
+.game-card{
+  display:flex; align-items:center; gap:12px; padding:12px; min-width:0;
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
+}
+.game-icon{width:52px; height:52px; border-radius:var(--radius-sm); object-fit:cover; flex-shrink:0; background:var(--bg);}
+.game-icon-fallback{display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.3rem;}
+.game-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;}
+.game-name{font-weight:700; font-size:.9rem; overflow-wrap:anywhere;}
+.game-progress{position:relative; overflow:hidden; height:6px; border-radius:999px; background:var(--bg);}
+.game-progress-bar{position:absolute; inset:0 auto 0 0; background:var(--brand); border-radius:999px; transition:width .2s;}
+.game-meta{overflow-wrap:anywhere;}
 
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
@@ -640,6 +649,11 @@ const FIREBASE_CONFIG = {
   appId: "1:592178714380:web:bd541ed796f428fdbc9b29"
 };
 const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this inline
+/* Optional: the Games tab shows PlayStation trophy progress once this points at your own
+   deployed proxy (see psn-proxy/README.md for what it is and why it's needed). This is just
+   an address, safe to commit; your PSN login itself is entered on-device later and stays in
+   this browser's localStorage, never here. Leave blank and Games shows setup instructions. */
+const PSN_PROXY_URL = '';
 /* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
@@ -648,8 +662,14 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.46.0';
+const APP_VERSION = '1.47.0';
 const CHANGELOG = [
+  {version:'1.47.0', notes:[
+    'My Travels cards drop their subheadings and now hug their content instead of stretching to fill the screen, with all four staying the same height.',
+    'Country Finder\'s emoji changed from 🌐 to 🌍.',
+    'Trips and Places are now one bottom-bar item (Places, the app\'s front door); Your Trips is still one tap away from the Going card.',
+    'Added a Games tab: connect a PlayStation account (via a proxy you deploy yourself, see psn-proxy/README.md) to see trophy progress on what you\'re playing.'
+  ]},
   {version:'1.46.0', notes:[
     'Places I\'ve Been is now the app\'s front door: four cards for what you\'ve done, what\'s coming, what you fancy and everywhere else in the world.',
     'Tap Places I\'ve Been for a plain list of everywhere you\'ve gone, grouped by continent, with a single tick to remove a country instead of one for a flight and one for a star.',
@@ -1981,17 +2001,16 @@ function renderChangelog(){
    it rather than a wall of countries. */
 function placesHubCardsHTML(){
   const c = placesCounts();
-  const card = (href, emoji, n, label, sub) => `
+  const card = (href, emoji, n, label) => `
     <a class="hub-card" href="${href}">
       <span class="hub-emoji" aria-hidden="true">${emoji}</span>
       <span class="hub-n">${n}</span>
       <span class="hub-label">${esc(label)}</span>
-      <span class="hub-sub">${esc(sub)}</span>
     </a>`;
-  return card('#/places/been', '✅', c.been, "Places I've Been", 'Everywhere you have been')
-       + card('#/trips', '🧳', goingCount(), 'Going', 'Trips you have planned')
-       + card('#/places/want', '⭐', c.want, 'Want to Go', 'Your wish list')
-       + card('#/places/finder', '🌐', c.all, 'Country Finder', 'Explore all of them');
+  return card('#/places/been', '✅', c.been, "Places I've Been")
+       + card('#/trips', '🧳', goingCount(), 'Going')
+       + card('#/places/want', '⭐', c.want, 'Want to Go')
+       + card('#/places/finder', '🌍', c.all, 'Country Finder');
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
@@ -2135,6 +2154,121 @@ function drawPlacesGrid(){
     <div class="places-grid">${byContinent[k].map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>
   `).join('');
 }
+
+/* ================= Games (PlayStation progress) =================
+   PSN has no public API, and the unofficial one needs an auth step browsers can't make
+   themselves (it requires setting a Cookie header cross-origin, which fetch() forbids), so
+   this talks to a small proxy you deploy yourself - see psn-proxy/README.md. The proxy's
+   URL is just an address, safe to commit (PSN_PROXY_URL, near FIREBASE_CONFIG); your actual
+   PSN login token lives only in this browser's localStorage, never in the source. */
+const PSN_TOKENS_KEY = 'calstrippin_psn_tokens';
+function psnConfigured(){ return !!PSN_PROXY_URL; }
+function psnTokens(){ try{ return JSON.parse(localStorage.getItem(PSN_TOKENS_KEY)||'null'); }catch(e){ return null; } }
+function savePsnTokens(tok){ try{ localStorage.setItem(PSN_TOKENS_KEY, JSON.stringify(tok)); }catch(e){} }
+function clearPsnTokens(){ try{ localStorage.removeItem(PSN_TOKENS_KEY); }catch(e){} }
+function psnUrl(path){ return PSN_PROXY_URL.replace(/\/$/,'') + path; }
+/* one retry on a stale access token: refresh, then replay the request once more */
+async function psnApi(path){
+  const tok = psnTokens();
+  if(!tok) throw new Error('Not connected');
+  let res = await fetch(psnUrl(path), {headers:{Authorization:'Bearer '+tok.accessToken}});
+  if(res.status===401 && tok.refreshToken){
+    const r = await fetch(psnUrl('/refresh'), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({refreshToken: tok.refreshToken})
+    });
+    if(!r.ok){ clearPsnTokens(); throw new Error('Your PlayStation session expired, connect again'); }
+    const fresh = await r.json(); savePsnTokens(fresh);
+    res = await fetch(psnUrl(path), {headers:{Authorization:'Bearer '+fresh.accessToken}});
+  }
+  if(!res.ok) throw new Error('Could not reach PlayStation (status '+res.status+')');
+  return res.json();
+}
+function renderGames(){
+  $('#app').innerHTML = `
+    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
+    <div id="games-body"></div>`;
+  const body = $('#games-body');
+  if(!psnConfigured()){
+    body.innerHTML = `<div class="empty">No PlayStation proxy is set up yet.<br>Deploy the one in
+      <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
+      <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
+    return;
+  }
+  if(!psnTokens()){ renderGamesConnect(body); return; }
+  body.innerHTML = `<div class="empty">Loading your games…</div>`;
+  psnApi('/titles').then(data => {
+    if(!$('#games-body')) return;   // navigated away while this was in flight
+    renderGamesList(data.titles||[]);
+  }).catch(e => {
+    if(!$('#games-body')) return;
+    $('#games-body').innerHTML = `<div class="empty">Couldn't load your games.<br>${esc(e.message||'')}
+      <div class="btn-row" style="justify-content:center; margin-top:14px">
+        <button class="btn sm" onclick="App.goGames()">Try Again</button>
+        <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
+      </div></div>`;
+  });
+}
+function renderGamesConnect(body){
+  body.innerHTML = `
+    <div class="card">
+      <h3 style="margin-bottom:8px">Connect your PlayStation account</h3>
+      <p class="small muted" style="margin-bottom:14px">
+        While signed in to PlayStation in this browser, open
+        <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" rel="noopener">this link</a>
+        and copy the <code>npsso</code> value it returns, then paste it below. It's swapped
+        once for a login token through your own proxy; after that only the token stays, on
+        this device only.
+      </p>
+      <div class="field"><label class="label" for="npsso-input">NPSSO code</label>
+        <input type="text" id="npsso-input" placeholder="64-character code" autocomplete="off"></div>
+      <button class="btn primary" id="psn-connect-btn" style="width:100%" onclick="App.psnConnect()">Connect</button>
+    </div>`;
+}
+function renderGamesList(titles){
+  const body = $('#games-body'); if(!body) return;
+  if(!titles.length){ body.innerHTML = `<div class="empty">No games found on this account yet.</div>`; return; }
+  body.innerHTML = `
+    <div class="btn-row" style="justify-content:flex-end; margin-bottom:12px">
+      <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
+    </div>
+    <div class="games-list">${titles.map(gameCardHTML).join('')}</div>`;
+}
+function gameCardHTML(g){
+  const pct = Math.max(0, Math.min(100, g.progress||0));
+  const earned = (g.earnedTrophies&&g.earnedTrophies.total) || 0;
+  const total  = (g.definedTrophies&&g.definedTrophies.total) || 0;
+  return `
+    <div class="game-card">
+      ${g.iconUrl ? `<img class="game-icon" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+                   : `<span class="game-icon game-icon-fallback">${fa('gamepad')}</span>`}
+      <div class="game-info">
+        <div class="game-name">${esc(g.name||'Untitled')}</div>
+        <div class="game-progress"><div class="game-progress-bar" style="width:${pct}%"></div></div>
+        <div class="game-meta muted small">${pct}% &middot; ${earned}/${total} trophies${g.platform?' &middot; '+esc(g.platform):''}</div>
+      </div>
+    </div>`;
+}
+async function psnConnectImpl(){
+  const inp = $('#npsso-input');
+  const npsso = (inp.value||'').trim();
+  if(!npsso) return markErr('#npsso-input', 'Paste your NPSSO code first');
+  const btn = $('#psn-connect-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Connecting…'; }
+  try{
+    const res = await fetch(psnUrl('/session'), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({npsso})
+    });
+    if(!res.ok) throw new Error(res.status===401 ? 'That code was rejected, grab a fresh one' : 'Connection failed');
+    savePsnTokens(await res.json());
+    renderGames();
+  }catch(e){
+    markErr('#npsso-input', e.message||'Connection failed');
+    if(btn){ btn.disabled = false; btn.textContent = 'Connect'; }
+  }
+}
+function psnDisconnectImpl(){ clearPsnTokens(); renderGames(); }
+
 function route(){
   closeModal(); closeMenu(); closeAddWheel();
   if(!pinOk()){ CUR_TRIP_ID = null; stopSub(); renderPinGate(); renderTabbar(); return; }
@@ -2150,6 +2284,10 @@ function route(){
     if(!v){ location.hash = ''; return; }
     CUR_TRIP_ID = null; stopSub();
     renderPlaces(v); window.scrollTo(0,0); return;
+  }
+  if(h === '#/games'){
+    CUR_TRIP_ID = null; stopSub();
+    renderGames(); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
@@ -2205,6 +2343,8 @@ const App = {};
 window.App = App;
 App.setWhenMode = setWhenModeImpl;
 App.setWhenKind = setWhenKindImpl;
+App.psnConnect = psnConnectImpl;
+App.psnDisconnect = psnDisconnectImpl;
 App.expandBanner = btn => {
   const span = btn.previousElementSibling;
   openModal(`<p class="small" style="white-space:normal">${span.innerHTML}</p>`, {autofocus:false});
@@ -2230,6 +2370,7 @@ App.toggleChangelog = () => {
 };
 /* no argument goes to the hub; a view name opens that list */
 App.goPlaces = view => { location.hash = view ? '#/places/'+view : ''; };
+App.goGames = () => { location.hash = '#/games'; };
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
   /* 'none' is stored rather than deleted: it's the difference between "never said" and
@@ -2752,9 +2893,11 @@ function renderTabbar(){
   if(!pinOk()){ bar.innerHTML = ''; bar.classList.remove('on'); return; }
   bar.classList.add('on');
   const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID);
-  /* Places is the front door, so it owns the bare hash as well as its own list screens */
-  const onPlaces = location.hash.startsWith('#/places') || !location.hash || location.hash==='#/';
-  const onHome   = !t && location.hash === '#/trips';
+  /* Places is the front door, so it owns the bare hash, its own list screens, and Your Trips
+     (reached from the Going card) - Trips no longer has a tab of its own */
+  const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips'
+                    || !location.hash || location.hash==='#/';
+  const onGames  = location.hash.startsWith('#/games');
   /* with the menu open the bar rides above it, so the same thumb that opened it can close
      it; anything else you tap from there dismisses the menu on the way through */
   const menuOpen = menuIsOpen();
@@ -2768,8 +2911,8 @@ function renderTabbar(){
       <span class="tabbar-label">${esc(label)}</span>
     </button>`;
   bar.innerHTML =
-      item('Trips','🧳',go("App.goHome()"), onHome && !menuOpen, false)
-    + item('Places','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
+      item('Places','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
+    + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
     + `<button class="tabbar-new${wheelIsOpen()?' open':''}" onclick="${go('App.toggleAddWheel()')}"
         aria-label="${wheelIsOpen()?'Close':'Add something'}" aria-expanded="${wheelIsOpen()}"></button>`
     + item('Itinerary','🗺️',go("App.tab('plan')"), !!t && CUR_TAB==='plan' && !menuOpen, !t)
