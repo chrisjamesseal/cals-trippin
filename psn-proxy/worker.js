@@ -16,9 +16,10 @@
 
    CLIENT_ID / CLIENT_SECRET below are the ones psn-api's community has reverse-engineered for
    the PS App's OAuth client. Sony hasn't published them and could change them without notice;
-   if /session or /refresh suddenly starts failing, check psn-api's source (in particular
-   `src/models/auth.model.ts` in that repo) for current values before assuming your NPSSO is
-   the problem.
+   if /session or /refresh suddenly starts failing with a 401, check psn-api's source (in
+   particular the hardcoded Basic-auth header in
+   `src/authenticate/exchangeAccessCodeForAuthTokens.ts` in that repo, base64-decoded) for
+   current values before assuming your NPSSO is the problem.
 
    Deploy: see README.md next to this file.
    ============================================================================================ */
@@ -28,7 +29,7 @@ const TOKEN_URL = 'https://ca.account.sony.com/api/authz/v3/oauth/token';
 const TROPHY_TITLES_URL = 'https://m.np.playstation.com/api/trophy/v1/users/me/trophyTitles';
 
 const CLIENT_ID = '09515159-7237-4370-9b40-3806e67c0891';
-const CLIENT_SECRET = 'ebee17ac-99fd-487c-9b9f-c9c78f9b8a9e';
+const CLIENT_SECRET = 'ucPjka5tntB2KqsP';
 const REDIRECT_URI = 'com.scee.psxandroid.scecompcall://redirect';
 const SCOPE = 'psn:mobile.v2.core psn:clientapp';
 

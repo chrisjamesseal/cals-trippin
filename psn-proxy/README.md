@@ -44,4 +44,6 @@ Sony hasn't published this API and hasn't promised not to change it. `worker.js`
 `CLIENT_ID`/`CLIENT_SECRET` are the values the community-maintained
 [psn-api](https://github.com/achievements-app/psn-api) project has reverse-engineered for the
 PlayStation App's OAuth client; if Connect starts failing where it used to work, check that
-project's `src/models/auth.model.ts` for current values before assuming your NPSSO code is bad.
+project's `src/authenticate/exchangeAccessCodeForAuthTokens.ts` (the hardcoded Basic-auth
+header, base64-decoded) for current values before assuming your NPSSO code is bad. A "PlayStation
+rejected the token request (status 401)" error specifically points at a stale `CLIENT_SECRET`.
