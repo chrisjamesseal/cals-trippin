@@ -118,25 +118,38 @@ a{color:var(--brand-dark);}
 .trip-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 .trip-card.archived{opacity:.55; filter:grayscale(1);}
 .trip-card h3{font-size:1.2rem; margin-bottom:2px;}
-/* two by two on a phone, where four across would squeeze the labels into a stack of single
-   words, and four in a row once there's width for it. Either way they stay a block you read
-   in one go rather than reflowing into an awkward 3 + 1. */
-.stat-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:10px;}
-@media(min-width:620px){.stat-grid{grid-template-columns:repeat(4,1fr);}}
-/* same shell as the trip cards below them, so the top of the page reads as one set */
-.stat-card{
+/* The front door: four cards, two by two, filling what's left of the screen under the title.
+   Each one stretches to an equal share of the height rather than sitting in a squat row at
+   the top with dead space beneath, which is the whole point of a page with only four things
+   on it. Capped so it doesn't turn into four billboards on a tall screen. */
+/* the page is a column that fills the screen (less .wrap's own padding, which is what keeps
+   the bottom bar clear), and the grid takes whatever the title doesn't. Measuring it this way
+   rather than subtracting a guessed title height means it lands exactly, with no scroll and
+   no dead band above the bar. */
+.hub-page{display:flex; flex-direction:column; min-height:calc(100dvh - 110px);}
+.hub-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; flex:1; min-height:340px;}
+.hub-card{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  text-align:center; padding:14px 10px; min-width:0; text-decoration:none;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
-  box-shadow:var(--shadow); padding:15px 8px; cursor:pointer; min-width:0;
-  display:flex; flex-direction:column; align-items:center; text-align:center; gap:5px;
-  transition:transform .1s, box-shadow .1s, border-color .1s;
+  box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s, border-color .1s;
 }
-.stat-card:hover,.stat-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
-/* the cards are the filter, so the one in force has to be obvious at a glance */
-.stat-card.on{border-color:var(--brand); background:var(--brand-tint); box-shadow:none;}
-.stat-card.on .stat-label{color:var(--brand-dark);}
-/* no emoji up top: the number is the whole point of these, so it gets the room instead */
-.stat-n{font-size:2.1rem; font-weight:800; line-height:1; color:var(--brand-dark); letter-spacing:-.02em;}
-.stat-label{font-size:.7rem; font-weight:600; line-height:1.25; color:var(--muted); overflow-wrap:anywhere;}
+.hub-card:hover,.hub-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
+.hub-emoji{font-size:2rem; line-height:1; margin-bottom:8px;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.hub-n{font-size:2.3rem; font-weight:800; line-height:1; color:var(--brand-dark); letter-spacing:-.02em;}
+.hub-label{font-size:.82rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere;}
+.hub-sub{font-size:.68rem; color:var(--muted); line-height:1.3; overflow-wrap:anywhere;}
+@media(max-width:360px){.hub-emoji{font-size:1.6rem;} .hub-n{font-size:1.9rem;} .hub-sub{display:none;}}
+
+/* Want to Go or not, as one control rather than a star you have to know the meaning of.
+   Full width of the card, since it's the only thing on that row in Country Finder. */
+.want-switch{display:flex; width:100%; border:1px solid var(--line-strong); border-radius:999px; overflow:hidden;}
+.want-opt{flex:1; text-align:center; padding:7px 6px; font-size:.72rem; font-weight:700;
+  color:var(--muted); cursor:pointer; user-select:none; white-space:nowrap;}
+.want-opt.on{background:var(--brand-tint); color:var(--brand-dark);}
+.want-opt:focus-visible{outline:2px solid var(--brand); outline-offset:-2px;}
+.place-actions.finder{display:block;}
 .trip-card .trip-flags{margin-bottom:4px;}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
 
@@ -231,10 +244,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    control you reach for constantly on a list of 223, and at the top of a scrolled page it's
    both out of sight and out of thumb's reach. Below the bar's z-index so the bar stays put
    on top of it, and the grid leaves room underneath so the last country clears both. */
-/* the bar is 61px plus whatever the phone reserves at the bottom, and it carries that inset
-   itself, so this only has to clear the pair of them */
-.places-search{position:fixed; left:0; right:0; z-index:55;
-  bottom:calc(61px + env(safe-area-inset-bottom));
+/* sits exactly on top of the bar: --bar-h is measured from the real thing each render rather
+   than guessed, because guessing left a sliver of page showing between the two on a phone
+   whose safe-area inset made the bar taller than the arithmetic said */
+.places-search{position:fixed; left:0; right:0; z-index:55; bottom:var(--bar-h,61px);
   padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);}
 .places-search input{background:var(--paper);}
 /* one country per row: side by side, a long name and its capital and language had nowhere to
@@ -635,8 +648,15 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.45.3';
+const APP_VERSION = '1.46.0';
 const CHANGELOG = [
+  {version:'1.46.0', notes:[
+    'Places I\'ve Been is now the app\'s front door: four cards for what you\'ve done, what\'s coming, what you fancy and everywhere else in the world.',
+    'Tap Places I\'ve Been for a plain list of everywhere you\'ve gone, grouped by continent, with a single tick to remove a country instead of one for a flight and one for a star.',
+    'Tap Going to jump straight to Your Trips. A country you\'ve been to before and are heading back to counts here even though it\'s also marked Been.',
+    '223 Countries is now Country Finder: every country in the world with a switch on each one for Want to Go or Not Exploring.',
+    'The search bar on these lists now sits flush against the bottom bar with no gap beneath it.'
+  ]},
   {version:'1.45.3', notes:[
     'The country search now sits just above the bottom bar, within reach of a thumb, and stays there while the list scrolls.',
     'The + buttons spring out of the circle and fold back into it, instead of appearing and vanishing on the spot.'
@@ -1680,9 +1700,18 @@ function applyArchiveTransitions(){
    you're actually travelling to isn't merely one you fancy. */
 function placesStatusOf(code, fromTrips){
   const manual = (DB.places||{})[code];
+  /* an explicit 'none' is you saying "take this off my list", which has to beat a trip:
+     otherwise unticking a country a trip put there would do nothing and look broken */
+  if(manual === 'none') return 'none';
   if(fromTrips === 'been' || manual === 'been') return 'been';
   if(fromTrips === 'going') return 'going';
   return manual || 'none';
+}
+/* Going is the one count that ignores the order above: a country you've been to before and
+   are going back to belongs in both, so this asks the trips directly rather than the status. */
+function goingCount(){
+  const m = placesTripMap();
+  return COUNTRY_CODES.filter(c => m[c]==='going' && (DB.places||{})[c] !== 'none').length;
 }
 function placesCounts(){
   const trips = placesTripMap();
@@ -1693,11 +1722,9 @@ function placesCounts(){
   });
   return counts;
 }
-const PLACES_FILTERS = [['all','All'],['been','Been'],['going','Going'],['want','Want to Go']];
-/* the page opens on where you've actually been, not the full country list */
-const PLACES_DEFAULT_FILTER = 'been';
 let CUR_PLACES_REGION = null;   // continent name, or null to show the region picker
-let CUR_PLACES_FILTER = PLACES_DEFAULT_FILTER;  // one of PLACES_FILTERS' keys
+let CUR_PLACES_FILTER = 'been'; // 'been' | 'want' | 'all', set by whichever view is open
+let CUR_PLACES_VIEW = 'been';   // which of the three list screens is showing
 function placesRegionTileHTML(k, codes, emoji, wide, trips){
   const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, trips[c])!=='none' : placesStatusOf(c, trips[c])===CUR_PLACES_FILTER);
   const pct = codes.length ? Math.round(shown.length/codes.length*100) : 0;
@@ -1949,17 +1976,62 @@ function renderChangelog(){
 }
 /* opening Places leaves whatever trip/home page was showing untouched underneath,
    same pattern as renderChangelog above */
-function renderPlaces(filter){
+/* The app opens here: four big cards filling the screen, each one a way into the world map
+   of your travelling. Nothing else on the page, so the first thing you see is the shape of
+   it rather than a wall of countries. */
+function placesHubCardsHTML(){
+  const c = placesCounts();
+  const card = (href, emoji, n, label, sub) => `
+    <a class="hub-card" href="${href}">
+      <span class="hub-emoji" aria-hidden="true">${emoji}</span>
+      <span class="hub-n">${n}</span>
+      <span class="hub-label">${esc(label)}</span>
+      <span class="hub-sub">${esc(sub)}</span>
+    </a>`;
+  return card('#/places/been', '✅', c.been, "Places I've Been", 'Everywhere you have been')
+       + card('#/trips', '🧳', goingCount(), 'Going', 'Trips you have planned')
+       + card('#/places/want', '⭐', c.want, 'Want to Go', 'Your wish list')
+       + card('#/places/finder', '🌐', c.all, 'Country Finder', 'Explore all of them');
+}
+function renderPlacesHub(){
   applyArchiveTransitions();
+  $('#app').innerHTML = `
+    <div class="hub-page">
+      <div class="crumb">
+        <div class="crumb-titlerow"><span class="crumb-here">My Travels</span></div>
+      </div>
+      <div class="hub-grid" id="hub-grid">${placesHubCardsHTML()}</div>
+    </div>`;
+  /* repaint the counts, not the page: re-running this whole function from its own callback
+     would subscribe again and again */
+  loadPlacesCloud(cloud => {
+    DB.places = cloud||{};
+    saveLocal();
+    const g = $('#hub-grid'); if(g) g.innerHTML = placesHubCardsHTML();
+  });
+}
+/* the three list screens behind the hub, which differ only in what they show and how much
+   they let you change: Been ticks off, Want to Go browses by region, Country Finder is the
+   whole world with a Want to Go / Not Exploring switch on every row */
+const PLACES_VIEWS = {
+  been:   {title:"Places I've Been", filter:'been', regions:false},
+  want:   {title:'Want to Go',       filter:'want', regions:true},
+  finder: {title:'Country Finder',   filter:'all',  regions:false}
+};
+function renderPlaces(view){
+  applyArchiveTransitions();
+  const v = PLACES_VIEWS[view] ? view : 'been';
+  CUR_PLACES_VIEW = v;
   CUR_PLACES_REGION = null;
-  CUR_PLACES_FILTER = PLACES_FILTERS.some(f=>f[0]===filter) ? filter : PLACES_DEFAULT_FILTER;
+  CUR_PLACES_FILTER = PLACES_VIEWS[v].filter;
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
-        <span class="crumb-here">Places I've Been</span>
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="App.goPlaces()" aria-label="Back to My Travels">${ICONS.back}</button>
+          ${esc(PLACES_VIEWS[v].title)}</span>
       </div>
     </div>
-    ${placesStatCardsHTML()}
     <div id="places-grid"></div>
     <div class="places-search">
       <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
@@ -1971,10 +2043,37 @@ function renderPlaces(filter){
     if(location.hash.startsWith('#/places')){ drawPlacesGrid(); }
   });
 }
+/* Each screen shows only the controls it's actually for. Been is a checklist you tick off,
+   so it has one tick and nothing else. Country Finder is where you decide what you fancy, so
+   every row carries the Want to Go / Not Exploring switch. Want to Go keeps the full set,
+   since it's the one place you might both cross something off and mark it visited. */
 function placeCardHTML(co, tripStatus){
   const status = placesStatusOf(co.code, tripStatus);
   const info = COUNTRY_INFO[co.code];
+  const view = CUR_PLACES_VIEW;
   const flightUrl = 'https://www.google.com/travel/flights?q=' + encodeURIComponent('Flights to '+co.name);
+  const act = (fn) => `onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"`;
+  /* on the Been list the tick is how you take a country back off it again */
+  const beenLabel = esc(status==='been' ? "Remove from Places I've Been" : 'Been');
+  const beenChip = `<span class="chip pick mode-pick ${status==='been'?'on':''}" role="button" tabindex="0"
+      aria-label="${beenLabel}" aria-pressed="${status==='been'}" title="${beenLabel}"
+      ${act(`App.setPlaceStatus('${co.code}', ${status==='been'?"'none'":"'been'"})`)}>${fa('check')}</span>`;
+  const starChip = `<span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0"
+      aria-label="Want to Go" aria-pressed="${status==='want'}" title="Want to Go"
+      ${act(`App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})`)}>${fa('star')}</span>`;
+  const wantSwitch = `<div class="want-switch" role="radiogroup" aria-label="${esc(co.name)}">
+      <span class="want-opt ${status==='want'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='want'}"
+            ${act(`App.setPlaceStatus('${co.code}','want')`)}>Want to Go</span>
+      <span class="want-opt ${status==='want'?'':'on'}" role="radio" tabindex="0" aria-checked="${status!=='want'}"
+            ${act(`App.setPlaceStatus('${co.code}',null)`)}>Not Exploring</span>
+    </div>`;
+  const actions =
+      view==='been'   ? `<div class="chips">${beenChip}</div>`
+    : view==='finder' ? wantSwitch
+    : `<div class="chips">${beenChip}${starChip}</div>
+       <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener"
+        onclick="return App.openExternal(event, '${esc(flightUrl)}')"
+        aria-label="Search flights to ${esc(co.name)}" title="Search Flights">${fa('plane')}</a>`;
   return `
     <div class="place-card" data-code="${co.code}">
       <div class="place-head">
@@ -1988,15 +2087,7 @@ function placeCardHTML(co, tripStatus){
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
         <span title="Language">${fa('language')}${esc(info[1])}</span>
       </div>` : ''}
-      <div class="place-actions" style="margin-top:6px">
-        <div class="chips">
-          <span class="chip pick mode-pick ${status==='been'?'on':''}" role="button" tabindex="0" aria-label="Been" title="Been" onclick="App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='been'?'null':"'been'"})}">${fa('check')}</span>
-          <span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0" aria-label="Want to Go" title="Want to Go" onclick="App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})}">${fa('star')}</span>
-        </div>
-        <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener"
-         onclick="return App.openExternal(event, '${esc(flightUrl)}')"
-         aria-label="Search flights to ${esc(co.name)}" title="Search Flights">${fa('plane')}</a>
-      </div>
+      <div class="place-actions${view==='finder'?' finder':''}" style="margin-top:6px">${actions}</div>
     </div>`;
 }
 function drawPlacesGrid(){
@@ -2004,7 +2095,10 @@ function drawPlacesGrid(){
   const q = (($('#places-filter')||{}).value||'').trim().toLowerCase();
   const trips = placesTripMap();
 
-  if(!q && !CUR_PLACES_REGION){
+  /* only Want to Go starts on the region picker. Been is a list of somewhere between none and
+     a couple of dozen countries, and Country Finder is deliberately the lot, so a screen of
+     continents in front of either is a door with nothing behind it. */
+  if(!q && !CUR_PLACES_REGION && PLACES_VIEWS[CUR_PLACES_VIEW].regions){
     el.innerHTML = placesRegionGridHTML(trips);
     return;
   }
@@ -2018,13 +2112,21 @@ function drawPlacesGrid(){
      place, the search would just say it matches nothing. */
   if(!q) list = list.filter(c=>CUR_PLACES_FILTER==='all' || placesStatusOf(c.code, trips[c.code])===CUR_PLACES_FILTER);
 
-  if(!list.length){ el.innerHTML = `<div class="empty">No countries match${q?` "${esc(q)}"`:' this filter'}</div>`; return; }
+  if(!list.length){
+    const empty = q ? `No countries match "${esc(q)}"`
+      : CUR_PLACES_VIEW==='been' ? "Nowhere yet. Countries fill in here once a trip there has finished, or tick one off in Country Finder."
+      : CUR_PLACES_VIEW==='want' ? 'Nothing on the wish list yet. Country Finder is where you add them.'
+      : 'No countries match this filter';
+    el.innerHTML = `<div class="empty">${empty}</div>`; return;
+  }
 
   const backRow = (!q && CUR_PLACES_REGION) ? `<button class="btn sm" style="margin-bottom:14px" onclick="App.clearPlacesRegion()">${ICONS.back} All Regions</button>` : '';
   const byContinent = {};
   list.forEach(co => { const k = continentOf(co.code); (byContinent[k] = byContinent[k]||[]).push(co); });
   const order = CONTINENT_ORDER.filter(k=>byContinent[k]).concat(Object.keys(byContinent).filter(k=>!CONTINENT_ORDER.includes(k)));
-  const showHeadings = order.length>1;
+  /* a grouped list keeps its heading even when everything happens to fall in one continent:
+     without it the Been list of three European countries looks ungrouped rather than grouped */
+  const showHeadings = order.length>1 || (!q && !CUR_PLACES_REGION);
   /* a single-continent region view still needs a title now that the per-continent heading
      it used to inherit is suppressed (there's nothing else on the page saying "Europe") */
   const regionTitle = (!q && CUR_PLACES_REGION && CUR_PLACES_REGION!=='All' && !showHeadings) ? `<h3 class="places-continent-heading">${esc(CUR_PLACES_REGION)}</h3>` : '';
@@ -2041,12 +2143,13 @@ function route(){
   if(h === '#/changelog'){
     renderChangelog(); window.scrollTo(0,0); return;
   }
+  /* '#/places/been' and friends are the three list screens; the hub they hang off is the
+     app's front door, so it answers to a bare hash rather than a path of its own */
   if(h === '#/places' || h.startsWith('#/places/')){
-    // '#/places/been' opens the page already filtered, so the cards can deep-link straight
-    // to what they're counting and a refresh keeps you there. A bare '#/places' means the
-    // countries you've actually been to: the full 223-country list is a reference, not what
-    // you came to look at, so 'all' has to ask for itself by name.
-    renderPlaces(h.split('/')[2] || PLACES_DEFAULT_FILTER); window.scrollTo(0,0); return;
+    const v = h.split('/')[2];
+    if(!v){ location.hash = ''; return; }
+    CUR_TRIP_ID = null; stopSub();
+    renderPlaces(v); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
@@ -2061,8 +2164,11 @@ function route(){
     }
   } else if(h.startsWith('#/trip/')){
     openTrip(h.slice(7).split('/')[0]);
-  } else {
+  } else if(h === '#/trips'){
     CUR_TRIP_ID = null; stopSub(); renderHome();
+  } else {
+    /* the front door: what you've seen, what's booked, what you fancy, and everywhere else */
+    CUR_TRIP_ID = null; stopSub(); renderPlacesHub();
   }
   window.scrollTo(0,0);
 }
@@ -2115,24 +2221,21 @@ App.submitPin = () => {
     }
   });
 };
-App.goHome = () => { if(location.hash){ location.hash=''; } else { route(); } };
+/* Your Trips has its own address now that the bare hash belongs to the Places hub */
+App.goHome = () => { if(location.hash !== '#/trips'){ location.hash='#/trips'; } else { route(); } };
 let PRE_CHANGELOG_HASH = ''; // where we were before opening the changelog, so a second tap returns there
 App.toggleChangelog = () => {
   if(location.hash === '#/changelog') location.hash = PRE_CHANGELOG_HASH;
   else { PRE_CHANGELOG_HASH = location.hash; location.hash = '#/changelog'; }
 };
-let PRE_PLACES_HASH = ''; // where we were before opening Places, so Back returns there
-App.goPlaces = filter => {
-  PRE_PLACES_HASH = location.hash;
-  // every filter names itself in the hash except the default, which a bare '#/places' means
-  location.hash = '#/places' + (filter && filter!==PLACES_DEFAULT_FILTER ? '/'+filter : '');
-};
-App.leavePlaces = () => { location.hash = PRE_PLACES_HASH; };
+/* no argument goes to the hub; a view name opens that list */
+App.goPlaces = view => { location.hash = view ? '#/places/'+view : ''; };
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
+  /* 'none' is stored rather than deleted: it's the difference between "never said" and
+     "took it off", and only the second can overrule a country a trip put on the list */
   if(status) DB.places[code] = status; else delete DB.places[code];
   savePlaces();
-  const stats = $('#places-stats'); if(stats) stats.outerHTML = placesStatCardsHTML();
   drawPlacesGrid();
 };
 App.selectPlacesRegion = k => {
@@ -2180,29 +2283,6 @@ function tripCardHTML(t){
       ${people?`<div class="small muted trip-people">${fa('user')}${esc(people)}</div>`:''}
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
-}
-/* three at-a-glance counts that double as the page's filter, which is why there's no
-   separate row of filter chips: these say the same thing */
-function placesStatCardsHTML(){
-  const c = placesCounts();
-  const card = (filter, n, label) => {
-    const on = CUR_PLACES_FILTER === filter;
-    return `
-    <div class="stat-card${on?' on':''}" role="button" tabindex="0" aria-pressed="${on}"
-         aria-label="${esc(label)}: ${n}"
-         onclick="App.goPlaces('${filter}')"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('${filter}')}">
-      <span class="stat-n">${n}</span>
-      <span class="stat-label">${esc(label)}</span>
-    </div>`;
-  };
-  /* past, booked, wished for, and the whole world to measure them against */
-  return `<div class="stat-grid" id="places-stats">
-    ${card('been', c.been, "Places I've Been")}
-    ${card('going', c.going, 'Going')}
-    ${card('want', c.want, 'Want to Go')}
-    ${card('all', c.all, 'Countries')}
-  </div>`;
 }
 function homeGridHTML(trips, loading){
   if(!trips.length){
@@ -2672,8 +2752,9 @@ function renderTabbar(){
   if(!pinOk()){ bar.innerHTML = ''; bar.classList.remove('on'); return; }
   bar.classList.add('on');
   const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID);
-  const onHome   = !t && !location.hash.startsWith('#/places');
-  const onPlaces = location.hash.startsWith('#/places');
+  /* Places is the front door, so it owns the bare hash as well as its own list screens */
+  const onPlaces = location.hash.startsWith('#/places') || !location.hash || location.hash==='#/';
+  const onHome   = !t && location.hash === '#/trips';
   /* with the menu open the bar rides above it, so the same thumb that opened it can close
      it; anything else you tap from there dismisses the menu on the way through */
   const menuOpen = menuIsOpen();
@@ -2695,6 +2776,9 @@ function renderTabbar(){
     + (menuOpen
         ? item('Close','✕',"App.closeMenu()", true, false)
         : item('Menu','☰',"App.openMenu()", false, !t));
+  /* anything that has to sit on top of the bar (the Places search, the hub's height) needs
+     its real height, inset and all, not a number that was right on one phone */
+  document.documentElement.style.setProperty('--bar-h', bar.offsetHeight+'px');
 }
 /* ---------- add wheel ----------
    The handful of things you add over and over, on one arc off the +, rather than having to
