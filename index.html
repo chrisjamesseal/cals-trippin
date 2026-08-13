@@ -653,7 +653,7 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
    deployed proxy (see psn-proxy/README.md for what it is and why it's needed). This is just
    an address, safe to commit; your PSN login itself is entered on-device later and stays in
    this browser's localStorage, never here. Leave blank and Games shows setup instructions. */
-const PSN_PROXY_URL = '';
+const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 /* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
