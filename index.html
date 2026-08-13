@@ -227,13 +227,24 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    descender space below the letters, so it reads high next to an emoji that fills its box.
    Nudging the text down by a pixel lines the two up optically. */
 .meta-text{display:inline-block; transform:translateY(1px);}
-.places-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-bottom:22px;}
+/* one country per row: side by side, a long name and its capital and language had nowhere to
+   go and the card grew a paragraph tall. Two columns once the screen is wide enough to give
+   each of them a sensible width. */
+.places-grid{display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:22px;}
+@media(min-width:620px){.places-grid{grid-template-columns:repeat(2,1fr);}}
 .place-card{border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; background:var(--paper);}
-.place-card .flag{font-size:1.7rem; line-height:1; display:block; margin-bottom:4px;}
-.place-name{font-weight:700; font-size:.85rem; display:flex; flex-direction:column; align-items:flex-start;}
+/* the flag now sits beside the name rather than above it, there's room for both on one row */
+.place-card .flag{font-size:1.35rem; line-height:1; flex-shrink:0;}
+.place-name{font-weight:700; font-size:.9rem; display:flex; align-items:center; gap:8px; min-width:0;}
+.place-name-text{overflow-wrap:anywhere;}
+/* the status sits out of the way in the corner instead of pushing the details down */
+.place-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+.place-head .status-pill{flex-shrink:0;}
 .place-actions{display:flex; align-items:center; justify-content:space-between; gap:6px;}
 .places-continent-heading{margin:0 0 10px; font-size:.95rem;}
-.place-info{display:flex; flex-direction:column; gap:3px; margin:8px 0; font-size:.74rem; color:var(--muted);}
+/* capital and language sit side by side now the card is full width, which halves its height:
+   at one country per row that's a lot less scrolling through 223 of them */
+.place-info{display:flex; flex-wrap:wrap; gap:4px 16px; margin:6px 0; font-size:.74rem; color:var(--muted);}
 .place-info span{display:flex; align-items:center; gap:6px;}
 .place-info .icon{width:13px; text-align:center; flex-shrink:0;}
 
@@ -594,8 +605,12 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.45.0';
+const APP_VERSION = '1.45.1';
 const CHANGELOG = [
+  {version:'1.45.1', notes:[
+    'Countries are listed one per row, so long names and their details have somewhere to go. Two per row on a wider screen.',
+    'Going sits in the top right corner of a country instead of pushing everything else down, and the flag now sits beside the name rather than above it.'
+  ]},
   {version:'1.45.0', notes:[
     'A trip no longer needs dates to exist. Pick Rough Idea when you make one and say a month, a season, a range of months, or just a year, plus roughly how many weeks you will be away.',
     'A trip planned that loosely runs on day numbers: its itinerary reads Day 1, Day 2, Day 3 rather than pretending to know dates.',
@@ -1914,11 +1929,13 @@ function placeCardHTML(co, tripStatus){
   const flightUrl = 'https://www.google.com/travel/flights?q=' + encodeURIComponent('Flights to '+co.name);
   return `
     <div class="place-card" data-code="${co.code}">
-      <div class="place-name">
-        <span class="flag">${co.flag}</span>
-        <span class="place-name-text">${esc(co.name)}</span>
+      <div class="place-head">
+        <div class="place-name">
+          <span class="flag">${co.flag}</span>
+          <span class="place-name-text">${esc(co.name)}</span>
+        </div>
+        ${status==='going'?`<span class="status-pill soon">Going</span>`:''}
       </div>
-      ${status==='going'?`<div style="margin-top:2px"><span class="status-pill soon">Going</span></div>`:''}
       ${info ? `<div class="place-info">
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
         <span title="Language">${fa('language')}${esc(info[1])}</span>
