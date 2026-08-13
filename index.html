@@ -189,6 +189,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
 .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
 @media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr;}}
+/* two halves of one value (hours + minutes, a time) read as a pair, so they stay side by
+   side on a phone rather than stacking into what looks like two unrelated questions */
+.grid2.pair{grid-template-columns:1fr 1fr;}
 .check{display:flex; align-items:center; gap:8px; font-size:.9rem; cursor:pointer; padding:4px 0;}
 .check input{width:auto; accent-color:var(--brand);}
 .switch-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0; cursor:pointer; font-weight:600; color:var(--ink); user-select:none;}
@@ -213,6 +216,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .trip-meta > span{display:inline-flex; align-items:center; gap:7px;}
 .meta-emoji{font-size:.8rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+/* centring the boxes isn't the same as centring what you see: a line of text carries its
+   descender space below the letters, so it reads high next to an emoji that fills its box.
+   Nudging the text down by a pixel lines the two up optically. */
+.meta-text{display:inline-block; transform:translateY(1px);}
 .places-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-bottom:22px;}
 .place-card{border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; background:var(--paper);}
 .place-card .flag{font-size:1.7rem; line-height:1; display:block; margin-bottom:4px;}
@@ -386,6 +393,8 @@ a.dash-tile{text-decoration:none;}
 }
 /* only while the section menu is open, so the bar never floats over a full-screen form */
 .tabbar.over-menu{z-index:130;}
+/* and above the wheel's own scrim, so the + that opened it can close it again */
+.tabbar.over-wheel{z-index:71;}
 .tabbar-item:disabled{opacity:.3; cursor:default;}
 .tabbar-item.active{color:var(--brand-dark);}
 .tabbar-emoji{font-size:1.15rem; line-height:1;
@@ -406,6 +415,38 @@ a.dash-tile{text-decoration:none;}
 .tabbar-new::before{width:20px; height:3px; transform:translate(-50%,-50%);}
 .tabbar-new::after{width:3px; height:20px; transform:translate(-50%,-50%);}
 .tabbar-new:hover,.tabbar-new:focus-visible{background:var(--brand-dark); transform:translateY(-1px); outline:none;}
+/* with the wheel open the same button closes it, so the plus turns into a cross by spinning
+   the two bars it's already made of, rather than swapping in a different glyph */
+.tabbar-new.open{transform:rotate(45deg); background:var(--brand-dark);}
+.tabbar-new.open:hover,.tabbar-new.open:focus-visible{transform:rotate(45deg) translateY(-1px);}
+
+/* ---------- add wheel ---------- */
+/* the + fans out into every "add" the app has, arranged on arcs around the button it came
+   from. Icon-only: at this size a label would be unreadable anyway, so each one carries its
+   name as aria-label/title instead. Sits above the bar (z-index 60) but below full-screen
+   modals (100), so opening a form covers it. */
+.wheel-scrim{position:fixed; inset:0; z-index:70; background:rgba(20,40,47,.58);
+  opacity:0; animation:wheel-fade .16s ease forwards; -webkit-tap-highlight-color:transparent;}
+@keyframes wheel-fade{to{opacity:1;}}
+.wheel-item{
+  position:fixed; z-index:72; width:44px; height:44px; border-radius:50%; padding:0;
+  border:1px solid var(--line); background:var(--paper); cursor:pointer;
+  box-shadow:0 4px 14px rgba(20,40,47,.22);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; transform:translate(-50%,-50%) scale(.4);
+  animation:wheel-pop .18s cubic-bezier(.2,1.3,.5,1) forwards;
+}
+/* the outer arc holds more, so its buttons are a size down to keep them from touching */
+.wheel-item.small{width:36px; height:36px;}
+.wheel-item .sec-emoji{font-size:1.2rem; line-height:1;}
+.wheel-item.small .sec-emoji{font-size:1rem;}
+.wheel-item:hover,.wheel-item:focus-visible{border-color:var(--brand); outline:none;}
+@keyframes wheel-pop{to{opacity:1; transform:translate(-50%,-50%) scale(1);}}
+/* whoever prefers less motion gets the same wheel, just without the fan-out */
+@media(prefers-reduced-motion:reduce){
+  .wheel-scrim,.wheel-item{animation-duration:.01ms;}
+  .wheel-item{animation-delay:0ms!important;}
+}
 /* keep the last of the page clear of the bar (harmless on the PIN gate, where it's hidden),
    set after the narrow-screen rule above so it wins on phones too, where the bar still needs
    the same clearance the wider layouts give it */
@@ -533,6 +574,7 @@ a.dash-tile{text-decoration:none;}
 <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
 <div id="modal-root"></div>
 <div id="menu-root"></div>
+<div id="wheel-root"></div>
 <div id="toast"></div>
 <script>
 'use strict';
@@ -561,8 +603,16 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.41.0';
+const APP_VERSION = '1.42.0';
 const CHANGELOG = [
+  {version:'1.42.0', notes:[
+    'The + on the bottom bar now fans out into everything you can add: a stop, travel, an idea, a place to stay, a flight, ferry, car hire, a receipt, a poll, a packing item, a note, a contact, a link, a document, or a whole new trip. Tap the + again, tap away, or press escape to close it.',
+    'Outside a trip there is only one thing to add, so the + still just starts a new trip.',
+    'The compass on an undecided travel leg is a question mark in the form too, not just on the card.',
+    'Hours and minutes now sit side by side on a phone instead of stacking, for both the time and the duration.',
+    'Turkey and Ivory Coast are listed under their English names again.',
+    'Nudged the date and countdown text into line with the icons beside them.'
+  ]},
   {version:'1.41.0', notes:[
     'Checking out of one place and into another on the same day now suggests the journey between them, sitting between the two on the itinerary. Tap it to fill in how you\'re getting there, exactly like the trip to the airport.',
     'Travel with no mode chosen yet is marked with a question mark rather than a compass.',
@@ -1104,7 +1154,14 @@ const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AR AT AU AW AZ BA BB BD BE BF BG
 /* a few codes where different browsers' Intl.DisplayNames disagree or add a disambiguating
    suffix (e.g. some render CN as "China mainland", HK/MO with a "SAR China" suffix), pinned
    to the plain, consistent name so it doesn't vary browser to browser */
-const CUSTOM_COUNTRY_NAMES = {XE:'England', XS:'Scotland', XW:'Wales', XI:'Northern Ireland', CN:'China', HK:'Hong Kong', MO:'Macao'};
+/* the browser's own country names are mostly right, but a few come through as the local
+   name rather than the English one (CLDR renamed TR to Türkiye in 2022, and CI has always
+   been listed under its French name), so those are pinned here. Curaçao and São Tomé keep
+   their accents: those ARE the English names, not untranslated ones. */
+const CUSTOM_COUNTRY_NAMES = {XE:'England', XS:'Scotland', XW:'Wales', XI:'Northern Ireland', CN:'China', HK:'Hong Kong', MO:'Macao',
+  TR:'Turkey', CI:'Ivory Coast'};
+/* so typing the name the browser used to show still finds the country */
+const COUNTRY_NAME_ALIASES = {'türkiye':'TR', 'turkiye':'TR', 'côte d’ivoire':'CI', "côte d'ivoire":'CI', 'cote d’ivoire':'CI', "cote d'ivoire":'CI'};
 const CUSTOM_COUNTRY_FLAGS = {XE:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', XS:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', XW:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}', XI:'\u{1F1EE}\u{1F1EA}'};
 const flagEmoji = c => CUSTOM_COUNTRY_FLAGS[c] || c.replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
 const COUNTRIES = (()=>{
@@ -1114,7 +1171,11 @@ const COUNTRIES = (()=>{
     .map(c => ({code:c, name:CUSTOM_COUNTRY_NAMES[c] || (dn && dn.of(c)) || c, flag:flagEmoji(c)}))
     .sort((a,b)=>a.name.localeCompare(b.name));
 })();
-const countryByName = n => COUNTRIES.find(c=>c.name.toLowerCase()===String(n||'').trim().toLowerCase());
+const countryByName = n => {
+  const q = String(n||'').trim().toLowerCase();
+  return COUNTRIES.find(c=>c.name.toLowerCase()===q)
+      || (COUNTRY_NAME_ALIASES[q] ? countryByCode(COUNTRY_NAME_ALIASES[q]) : undefined);
+};
 const countryByCode = c => COUNTRIES.find(x=>x.code===String(c||'').toUpperCase());
 function countryDatalist(){ return `<datalist id="country-list">${COUNTRIES.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist>`; }
 function countryPills(codes, removable, fnName){
@@ -1563,6 +1624,7 @@ function attachFieldClears(root){
 /* forms and viewers open as full screens (no popups), a Back bar returns to the page below */
 function openModal(html, opts){
   opts = opts || {};
+  closeAddWheel();   // a form opened from the wheel takes over; the wheel shouldn't linger
   const root = $('#modal-root');
   const prev = root.querySelector('.modal-bg');
   const scrollPos = prev ? prev.scrollTop : 0;
@@ -1588,9 +1650,13 @@ function closeModal(){
 // Esc closes the top-most modal
 document.addEventListener('keydown', e=>{
   if(e.key!=='Escape') return;
-  if(menuIsOpen()) closeMenu();
+  if(wheelIsOpen()) closeAddWheel();
+  else if(menuIsOpen()) closeMenu();
   else if(modalOpen()) closeModal();
 });
+/* the wheel is positioned in real pixels around wherever the + happens to be, so a resize
+   (or a phone turning on its side) would leave it hanging in the wrong place */
+window.addEventListener('resize', ()=>{ if(wheelIsOpen()) closeAddWheel(); });
 /* an alert-style banner that always fits on one line, truncating with an ellipsis rather
    than wrapping and pushing the rest of the page down, a small button opens the full text
    in a modal so nothing said in the banner is ever actually lost to the truncation */
@@ -1758,7 +1824,7 @@ function drawPlacesGrid(){
   `).join('');
 }
 function route(){
-  closeModal(); closeMenu();
+  closeModal(); closeMenu(); closeAddWheel();
   if(!pinOk()){ CUR_TRIP_ID = null; stopSub(); renderPinGate(); renderTabbar(); return; }
   setTimeout(renderTabbar, 0);   // after whichever render below has settled CUR_TRIP_ID/CUR_TAB
   const h = location.hash;
@@ -2157,6 +2223,7 @@ const ICONS = {
   trash: fa('trash'),
   view: fa('eye'),
   route: fa('route'),
+  question: fa('question'),
   filePdf: fa('file-pdf'),
   fileImg: fa('file-image'),
   checkin: fa('right-to-bracket'),
@@ -2231,9 +2298,9 @@ function renderTrip(t){
     <div class="page-head" style="${arch?'padding-top:4px;':''}margin-bottom:22px">
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
       <p class="muted trip-meta">
-        <span><span class="meta-emoji" aria-hidden="true">📅</span>${fmtRangeLong(t.startDate,t.endDate)}</span>
-        ${upcoming ? `<span><span class="meta-emoji" aria-hidden="true">⏳</span>${esc(daysToGoCount(upcoming))}</span>`
-          : (phrase ? `<span><span class="meta-emoji" aria-hidden="true">📍</span>${esc(phrase)}</span>` : '')}
+        <span><span class="meta-emoji" aria-hidden="true">📅</span><span class="meta-text">${fmtRangeLong(t.startDate,t.endDate)}</span></span>
+        ${upcoming ? `<span><span class="meta-emoji" aria-hidden="true">⏳</span><span class="meta-text">${esc(daysToGoCount(upcoming))}</span></span>`
+          : (phrase ? `<span><span class="meta-emoji" aria-hidden="true">📍</span><span class="meta-text">${esc(phrase)}</span></span>` : '')}
       </p>
     </div>` : `
     <div class="crumb">
@@ -2374,6 +2441,7 @@ function renderTabbar(){
      it; anything else you tap from there dismisses the menu on the way through */
   const menuOpen = menuIsOpen();
   bar.classList.toggle('over-menu', menuOpen);
+  bar.classList.toggle('over-wheel', wheelIsOpen());
   const go = fn => menuOpen ? 'App.closeMenu();'+fn : fn;
   const item = (label, emoji, fn, active, off) => `
     <button class="tabbar-item${active?' active':''}" ${off?'disabled aria-disabled="true"':''}
@@ -2384,12 +2452,92 @@ function renderTabbar(){
   bar.innerHTML =
       item('Trips','🧳',go("App.goHome()"), onHome && !menuOpen, false)
     + item('Places','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
-    + `<button class="tabbar-new" onclick="${go('App.newTrip()')}" aria-label="New trip"></button>`
+    + `<button class="tabbar-new${wheelIsOpen()?' open':''}" onclick="${go('App.toggleAddWheel()')}"
+        aria-label="${wheelIsOpen()?'Close':'Add something'}" aria-expanded="${wheelIsOpen()}"></button>`
     + item('Itinerary','🗺️',go("App.tab('plan')"), !!t && CUR_TAB==='plan' && !menuOpen, !t)
     + (menuOpen
         ? item('Close','✕',"App.closeMenu()", true, false)
         : item('Menu','☰',"App.openMenu()", false, !t));
 }
+/* ---------- add wheel ----------
+   Everything the app can create, reachable from the one + on the bar instead of only from
+   whichever section you happen to be in. Two entries take you to a section rather than
+   opening a form, because those two add things inline rather than in a modal: packing has a
+   text box at the top of its list, and a document is a file picker that has to be clicked by
+   the person, not by us. */
+function addWheelItems(t, ro){
+  const trip = [
+    ['📍','Stop',          "App.planForm(-1)"],
+    ['🧭','Travel',        "App.travelLegForm(-1)"],
+    ['💡','Idea',          "App.moodForm()"],
+    ['🏨','Accommodation', "App.accomForm(-1)"],
+    ['✈️','Flight',        "App.flightForm(-1)"],
+    ['⛴️','Ferry',         "App.ferryForm(-1)"],
+    ['🚗','Car Hire',      "App.carForm(-1)"],
+    ['💰','Receipt',       "App.receiptForm(-1)"],
+    ['📊','Poll',          "App.pollForm()"],
+    ['🧳','Packing Item',  "App.addTo('pack')"],
+    ['📝','Note',          "App.noteForm(-1)"],
+    ['📞','Contact',       "App.contactForm()"],
+    ['🔗','Link',          "App.linkForm(-1)"],
+    ['📎','Document',      "App.addTo('docs')"]
+  ];
+  return (t && !ro ? trip : []).concat([['➕','New Trip', "App.newTrip()"]]);
+}
+function wheelIsOpen(){ return !!$('#wheel-root').firstChild; }
+function closeAddWheel(){
+  if(!wheelIsOpen()) return;
+  $('#wheel-root').innerHTML = '';
+  renderTabbar();
+}
+App.closeAddWheel = closeAddWheel;
+App.toggleAddWheel = () => {
+  if(wheelIsOpen()) return closeAddWheel();
+  const t = getTrip(CUR_TRIP_ID);
+  const items = addWheelItems(t, t && readOnly(t));
+  /* one thing to add is a button, not a wheel: outside a trip the + still just starts one */
+  if(items.length < 2) return App.newTrip();
+  const btn = $('.tabbar-new'); if(!btn) return;
+  const b = btn.getBoundingClientRect();
+  const cx = b.left + b.width/2, cy = b.top + b.height/2;
+  /* the arcs have to fit the screen they're drawn on, so the radii come from the viewport
+     rather than being fixed: the outer one never reaches closer than 24px to either edge.
+     The outer arc is both wider and further out, because it carries roughly twice as many. */
+  const outerR = Math.max(92, Math.min(150, cx - 24, window.innerWidth - cx - 24));
+  const innerR = Math.max(76, Math.round(outerR * 0.60));
+  const inner = items.slice(0, Math.min(5, items.length - 1));
+  const outer = items.slice(inner.length);
+  const ring = (list, r, span, small) => list.map((it, n) => {
+    /* spread across an arc above the button, inset from horizontal so nothing ends up level
+       with the bar. A lone item sits straight up. */
+    const from = 90 + span/2, to = 90 - span/2;
+    const frac = list.length===1 ? 0.5 : n/(list.length-1);
+    const rad = (from + (to-from)*frac)*Math.PI/180;
+    const [emoji,label,fn] = it;
+    return {x: cx + Math.cos(rad)*r, y: cy - Math.sin(rad)*r, emoji, label, fn, small,
+            delay: (small?60:0) + n*22};
+  });
+  /* the arcs stop well short of horizontal so the lowest buttons stay clear of the bar's
+     own labels rather than sitting on top of "Trips" and "Menu" */
+  const all = ring(inner, innerR, 140, false).concat(ring(outer, outerR, 150, true));
+  $('#wheel-root').innerHTML =
+    `<div class="wheel-scrim" onclick="App.closeAddWheel()"></div>`
+    + `<div role="menu" aria-label="Add">`
+    + all.map(w=>`<button class="wheel-item${w.small?' small':''}" role="menuitem"
+        style="left:${Math.round(w.x)}px; top:${Math.round(w.y)}px; animation-delay:${w.delay}ms"
+        aria-label="${esc(w.label)}" title="${esc(w.label)}"
+        onclick="App.closeAddWheel();${w.fn}">${secEmoji(w.emoji)}</button>`).join('')
+    + `</div>`;
+  renderTabbar();
+  const first = $('#wheel-root .wheel-item'); if(first) first.focus();
+};
+/* the two adds that live inline in their section rather than behind a modal. Packing can be
+   typed into straight away; a document can't, a file picker has to be opened by the person
+   clicking it themselves, so that one just puts the Upload button in front of them. */
+App.addTo = k => {
+  App.tab(k);
+  if(k==='pack') setTimeout(()=>{ const el = $('#pk-new'); if(el) el.focus(); }, 60);
+};
 function menuIsOpen(){ return !!$('#menu-root').firstChild; }
 function closeMenu(){
   if(!menuIsOpen()) return;
@@ -3094,7 +3242,7 @@ function mapQuery(t, name){
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
 const PLAN_PERIODS = {morning:['Morning','06:00'], afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
 const TRAVEL_MODES = {
-  undecided: {label:'Not Decided', icon:ICONS.route, emoji:'❓'},
+  undecided: {label:'Not Decided', icon:ICONS.question, emoji:'❓'},
   drive: {label:'Drive', icon:ICONS.car, emoji:'🚗'},
   walk: {label:'Walk', icon:ICONS.walk, emoji:'🚶'},
   ferry: {label:'Ferry', icon:ICONS.ferry, emoji:'⛴️'},
@@ -3372,7 +3520,7 @@ App.planForm = (i, prefill, moodIndex) => {
           <option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>
         </select></div>
     </div>
-    <div class="grid2" id="pl-time-wrap" style="${initWhen==='time'?'':'display:none'}">
+    <div class="grid2 pair" id="pl-time-wrap" style="${initWhen==='time'?'':'display:none'}">
       <div class="field"><label class="label" for="pl-hour">Hour</label>
         <select id="pl-hour">${hourOpts}</select></div>
       <div class="field"><label class="label" for="pl-min">Minute</label>
@@ -3501,7 +3649,7 @@ App.travelLegForm = (i, prefill) => {
                   onclick="App.setTravelTiming('${k}')"
                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.setTravelTiming('${k}')}">${l}</span>`).join('')}
         </div></div>
-      <div class="grid2">
+      <div class="grid2 pair">
         <div class="field"><label class="label" for="tv-hour">Hour</label>
           <select id="tv-hour">${hourOpts}</select></div>
         <div class="field"><label class="label" for="tv-min">Minute</label>
@@ -3509,7 +3657,7 @@ App.travelLegForm = (i, prefill) => {
       </div>
     </div>
     <div class="field"><label class="label">Duration</label>
-      <div class="grid2">
+      <div class="grid2 pair">
         <select id="tv-dur-h" aria-label="Duration hours">${durHourOpts}</select>
         <select id="tv-dur-m" aria-label="Duration minutes">${durMinOpts}</select>
       </div></div>
