@@ -605,8 +605,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.45.1';
+const APP_VERSION = '1.45.2';
 const CHANGELOG = [
+  {version:'1.45.2', notes:[
+    'Your Trips now leads with the next trip rather than the furthest away one. Trips still to come are listed in the order they will happen, then ones that have been and gone, then the archive.'
+  ]},
   {version:'1.45.1', notes:[
     'Countries are listed one per row, so long names and their details have somewhere to go. Two per row on a wider screen.',
     'Going sits in the top right corner of a country instead of pushing everything else down, and the flag now sits beside the name rather than above it.'
@@ -1118,6 +1121,17 @@ function whenLabel(w){
   return 'Sometime in '+w.year;
 }
 const weeksLabel = n => !n ? '' : n+' week'+(n===1?'':'s');
+/* something sortable for a trip whether its dates are real or still a rough idea, so both
+   kinds can be ordered together. A season becomes the month it starts in. */
+function tripSortDate(t){
+  if(t.startDate) return t.startDate;
+  const w = t.when;
+  if(!w || !w.year) return '';
+  const m = w.kind==='season' ? ({spring:3, summer:6, autumn:9, winter:12}[w.season] || 6)
+          : (w.kind==='month' || w.kind==='months') ? (w.month || 1)
+          : 1;
+  return w.year+'-'+String(m).padStart(2,'0')+'-01';
+}
 /* how many days a rough trip runs for, when a length has been given */
 const roughTripDays = t => hasRoughWhen(t) && t.when.weeks ? t.when.weeks*7 : 0;
 /* the one line that says when a trip is, whichever way it's been pinned down */
@@ -2165,13 +2179,19 @@ function homeGridHTML(trips, loading){
       <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
     </div>`;
   }
-  /* newest first within each group, so whatever you're planning right now is at the top and
-     you're not scrolling past old trips to reach it. A trip with no date yet is the newest
-     thing there is: you only just made it. */
-  const newestFirst = (a,b) => (b.startDate||'9999').localeCompare(a.startDate||'9999');
-  const active = trips.filter(t=>!isArchived(t)).sort(newestFirst);
-  const arch = trips.filter(t=>isArchived(t)).sort(newestFirst);
-  return `<div class="trip-grid">${active.map(tripCardHTML).join('')}${arch.map(tripCardHTML).join('')}</div>`;
+  /* The next trip first: what's soonest is what you're actually thinking about. Trips still
+     to come lead, in the order they'll happen, then ones that have been and gone with the
+     most recent of those first, then the archive. A trip with only a rough idea of when
+     sorts by that, so "Summer 2027" sits where it belongs rather than at one end. */
+  const today = todayStr();
+  const isPast = t => t.endDate && t.endDate < today;
+  const soonestFirst = (a,b) => (tripSortDate(a)||'9999').localeCompare(tripSortDate(b)||'9999');
+  const latestFirst  = (a,b) => (tripSortDate(b)||'').localeCompare(tripSortDate(a)||'');
+  const live = trips.filter(t=>!isArchived(t));
+  const ordered = live.filter(t=>!isPast(t)).sort(soonestFirst)
+    .concat(live.filter(isPast).sort(latestFirst))
+    .concat(trips.filter(isArchived).sort(latestFirst));
+  return `<div class="trip-grid">${ordered.map(tripCardHTML).join('')}</div>`;
 }
 /* everyone who's entered the PIN can see every trip, not just the ones this particular
    browser happened to create or open before, so the full list comes from Firebase itself
