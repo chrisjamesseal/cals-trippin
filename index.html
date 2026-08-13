@@ -43,6 +43,11 @@ body{
 /* every page's title starts the same distance down, whether it's an h1 (Your Trips, a trip's
    name) or a breadcrumb title (a section, Places). One number, changed in one place. */
 .page-head{padding-top:var(--page-top);}
+/* the page title and its one action share a row, the same shape as a section's breadcrumb.
+   Aligned to the top, not centred: the button is taller than the heading, and centring both
+   would push "Your Trips" a few pixels down from where every other page's title starts. */
+.home-title{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+.home-title button{align-self:center;}
 
 /* the wordmark is only on the PIN gate now that the top bar is gone */
 .logo{font-weight:800; font-size:1.6rem; letter-spacing:-.03em; line-height:1; color:var(--ink); user-select:none;}
@@ -244,22 +249,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .modal{max-width:592px; margin:0 auto; padding:6px 16px 48px; position:relative;}
 .modal h2{font-size:1.4rem; margin-bottom:14px; letter-spacing:-.02em;}
 
-/* ---------- toast ---------- */
-#toast{
-  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(calc(100% + 40px));
-  background:var(--ink); color:#fff; padding:12px 22px; font-weight:600; font-size:.85rem;
-  border-radius:var(--radius); box-shadow:var(--shadow-lift);
-  z-index:200; transition:transform .2s, visibility .2s; max-width:min(460px,92vw); visibility:hidden;
-  display:flex; align-items:center; justify-content:center; gap:12px;
-}
-#toast .toast-msg{white-space:pre-wrap;}
-#toast.show{transform:translateX(-50%) translateY(0); visibility:visible;}
-#toast .toast-undo{
-  border:1px solid rgba(255,255,255,.6); border-radius:999px; background:none; color:#fff;
-  font:inherit; font-weight:700; font-size:.72rem; text-transform:uppercase; letter-spacing:.08em;
-  padding:3px 12px; cursor:pointer; flex-shrink:0;
-}
-#toast .toast-undo:hover{background:#fff; color:var(--ink);}
+/* a night with nowhere booked: drawn as an outline rather than a filled card, so it reads as
+   a hole in the list instead of another thing you've arranged */
+.gap-card{border:2px dashed var(--line-strong); background:none; box-shadow:none;}
+.gap-card h3{color:var(--muted);}
 
 /* ---------- misc components ---------- */
 .list-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line);}
@@ -345,7 +338,7 @@ details .d-body{padding:14px 16px;}
 }
 
 /* ---------- inline field errors ---------- */
-.field.err input,.field.err textarea,.field.err select{border-color:var(--accent-dark); box-shadow:0 0 0 3px rgba(232,89,59,.15);}
+.field.err input,.field.err textarea,.field.err select,input.err{border-color:var(--accent-dark); box-shadow:0 0 0 3px rgba(232,89,59,.15);}
 .field-err{color:var(--accent-dark); font-size:.74rem; font-weight:600; margin-top:4px; display:none;}
 .field.err .field-err{display:block;}
 
@@ -436,10 +429,7 @@ a.dash-tile{text-decoration:none;}
   opacity:0; transform:translate(-50%,-50%) scale(.4);
   animation:wheel-pop .18s cubic-bezier(.2,1.3,.5,1) forwards;
 }
-/* the outer arc holds more, so its buttons are a size down to keep them from touching */
-.wheel-item.small{width:36px; height:36px;}
 .wheel-item .sec-emoji{font-size:1.2rem; line-height:1;}
-.wheel-item.small .sec-emoji{font-size:1rem;}
 .wheel-item:hover,.wheel-item:focus-visible{border-color:var(--brand); outline:none;}
 @keyframes wheel-pop{to{opacity:1; transform:translate(-50%,-50%) scale(1);}}
 /* whoever prefers less motion gets the same wheel, just without the fan-out */
@@ -575,7 +565,6 @@ a.dash-tile{text-decoration:none;}
 <div id="modal-root"></div>
 <div id="menu-root"></div>
 <div id="wheel-root"></div>
-<div id="toast"></div>
 <script>
 'use strict';
 /* ================= config ================= */
@@ -603,8 +592,15 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.42.0';
+const APP_VERSION = '1.43.0';
 const CHANGELOG = [
+  {version:'1.43.0', notes:[
+    'Accommodation now shows the nights you have nowhere to stay, as a dashed card sitting exactly where the gap falls. Its Add Accommodation button opens the form with those dates already filled in.',
+    'The black pop-up that slid over the bottom bar after every action is gone. It mostly told you what you had just done. Deleting still asks before it does anything, and the few messages you actually need to read now wait in a box until you dismiss them.',
+    'A New Trip button sits at the top right of Your Trips.',
+    'The + wheel is down to the five things worth having there: an idea, a stop, a receipt, travel and a document.',
+    'Accommodation is a house rather than a hotel throughout.'
+  ]},
   {version:'1.42.0', notes:[
     'The + on the bottom bar now fans out into everything you can add: a stop, travel, an idea, a place to stay, a flight, ferry, car hire, a receipt, a poll, a packing item, a note, a contact, a link, a document, or a whole new trip. Tap the + again, tap away, or press escape to close it.',
     'Outside a trip there is only one thing to add, so the + still just starts a new trip.',
@@ -826,8 +822,8 @@ function saveLocal(){
       (t.moodBoard||[]).forEach(m=>{ if(m.dataUrl){ m.dataUrl=null; m.stripped=true; dropped++; } });
     });
     localStorage.setItem(LS_KEY, JSON.stringify(DB));
-    if(dropped) toast('Storage was full. Some file previews were dropped from this device, but your trips are safe.');
-  }catch(e2){ toast("Storage is full and couldn't save. Try removing some photos or documents."); }
+    if(dropped) noteModal('Storage Full', 'Some file previews were dropped from this device, but your trips are safe.');
+  }catch(e2){ noteModal('Storage Full', "That couldn't be saved. Try removing some photos or documents."); }
 }
 /* save() persists locally AND pushes the open trip to the shared store (when enabled) */
 function save(){
@@ -849,7 +845,7 @@ function syncErrorHint(err){
 function reportSyncError(err){
   console.error("My Trips, cloud sync error:", err);
   syncState='off';
-  if(!_syncErrorToasted){ _syncErrorToasted = true; toast(syncErrorHint(err)); }
+  if(!_syncErrorToasted){ _syncErrorToasted = true; noteModal('Sync Problem', syncErrorHint(err)); }
 }
 function initCloud(){
   if(!cloudEnabled() || typeof firebase==='undefined'){ syncState='local'; return; }
@@ -982,35 +978,23 @@ function logEdit(section, summary){
 const $ = s => document.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2,10);
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-/* queued so a toast that shows up mid-window (e.g. an async sync error, which lands well
-   after the triggering click) can never silently wipe out an undo button before it's seen */
-let _toastQueue = [];
-let _toastActive = null;   // the {msg,undoFn} currently on screen, or null
-function toast(msg, undoFn){
-  // only an *active undo* blocks the next toast, a plain FYI toast gets cut short
-  // immediately so a fast follow-up action (e.g. add then delete) never buries its Undo
-  if(_toastActive && _toastActive.undoFn){ _toastQueue.push({msg, undoFn}); return; }
-  showToastNow({msg, undoFn});
-}
-function showToastNow(entry){
-  _toastActive = entry;
-  const t = $('#toast');
-  t.innerHTML = `<span class="toast-msg">${esc(entry.msg)}</span>` + (entry.undoFn?`<button class="toast-undo" type="button">Undo</button>`:'');
-  t.classList.add('show');
-  clearTimeout(t._h);
-  const dismiss = () => {
-    t.classList.remove('show');
-    _toastActive = null;
-    setTimeout(()=>{ if(_toastQueue.length) showToastNow(_toastQueue.shift()); }, 200);
-  };
-  if(entry.undoFn){
-    t.querySelector('.toast-undo').onclick = () => { clearTimeout(t._h); dismiss(); entry.undoFn(); };
-    t._h = setTimeout(dismiss, 6000);
-  } else {
-    // a short message gets the usual quick dismiss; a long one (e.g. an error explaining
-    // what went wrong) stays up long enough to actually read, capped so it can't linger forever
-    t._h = setTimeout(dismiss, Math.min(12000, Math.max(2600, entry.msg.length*60)));
-  }
+/* The pop-up that used to slide over the bottom bar after every action is gone. It said
+   things you already knew ("Stop saved", right after you saved a stop) and covered the bar
+   while it did. Every delete already asks first, so its Undo was a second safety net rather
+   than the only one. Kept as a no-op so the ~40 places that announce what they just did
+   don't each need a special case: they simply say nothing now. Anything you genuinely have
+   to read, an error or a "you can't do that yet", goes through noteModal below instead, and
+   waits to be dismissed rather than fading away unread. */
+function toast(){}
+/* the small number of messages that aren't just narration: something failed, or something
+   has to be filled in first. Defined here but implemented once openModal exists. */
+function noteModal(title, body){
+  openModal(`
+    <h2>${esc(title)}</h2>
+    <p class="small" style="margin-bottom:16px">${esc(body)}</p>
+    <div class="modal-actions btn-row" style="justify-content:flex-end">
+      <button class="btn primary" onclick="closeModal()">OK</button>
+    </div>`);
 }
 function fmtDate(d){
   if(!d) return '';
@@ -1448,9 +1432,9 @@ function pushPlaces(){
     .catch(err => {
       console.error("My Trips, couldn't save Places:", err);
       if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
-        toast("Couldn't save: the database rules don't allow writing Places. Open the Firebase console, Realtime Database, Rules, and add a \"places\" rule.");
+        noteModal('Places Not Saved', "The database rules don't allow writing Places. Open the Firebase console, Realtime Database, Rules, and add a 'places' rule.");
       }else{
-        toast("Couldn't save that change. Check your connection and try again.");
+        noteModal('Not Saved', 'Check your connection and try again.');
       }
     });
 }
@@ -1680,7 +1664,16 @@ function confirmModal(title, body, confirmLabel, onYes){
 /* inline field validation, injects an error line under the field, clears on next input */
 function markErr(sel, msg){
   const inp = $(sel); if(!inp) return false;
-  const field = inp.closest('.field'); if(!field){ toast(msg); return false; }
+  /* an input that isn't wrapped in a .field (the packing add row) has nowhere to hang the
+     message, so it just gets the red outline and the cursor. Pressing Add on an empty box
+     doesn't warrant stopping you with a dialog. */
+  const field = inp.closest('.field');
+  if(!field){
+    inp.classList.add('err');
+    inp.addEventListener('input', ()=>inp.classList.remove('err'), {once:true});
+    inp.focus();
+    return false;
+  }
   field.classList.add('err');
   let e = field.querySelector('.field-err');
   if(!e){ e = document.createElement('div'); e.className='field-err'; field.appendChild(e); }
@@ -2024,7 +2017,7 @@ function fetchAllTrips(cb){
       console.error("My Trips, couldn't list trips from the cloud:", err);
       if(!_listErrorToasted && /permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
         _listErrorToasted = true;
-        toast("Can't see everyone's trips: the database rules only allow reading one trip at a time. Open the Firebase console → Realtime Database → Rules and add \"trips\": { \".read\": true } alongside the existing rule.");
+        noteModal("Can't See Everyone's Trips", 'The database rules only allow reading one trip at a time. Open the Firebase console, Realtime Database, Rules, and add a top-level read rule for trips alongside the existing one.');
       }
       cb(DB.trips);
     });
@@ -2033,7 +2026,8 @@ function renderHome(){
   renderSidebar(null);
   $('#app').innerHTML = `
     <div class="page-head">
-      <h1>Your Trips</h1>
+      <div class="home-title"><h1>Your Trips</h1>
+        <button class="btn sm primary" onclick="App.newTrip()">+ New Trip</button></div>
       <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
       <div class="home-foot">
         <button class="version-tag" onclick="App.toggleChangelog()">v${esc(APP_VERSION)} · What's new</button>
@@ -2065,9 +2059,9 @@ App.importTrips = input => {
   const fr = new FileReader();
   fr.onload = e => {
     let data;
-    try{ data = JSON.parse(e.target.result); }catch(err){ toast("That file isn't a valid backup"); return; }
+    try{ data = JSON.parse(e.target.result); }catch(err){ noteModal('Bad Backup File', "That file isn't a valid backup."); return; }
     const trips = Array.isArray(data) ? data : (data && data.trips);
-    if(!Array.isArray(trips) || !trips.length){ toast('No trips found in that file'); return; }
+    if(!Array.isArray(trips) || !trips.length){ noteModal('Nothing To Restore', 'No trips were found in that file.'); return; }
     let added=0, updated=0;
     trips.forEach(t=>{
       if(!t || !t.id || !t.name) return;
@@ -2124,7 +2118,7 @@ App.addTripCountry = () => {
 App.delTripCountry = i => { NT_COUNTRIES.splice(i,1); drawNTCountries(); };
 App.createTrip = () => {
   const name = $('#f-name').value.trim();
-  if(!name){ toast('Give the trip a name'); return; }
+  if(!name){ noteModal('Name Needed', 'Give the trip a name first.'); return; }
   const org = $('#f-org').value.trim() || 'Organiser';
   const others = $('#f-ppl').value.split(',').map(s=>s.trim()).filter(Boolean);
   const t = {
@@ -2241,7 +2235,7 @@ const ICONS = {
    The compact menu and in-button icons stay on Font Awesome, where a single-colour glyph
    lines up better at small sizes. */
 const TAB_EMOJI = {
-  edit:'✏️', plan:'🗺️', travel:'✈️', stay:'🏨', mood:'💡', pack:'🧳',
+  edit:'✏️', plan:'🗺️', travel:'✈️', stay:'🏠', mood:'💡', pack:'🧳',
   polls:'📊', money:'💰', photos:'📸', contacts:'📞', docs:'📎', notes:'📝'
 };
 function tileIcon(k){
@@ -2390,7 +2384,7 @@ App.etDelPerson = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const p = t.participants[i];
   const used = (t.receipts||[]).some(r => r.paidBy===p || (r.sharedWith||[]).includes(p) || (r.items||[]).some(it=>(it.people||[]).includes(p)));
-  if(used){ toast(`${p} is on receipts. Remove those first.`); return; }
+  if(used){ noteModal('Still On Receipts', `${p} is named on a receipt. Remove those first.`); return; }
   t.participants.splice(i,1);
   logEdit('People','removed '+p);
   save(); drawETPills();
@@ -2460,29 +2454,20 @@ function renderTabbar(){
         : item('Menu','☰',"App.openMenu()", false, !t));
 }
 /* ---------- add wheel ----------
-   Everything the app can create, reachable from the one + on the bar instead of only from
-   whichever section you happen to be in. Two entries take you to a section rather than
-   opening a form, because those two add things inline rather than in a modal: packing has a
-   text box at the top of its list, and a document is a file picker that has to be clicked by
-   the person, not by us. */
+   The handful of things you add over and over, on one arc off the +, rather than having to
+   know which section each of them lives in first. Everything else is still added from its
+   own section, which is where you'd be anyway if you were adding one of the rarer things.
+   Documents takes you to its section rather than opening a form, because a file picker has
+   to be clicked by the person, not by us. */
 function addWheelItems(t, ro){
-  const trip = [
-    ['📍','Stop',          "App.planForm(-1)"],
-    ['🧭','Travel',        "App.travelLegForm(-1)"],
-    ['💡','Idea',          "App.moodForm()"],
-    ['🏨','Accommodation', "App.accomForm(-1)"],
-    ['✈️','Flight',        "App.flightForm(-1)"],
-    ['⛴️','Ferry',         "App.ferryForm(-1)"],
-    ['🚗','Car Hire',      "App.carForm(-1)"],
-    ['💰','Receipt',       "App.receiptForm(-1)"],
-    ['📊','Poll',          "App.pollForm()"],
-    ['🧳','Packing Item',  "App.addTo('pack')"],
-    ['📝','Note',          "App.noteForm(-1)"],
-    ['📞','Contact',       "App.contactForm()"],
-    ['🔗','Link',          "App.linkForm(-1)"],
-    ['📎','Document',      "App.addTo('docs')"]
+  if(!t || ro) return [];   // nothing to add on the trips list or an archived trip
+  return [
+    ['💡','Idea',     "App.moodForm()"],
+    ['📍','Stop',     "App.planForm(-1)"],
+    ['💰','Receipt',  "App.receiptForm(-1)"],
+    ['🚌','Travel',   "App.travelLegForm(-1)"],
+    ['📎','Document', "App.tab('docs')"]
   ];
-  return (t && !ro ? trip : []).concat([['➕','New Trip', "App.newTrip()"]]);
 }
 function wheelIsOpen(){ return !!$('#wheel-root').firstChild; }
 function closeAddWheel(){
@@ -2495,48 +2480,32 @@ App.toggleAddWheel = () => {
   if(wheelIsOpen()) return closeAddWheel();
   const t = getTrip(CUR_TRIP_ID);
   const items = addWheelItems(t, t && readOnly(t));
-  /* one thing to add is a button, not a wheel: outside a trip the + still just starts one */
-  if(items.length < 2) return App.newTrip();
+  /* nothing to add here means the + keeps its old job: outside a trip it just starts one */
+  if(!items.length) return App.newTrip();
   const btn = $('.tabbar-new'); if(!btn) return;
   const b = btn.getBoundingClientRect();
   const cx = b.left + b.width/2, cy = b.top + b.height/2;
-  /* the arcs have to fit the screen they're drawn on, so the radii come from the viewport
-     rather than being fixed: the outer one never reaches closer than 24px to either edge.
-     The outer arc is both wider and further out, because it carries roughly twice as many. */
-  const outerR = Math.max(92, Math.min(150, cx - 24, window.innerWidth - cx - 24));
-  const innerR = Math.max(76, Math.round(outerR * 0.60));
-  const inner = items.slice(0, Math.min(5, items.length - 1));
-  const outer = items.slice(inner.length);
-  const ring = (list, r, span, small) => list.map((it, n) => {
-    /* spread across an arc above the button, inset from horizontal so nothing ends up level
-       with the bar. A lone item sits straight up. */
-    const from = 90 + span/2, to = 90 - span/2;
-    const frac = list.length===1 ? 0.5 : n/(list.length-1);
+  /* the arc has to fit the screen it's drawn on, so the radius comes from the viewport
+     rather than being fixed: it never reaches closer than 30px to either edge */
+  const r = Math.max(84, Math.min(112, cx - 30, window.innerWidth - cx - 30));
+  /* stops well short of horizontal so the end buttons stay clear of the bar's own labels
+     rather than sitting on top of "Trips" and "Menu". A lone item sits straight up. */
+  const span = 140, from = 90 + span/2, to = 90 - span/2;
+  const all = items.map(([emoji,label,fn], n) => {
+    const frac = items.length===1 ? 0.5 : n/(items.length-1);
     const rad = (from + (to-from)*frac)*Math.PI/180;
-    const [emoji,label,fn] = it;
-    return {x: cx + Math.cos(rad)*r, y: cy - Math.sin(rad)*r, emoji, label, fn, small,
-            delay: (small?60:0) + n*22};
+    return {x: cx + Math.cos(rad)*r, y: cy - Math.sin(rad)*r, emoji, label, fn, delay: n*22};
   });
-  /* the arcs stop well short of horizontal so the lowest buttons stay clear of the bar's
-     own labels rather than sitting on top of "Trips" and "Menu" */
-  const all = ring(inner, innerR, 140, false).concat(ring(outer, outerR, 150, true));
   $('#wheel-root').innerHTML =
     `<div class="wheel-scrim" onclick="App.closeAddWheel()"></div>`
     + `<div role="menu" aria-label="Add">`
-    + all.map(w=>`<button class="wheel-item${w.small?' small':''}" role="menuitem"
+    + all.map(w=>`<button class="wheel-item" role="menuitem"
         style="left:${Math.round(w.x)}px; top:${Math.round(w.y)}px; animation-delay:${w.delay}ms"
         aria-label="${esc(w.label)}" title="${esc(w.label)}"
         onclick="App.closeAddWheel();${w.fn}">${secEmoji(w.emoji)}</button>`).join('')
     + `</div>`;
   renderTabbar();
   const first = $('#wheel-root .wheel-item'); if(first) first.focus();
-};
-/* the two adds that live inline in their section rather than behind a modal. Packing can be
-   typed into straight away; a document can't, a file picker has to be opened by the person
-   clicking it themselves, so that one just puts the Upload button in front of them. */
-App.addTo = k => {
-  App.tab(k);
-  if(k==='pack') setTimeout(()=>{ const el = $('#pk-new'); if(el) el.focus(); }, 60);
 };
 function menuIsOpen(){ return !!$('#menu-root').firstChild; }
 function closeMenu(){
@@ -2881,7 +2850,7 @@ function icsFold(line){
 }
 App.packReminder = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  if(!t.startDate) return toast("Add a start date to the trip first, so there's a day to remind you on");
+  if(!t.startDate) return noteModal('No Start Date', "Add a start date to the trip first, so there's a day to remind you on.");
   const left = packUnpackedFor(t);
   // the evening before you travel, local time, which is when packing actually happens
   const start = new Date(t.startDate+'T00:00:00');
@@ -3026,7 +2995,7 @@ App.votePoll = (pollId, optId) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const p = (t.polls||[]).find(x=>x.id===pollId); if(!p || p.closed) return;
   const me = whoAmI(t.id);
-  if(!me){ toast('Pick your name on the Overview first, so everyone knows who voted.'); return; }
+  if(!me){ noteModal('Who Are You?', 'Pick your name on the Overview first, so everyone knows who voted.'); return; }
   p.votes = p.votes||{};
   if(p.votes[me]===optId) delete p.votes[me];   // tapping your own choice again clears it
   else p.votes[me] = optId;
@@ -3455,7 +3424,7 @@ function tabPlan(t, ro){
     const dayItems = groups[k].slice().sort(planCompare);
     const stay = stayingAt(k);
     return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</h3>
-      ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏨')}Staying at ${esc(stay)}</p>`:''}
+      ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏠')}Staying at ${esc(stay)}</p>`:''}
       ${dayItems.map(card).join('')}`;
   };
   return `
@@ -3893,14 +3862,63 @@ function accomCardHTML(a, opts){
       ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
     </div>`;
 }
+const DAY_MS = 86400000;
+const isoAddDays = (iso, n) => {
+  const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+};
+/* Nights on this trip with nowhere booked to sleep.
+   A stay from check-in D1 to check-out D2 covers the NIGHTS of D1 up to D2-1: you check out
+   on the morning of D2, so that date doesn't need a bed from this booking. By the same logic
+   the trip needs beds for its start date through to the night before its end date, since the
+   end date is the day you travel home. Returns one entry per unbroken run of missing nights. */
+function stayGaps(t){
+  if(!t.startDate || !t.endDate) return [];
+  const covered = new Set();
+  (t.accommodations||[]).forEach(a=>{
+    if(!a.checkin) return;
+    const last = a.checkout || a.checkin;   // no check-out set: assume the one night
+    for(let d=a.checkin; d<last; d=isoAddDays(d,1)) covered.add(d);
+    if(!a.checkout) covered.add(a.checkin);
+  });
+  const gaps = [];
+  for(let d=t.startDate; d<t.endDate; d=isoAddDays(d,1)){
+    if(covered.has(d)) continue;
+    const prev = gaps[gaps.length-1];
+    if(prev && prev.lastNight === isoAddDays(d,-1)) prev.lastNight = d;
+    else gaps.push({firstNight:d, lastNight:d});
+  }
+  /* the form wants a check-out date, which is the morning after the last night without a bed */
+  return gaps.map(g=>({...g, checkout: isoAddDays(g.lastNight,1),
+    nights: Math.round((new Date(g.lastNight+'T00:00:00') - new Date(g.firstNight+'T00:00:00'))/DAY_MS) + 1}));
+}
+function stayGapCardHTML(g, ro){
+  const n = g.nights;
+  const when = n===1 ? `the night of ${fmtDate(g.firstNight)}`
+                     : `${fmtDate(g.firstNight)} to ${fmtDate(g.lastNight)}`;
+  return `
+    <div class="card gap-card">
+      <div class="section-head" style="margin-bottom:6px">
+        <h3>${secEmoji('🛏️')}${n} night${n===1?'':'s'} with nowhere to stay</h3>
+      </div>
+      <p class="small muted" style="margin-bottom:${ro?'0':'12px'}">${esc(when)}</p>
+      ${ro?'':`<button class="btn primary sm" onclick="App.accomGapForm('${g.firstNight}','${g.checkout}')">+ Add Accommodation</button>`}
+    </div>`;
+}
 function tabStay(t, ro){
   const list = t.accommodations||[];
-  if(!list.length){
+  const gaps = stayGaps(t);
+  if(!list.length && !gaps.length){
     return `<div class="empty">No accommodation added yet.${!ro?'<br><br><button class="btn primary" onclick="App.accomForm(-1)">+ Add Accommodation</button>':''}</div>`;
   }
-  return list.map((a,i)=>accomCardHTML(a, {
-    headerActions: !ro?`<button class="iconbtn edit" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${i})">${ICONS.edit}</button><button class="iconbtn del" aria-label="Remove accommodation" title="Remove" onclick="App.delAccom(${i})">${ICONS.trash}</button>`:''
-  })).join('');
+  /* booked stays and the holes between them, read in date order, so a missing night shows up
+     exactly where it falls rather than in a list of warnings at the bottom */
+  const rows = list.map((a,i)=>({date:a.checkin||'', html: accomCardHTML(a, {
+      headerActions: !ro?`<button class="iconbtn edit" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${i})">${ICONS.edit}</button><button class="iconbtn del" aria-label="Remove accommodation" title="Remove" onclick="App.delAccom(${i})">${ICONS.trash}</button>`:''
+    })}))
+    .concat(gaps.map(g=>({date:g.firstNight, html: stayGapCardHTML(g, ro)})));
+  rows.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+  return rows.map(r=>r.html).join('');
 }
 
 /* ================= TAB: emergency contacts ================= */
@@ -3937,7 +3955,7 @@ App.attachDoc = input => {
   const file = input.files[0]; input.value=''; if(!file) return;
   if(file.type==='application/pdf'){
     const fr = new FileReader();
-    fr.onload = e => { FORM_DOC = {name:file.name, kind:'pdf', size:file.size, dataUrl: file.size<=5*1048576 ? e.target.result : null}; paintDocStatus(); if(file.size>5*1048576) toast('PDF over 5 MB, details stored, file kept on this device'); };
+    fr.onload = e => { FORM_DOC = {name:file.name, kind:'pdf', size:file.size, dataUrl: file.size<=5*1048576 ? e.target.result : null}; paintDocStatus(); if(file.size>5*1048576) noteModal('Kept On This Device', 'That PDF is over 5 MB, so only its details will sync. The file itself stays on this device.'); };
     fr.readAsDataURL(file);
   } else {
     downscaleToDataURL(file, 1800, 0.85, dataUrl => { FORM_DOC = {name:file.name, kind:'img', size:dataUrl?Math.round(dataUrl.length*.75):0, dataUrl}; paintDocStatus(); });
@@ -3979,7 +3997,7 @@ function docViewerHTML(d){
 /* open an attached travel document full-screen */
 App.viewTravelDoc = (arr, i) => {
   const t = getTrip(CUR_TRIP_ID); const d = t && (t[arr]||[])[i] && t[arr][i].doc;
-  if(!d || !d.dataUrl){ toast("This file isn't available on this device"); return; }
+  if(!d || !d.dataUrl){ noteModal('File Not Here', "This file was uploaded on another device, so only its details synced."); return; }
   openModal(`<h2 style="word-break:break-all">${esc(d.name)}</h2>${docViewerHTML(d)}`, {autofocus:false});
 };
 
@@ -4148,10 +4166,13 @@ App.delCar = i => {
 };
 
 /* --- accommodation (multiple stays) / contacts / general / people --- */
-App.accomForm = i => {
+/* the dotted "nowhere to stay" card opens the normal form with the missing nights already
+   filled in, so the dates you're trying to cover don't have to be typed back in by hand */
+App.accomGapForm = (checkin, checkout) => App.accomForm(-1, {checkin, checkout});
+App.accomForm = (i, prefill) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   t.accommodations = t.accommodations||[];
-  const a = (i>=0 && t.accommodations[i]) || {};
+  const a = (i>=0 && t.accommodations[i]) || prefill || {};
   openModal(`
     <h2>${i>=0?'Edit Accommodation':'Add Accommodation'}</h2>
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…" oninput="App.accomAutoName()"></div>
@@ -4290,7 +4311,7 @@ App.delNote = i => {
 /* ================= TAB: documents (links first, files second) ================= */
 function tabDocs(t, ro){
   const docs = (t.documents||[]).map((d,i)=>{
-    const click = d.dataUrl ? `App.openDoc('${t.id}',${i})` : `toast("This file isn't available on this device")`;
+    const click = d.dataUrl ? `App.openDoc('${t.id}',${i})` : `noteModal('File Not Here', "This file was uploaded on another device, so only its details synced.")`;
     return `
     <div class="list-row doc-row" role="button" tabindex="0" aria-label="Open ${esc(d.name)}"
          onclick="${click}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${click}}">
@@ -4416,7 +4437,7 @@ App.upload = input => {
   if(isPdf){
     const fr = new FileReader();
     fr.onload = e => {
-      if(file.size > 5*1048576){ toast('PDF is over 5 MB, so only its details were stored.'); }
+      if(file.size > 5*1048576){ noteModal('Kept On This Device', 'That PDF is over 5 MB, so only its details synced. The file itself stays on this device.'); }
       t.documents.push({id:uid(), name:file.name, kind:'pdf', size:file.size,
                         dataUrl: file.size<=5*1048576 ? e.target.result : null});
       logEdit('Documents','uploaded '+file.name); save(); rerender();
@@ -4614,15 +4635,15 @@ App.toggleItemPerson = (idx,pi) => {
 };
 App.saveReceipt = () => {
   const t = getTrip(CUR_TRIP_ID);
-  if(!t||!R){ toast("Couldn't save: this trip isn't loaded. Try refreshing the page."); return; }
+  if(!t||!R){ noteModal('Not Saved', "This trip isn't loaded. Try refreshing the page."); return; }
   try{
     if(!R.title.trim()) return markErr('#rc-title','Give the receipt a name');
     if(R.evenSplit){
       if(!(+R.amount>0)) return markErr('#rc-amt','Enter the amount');
-      if(!R.sharedWith.length){ toast('Pick who shares it'); return; }
+      if(!R.sharedWith.length){ noteModal('Who Shares It?', 'Pick who this receipt is split between.'); return; }
     } else {
       R.items = R.items.filter(it=>it.desc.trim()||+it.amount>0);
-      if(!R.items.length || !R.items.some(it=>+it.amount>0)){ toast('Add at least one item with an amount'); return; }
+      if(!R.items.length || !R.items.some(it=>+it.amount>0)){ noteModal('Nothing To Split', 'Add at least one item with an amount.'); return; }
     }
     const editing = R._edit>=0 && t.receipts[R._edit];
     const rec = {id: editing ? t.receipts[R._edit].id : uid(), title:R.title.trim(), date:R.date, paidBy:R.paidBy,
@@ -4633,7 +4654,7 @@ App.saveReceipt = () => {
     save(); R=null; closeModal(); rerender(); toast(editing?'Receipt updated':'Receipt added');
   }catch(e){
     console.error("My Trips, couldn't save receipt:", e);
-    toast("Something went wrong saving that receipt: "+(e&&e.message||e)+". Try again, and let Chris know if it keeps happening.");
+    noteModal('Receipt Not Saved', (e&&e.message||e)+'. Try again, and let Chris know if it keeps happening.');
   }
 };
 App.delReceipt = i => {
@@ -4845,7 +4866,7 @@ const IDEA_EMOJI_RULES = [
   [/\b(train|railway)\b/, '🚂'],
   [/\b(road trip|drive|driving)\b/, '🚗'],
   [/\b(flight|airport|fly)\b/, '✈️'],
-  [/\b(hotel|hostel|airbnb|stay)\b/, '🏨'],
+  [/\b(hotel|hostel|airbnb|stay)\b/, '🏠'],
   [/\b(tour|guided|guide)\b/, '🧭'],
   [/\b(ticket\w*|show|theatre|theater|cinema)\b/, '🎟️'],
   [/\b(photo\w*|instagram|insta)\b/, '📸']
