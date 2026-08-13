@@ -535,8 +535,11 @@ a.dash-tile{text-decoration:none;}
    set after the narrow-screen rule above so it wins on phones too, where the bar still needs
    the same clearance the wider layouts give it */
 .wrap{padding-bottom:96px;}
-.trip-people{display:flex; align-items:center; gap:7px; margin-top:6px;}
-.trip-people .icon{font-size:.72rem;}
+/* a bigger group wraps onto a second line rather than being cut off; the icon sits at the
+   top of its own line rather than centred, which only looked right with text one line tall */
+.trip-people{display:flex; align-items:flex-start; gap:7px; margin-top:6px;}
+.trip-people .icon{font-size:.72rem; margin-top:2px; flex-shrink:0;}
+.trip-people-names{overflow-wrap:anywhere; min-width:0;}
 
 /* ---------- idea emoji ---------- */
 .mood-title{display:flex; align-items:baseline; gap:8px;}
@@ -691,8 +694,14 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.51.0';
+const APP_VERSION = '1.52.0';
 const CHANGELOG = [
+  {version:'1.52.0', notes:[
+    '"How long" (on a trip with a rough idea of when) adds A Day, Weekend and Long Weekend, alongside the week options.',
+    'Trip cards show up to 8 names before trimming to "+N more", up from 3.',
+    'Removed the "this trip is archived and read-only" banner - trips stay fully editable after archiving, that was never intentional.',
+    'A trip now archives (fades, drops to the bottom of Your Trips) two weeks after it ends instead of a month, and stays in its normal chronological place - right at the top of what\'s left - for those two weeks rather than dropping down immediately.'
+  ]},
   {version:'1.51.0', notes:[
     'Places I\'ve Been cards now show a # for the order you visited, and a faded "Coming Up" preview of countries on a booked trip that hasn\'t happened yet.',
     'Fixed the page title riding up under the status bar when the keyboard opened over a search box.'
@@ -1241,7 +1250,12 @@ function whenLabel(w){
   }
   return 'Sometime in '+w.year;
 }
-const weeksLabel = n => !n ? '' : n+' week'+(n===1?'':'s');
+/* short trips are stored as a fraction of a week (day count / 7) rather than adding a
+   separate unit, so "How long" stays one field; SHORT_WHEN_LABELS gives those fractions a
+   proper name instead of printing "0.14 weeks" */
+const SHORT_WHEN_OPTS = [[1/7,'A day'],[2/7,'Weekend'],[4/7,'Long weekend']];
+const SHORT_WHEN_LABELS = Object.fromEntries(SHORT_WHEN_OPTS.map(([v,l])=>[v,l]));
+const weeksLabel = n => !n ? '' : SHORT_WHEN_LABELS[n] || (n+' week'+(n===1?'':'s'));
 /* something sortable for a trip whether its dates are real or still a rough idea, so both
    kinds can be ordered together. A season becomes the month it starts in. */
 function tripSortDate(t){
@@ -1253,8 +1267,10 @@ function tripSortDate(t){
           : 1;
   return w.year+'-'+String(m).padStart(2,'0')+'-01';
 }
-/* how many days a rough trip runs for, when a length has been given */
-const roughTripDays = t => hasRoughWhen(t) && t.when.weeks ? t.when.weeks*7 : 0;
+/* how many days a rough trip runs for, when a length has been given. Rounded: a fraction of
+   a week (a day/weekend/long weekend, see SHORT_WHEN_OPTS) times 7 lands a hair either side
+   of a whole number in floating point, and this is used as an array length elsewhere. */
+const roughTripDays = t => hasRoughWhen(t) && t.when.weeks ? Math.round(t.when.weeks*7) : 0;
 /* the one line that says when a trip is, whichever way it's been pinned down */
 function tripWhenLine(t){
   if(hasRoughWhen(t)){
@@ -1313,7 +1329,7 @@ function whenFieldsHTML(p, t){
           <select id="${p}-year">${opts(years.map(y=>[y,y]), w.year||yr)}</select></div>
       </div>
       <div class="field"><label class="label" for="${p}-weeks">How long</label>
-        <select id="${p}-weeks">${opts([[0,'Not sure yet'],[1,'1 week'],[2,'2 weeks'],[3,'3 weeks'],[4,'4 weeks'],[5,'5 weeks'],[6,'6 weeks'],[8,'8 weeks'],[12,'12 weeks']], w.weeks||0)}</select></div>
+        <select id="${p}-weeks">${opts([[0,'Not sure yet'], ...SHORT_WHEN_OPTS, [1,'1 week'],[2,'2 weeks'],[3,'3 weeks'],[4,'4 weeks'],[5,'5 weeks'],[6,'6 weeks'],[8,'8 weeks'],[12,'12 weeks']], w.weeks||0)}</select></div>
     </div>`;
 }
 /* the two click handlers the block needs live with the rest of App, further down: this runs
@@ -1355,10 +1371,13 @@ function readWhenFields(p){
   return {startDate:'', endDate:'', when};
 }
 function money(n){ return (n<0?'-':'') + '£' + Math.abs(n).toFixed(2); }
+/* a trip fades and drops to the bottom of Your Trips two weeks after it ends, not a month:
+   long enough that you're not still looking at a trip you're mid-recap on, short enough that
+   the list doesn't stay cluttered with old trips */
 function isArchived(t){
   if(!t.endDate) return false;
   const cut = new Date(t.endDate + 'T00:00:00');
-  cut.setMonth(cut.getMonth()+1);
+  cut.setDate(cut.getDate()+14);
   return new Date() > cut;
 }
 function getTrip(id){ return DB.trips.find(t=>t.id===id); }
@@ -1413,8 +1432,9 @@ function tripStatus(t){
   return {label:'Dates TBC', cls:''};
 }
 function statusPill(t){ const s = tripStatus(t); return `<span class="status-pill ${s.cls}">${esc(s.label)}</span>`; }
-/* anyone with the link can edit; only archived trips are locked */
-function readOnly(t){ return isArchived(t); }
+/* anyone with the link can edit, archived trips included: archived is a visual/sort state
+   (faded, bottom of the list), not a lock */
+function readOnly(t){ return false; }
 function fileSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.round(b/1024)+' KB'; }
 
 /* ================= countries ================= */
@@ -2578,15 +2598,18 @@ App.changeIdentity = () => {
 };
 
 /* ================= home (trip list) ================= */
-/* who's coming, trimmed so a big group can't push a card out of shape */
-function peopleSummary(t, empty){
+/* who's coming, trimmed so a big group can't push a card out of shape. limit defaults to 3
+   (tight spots like the Edit Trip tile's one-line summary); the trip card itself passes a
+   higher one, since it has the room to actually list a bigger group. */
+function peopleSummary(t, empty, limit){
+  limit = limit || 3;
   const people = t.participants||[];
   if(!people.length) return empty || '';
-  if(people.length <= 3) return people.join(', ');
-  return `${people.slice(0,2).join(', ')} +${people.length-2} more`;
+  if(people.length <= limit) return people.join(', ');
+  return `${people.slice(0,limit-1).join(', ')} +${people.length-(limit-1)} more`;
 }
 function tripCardHTML(t){
-  const people = peopleSummary(t);
+  const people = peopleSummary(t, '', 8);
   return `
     <div class="trip-card ${isArchived(t)?'archived':''}" role="button" tabindex="0"
          onclick="location.hash='#/trip/${t.id}'"
@@ -2595,7 +2618,7 @@ function tripCardHTML(t){
       <h3>${esc(t.name)}</h3>
       ${t.destination?`<div class="muted">${esc(t.destination)}</div>`:''}
       <div class="small" style="margin-top:8px">${esc(tripWhenLine(t))}</div>
-      ${people?`<div class="small muted trip-people">${fa('user')}${esc(people)}</div>`:''}
+      ${people?`<div class="small muted trip-people">${fa('user')}<span class="trip-people-names">${esc(people)}</span></div>`:''}
       <div style="margin-top:12px">${statusPill(t)}</div>
     </div>`;
 }
@@ -2608,17 +2631,16 @@ function homeGridHTML(trips, loading){
       <button class="btn primary" onclick="App.newTrip()">Create Your First Trip</button>
     </div>`;
   }
-  /* The next trip first: what's soonest is what you're actually thinking about. Trips still
-     to come lead, in the order they'll happen, then ones that have been and gone with the
-     most recent of those first, then the archive. A trip with only a rough idea of when
-     sorts by that, so "Summer 2027" sits where it belongs rather than at one end. */
-  const today = todayStr();
-  const isPast = t => t.endDate && t.endDate < today;
+  /* Everything not yet archived sits in one chronological line, soonest date first - that
+     puts trips still to come first, in the order they'll happen, and a trip that just ended
+     right at the top of what's left (its date is the most recent one in the past), so it
+     doesn't drop out of sight the moment it's over. Only once a trip's been over for two
+     weeks (isArchived) does it fall out of this line entirely, to the very bottom, faded,
+     oldest-ended first. A trip with only a rough idea of when sorts by that, so "Summer 2027"
+     sits where it belongs rather than at one end. */
   const soonestFirst = (a,b) => (tripSortDate(a)||'9999').localeCompare(tripSortDate(b)||'9999');
   const latestFirst  = (a,b) => (tripSortDate(b)||'').localeCompare(tripSortDate(a)||'');
-  const live = trips.filter(t=>!isArchived(t));
-  const ordered = live.filter(t=>!isPast(t)).sort(soonestFirst)
-    .concat(live.filter(isPast).sort(latestFirst))
+  const ordered = trips.filter(t=>!isArchived(t)).sort(soonestFirst)
     .concat(trips.filter(isArchived).sort(latestFirst));
   return `<div class="trip-grid">${ordered.map(tripCardHTML).join('')}</div>`;
 }
@@ -2905,15 +2927,13 @@ const TABS = [
 ];
 function renderTrip(t){
   const ro = readOnly(t);
-  const arch = isArchived(t);
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
   renderSidebar(t);
   const phrase = statusPhrase(t);
   const upcoming = CUR_TAB==='home' ? upcomingStartDate(t) : null;
   $('#app').innerHTML = `
-    ${arch?bannerHTML('🗄 This trip ended over a month ago and is now archived and read-only.'):''}
     ${CUR_TAB==='home' ? `
-    <div class="page-head" style="${arch?'padding-top:4px;':''}margin-bottom:22px">
+    <div class="page-head" style="margin-bottom:22px">
       <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
       <p class="muted trip-meta">
         <span><span class="meta-emoji" aria-hidden="true">📅</span><span class="meta-text">${esc(tripWhenLine(t))}</span></span>
