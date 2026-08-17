@@ -175,6 +175,53 @@ a{color:var(--brand-dark);}
 .game-meta{overflow-wrap:anywhere;}
 .game-hide-btn{flex-shrink:0; align-self:center;}
 
+/* ---------- sub-tabs (Games: PlayStation / Board Games) ---------- */
+.subtabs{display:flex; gap:8px; margin-bottom:18px;}
+.subtab{
+  flex:1; font:inherit; font-weight:700; font-size:.82rem; padding:9px 10px; cursor:pointer;
+  border:1px solid var(--line-strong); border-radius:999px; background:var(--paper); color:var(--muted);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.subtab.on{background:var(--brand); border-color:var(--brand); color:#fff;}
+
+/* ---------- board games ---------- */
+/* the category chips scroll sideways rather than wrapping into three rows of shelf labels */
+.bg-chips{display:flex; gap:7px; overflow-x:auto; padding-bottom:10px; margin-bottom:4px; -webkit-overflow-scrolling:touch;}
+.bg-chips::-webkit-scrollbar{display:none;}
+.bg-chip{
+  display:inline-flex; align-items:center; gap:5px; flex-shrink:0; font:inherit;
+  font-weight:700; font-size:.76rem; padding:7px 12px; cursor:pointer; white-space:nowrap;
+  border:1px solid var(--line-strong); border-radius:999px; background:var(--paper); color:var(--ink);
+}
+.bg-chip.on{background:var(--brand); border-color:var(--brand); color:#fff;}
+.bg-chip-emoji{font-size:.9rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.bg-selects{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:18px;}
+.bg-sel{display:block; min-width:0;}
+.bg-sel .label{margin-bottom:3px;}
+.bg-sel select{width:100%; font-size:.82rem; padding:8px 6px;}
+.bg-list{display:flex; flex-direction:column; gap:12px;}
+/* the fixed search sits over the foot of the page, same as Places and PlayStation */
+#bg-grid{padding-bottom:44px;}
+.bg-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
+  box-shadow:var(--shadow); padding:14px;}
+.bg-marked{border-color:var(--brand);}
+.bg-top{display:flex; gap:12px; align-items:flex-start;}
+.bg-cover{width:64px; height:64px; flex-shrink:0; border-radius:var(--radius-sm); object-fit:cover;
+  border:1px solid var(--line); background:var(--bg);}
+.bg-cover-fallback{display:inline-flex; align-items:center; justify-content:center; font-size:1.7rem;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.bg-info{min-width:0; flex:1;}
+.bg-name{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
+.bg-facts{margin-top:2px;}
+.bg-tags{display:flex; flex-wrap:wrap; gap:5px; margin-top:7px;}
+.bg-tag{display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:700;
+  padding:3px 8px; border-radius:999px; background:var(--brand-tint); color:var(--brand-dark);}
+.bg-desc{margin-top:10px; color:var(--ink); opacity:.75;}
+.bg-actions{margin-top:12px; flex-wrap:nowrap;}
+.bg-mark{flex:1; min-width:0; gap:5px;}
+.bg-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
+
 /* ---------- design (UX news feed) ---------- */
 .design-list{display:flex; flex-direction:column; gap:10px;}
 .design-card{display:block; text-decoration:none; transition:transform .1s, box-shadow .1s, border-color .1s;}
@@ -752,8 +799,13 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.61.0';
+const APP_VERSION = '1.62.0';
 const CHANGELOG = [
+  {version:'1.62.0', notes:[
+    'Games is now split into PlayStation and Board Games. Board Games browses BoardGameGeek\'s top games (or anything you search), with emoji chips for the sort of game it is, and filters for players, playtime and complexity.',
+    'The players filter answers "will this work for six of us", so it keeps a game that plays 2-8 and drops one that plays 2-4, rather than matching on the maximum.',
+    'Mark a board game ⭐ Want to Play or ✅ Played from its card, and filter down to either shelf.'
+  ]},
   {version:'1.61.0', notes:[
     'Accommodation cards now look like flight cards: the name sits in a title bar at the top with the time you can get in ("From 15:00") or have to be out ("Until 11:00") to its right. On the Itinerary the label above them just says "Accommodation" now, since the card itself says which end of the stay it is.',
     'Dropped the location pin from accommodation and stop cards, and added a 🔗 button next to Open Map that copies the address.',
@@ -2472,10 +2524,19 @@ async function psnApi(path){
   if(!res.ok) throw new Error('Could not reach PlayStation (status '+res.status+')');
   return res.json();
 }
+/* Games holds two unrelated collections - what you're playing on the PlayStation, and board
+   games you might get to the table - so it splits into sub-tabs rather than one mixed list. */
+let CUR_GAMES_TAB = 'psn';
 function renderGames(){
+  const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
+    <div class="subtabs">${tab('psn','🎮 PlayStation')}${tab('board','🎲 Board Games')}</div>
     <div id="games-body"></div>`;
+  if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
+  renderPsnGames();
+}
+function renderPsnGames(){
   const body = $('#games-body');
   if(!psnConfigured()){
     body.innerHTML = `<div class="empty">No PlayStation proxy is set up yet.<br>Deploy the one in
@@ -2584,6 +2645,171 @@ function psnToggleHiddenImpl(id){
   if(hidden.has(id)) hidden.delete(id); else hidden.add(id);
   savePsnHidden(hidden);
   drawGamesList();
+}
+
+/* ================= Board games (BoardGameGeek) =================
+   Same proxy as Games and Design, for the same reason: BGG serves XML with no CORS headers
+   (see psn-proxy/worker.js's /board-games endpoint, which does the parsing and the caching).
+   No login - the list is the same for everyone - so what's yours is just which games you've
+   marked, and that stays on this device the way the PSN connection does. */
+const BG_MARKS_KEY = 'calstrippin_boardgames';
+let BG_GAMES = [];          // the last fetch, held so the filters re-run without refetching
+let BG_FILTER = {cat:'all', players:0, time:0, weight:0};
+let BG_SEARCH_TIMER = null;
+function bgMarks(){ try{ return JSON.parse(localStorage.getItem(BG_MARKS_KEY)||'{}'); }catch(e){ return {}; } }
+function saveBgMarks(m){ try{ localStorage.setItem(BG_MARKS_KEY, JSON.stringify(m)); }catch(e){} }
+function bgMarkOf(id){ return bgMarks()[id] || ''; }
+
+/* BGG has hundreds of categories and mechanics; these are the handful of shelves people
+   actually choose between, each matched off the categories/mechanics/complexity BGG returns.
+   They live here rather than in the worker so a bucket can be retuned without a redeploy. */
+const BG_CATS = [
+  {k:'coop',     emoji:'🤝', label:'Co-op',    test:g => g.mechanics.some(m=>/cooperative/i.test(m))},
+  {k:'party',    emoji:'🎉', label:'Party',    test:g => g.categories.some(c=>/party game|humor/i.test(c))},
+  {k:'strategy', emoji:'🧠', label:'Strategy', test:g => (g.weight||0) >= 3
+                                                  || g.categories.some(c=>/abstract strategy|economic|civilization|territory building/i.test(c))},
+  {k:'family',   emoji:'🧸', label:'Family',   test:g => (g.weight||5) < 2
+                                                  || g.categories.some(c=>/children|educational/i.test(c))},
+  {k:'cards',    emoji:'🃏', label:'Cards',    test:g => g.categories.some(c=>/card game/i.test(c))},
+  {k:'mystery',  emoji:'🕵️', label:'Mystery',  test:g => g.categories.some(c=>/deduction|murder|spies/i.test(c))},
+  {k:'fighting', emoji:'⚔️', label:'Fighting', test:g => g.categories.some(c=>/wargame|fighting|miniatures/i.test(c))},
+  {k:'words',    emoji:'🔤', label:'Words',    test:g => g.categories.some(c=>/word game|trivia/i.test(c))},
+];
+/* the two that aren't categories at all: your own shelf */
+const BG_MARK_FILTERS = [
+  {k:'want',   emoji:'⭐', label:'Want to Play'},
+  {k:'played', emoji:'✅', label:'Played'},
+];
+function bgCatsOf(g){ return BG_CATS.filter(c => c.test(g)); }
+function bgPlayersLabel(g){
+  if(!g.minPlayers && !g.maxPlayers) return '';
+  if(!g.maxPlayers || g.minPlayers===g.maxPlayers) return `${g.minPlayers||g.maxPlayers} players`;
+  return `${g.minPlayers||1}-${g.maxPlayers} players`;
+}
+function bgTimeLabel(g){
+  const lo = g.minTime, hi = g.maxTime || g.playTime;
+  if(!lo && !hi) return '';
+  if(!lo || lo===hi) return `${hi} min`;
+  return `${lo}-${hi} min`;
+}
+const bgWeightLabel = w => !w ? '' : w < 2 ? 'Light' : w < 3 ? 'Medium-light' : w < 4 ? 'Medium-heavy' : 'Heavy';
+
+function renderBoardGames(){
+  const body = $('#games-body'); if(!body) return;
+  if(!psnConfigured()){
+    body.innerHTML = `<div class="empty">No proxy is set up yet.<br>Deploy the one in
+      <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
+      <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
+    return;
+  }
+  body.innerHTML = `
+    <div id="bg-filters"></div>
+    <div id="bg-grid"><div class="empty">Loading board games…</div></div>
+    <div class="games-search">
+      <input type="text" id="bg-search" placeholder="Search board games…" oninput="App.bgSearchInput()">
+    </div>`;
+  drawBgFilters();
+  loadBoardGames('');
+}
+/* one network call per distinct search; every filter after that works on the held list */
+function loadBoardGames(q){
+  const grid = $('#bg-grid'); if(!grid) return;
+  grid.innerHTML = `<div class="empty">Loading board games…</div>`;
+  fetch(psnUrl('/board-games') + (q ? '?q='+encodeURIComponent(q) : ''))
+    .then(r => { if(!r.ok) throw new Error('status '+r.status); return r.json(); })
+    .then(data => {
+      if(CUR_GAMES_TAB!=='board' || !$('#bg-grid')) return;   // moved on while it was in flight
+      BG_GAMES = data.games||[];
+      drawBgGrid();
+    })
+    .catch(e => {
+      if(CUR_GAMES_TAB!=='board' || !$('#bg-grid')) return;
+      $('#bg-grid').innerHTML = `<div class="empty">Couldn't load board games.<br>${esc(e.message||'')}
+        <div class="btn-row" style="justify-content:center; margin-top:14px">
+          <button class="btn sm" onclick="App.bgReload()">Try Again</button>
+        </div></div>`;
+    });
+}
+function drawBgFilters(){
+  const el = $('#bg-filters'); if(!el) return;
+  const chip = (k, emoji, label) => `
+    <button class="bg-chip${BG_FILTER.cat===k?' on':''}" onclick="App.bgCat('${k}')">
+      <span class="bg-chip-emoji" aria-hidden="true">${emoji}</span>${esc(label)}</button>`;
+  const sel = (id, value, label, opts) => `
+    <label class="bg-sel"><span class="label">${esc(label)}</span>
+      <select onchange="App.bgFilter('${id}', this.value)">
+        ${opts.map(o=>`<option value="${o[0]}"${String(value)===String(o[0])?' selected':''}>${esc(o[1])}</option>`).join('')}
+      </select></label>`;
+  el.innerHTML = `
+    <div class="bg-chips">
+      ${chip('all','🎲','All')}
+      ${BG_MARK_FILTERS.map(m=>chip(m.k, m.emoji, m.label)).join('')}
+      ${BG_CATS.map(c=>chip(c.k, c.emoji, c.label)).join('')}
+    </div>
+    <div class="bg-selects">
+      ${sel('players', BG_FILTER.players, 'Players', [[0,'Any'],[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6'],[7,'7'],[8,'8+']])}
+      ${sel('time', BG_FILTER.time, 'Playtime', [[0,'Any'],[30,'Under 30 min'],[60,'Under 1 hour'],[120,'Under 2 hours'],[121,'2 hours +']])}
+      ${sel('weight', BG_FILTER.weight, 'Complexity', [[0,'Any'],[2,'Light'],[3,'Medium'],[4,'Heavy']])}
+    </div>`;
+}
+function bgMatches(g){
+  const f = BG_FILTER;
+  if(f.cat!=='all'){
+    if(f.cat==='want' || f.cat==='played'){ if(bgMarkOf(g.id)!==f.cat) return false; }
+    else{ const c = BG_CATS.find(x=>x.k===f.cat); if(c && !c.test(g)) return false; }
+  }
+  /* "plays 6" means a group of 6 fits between the game's two ends, not that 6 is its maximum */
+  if(f.players){
+    const lo = g.minPlayers||1, hi = g.maxPlayers||99, want = +f.players;
+    if(want===8 ? hi < 8 : (want < lo || want > hi)) return false;
+  }
+  if(f.time){
+    const t = g.maxTime || g.playTime || g.minTime || 0;
+    if(+f.time===121 ? t <= 120 : !(t && t <= +f.time)) return false;
+  }
+  if(f.weight){
+    const w = g.weight||0;
+    if(+f.weight===2 ? !(w && w < 2) : +f.weight===3 ? !(w >= 2 && w < 3.5) : !(w >= 3.5)) return false;
+  }
+  return true;
+}
+function drawBgGrid(){
+  const grid = $('#bg-grid'); if(!grid) return;
+  const list = BG_GAMES.filter(bgMatches);
+  if(!list.length){
+    grid.innerHTML = `<div class="empty">${BG_GAMES.length
+      ? 'No board games match those filters.' : 'No board games found.'}</div>`;
+    return;
+  }
+  grid.innerHTML = `<div class="bg-list">${list.map(bgCardHTML).join('')}</div>`;
+}
+function bgCardHTML(g){
+  const mark = bgMarkOf(g.id);
+  const tags = bgCatsOf(g).slice(0,3)
+    .map(c=>`<span class="bg-tag"><span aria-hidden="true">${c.emoji}</span>${esc(c.label)}</span>`).join('');
+  const facts = [bgPlayersLabel(g), bgTimeLabel(g), bgWeightLabel(g.weight)].filter(Boolean).join(' · ');
+  const markBtn = (k, emoji, label) => `
+    <button type="button" class="btn sm bg-mark${mark===k?' on':''}"
+      onclick="App.bgMark('${esc(g.id)}','${k}')" aria-pressed="${mark===k}">
+      <span aria-hidden="true">${emoji}</span>${esc(label)}</button>`;
+  return `
+    <div class="bg-card${mark?' bg-marked':''}">
+      <div class="bg-top">
+        ${g.thumb ? `<img class="bg-cover" src="${esc(g.thumb)}" alt="" loading="lazy">`
+                  : `<span class="bg-cover bg-cover-fallback" aria-hidden="true">🎲</span>`}
+        <div class="bg-info">
+          <div class="bg-name">${esc(g.name)}${g.year?` <span class="muted">(${g.year})</span>`:''}</div>
+          ${facts?`<div class="bg-facts muted small">${esc(facts)}</div>`:''}
+          ${g.rating?`<div class="bg-facts muted small">★ ${g.rating.toFixed(1)} on BoardGameGeek</div>`:''}
+          ${tags?`<div class="bg-tags">${tags}</div>`:''}
+        </div>
+      </div>
+      ${g.description?`<p class="small bg-desc">${esc(g.description)}</p>`:''}
+      <div class="btn-row bg-actions">
+        ${markBtn('want','⭐','Want to Play')}
+        ${markBtn('played','✅','Played')}
+      </div>
+    </div>`;
 }
 
 /* ================= Design (UX news feed) =================
@@ -2743,6 +2969,21 @@ App.toggleChangelog = () => {
 App.goPlaces = view => { location.hash = view ? '#/places/'+view : ''; };
 App.goGames = () => { location.hash = '#/games'; };
 App.goDesign = () => { location.hash = '#/design'; };
+App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
+App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
+App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
+App.bgReload = () => loadBoardGames((($('#bg-search')||{}).value||'').trim());
+/* each search is a real BGG call, so wait for a pause in typing rather than firing per key */
+App.bgSearchInput = () => {
+  clearTimeout(BG_SEARCH_TIMER);
+  BG_SEARCH_TIMER = setTimeout(App.bgReload, 400);
+};
+App.bgMark = (id, k) => {
+  const marks = bgMarks();
+  if(marks[id]===k) delete marks[id]; else marks[id] = k;   // tapping the same one again clears it
+  saveBgMarks(marks);
+  drawBgGrid();
+};
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
   /* 'none' is stored rather than deleted: it's the difference between "never said" and

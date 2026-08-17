@@ -1,5 +1,9 @@
 # Proxy (for the Games and Design tabs)
 
+> Three endpoints live here, all for the same reason: a browser can't make these calls itself.
+> `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design tab's RSS,
+> and `/board-games` for BoardGameGeek. Deploying this once turns all of them on.
+
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
 `Cookie` header to Sony that `fetch()` refuses to set cross-origin, and Sony's trophy API
@@ -58,3 +62,9 @@ If Design's feed looks thin, one of the publications in `worker.js`'s `DESIGN_FE
 likely moved or renamed its RSS URL - each feed is fetched independently, so the rest still
 come through, but check the publication's site for its current feed link and update that one
 entry.
+
+Board Games talks to [BoardGameGeek's XML API](https://boardgamegeek.com/wiki/page/BGG_XML_API2),
+which rate limits and will start returning errors if it's hammered; `/board-games` caches for
+six hours (an hour for searches) to stay well clear of that. BGG is also the reason the parsing
+in `worker.js` looks the way it does: Workers have no `DOMParser`, and BGG double-escapes its
+descriptions, so those get decoded twice where the RSS feeds are decoded once.
