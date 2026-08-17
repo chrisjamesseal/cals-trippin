@@ -5,70 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>My Trips</title>
 <meta name="description" content="One place for your group trip: flights, money, plans and photos.">
-<meta name="theme-color" content="#102A43">
+<meta name="theme-color" content="#9C3D22">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTUiIGZpbGw9IiMxMDJBNDMiLz4KPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTYgMTEzLjc3OCkgc2NhbGUoMC41NTU1NTYpIj4KPHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTM4NCA0NzYuMUwxOTIgNDIxLjJsMC0zODUuM0wzODQgOTAuOGwwIDM4NS4zem0zMi0xLjJsMC0zODYuNUw1NDMuMSAzNy41YzE1LjgtNi4zIDMyLjkgNS4zIDMyLjkgMjIuM2wwIDMzNC44YzAgOS44LTYgMTguNi0xNS4xIDIyLjNMNDE2IDQ3NC44ek0xNS4xIDk1LjFMMTYwIDM3LjJsMCAzODYuNUwzMi45IDQ3NC41QzE3LjEgNDgwLjggMCA0NjkuMiAwIDQ1Mi4yTDAgMTE3LjRjMC05LjggNi0xOC42IDE1LjEtMjIuM3oiLz4KPC9nPgo8L3N2Zz4K">
 <link rel="apple-touch-icon" href="data:image/png;base64,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">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<script>
-/* applied before the stylesheet below paints, so switching styles (Design tab) never flashes
-   the previous look on reload */
-document.documentElement.dataset.theme = localStorage.getItem('calstrippin_theme') || 'signature';
-</script>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 :root{
-  --brand:#0E8577; --brand-dark:#0A655B; --brand-tint:#E4F2EF; --brand-ghost:#F2F8F7;
-  --accent:#FF7052; --accent-dark:#E8593B; --accent-tint:#FFEDE7;
-  --ink:#14282F; --body-c:#33484F; --muted:#697D83;
-  --line:#E3E9E9; --line-strong:#C9D5D5;
-  --paper:#fff; --bg:#F6F8F7;
-  --radius:14px; --radius-sm:10px;
-  --page-top:12px; /* the gap above every page title, on top of .wrap's own top padding */
-  --shadow:0 1px 2px rgba(20,40,47,.05), 0 4px 16px rgba(20,40,47,.06);
-  --shadow-lift:0 10px 28px rgba(20,40,47,.14);
-  --font-body:"Figtree",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  --font-head:var(--font-body);
-}
-/* Design tab > Styles: alternate looks, swapped live via a data-theme attribute on <html> and
-   remembered in localStorage. Each overrides only the tokens above - every card, button and
-   layout rule already reads through var(--x), so a whole new look is just a new value set. */
-html[data-theme="boarding"]{
-  --brand:#0B3C5D; --brand-dark:#082C44; --brand-tint:#E3EDF3; --brand-ghost:#F1F6F9;
-  --accent:#E8A33D; --accent-dark:#C8842A; --accent-tint:#FBEDD6;
-  --ink:#152238; --body-c:#3B4A5E; --muted:#748094;
-  --line:#DCE3EA; --line-strong:#B9C5D1;
-  --paper:#FFFDF8; --bg:#F3F1EA;
-  --radius:6px; --radius-sm:4px;
-  --shadow:0 1px 2px rgba(11,34,56,.06), 0 4px 14px rgba(11,34,56,.05);
-  --shadow-lift:0 10px 24px rgba(11,34,56,.16);
-  --font-head:"Space Grotesk",-apple-system,sans-serif;
-}
-html[data-theme="postcard"]{
   --brand:#C1502E; --brand-dark:#9C3D22; --brand-tint:#F7E4DA; --brand-ghost:#FCF1EB;
   --accent:#7A4069; --accent-dark:#5E2F50; --accent-tint:#F0E1EC;
   --ink:#3A281F; --body-c:#5C463A; --muted:#8C7568;
   --line:#EDE0D3; --line-strong:#D9C4AE;
   --paper:#FFFBF6; --bg:#FBF2E8;
   --radius:22px; --radius-sm:16px;
+  --page-top:12px; /* the gap above every page title, on top of .wrap's own top padding */
   --shadow:0 2px 4px rgba(58,40,31,.06), 0 10px 26px rgba(58,40,31,.09);
   --shadow-lift:0 14px 32px rgba(58,40,31,.2);
+  --font-body:"Figtree",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --font-head:"Fraunces",Georgia,serif;
-}
-html[data-theme="fieldnotes"]{
-  --brand:#3E5C43; --brand-dark:#2C4531; --brand-tint:#E1E9E0; --brand-ghost:#F0F4EE;
-  --accent:#C98A2E; --accent-dark:#A66F1F; --accent-tint:#F3E4CB;
-  --ink:#232821; --body-c:#454E43; --muted:#7A8177;
-  --line:#DCE2D7; --line-strong:#BDC7B7;
-  --paper:#FCFBF7; --bg:#F1EFE7;
-  --radius:8px; --radius-sm:6px;
-  --shadow:none;
-  --shadow-lift:0 6px 18px rgba(35,40,33,.14);
-  --font-head:"IBM Plex Mono","Courier New",monospace;
 }
 *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
 html{font-size:16px;}
@@ -219,21 +178,6 @@ a{color:var(--brand-dark);}
 .design-meta{text-transform:uppercase; letter-spacing:.04em; font-size:.68rem; font-weight:700;}
 .design-title{margin:4px 0 0; color:var(--ink);}
 .design-summary{margin-top:6px; color:var(--ink); opacity:.8;}
-.styles-card{margin-bottom:8px;}
-.design-news-heading{margin:26px 0 12px;}
-.theme-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-.theme-swatch{
-  display:flex; flex-direction:column; gap:7px; text-align:left; font:inherit;
-  border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--paper);
-  padding:12px; cursor:pointer; transition:box-shadow .1s, border-color .1s, transform .1s;
-}
-.theme-swatch:hover{transform:translateY(-1px); box-shadow:var(--shadow-lift);}
-.theme-swatch.on{border-color:var(--brand); box-shadow:0 0 0 2px var(--brand);}
-.theme-dots{display:flex; gap:4px;}
-.theme-dots .dot{width:14px; height:14px; border-radius:50%; border:1px solid rgba(0,0,0,.1); flex-shrink:0;}
-.theme-name{font-weight:700; color:var(--ink); font-size:.92rem; display:flex; align-items:center; gap:6px;}
-.theme-name i{color:var(--brand); font-size:.82rem;}
-.theme-blurb{line-height:1.35;}
 
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
@@ -794,8 +738,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.58.0';
+const APP_VERSION = '1.59.0';
 const CHANGELOG = [
+  {version:'1.59.0', notes:[
+    'The brief App Style picker on Design is gone - Sunset Postcard (terracotta and plum, warm serif headings, soft rounded corners) is now just the app\'s look, no switching needed.'
+  ]},
   {version:'1.58.0', notes:[
     'Design: added an App Style picker - four full alternate looks (Signature, Boarding Pass, Sunset Postcard, Field Notes) with their own colours, corners and typeface, switchable with one tap and remembered on your device.'
   ]},
@@ -2590,42 +2537,10 @@ function psnToggleHiddenImpl(id){
    most feeds don't send the CORS headers a browser needs to read them directly, so this goes
    through the worker the same reason Games does). No login, nothing device-specific: just a
    GET, so there's no connect step here, straight to the list. */
-const LS_THEME_KEY = 'calstrippin_theme';
-const THEMES = [
-  {id:'signature', name:'Signature', blurb:'Teal & coral, soft rounded corners - the original look.', brand:'#0E8577', accent:'#FF7052', paper:'#FFFFFF'},
-  {id:'boarding', name:'Boarding Pass', blurb:'Navy & amber, sharp corners, ticket-stub energy.', brand:'#0B3C5D', accent:'#E8A33D', paper:'#FFFDF8'},
-  {id:'postcard', name:'Sunset Postcard', blurb:'Terracotta & plum, warm serif, travel-poster feel.', brand:'#C1502E', accent:'#7A4069', paper:'#FFFBF6'},
-  {id:'fieldnotes', name:'Field Notes', blurb:'Forest green, typewriter mono, flat notebook pages.', brand:'#3E5C43', accent:'#C98A2E', paper:'#FCFBF7'},
-];
-function curTheme(){ return localStorage.getItem(LS_THEME_KEY) || 'signature'; }
-function themeSwatchHTML(th, cur){
-  const on = th.id === cur;
-  return `
-    <button type="button" class="theme-swatch${on?' on':''}" onclick="App.setTheme('${th.id}')">
-      <span class="theme-dots">
-        <span class="dot" style="background:${th.brand}"></span>
-        <span class="dot" style="background:${th.accent}"></span>
-        <span class="dot" style="background:${th.paper}"></span>
-      </span>
-      <span class="theme-name">${esc(th.name)}${on?' <i class="fa-solid fa-circle-check"></i>':''}</span>
-      <span class="small muted theme-blurb">${esc(th.blurb)}</span>
-    </button>`;
-}
-function drawThemePicker(){
-  const el = $('#theme-picker'); if(!el) return;
-  el.innerHTML = THEMES.map(th => themeSwatchHTML(th, curTheme())).join('');
-}
 function renderDesign(){
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Design</span></div></div>
-    <div class="card styles-card">
-      <h2>App Style</h2>
-      <p class="small muted" style="margin-bottom:14px">Preview a different look for the whole app - applies everywhere, right away.</p>
-      <div class="theme-grid" id="theme-picker"></div>
-    </div>
-    <h2 class="design-news-heading">Reading</h2>
     <div id="design-body"></div>`;
-  drawThemePicker();
   const body = $('#design-body');
   if(!DESIGN_NEWS_URL){
     body.innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
@@ -2773,11 +2688,6 @@ App.toggleChangelog = () => {
 App.goPlaces = view => { location.hash = view ? '#/places/'+view : ''; };
 App.goGames = () => { location.hash = '#/games'; };
 App.goDesign = () => { location.hash = '#/design'; };
-App.setTheme = (id) => {
-  document.documentElement.dataset.theme = id;
-  localStorage.setItem(LS_THEME_KEY, id);
-  drawThemePicker();
-};
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
   /* 'none' is stored rather than deleted: it's the difference between "never said" and
