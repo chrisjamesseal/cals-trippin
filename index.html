@@ -799,8 +799,15 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.62.0';
+const APP_VERSION = '1.63.0';
 const CHANGELOG = [
+  {version:'1.63.0', notes:[
+    'Places I\'ve Been is one continuous numbered list now: countries on a booked trip sit at the top with their own number, still faded, instead of under a separate "Coming Up" heading.',
+    'Want to Go is now ❤️ rather than a star.',
+    'Accommodation on the Itinerary shows a 🏠 and the time you\'d actually get there, and the card drops the address line - the copy button next to Open Map already has it.',
+    'Google Maps links show the Google Maps icon instead of a map emoji.',
+    'Fixed links opening in Safari and ALSO opening in the in-app browser behind them, so coming back to the app no longer finds the article sitting there.'
+  ]},
   {version:'1.62.0', notes:[
     'Games is now split into PlayStation and Board Games. Board Games browses BoardGameGeek\'s top games (or anything you search), with emoji chips for the sort of game it is, and filters for players, playtime and complexity.',
     'The players filter answers "will this work for six of us", so it keeps a game that plays 2-8 and drops one that plays 2-4, rather than matching on the maximum.',
@@ -2249,7 +2256,7 @@ function placesHubCardsHTML(){
     </a>`;
   return card('#/places/been', '📍', c.been, "Places I've Been")
        + card('#/trips', '✈️', goingCount(), 'Going')
-       + card('#/places/want', '⭐', c.want, 'Want to Go')
+       + card('#/places/want', '❤️', c.want, 'Want to Go')
        + card('#/places/finder', '🌍', c.all, 'Countries');
 }
 function renderPlacesHub(){
@@ -2333,7 +2340,7 @@ function placeCardHTML(co, tripStatus){
       ${act(`App.setPlaceStatus('${co.code}', ${status==='been'?"'none'":"'been'"})`)}>${fa('check')}</span>`;
   const starChip = `<span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0"
       aria-label="Want to Go" aria-pressed="${status==='want'}" title="Want to Go"
-      ${act(`App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})`)}>${fa('star')}</span>`;
+      ${act(`App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})`)}>${fa('heart')}</span>`;
   const wantSwitch = `<div class="want-switch" role="radiogroup" aria-label="${esc(co.name)}">
       <span class="want-opt ${status==='want'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='want'}"
             ${act(`App.setPlaceStatus('${co.code}','want')`)}>Want to Go</span>
@@ -2377,12 +2384,13 @@ function beenCardHTML(co, num){
       <span class="place-name-text">${esc(co.name)}</span>
     </div>`;
 }
-/* a country whose trip is booked but hasn't happened yet: a faded preview, nothing to tap -
-   it promotes itself to a real, numbered Been entry the day the trip's dates pass, same as
-   everywhere else Been is worked out */
-function beenUpcomingCardHTML(co){
+/* a country whose trip is booked but hasn't happened yet. It sits in the same numbered run as
+   everywhere you've actually been, just faded and with nothing to tap: it's the next number in
+   the sequence, and it becomes a real entry the day the trip's dates pass. */
+function beenUpcomingCardHTML(co, num){
   return `
     <div class="place-card been-card been-upcoming" data-code="${co.code}">
+      <span class="been-num" aria-hidden="true">#${num}</span>
       <span class="flag">${co.flag}</span>
       <span class="place-name-text">${esc(co.name)}</span>
     </div>`;
@@ -2444,13 +2452,13 @@ function drawPlacesGrid(){
       el.innerHTML = `<div class="empty">${q ? `No countries match "${esc(q)}"` : "Nowhere yet. Countries fill in here once a trip there has finished, or tick one off in Want to Go."}</div>`;
       return;
     }
-    /* Coming Up leads the page - it's what's about to change - with the numbered, most-recent-
-       first log of everywhere already Been underneath it. */
-    const upcomingHTML = upcoming.length ? `
-      <h3 class="places-continent-heading">Coming Up</h3>
-      <div class="places-grid dense">${upcoming.map(beenUpcomingCardHTML).join('')}</div>` : '';
-    const beenHTML = list.length ? `<div class="places-grid dense"${upcoming.length?' style="margin-top:22px"':''}>${list.map((co,i)=>beenCardHTML(co,i+1)).join('')}</div>` : '';
-    el.innerHTML = upcomingHTML + beenHTML;
+    /* one continuous numbered run rather than two sections: countries on a booked trip lead it
+       (they're the next ones to happen) and carry their number like the rest, they're just
+       faded until the trip's dates pass */
+    const cards = upcoming.map(co => ({co, upcoming:true})).concat(list.map(co => ({co, upcoming:false})));
+    el.innerHTML = `<div class="places-grid dense">${
+      cards.map((c,i) => c.upcoming ? beenUpcomingCardHTML(c.co, i+1) : beenCardHTML(c.co, i+1)).join('')
+    }</div>`;
     return;
   }
 
@@ -3341,14 +3349,20 @@ function iosStandalone(){
 App.openExternal = (ev, url) => {
   if(!iosStandalone()) return true;          // let the plain link do its job everywhere else
   ev.preventDefault();
-  const fallback = setTimeout(()=>window.open(url, '_blank', 'noopener'), 600);
+  /* window.open() in a home-screen app IS the in-app browser, so this fallback is only for the
+     case where x-safari- silently did nothing. It used to hold off only while document.hidden
+     was true, but iOS doesn't reliably set that when Safari takes over, so the page would hand
+     off to Safari AND open the in-app browser underneath - which is what you'd find waiting
+     when you came back. Any sign of the app backgrounding now cancels it. Cancelling when we
+     shouldn't have costs a link that does nothing; not cancelling costs the exact browser
+     we're here to avoid, so it errs towards cancelling. */
+  const fallback = setTimeout(()=>window.open(url, '_blank', 'noopener'), 900);
+  const events = ['visibilitychange','pagehide','blur'];
   const cancel = () => {
-    if(document.hidden){                     // Safari took over, so don't also open a tab
-      clearTimeout(fallback);
-      document.removeEventListener('visibilitychange', cancel);
-    }
+    clearTimeout(fallback);
+    events.forEach(e => window.removeEventListener(e, cancel));
   };
-  document.addEventListener('visibilitychange', cancel);
+  events.forEach(e => window.addEventListener(e, cancel, {once:false}));
   location.href = 'x-safari-' + url;
   return false;
 };
@@ -4639,11 +4653,13 @@ function tabPlan(t, ro){
       ${autoTag(secEmoji(s._autoCar==='pickup'?'🚗':'🅿️'), s._autoCar==='pickup'?'Car Hire Pick Up':'Car Hire Drop Off', s.time)}
       ${carStripHTML(s.c, s.ci, '')}
     </div>`;
-  /* the tag just names the thing ("Accommodation"); which end of the stay it is, and at what
-     time, is on the card's own head now ("From 15:00" / "Until 11:00") */
+  /* the tag names the thing and says when you'd get there: the arrival time if the booking has
+     one, otherwise the check-in/check-out time it's sorted by. Which end of the stay it is is
+     on the card's own head ("From 15:00" / "Until 11:00"). */
   const autoStayCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
-      ${autoTag(secEmoji(s._autoStay==='checkin'?'🔑':'👋'), 'Accommodation', '')}
+      ${autoTag(secEmoji(s._autoStay==='checkin'?'🏠':'👋'), 'Accommodation',
+                (s._autoStay==='checkin' && s.ac.arrivalTime) || s.time)}
       ${accomCardHTML(s.ac, {showDates:false, compact:true, phase:s._autoStay})}
     </div>`;
   const travelCard = s => {
@@ -4685,7 +4701,7 @@ function tabPlan(t, ro){
       ${s.location ? `<div class="small accom-addr" style="margin-bottom:10px">${esc(s.location)}</div>` : ''}
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
       ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px">
-        <a class="btn icon-only" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}')" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a>
+        <a class="btn icon-only" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}')" aria-label="Open Map" title="Open Map">${mapIcon(s.mapsUrl || mapsSearchUrl(t, s.location))}</a>
         ${s.location?`<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(s.location)}',this)" aria-label="Copy location" title="Copy location">${secEmoji('🔗')}</button>`:''}
       </div>` : ''}
     </div>`;
@@ -5145,6 +5161,12 @@ function faviconFor(url){
   catch(e){ return ''; }
 }
 function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
+/* a Google Maps link gets Google's own icon, the same way a booking link gets the site's;
+   anything else (a maps.apple.com or what3words link somebody pasted) keeps the emoji */
+function mapIcon(url){
+  return /(^|\.)google\.[^/]*\/maps|(^|\.)goo\.gl\/maps|(^|\.)maps\.app\.goo\.gl/i.test(url||'')
+    ? faviconFor('https://www.google.com/maps') : secEmoji('🗺️');
+}
 /* best-effort town/city out of a full address, drop a trailing postcode-looking segment,
    then take the last comma-separated part, e.g. "1 Rua X, Lisbon, 1000-001" -> "Lisbon" */
 function guessCityFromAddress(address){
@@ -5201,8 +5223,8 @@ function accomCardHTML(a, opts){
       ? `<a class="btn icon-only" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')" aria-label="View Booking" title="View Booking">${faviconFor(a.bookingUrl)}</a>`
       : `<a class="btn" style="flex:1.4;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')">${faviconFor(a.bookingUrl)}View Booking</a>`) : '';
   const mapBtn = a.address ? (opts.compact
-      ? `<a class="btn icon-only" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a>`
-      : `<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')">${secEmoji('🗺️')}Open Map</a>`) : '';
+      ? `<a class="btn icon-only" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')" aria-label="Open Map" title="Open Map">${mapIcon(googleMapsUrl(a.address))}</a>`
+      : `<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')">${mapIcon(googleMapsUrl(a.address))}Open Map</a>`) : '';
   const copyBtn = a.address ? (opts.compact
       ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)" aria-label="Copy address" title="Copy address">${secEmoji('🔗')}</button>`
       : `<button type="button" class="btn" style="flex:1;min-width:0" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)">${secEmoji('🔗')}Copy Address</button>`) : '';
@@ -5217,7 +5239,6 @@ function accomCardHTML(a, opts){
       </div>
       <div class="accom-body">
         ${opts.showDates!==false && stayRange ? `<div class="small" style="display:flex;align-items:center;gap:8px">${ICONS.calendar}<span>${esc(stayRange)}</span></div>` : ''}
-        ${a.address ? `<div class="small accom-addr">${esc(a.address)}</div>` : ''}
         ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
         ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">${bookingBtn}${mapBtn}${copyBtn}</div>`:''}
         ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
@@ -6167,7 +6188,7 @@ function tabMood(t, ro){
         ${m.title && !ro?(inItinerary
           ?`<button class="btn sm" style="width:100%" onclick="App.removeIdeaFromItinerary(${i})">Remove from Itinerary</button>`
           :`<button class="btn sm" style="width:100%" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}
-        ${mapsHref?`<a class="btn sm" style="width:100%" href="${esc(mapsHref)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(mapsHref)}')">${secEmoji('🗺️')}Open Map</a>`:''}
+        ${mapsHref?`<a class="btn sm" style="width:100%" href="${esc(mapsHref)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(mapsHref)}')">${mapIcon(mapsHref)}Open Map</a>`:''}
         ${!ro?`<button class="btn sm" style="width:100%" onclick="App.moodForm(${i})">${ICONS.edit}Edit Idea</button>`:''}
       </div>
     </div>`;
