@@ -1,4 +1,4 @@
-# PSN proxy (for the Games tab)
+# Proxy (for the Games and Design tabs)
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -10,6 +10,12 @@ real server in front of it - this folder is that server, as a [Cloudflare Worker
 It's a stateless relay: your NPSSO code and the tokens it becomes pass through it but aren't
 stored by it. Your login token itself only ever lives in your own browser's `localStorage`,
 never committed anywhere.
+
+The Design tab's `/design-news` endpoint lives in this same worker (see `worker.js`) rather
+than a separate deployment - most RSS feeds have the same CORS problem the PSN API does, and
+it's the same fix, so it didn't need its own Cloudflare project. It's public and identical for
+everyone (no login, no per-device state), and cached for 30 minutes so it isn't re-fetching
+five feeds on every page load. Deploying the worker below turns on both tabs at once.
 
 ## Deploy it
 
@@ -47,3 +53,8 @@ PlayStation App's OAuth client; if Connect starts failing where it used to work,
 project's `src/authenticate/exchangeAccessCodeForAuthTokens.ts` (the hardcoded Basic-auth
 header, base64-decoded) for current values before assuming your NPSSO code is bad. A "PlayStation
 rejected the token request (status 401)" error specifically points at a stale `CLIENT_SECRET`.
+
+If Design's feed looks thin, one of the publications in `worker.js`'s `DESIGN_FEEDS` list has
+likely moved or renamed its RSS URL - each feed is fetched independently, so the rest still
+come through, but check the publication's site for its current feed link and update that one
+entry.

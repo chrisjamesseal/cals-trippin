@@ -1,5 +1,13 @@
 /* ============================================================================================
-   PSN proxy for the Games tab in My Trips (../index.html)
+   PSN proxy for the Games tab in My Trips (../index.html) - also serves Design's news feed
+   ============================================================================================
+   This worker started out purely for the Games tab, but it's really just "the thing that
+   makes cross-origin calls the browser can't make itself", and the Design tab needs exactly
+   that for a different reason: most RSS feeds don't send the CORS headers a browser needs to
+   read them directly. Rather than stand up a second Cloudflare project (and walk through
+   connecting it to the repo all over again), Design's /design-news endpoint just lives here
+   too. Unlike the PSN endpoints below, it needs no login and returns the same public feed to
+   everyone, so it's cached for 30 minutes rather than fetched fresh every time.
    ============================================================================================
    PlayStation Network has no official public API. The widely-used reverse-engineered one
    (see https://github.com/achievements-app/psn-api, which this worker's request shapes are
@@ -121,8 +129,80 @@ async function fetchTitles(accessToken, search){
   return { titles };
 }
 
+/* ---------- Design news: a handful of well-known UX/design RSS feeds, merged ---------- */
+/* These are long-standing, well-known feed URLs, but nobody guarantees an RSS URL forever -
+   if one of these goes quiet, check the publication's own site for its current feed link and
+   update it here. A feed failing just means fewer articles that day, not a broken page: each
+   is fetched independently and the rest still come through (see fetchDesignNews). */
+const DESIGN_FEEDS = [
+  {name:'Smashing Magazine', url:'https://www.smashingmagazine.com/feed/'},
+  {name:'Nielsen Norman Group', url:'https://www.nngroup.com/feed/rss/'},
+  {name:'UX Collective', url:'https://uxdesign.cc/feed'},
+  {name:'A List Apart', url:'https://alistapart.com/main/feed/'},
+  {name:'UX Planet', url:'https://uxplanet.org/feed'},
+];
+const SUMMARY_MAX = 220;
+
+function extractTag(xml, tag){
+  const m = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i').exec(xml);
+  return m ? m[1] : '';
+}
+function stripCdata(s){
+  const m = /^\s*<!\[CDATA\[([\s\S]*)\]\]>\s*$/.exec(s);
+  return m ? m[1] : s;
+}
+function decodeEntities(s){
+  return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+    .replace(/&quot;/g,'"').replace(/&#0?39;/g,"'").replace(/&nbsp;/g,' ');
+}
+function stripHtml(s){
+  return s.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+}
+/* hand-rolled rather than a real XML parser: Workers have no DOMParser, and RSS/Atom's shape
+   is regular enough that pulling each <item>/<entry> block and reading a few known tags out
+   of it holds up fine in practice, without pulling in a dependency for it */
+function parseFeedItems(xml, sourceName){
+  const blocks = [];
+  const itemRe = /<item\b[^>]*>([\s\S]*?)<\/item>/gi;
+  const entryRe = /<entry\b[^>]*>([\s\S]*?)<\/entry>/gi;
+  let m;
+  while((m = itemRe.exec(xml))) blocks.push(m[1]);
+  if(!blocks.length) while((m = entryRe.exec(xml))) blocks.push(m[1]);
+
+  return blocks.map(block => {
+    const title = decodeEntities(stripHtml(stripCdata(extractTag(block,'title')))).trim();
+    let link = stripCdata(extractTag(block,'link')).trim();
+    if(!link || /^</.test(link)){
+      // Atom: <link href="..."/>, sometimes several (rel="self", rel="alternate"...) - the
+      // human-readable page is rel="alternate" when that's marked, otherwise just the first
+      const altM = /<link\b(?=[^>]*\brel=["']alternate["'])[^>]*\bhref=["']([^"']+)["']/i.exec(block)
+                || /<link\b[^>]*\bhref=["']([^"']+)["'](?=[^>]*\brel=["']alternate["'])/i.exec(block);
+      const anyM = /<link\b[^>]*\bhref=["']([^"']+)["']/i.exec(block);
+      link = (altM && altM[1]) || (anyM && anyM[1]) || '';
+    }
+    const pubRaw = extractTag(block,'pubDate') || extractTag(block,'updated') || extractTag(block,'published');
+    const date = pubRaw ? new Date(pubRaw) : null;
+    let summary = decodeEntities(stripHtml(stripCdata(
+      extractTag(block,'description') || extractTag(block,'summary') || extractTag(block,'content:encoded') || ''
+    )));
+    if(summary.length > SUMMARY_MAX) summary = summary.slice(0, SUMMARY_MAX - 1).trim() + '…';
+    return {title, link, source: sourceName, date: (date && !isNaN(date)) ? date.toISOString() : null, summary};
+  }).filter(a => a.title && a.link);
+}
+async function fetchDesignNews(){
+  const results = await Promise.allSettled(DESIGN_FEEDS.map(async f => {
+    const res = await fetch(f.url, {headers: {'User-Agent': 'Mozilla/5.0 (compatible; MyTripsDesignFeed/1.0)'}});
+    if(!res.ok) throw new Error('status ' + res.status);
+    return parseFeedItems(await res.text(), f.name);
+  }));
+  let articles = [];
+  results.forEach(r => { if(r.status === 'fulfilled') articles = articles.concat(r.value); });
+  articles.sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0));
+  return {articles: articles.slice(0, 40)};
+}
+
 export default {
-  async fetch(request, env){
+  async fetch(request, env, ctx){
     if(request.method === 'OPTIONS') return new Response(null, {headers: corsHeaders(env)});
     const url = new URL(request.url);
     try{
@@ -141,6 +221,18 @@ export default {
         const token = bearerFrom(request);
         if(!token) return json({error:'missing bearer token'}, 401, env);
         return json(await fetchTitles(token, url.searchParams), 200, env);
+      }
+      if(request.method === 'GET' && url.pathname === '/design-news'){
+        // public and identical for everyone, so it's cached rather than re-fetching and
+        // re-parsing five feeds on every page load
+        const cache = caches.default;
+        const cacheKey = new Request(url.toString(), request);
+        const cached = await cache.match(cacheKey);
+        if(cached) return cached;
+        const res = json(await fetchDesignNews(), 200, env);
+        res.headers.set('Cache-Control', 'public, max-age=1800');
+        ctx.waitUntil(cache.put(cacheKey, res.clone()));
+        return res;
       }
       return json({error:'not found'}, 404, env);
     }catch(e){

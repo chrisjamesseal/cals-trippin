@@ -165,6 +165,14 @@ a{color:var(--brand-dark);}
 .game-meta{overflow-wrap:anywhere;}
 .game-hide-btn{flex-shrink:0; align-self:center;}
 
+/* ---------- design (UX news feed) ---------- */
+.design-list{display:flex; flex-direction:column; gap:10px;}
+.design-card{display:block; text-decoration:none; transition:transform .1s, box-shadow .1s, border-color .1s;}
+.design-card:hover,.design-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
+.design-meta{text-transform:uppercase; letter-spacing:.04em; font-size:.68rem; font-weight:700;}
+.design-title{margin:4px 0 0; color:var(--ink);}
+.design-summary{margin-top:6px; color:var(--ink); opacity:.8;}
+
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
 .want-switch{display:flex; width:100%; border:1px solid var(--line-strong); border-radius:999px; overflow:hidden;}
@@ -699,6 +707,10 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
    an address, safe to commit; your PSN login itself is entered on-device later and stays in
    this browser's localStorage, never here. Leave blank and Games shows setup instructions. */
 const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
+/* Design news reuses the same deployed proxy as Games (see psn-proxy/worker.js's /design-news
+   endpoint) rather than needing a second one deployed - it's just a public RSS aggregator,
+   nothing PSN-specific about it, the worker just happens to live in that folder already. */
+const DESIGN_NEWS_URL = PSN_PROXY_URL;
 /* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
@@ -707,8 +719,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.55.0';
+const APP_VERSION = '1.56.0';
 const CHANGELOG = [
+  {version:'1.56.0', notes:[
+    'The bottom bar\'s Itinerary shortcut is now Design: a feed of recent UX/design articles from a handful of well-known publications, trimmed to short summaries. Itinerary itself hasn\'t gone anywhere, it\'s still on the Overview dashboard and in the trip menu, just not a bottom-bar shortcut any more.'
+  ]},
   {version:'1.55.0', notes:[
     'New Tasks tab: a place for anything you know you need to sort but haven\'t booked yet (a hotel by the airport the night before a flight, say). Each one shows in red until it\'s ticked booked, on the dashboard tile and, when it\'s linked to a day, right there in the Itinerary too - same record, tick it off in either place.'
   ]},
@@ -2485,6 +2500,54 @@ function psnToggleHiddenImpl(id){
   drawGamesList();
 }
 
+/* ================= Design (UX news feed) =================
+   A handful of well-known UX/design publications' RSS feeds, fetched and trimmed to short
+   summaries by the same proxy Games uses (see psn-proxy/worker.js's /design-news endpoint -
+   most feeds don't send the CORS headers a browser needs to read them directly, so this goes
+   through the worker the same reason Games does). No login, nothing device-specific: just a
+   GET, so there's no connect step here, straight to the list. */
+function renderDesign(){
+  $('#app').innerHTML = `
+    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Design</span></div></div>
+    <div id="design-body"></div>`;
+  const body = $('#design-body');
+  if(!DESIGN_NEWS_URL){
+    body.innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
+      <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
+      <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="empty">Loading design news…</div>`;
+  fetch(DESIGN_NEWS_URL.replace(/\/$/,'') + '/design-news')
+    .then(r => { if(!r.ok) throw new Error('status '+r.status); return r.json(); })
+    .then(data => {
+      if(!$('#design-body')) return;   // navigated away while this was in flight
+      renderDesignList(data.articles||[]);
+    })
+    .catch(e => {
+      if(!$('#design-body')) return;
+      $('#design-body').innerHTML = `<div class="empty">Couldn't load design news.<br>${esc(e.message||'')}
+        <div class="btn-row" style="justify-content:center; margin-top:14px">
+          <button class="btn sm" onclick="App.goDesign()">Try Again</button>
+        </div></div>`;
+    });
+}
+function renderDesignList(articles){
+  const body = $('#design-body'); if(!body) return;
+  if(!articles.length){ body.innerHTML = `<div class="empty">Nothing to show right now, try again shortly.</div>`; return; }
+  body.innerHTML = `<div class="design-list">${articles.map(designCardHTML).join('')}</div>`;
+}
+function designCardHTML(a){
+  const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
+  return `
+    <a class="card design-card" href="${esc(a.link)}" target="_blank" rel="noopener"
+      onclick="return App.openExternal(event, '${esc(a.link)}')">
+      <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
+      <h3 class="design-title">${esc(a.title)}</h3>
+      ${a.summary?`<p class="small design-summary">${esc(a.summary)}</p>`:''}
+    </a>`;
+}
+
 function route(){
   closeModal(); closeMenu(); closeAddWheel();
   if(!pinOk()){ CUR_TRIP_ID = null; stopSub(); renderPinGate(); renderTabbar(); return; }
@@ -2504,6 +2567,10 @@ function route(){
   if(h === '#/games'){
     CUR_TRIP_ID = null; stopSub();
     renderGames(); window.scrollTo(0,0); return;
+  }
+  if(h === '#/design'){
+    CUR_TRIP_ID = null; stopSub();
+    renderDesign(); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
@@ -2588,6 +2655,7 @@ App.toggleChangelog = () => {
 /* no argument goes to the hub; a view name opens that list */
 App.goPlaces = view => { location.hash = view ? '#/places/'+view : ''; };
 App.goGames = () => { location.hash = '#/games'; };
+App.goDesign = () => { location.hash = '#/design'; };
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
   /* 'none' is stored rather than deleted: it's the difference between "never said" and
@@ -3120,6 +3188,7 @@ function renderTabbar(){
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips'
                     || !location.hash || location.hash==='#/';
   const onGames  = location.hash.startsWith('#/games');
+  const onDesign = location.hash.startsWith('#/design');
   /* with the menu open the bar rides above it, so the same thumb that opened it can close
      it; anything else you tap from there dismisses the menu on the way through */
   const menuOpen = menuIsOpen();
@@ -3137,7 +3206,7 @@ function renderTabbar(){
     + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
     + `<button class="tabbar-new${wheelIsOpen()?' open':''}" onclick="${go('App.toggleAddWheel()')}"
         aria-label="${wheelIsOpen()?'Close':'Add something'}" aria-expanded="${wheelIsOpen()}"></button>`
-    + item('Itinerary','🗺️',go("App.tab('plan')"), !!t && CUR_TAB==='plan' && !menuOpen, !t)
+    + item('Design','🎨',go("App.goDesign()"), onDesign && !menuOpen, false)
     + (menuOpen
         ? item('Close','✕',"App.closeMenu()", true, false)
         : item('Menu','☰',"App.openMenu()", false, !t));
