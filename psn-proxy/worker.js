@@ -142,6 +142,12 @@ const DESIGN_FEEDS = [
   {name:'UX Planet', url:'https://uxplanet.org/feed'},
 ];
 const SUMMARY_MAX = 220;
+/* the reader shows the article inside the app, so the body rides along with the list rather
+   than costing a second request per article. Capped because five feeds' worth of full text
+   would make this response far bigger than it needs to be; anything longer keeps its last
+   paragraph and points at the original. */
+const BODY_MAX_CHARS = 2600;
+const BODY_MAX_PARAS = 14;
 
 function extractTag(xml, tag){
   const m = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i').exec(xml);
@@ -163,6 +169,33 @@ function decodeEntities(s){
 }
 function stripHtml(s){
   return s.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+}
+/* Feed content into plain paragraphs for the in-app reader.
+   Deliberately NOT returning HTML: this is somebody else's markup from a feed we don't
+   control, and the app would have to inject it into its own page to show it. Text can't do
+   anything when it lands, so the reader takes text and the app escapes it on the way in.
+   Images, embeds and links are the cost; that suits a "quick to skim" reader anyway. */
+function htmlToParagraphs(html){
+  if(!html) return [];
+  const paras = html
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
+    /* mark the block boundaries before the tags themselves go, otherwise everything runs
+       together into one wall of text */
+    .replace(/<\/(p|div|section|article|li|h[1-6]|blockquote|figcaption|tr)\s*>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .split(/\n\s*\n/)
+    .map(chunk => decodeEntities(stripHtml(chunk)).trim())
+    /* a stray "|" or a leftover bullet isn't a paragraph */
+    .filter(p => p.length > 1);
+
+  const out = [];
+  let total = 0;
+  for(const p of paras){
+    if(out.length >= BODY_MAX_PARAS || total >= BODY_MAX_CHARS) break;
+    out.push(p);
+    total += p.length;
+  }
+  return out;
 }
 /* hand-rolled rather than a real XML parser: Workers have no DOMParser, and RSS/Atom's shape
    is regular enough that pulling each <item>/<entry> block and reading a few known tags out
@@ -192,7 +225,13 @@ function parseFeedItems(xml, sourceName){
       extractTag(block,'description') || extractTag(block,'summary') || extractTag(block,'content:encoded') || ''
     )));
     if(summary.length > SUMMARY_MAX) summary = summary.slice(0, SUMMARY_MAX - 1).trim() + '…';
-    return {title, link, source: sourceName, date: (date && !isNaN(date)) ? date.toISOString() : null, summary};
+    /* content:encoded is where a feed puts the whole piece when it publishes one; description
+       is usually just the teaser. Take the richest of the two, and let the app decide whether
+       there's enough there to be worth reading in place. */
+    const rich = stripCdata(extractTag(block,'content:encoded') || extractTag(block,'content') || '');
+    const teaser = stripCdata(extractTag(block,'description') || extractTag(block,'summary') || '');
+    const body = htmlToParagraphs(rich.length > teaser.length ? rich : teaser);
+    return {title, link, source: sourceName, date: (date && !isNaN(date)) ? date.toISOString() : null, summary, body};
   }).filter(a => a.title && a.link);
 }
 async function fetchDesignNews(){
