@@ -39,12 +39,16 @@ body{
 ::selection{background:var(--brand-tint); color:var(--brand-dark);}
 
 /* ---------- layout ---------- */
-/* nothing above the content now, so the page has to clear the status bar / notch itself.
-   max() keeps a floor under that clearance: some mobile browsers report
-   env(safe-area-inset-top) as 0 while the on-screen keyboard is up (the inset is about the
-   notch, not the keyboard, but the value still drops), which without a floor let the title
-   ride up under the status bar the moment a search box was focused. */
-.wrap{max-width:920px; margin:0 auto; padding:max(14px + env(safe-area-inset-top), 54px) 16px 96px;}
+/* nothing above the content now, so the page has to clear the status bar/notch itself. */
+.wrap{max-width:920px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 16px 96px;}
+/* Some mobile browsers report env(safe-area-inset-top) as 0 while the on-screen keyboard is
+   up (the inset is about the notch, not the keyboard, but the value still drops), which let
+   the title ride up under the status bar the moment a search box was focused. Rather than a
+   permanent floor on every page (dead space above the title the rest of the time), App.js
+   toggles this class only while an input actually has focus. */
+@media(max-width:1023px){
+  body.kb-open .wrap{padding-top:max(14px + env(safe-area-inset-top), 54px);}
+}
 .sidebar{display:none;}
 /* every page's title starts the same distance down, whether it's an h1 (Your Trips, a trip's
    name) or a breadcrumb title (a section, Places). One number, changed in one place. */
@@ -145,7 +149,7 @@ a{color:var(--brand-dark);}
 .hub-emoji{font-size:2rem; line-height:1; margin-bottom:8px;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .hub-n{font-size:2.3rem; font-weight:800; line-height:1; color:var(--brand-dark); letter-spacing:-.02em;}
-.hub-label{font-size:.82rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere;}
+.hub-label{font-family:var(--font-head); font-size:.82rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere;}
 @media(max-width:360px){.hub-emoji{font-size:1.6rem;} .hub-n{font-size:1.9rem;}}
 
 /* ---------- games (PSN progress) ---------- */
@@ -165,7 +169,7 @@ a{color:var(--brand-dark);}
 .game-icon{width:52px; height:52px; border-radius:var(--radius-sm); object-fit:cover; flex-shrink:0; background:var(--bg);}
 .game-icon-fallback{display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.3rem;}
 .game-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;}
-.game-name{font-weight:700; font-size:.9rem; overflow-wrap:anywhere;}
+.game-name{font-family:var(--font-head); font-weight:700; font-size:.9rem; overflow-wrap:anywhere;}
 .game-progress{position:relative; overflow:hidden; height:6px; border-radius:999px; background:var(--bg);}
 .game-progress-bar{position:absolute; inset:0 auto 0 0; background:var(--brand); border-radius:999px; transition:width .2s;}
 .game-meta{overflow-wrap:anywhere;}
@@ -208,7 +212,7 @@ a{color:var(--brand-dark);}
 @keyframes slideIn{from{transform:translateX(40px); opacity:0;} to{transform:none; opacity:1;}}
 @keyframes fadeIn{from{opacity:0;} to{opacity:1;}}
 .menu-head{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 6px 14px 14px;}
-.menu-title{font-weight:800; font-size:1rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.menu-title{font-family:var(--font-head); font-weight:800; font-size:1rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .menu-item{
   display:flex; align-items:center; gap:13px; padding:12px 14px; border-radius:12px;
   font-weight:600; font-size:.95rem; color:var(--ink); cursor:pointer; user-select:none;
@@ -221,7 +225,7 @@ a{color:var(--brand-dark);}
 
 /* ---------- breadcrumb back to overview ---------- */
 .crumb{display:flex; flex-direction:column; align-items:flex-start; gap:2px; margin:var(--page-top) 0 18px;}
-.crumb-here{display:inline-flex; align-items:center; gap:6px; font-weight:800; font-size:1.5rem; letter-spacing:-.02em; color:var(--ink); min-width:0;}
+.crumb-here{display:inline-flex; align-items:center; gap:6px; font-family:var(--font-head); font-weight:800; font-size:1.5rem; letter-spacing:-.02em; color:var(--ink); min-width:0;}
 .crumb-backbtn{display:inline-flex; align-items:center; justify-content:center; background:none; border:none; cursor:pointer; padding:4px; margin-left:-4px; border-radius:50%; color:var(--brand); flex-shrink:0;}
 .crumb-backbtn:hover{background:var(--brand-ghost);}
 .crumb-here .icon{font-size:1.5rem; color:var(--brand); flex-shrink:0;}
@@ -288,7 +292,8 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 /* sits exactly on top of the bar: --bar-h is measured from the real thing each render rather
    than guessed, because guessing left a sliver of page showing between the two on a phone
    whose safe-area inset made the bar taller than the arithmetic said */
-.places-search,.games-search{position:fixed; left:0; right:0; z-index:55; bottom:var(--bar-h,61px);
+.places-search,.games-search{position:fixed; left:0; right:0; z-index:55;
+  bottom:calc(var(--bar-h,61px) + var(--kb-inset,0px));
   padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);}
 .places-search input,.games-search input{background:var(--paper);}
 /* one country per row: side by side, a long name and its capital and language had nowhere to
@@ -306,7 +311,7 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 /* the flag now sits beside the name rather than above it, there's room for both on one row */
 .place-card .flag{font-size:1.35rem; line-height:1; flex-shrink:0;}
 .place-name{font-weight:700; font-size:.9rem; display:flex; align-items:center; gap:8px; min-width:0;}
-.place-name-text{overflow-wrap:anywhere;}
+.place-name-text{font-family:var(--font-head); overflow-wrap:anywhere;}
 /* the status sits out of the way in the corner instead of pushing the details down */
 .place-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
 .place-head .status-pill{flex-shrink:0;}
@@ -429,7 +434,7 @@ details .d-body{padding:14px 16px;}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 @media(max-width:560px){
   h1{font-size:1.5rem;}
-  .wrap{padding:max(14px + env(safe-area-inset-top), 54px) 12px 80px;}
+  .wrap{padding:calc(14px + env(safe-area-inset-top)) 12px 80px;}
   .modal{padding:6px 12px 40px;}
   .flight-apt{font-size:1.2rem;}
 }
@@ -467,7 +472,7 @@ details .d-body{padding:14px 16px;}
 .dash-emoji{font-size:1.65rem; line-height:1; display:inline-block; font-style:normal;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .dash-text{display:flex; flex-direction:column; min-width:0; width:100%;}
-.dash-tile .dash-label{font-weight:700; font-size:.95rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.dash-tile .dash-label{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .dash-tile .dash-sum{color:var(--muted); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .dash-tile .dash-sum.unfilled{color:#C0392B; font-weight:600;}
 .dash-tile.wide{grid-column:span 2;}
@@ -738,8 +743,15 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.59.0';
+const APP_VERSION = '1.60.0';
 const CHANGELOG = [
+  {version:'1.60.0', notes:[
+    'The bottom bar\'s Places is now labelled Travel, and Country Finder is now just Countries.',
+    'The serif headline font now shows on every page title and card title (My Travels, Games, trip names, dashboard tiles, country names…), not just the section headings inside a trip; things you actually need to read at speed - flight codes, times, numbers - stay on the plain sans-serif body font.',
+    'Removed the permanent gap above every page\'s title that existed to stop the title riding up under the status bar while a search box\'s keyboard was open; that protection now only kicks in while a text field is actually focused, so the rest of the time the title sits right at the top.',
+    'Fixed the Games search box disappearing behind the keyboard once you started typing and results appeared.',
+    'Every external link (maps, bookings, flight search, albums, videos, articles) now hands off to Safari itself rather than the in-app browser, on an iPhone with the app on your home screen - previously only Search Flights and Design articles did this.'
+  ]},
   {version:'1.59.0', notes:[
     'The brief App Style picker on Design is gone - Sunset Postcard (terracotta and plum, warm serif headings, soft rounded corners) is now just the app\'s look, no switching needed.'
   ]},
@@ -2105,6 +2117,25 @@ function renderPinGate(){
     </div>`;
   setTimeout(()=>{ const el=$('#pin-input'); if(el) el.focus(); }, 0);
 }
+/* keeps the title clear of the status bar only while the keyboard is actually up - see the
+   .wrap comment in the stylesheet for why this needs a live toggle rather than a permanent
+   floor. Delegated on document so it covers inputs that don't exist yet at load time. */
+document.addEventListener('focusin', e => { if(e.target.matches('input,textarea')) document.body.classList.add('kb-open'); });
+document.addEventListener('focusout', e => { if(e.target.matches('input,textarea')) document.body.classList.remove('kb-open'); });
+/* the Places/Games search box sits fixed just above the tabbar (--bar-h) - on a phone
+   keyboard, some mobile browsers don't shrink the layout viewport, so a plain bottom-anchored
+   fixed element renders underneath the keyboard instead of above it. visualViewport reports
+   the real usable height, so --kb-inset lifts the search box (and only the search box) clear
+   of the keyboard while it's up. */
+if(window.visualViewport){
+  const vv = window.visualViewport;
+  const updateKbInset = () => {
+    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb-inset', inset+'px');
+  };
+  vv.addEventListener('resize', updateKbInset);
+  vv.addEventListener('scroll', updateKbInset);
+}
 /* ================= router ================= */
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', ()=>{
@@ -2146,7 +2177,7 @@ function placesHubCardsHTML(){
   return card('#/places/been', '✅', c.been, "Places I've Been")
        + card('#/trips', '🧳', goingCount(), 'Going')
        + card('#/places/want', '⭐', c.want, 'Want to Go')
-       + card('#/places/finder', '🌍', c.all, 'Country Finder');
+       + card('#/places/finder', '🌍', c.all, 'Countries');
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
@@ -2185,7 +2216,7 @@ function renderPlacesHub(){
 const PLACES_VIEWS = {
   been:   {title:"Places I've Been", filter:'been', regions:false},
   want:   {title:'Want to Go',       filter:'want', regions:true},
-  finder: {title:'Country Finder',   filter:'all',  regions:true}
+  finder: {title:'Countries',        filter:'all',  regions:true}
 };
 function renderPlaces(view){
   applyArchiveTransitions();
@@ -2364,7 +2395,7 @@ function drawPlacesGrid(){
 
   if(!list.length){
     const empty = q ? `No countries match "${esc(q)}"`
-      : CUR_PLACES_VIEW==='want' ? 'Nothing on the wish list yet. Country Finder is where you add them.'
+      : CUR_PLACES_VIEW==='want' ? 'Nothing on the wish list yet. Countries is where you add them.'
       : 'No countries match this filter';
     el.innerHTML = `<div class="empty">${empty}</div>`; return;
   }
@@ -2449,7 +2480,8 @@ function renderGamesConnect(body){
       <h3 style="margin-bottom:8px">Connect your PlayStation account</h3>
       <p class="small muted" style="margin-bottom:14px">
         While signed in to PlayStation in this browser, open
-        <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" rel="noopener">this link</a>
+        <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" rel="noopener"
+          onclick="return App.openExternal(event, 'https://ca.account.sony.com/api/v1/ssocookie')">this link</a>
         and copy the <code>npsso</code> value it returns, then paste it below. It's swapped
         once for a login token through your own proxy; after that only the token stays, on
         this device only.
@@ -3234,7 +3266,7 @@ function renderTabbar(){
       <span class="tabbar-label">${esc(label)}</span>
     </button>`;
   bar.innerHTML =
-      item('Places','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
+      item('Travel','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
     + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
     + `<button class="tabbar-new${wheelIsOpen()?' open':''}" onclick="${go('App.toggleAddWheel()')}"
         aria-label="${wheelIsOpen()?'Close':'Add something'}" aria-expanded="${wheelIsOpen()}"></button>`
@@ -4367,7 +4399,7 @@ function tabPlan(t, ro){
         ${secEmoji('📍')}<span>${esc(s.location)}</span>
       </div>` : ''}
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
-      ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px"><a class="btn icon-only" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a></div>` : ''}
+      ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px"><a class="btn icon-only" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}')" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a></div>` : ''}
     </div>`;
   const taskCard = s => `
     <div class="card plan-card task-card${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
@@ -4732,9 +4764,9 @@ function travelDocLink(arr, i, d){
       : `<span class="doc-attach" style="opacity:.55">${ICONS.docs}${esc(d.name||'Document')}</span>`) : '';
 }
 function flightTrackLink(f){
-  return f.flightNo
-      ? `<a class="doc-attach" href="https://www.google.com/search?q=${encodeURIComponent(f.flightNo+' flight status')}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Live flight status">${ICONS.ext}Track Flight</a>`
-      : '';
+  if(!f.flightNo) return '';
+  const url = 'https://www.google.com/search?q='+encodeURIComponent(f.flightNo+' flight status');
+  return `<a class="doc-attach" href="${esc(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(url)}')" title="Live flight status">${ICONS.ext}Track Flight</a>`;
 }
 /* the full flight card, shared by Travel and, read-only (whole card opens the edit form), by the Itinerary */
 function flightStripHTML(f, i, actionsHTML){
@@ -4871,11 +4903,11 @@ function accomCardHTML(a, opts){
     : a.checkout ? `${fmtDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
     : '';
   const bookingBtn = a.bookingUrl ? (opts.compact
-      ? `<a class="btn icon-only" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="View Booking" title="View Booking">${faviconFor(a.bookingUrl)}</a>`
-      : `<a class="btn" style="flex:1.4;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(a.bookingUrl)}View Booking</a>`) : '';
+      ? `<a class="btn icon-only" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')" aria-label="View Booking" title="View Booking">${faviconFor(a.bookingUrl)}</a>`
+      : `<a class="btn" style="flex:1.4;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')">${faviconFor(a.bookingUrl)}View Booking</a>`) : '';
   const mapBtn = a.address ? (opts.compact
-      ? `<a class="btn icon-only" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a>`
-      : `<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('🗺️')}Open Map</a>`) : '';
+      ? `<a class="btn icon-only" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a>`
+      : `<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')">${secEmoji('🗺️')}Open Map</a>`) : '';
   return `
     <div class="card">
       <div class="section-head" style="margin-bottom:0">
@@ -5723,7 +5755,7 @@ function tabPhotos(t, ro){
         <h3 style="margin-bottom:8px">${esc(service)}</h3>
         <p class="muted small" style="margin-bottom:12px">${albumNote(service)}</p>
         <div class="btn-row">
-          <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open Album ${ICONS.ext}</a>
+          <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(a.url)}')">Open Album ${ICONS.ext}</a>
           ${!ro?`<button class="iconbtn edit" aria-label="Edit album link" title="Edit link" onclick="App.albumForm()">${ICONS.edit}</button>
           <button class="iconbtn del" aria-label="Remove album link" title="Remove link" onclick="App.removeAlbum()">${ICONS.trash}</button>`:''}
         </div>
@@ -5806,12 +5838,12 @@ function videoThumbHTML(embed, url){
     loadVideoThumb(url);
     const entry = VIDEO_THUMB[url];
     const thumb = entry && entry.status==='ok' ? entry.thumb : null;
-    return `<a class="video-thumb video-thumb-tiktok" href="${esc(url)}" target="_blank" rel="noopener" aria-label="Watch on TikTok"${thumb?` style="background-image:url('${esc(thumb)}')"`:''}>
+    return `<a class="video-thumb video-thumb-tiktok" href="${esc(url)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(url)}')" aria-label="Watch on TikTok"${thumb?` style="background-image:url('${esc(thumb)}')"`:''}>
       ${!thumb?`<span class="video-thumb-fallback">${fab('tiktok')}</span>`:''}
       <span class="video-thumb-play">${fa('play')}</span>
     </a>`;
   }
-  return `<a class="video-thumb video-thumb-instagram" href="${esc(url)}" target="_blank" rel="noopener" aria-label="Watch on Instagram">
+  return `<a class="video-thumb video-thumb-instagram" href="${esc(url)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(url)}')" aria-label="Watch on Instagram">
     <span class="video-thumb-fallback">${fab('instagram')}</span>
     <span class="video-thumb-play">${fa('play')}</span>
   </a>`;
@@ -5834,7 +5866,7 @@ function tabMood(t, ro){
         ${m.title && !ro?(inItinerary
           ?`<button class="btn sm" style="width:100%" onclick="App.removeIdeaFromItinerary(${i})">Remove from Itinerary</button>`
           :`<button class="btn sm" style="width:100%" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}
-        ${mapsHref?`<a class="btn sm" style="width:100%" href="${esc(mapsHref)}" target="_blank" rel="noopener">${secEmoji('🗺️')}Open Map</a>`:''}
+        ${mapsHref?`<a class="btn sm" style="width:100%" href="${esc(mapsHref)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(mapsHref)}')">${secEmoji('🗺️')}Open Map</a>`:''}
         ${!ro?`<button class="btn sm" style="width:100%" onclick="App.moodForm(${i})">${ICONS.edit}Edit Idea</button>`:''}
       </div>
     </div>`;
