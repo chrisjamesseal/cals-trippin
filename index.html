@@ -335,6 +335,15 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .gap-card{border:2px dashed var(--line-strong); background:none; box-shadow:none;}
 .gap-card h3{color:var(--muted);}
 
+/* an outstanding task: the same red used everywhere else something still needs doing (an
+   unpaid balance, packing left for you), a stripe down the side rather than the dashed
+   outline a gap gets, since this one was typed in by hand rather than worked out from dates */
+.task-card{border-left:3px solid #C0392B;}
+.task-flag{font-size:.95rem; line-height:1;}
+.task-still{color:#C0392B; font-weight:600; margin-top:4px;}
+.task-card.task-done{border-left-color:var(--line-strong); opacity:.6;}
+.task-card.task-done h3{text-decoration:line-through; color:var(--muted);}
+
 /* ---------- misc components ---------- */
 .list-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line);}
 .list-row.doc-row{cursor:pointer; border-radius:var(--radius-sm); transition:background .1s;}
@@ -698,8 +707,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.54.0';
+const APP_VERSION = '1.55.0';
 const CHANGELOG = [
+  {version:'1.55.0', notes:[
+    'New Tasks tab: a place for anything you know you need to sort but haven\'t booked yet (a hotel by the airport the night before a flight, say). Each one shows in red until it\'s ticked booked, on the dashboard tile and, when it\'s linked to a day, right there in the Itinerary too - same record, tick it off in either place.'
+  ]},
   {version:'1.54.0', notes:[
     'Itinerary: once a trip has anything on it, every day shows, not just the ones with something planned - a day with nothing yet gets the same dashed card as an accommodation gap, with its own + Add Stop button, right where the gap falls.',
     'Travel: no flights booked now shows the same dashed card instead of a plain message.'
@@ -1402,7 +1414,7 @@ function getTrip(id){ return DB.trips.find(t=>t.id===id); }
 function normalizeTrip(t){
   if(!t) return t;
   ['countries','flights','ferries','carHire','accommodations','documents','docLinks',
-   'itinerary','receipts','moodBoard','participants','editLog','polls','packing'].forEach(k=>{
+   'itinerary','receipts','moodBoard','participants','editLog','polls','packing','tasks'].forEach(k=>{
     if(!Array.isArray(t[k])) t[k] = [];
   });
   t.notes = t.notes || {};
@@ -2884,7 +2896,8 @@ const ICONS = {
   bus: fa('bus'),
   polls: fa('square-poll-vertical'),
   pack: fa('suitcase-rolling'),
-  bell: fa('bell')
+  bell: fa('bell'),
+  tasks: fa('thumbtack')
 };
 /* Emoji rather than icon-font glyphs for the big dashboard tiles: they bring their own
    colour, which lifts the grid and sits naturally beside the country flags in the header.
@@ -2892,7 +2905,7 @@ const ICONS = {
    The compact menu and in-button icons stay on Font Awesome, where a single-colour glyph
    lines up better at small sizes. */
 const TAB_EMOJI = {
-  edit:'✏️', plan:'🗺️', travel:'✈️', stay:'🏠', mood:'💡', pack:'🧳',
+  edit:'✏️', plan:'🗺️', travel:'✈️', stay:'🏠', mood:'💡', pack:'🧳', tasks:'📌',
   polls:'📊', money:'💰', photos:'📸', contacts:'📞', docs:'📎', notes:'📝'
 };
 function tileIcon(k){
@@ -2925,6 +2938,7 @@ App.openExternal = (ev, url) => {
 const TABS = [
   ['home','Overview'],
   ['plan','Itinerary'],
+  ['tasks','Tasks'],
   ['travel','Travel'],
   ['stay','Accommodation'],
   ['mood','Ideas'],
@@ -3257,6 +3271,7 @@ function renderTab(t){
   if(CUR_TAB==='notes')    el.innerHTML = tabNotes(t,ro);
   if(CUR_TAB==='polls')    el.innerHTML = tabPolls(t,ro);
   if(CUR_TAB==='pack')     el.innerHTML = tabPack(t,ro);
+  if(CUR_TAB==='tasks')    el.innerHTML = tabTasks(t,ro);
 }
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
@@ -3268,6 +3283,7 @@ function crumbAction(t){
     case 'polls':  return `<button class="btn sm primary" onclick="App.pollForm()">+ New Poll</button>`;
     case 'pack':   return `<button class="btn sm" onclick="App.packReminder()">${secEmoji('🔔')} Remind me</button>`;
     case 'stay':   return `<button class="btn sm primary" onclick="App.accomForm(-1)">+ Add</button>`;
+    case 'tasks':  return `<button class="btn sm primary" onclick="App.taskForm(-1)">+ Add Task</button>`;
     default:       return '';
   }
 }
@@ -3313,8 +3329,14 @@ function tabHome(t, ro){
   const planSum = nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned')
     : nLegs ? nLegs+(nLegs===1?' Travel Leg Planned':' Travel Legs Planned')
     : 'Nothing Planned Yet';
+  const tasks = t.tasks||[];
+  const openTasks = tasks.filter(x=>!x.done).length;
+  const taskSum = !tasks.length ? 'Nothing Added Yet'
+    : openTasks ? openTasks+(openTasks===1?' Thing to Book':' Things to Book')
+    : 'All Booked';
   const tiles = [
     ['plan','Itinerary', planSum, !(nStops || nLegs)],
+    ['tasks','Tasks', taskSum, !tasks.length || !!openTasks],
     ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
@@ -3522,6 +3544,90 @@ function packUnpackedFor(t){
   const me = whoAmI(t.id) || '_';
   return (t.packing||[]).filter(it=>packMine(t,it) && !packDoneBy(it, me));
 }
+
+/* ================= TAB: tasks (placeholders for things still to book) ================= */
+/* Freeform, unlike the accommodation/flight gaps: those are worked out from dates you've
+   already committed to, this is for something you know you need before you've worked out
+   the details (a hotel by the airport for the night before an early flight, say). Linking
+   one to a day folds it into that day's Itinerary too, in the same red, until it's ticked
+   booked, at which point it's done in both places at once since it's the same record. */
+function taskWhenLabel(t, task){
+  if(hasRoughWhen(t)) return task.day ? 'Day '+task.day : '';
+  return task.date ? fmtDate(task.date) : '';
+}
+function taskRowHTML(t, task, i, ro){
+  const when = taskWhenLabel(t, task);
+  return `
+    <div class="card task-card${task.done?' task-done':''}">
+      <div class="section-head" style="margin-bottom:4px">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
+          <span class="pack-check${task.done?' on':''}" role="checkbox" tabindex="0" aria-checked="${task.done}"
+            aria-label="${task.done?'Mark as still outstanding':'Mark as booked'}"
+            onclick="App.toggleTask('${task.id}')"
+            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.toggleTask('${task.id}')}">${task.done?fa('check'):''}</span>
+          <h3>${esc(task.title)}</h3>
+        </div>
+        ${!ro?`<button class="iconbtn edit" aria-label="Edit task" title="Edit" onclick="App.taskForm(${i})">${ICONS.edit}</button><button class="iconbtn del" aria-label="Remove task" title="Remove" onclick="App.delTask(${i})">${ICONS.trash}</button>`:''}
+      </div>
+      ${!task.done?`<p class="task-still small">Still to book</p>`:''}
+      ${when?`<p class="small muted" style="margin-top:4px">${esc(when)}</p>`:''}
+      ${task.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(task.notes)}</p>`:''}
+    </div>`;
+}
+function tabTasks(t, ro){
+  const items = t.tasks||[];
+  if(!items.length){
+    return `<div class="empty">Nothing to book yet.${!ro?'<br><br><button class="btn primary" onclick="App.taskForm(-1)">+ Add Task</button>':''}</div>`;
+  }
+  const rows = items.map((x,i)=>({x,i}));
+  const todo = rows.filter(o=>!o.x.done);
+  const done = rows.filter(o=>o.x.done);
+  return `
+    ${todo.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}
+    ${done.length?`<h3 class="pack-heading">Booked</h3>${done.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}`:''}`;
+}
+App.taskForm = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const task = i>=0 ? (t.tasks||[])[i] || {} : {};
+  openModal(`
+    <h2>${i>=0?'Edit Task':'Add Task'}</h2>
+    <div class="field"><label class="label" for="tk-title">What needs sorting</label>
+      <input id="tk-title" type="text" value="${esc(task.title||'')}" placeholder="e.g. Hotel near the airport"></div>
+    ${dayOrDateFieldHTML('tk', t, task)}
+    <div class="field"><label class="label" for="tk-notes">Notes</label>
+      <textarea id="tk-notes" rows="3" placeholder="Optional">${esc(task.notes||'')}</textarea></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveTask(${i})">Save</button></div>`);
+};
+App.saveTask = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const title = ($('#tk-title').value||'').trim();
+  if(!title) return markErr('#tk-title','Give it a name');
+  const {date, day} = readDayOrDate('tk');
+  const notes = ($('#tk-notes').value||'').trim();
+  t.tasks = t.tasks||[];
+  if(i>=0) Object.assign(t.tasks[i], {title, date, day, notes});
+  else t.tasks.push({id:uid(), title, date, day, notes, done:false});
+  logEdit('Tasks', (i>=0?'edited task: ':'added task: ')+title);
+  save(); closeModal(); rerender();
+};
+App.toggleTask = id => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const task = (t.tasks||[]).find(x=>x.id===id); if(!task) return;
+  task.done = !task.done;
+  logEdit('Tasks', (task.done?'booked ':'reopened ')+(task.title||'a task'));
+  save(); rerender();
+};
+App.delTask = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const task = (t.tasks||[])[i]; if(!task) return;
+  confirmModal('Remove Task', `Remove "${task.title}" from your list?`, 'Remove', () => {
+    const t2 = getTrip(CUR_TRIP_ID); if(!t2) return;
+    t2.tasks.splice(i,1);
+    logEdit('Tasks','removed task: '+task.title);
+    save(); closeModal(); rerender();
+  });
+};
+
 /* A calendar event imports cleanly everywhere (iOS, Android, desktop) and actually fires an
    alert, which is what "remind me" needs to mean for a static site with no server to push
    from. VTODO would map more neatly onto a reminders app but is widely ignored on import. */
@@ -4040,6 +4146,13 @@ function tabPlan(t, ro){
     (groups[mv.date]=groups[mv.date]||[]).push({kind:'travel', mode:'undecided',
       from:mv.from, to:mv.to, time:mv.time, timing:mv.timing, aci:mv.aci});
   });
+  /* an outstanding task folds into the day it's linked to, same red as the Tasks tab; once
+     it's ticked booked there it stops appearing here too, since it's the same record */
+  (t.tasks||[]).forEach((task,ti)=>{
+    if(task.done) return;
+    const k = rough ? (task.day?'d'+task.day:'') : (task.date||'');
+    (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes, ti});
+  });
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
      something on them: a day nothing's been added to yet gets a dashed placeholder (same
@@ -4141,12 +4254,24 @@ function tabPlan(t, ro){
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
       ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px"><a class="btn" style="flex:1" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('🗺️')}Open Map</a></div>` : ''}
     </div>`;
+  const taskCard = s => `
+    <div class="card task-card${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
+      <div class="section-head" style="margin-bottom:0">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
+          <span class="task-flag" aria-hidden="true">📌</span>
+          <h3>${esc(s.title)}</h3>
+        </div>
+      </div>
+      <p class="task-still small">Still to book</p>
+      ${s.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
+    </div>`;
   const card = s =>
     s._autoFlight ? autoFlightCard(s)
     : s._autoFerry ? autoFerryCard(s)
     : s._autoCar ? autoCarCard(s)
     : s._autoStay ? autoStayCard(s)
     : s.kind==='travel' ? travelCard(s)
+    : s.kind==='task' ? taskCard(s)
     : stopCard(s);
   /* the same dashed-box treatment as an accommodation gap, for a day nothing's been added to
      yet: a quiet prompt sitting right where the gap falls rather than the day just not
