@@ -124,9 +124,7 @@ a{color:var(--brand-dark);}
 
 
 /* ---------- trip list ---------- */
-/* no margin-top: the "Your Trips" heading already leaves its own gap underneath, and having
-   both put a hole between the heading and the first card */
-.trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px;}
+.trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:10px;}
 .trip-card{
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:18px; cursor:pointer; position:relative;
@@ -238,7 +236,15 @@ a{color:var(--brand-dark);}
 .article-title{font-size:1.6rem; margin:6px 0 18px;}
 .article-p{margin-bottom:16px; font-size:1.02rem; line-height:1.65; color:var(--ink); overflow-wrap:anywhere;}
 .article-note{margin-top:-4px; margin-bottom:16px;}
-.article-actions{margin-top:22px; padding-top:18px; border-top:1px solid var(--line);}
+.article-h{font-size:1.15rem; margin:26px 0 10px;}
+.article-img{display:block; width:100%; height:auto; border-radius:var(--radius-sm);
+  border:1px solid var(--line); margin:6px 0 18px;}
+.article-li{margin:0 0 10px 20px; position:relative; font-size:1.02rem; line-height:1.6; color:var(--ink);}
+.article-li::before{content:'\2022'; position:absolute; left:-16px; color:var(--brand);}
+.article-q{margin:0 0 16px; padding:2px 0 2px 14px; border-left:3px solid var(--brand-tint);
+  font-style:italic; color:var(--ink); line-height:1.6;}
+.article-p strong,.article-li strong{font-weight:700; color:var(--ink);}
+.article-actions{margin-top:22px; padding-top:18px; padding-bottom:8px; margin-bottom:24px; border-top:1px solid var(--line);}
 
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
@@ -419,7 +425,6 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    outline a gap gets, since this one was typed in by hand rather than worked out from dates */
 .task-card{border-left:3px solid #C0392B;}
 .task-flag{font-size:.95rem; line-height:1;}
-.task-still{color:#C0392B; font-weight:600; margin-top:4px;}
 .task-card.task-done{border-left-color:var(--line-strong); opacity:.6;}
 .task-card.task-done h3{text-decoration:line-through; color:var(--muted);}
 
@@ -445,6 +450,13 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 /* accommodation runs down the card rather than across it, but shares the flight card's
    strip/head shell so the two read as the same kind of thing on the Itinerary */
 .accom-body{padding:14px; display:flex; flex-direction:column; gap:10px;}
+/* check-in and check-out on a line each, their labels in a fixed column so the dates line up */
+.accom-when{display:flex; gap:10px; align-items:baseline; color:var(--ink);}
+.accom-when-label{flex-shrink:0; width:2.2rem; font-weight:700; font-size:.72rem;
+  text-transform:uppercase; letter-spacing:.08em; color:var(--muted);}
+/* icons only, so they sit in a row on any width instead of wrapping two words each */
+.accom-btns{margin-top:4px; flex-wrap:wrap; gap:8px;}
+.accom-btns .btn.icon-only .icon{font-size:1rem;}
 .accom-body > *{margin-top:0!important;}
 .accom-addr{color:var(--ink); overflow-wrap:anywhere;}
 .flight-body.loc-stack{display:flex; flex-direction:column; gap:10px;}
@@ -502,6 +514,26 @@ details .d-body{padding:14px 16px;}
   .wrap{padding:calc(14px + env(safe-area-inset-top)) 12px 80px;}
   .modal{padding:6px 12px 40px;}
   .flight-apt{font-size:1.2rem;}
+}
+/* Touch screens keep :hover applied to whatever you tapped last, so a card sits there wearing
+   its hover outline - a brand-coloured border on one random card - until you tap something
+   else. Hover only means anything on a device that can actually hover, so on the ones that
+   can't, every hover effect is handed back its resting state. */
+@media (hover:none){
+  .btn:hover{border-color:var(--line-strong); color:var(--ink); background:var(--paper);}
+  .btn.primary:hover{background:var(--brand); border-color:var(--brand); color:#fff;}
+  .btn.ghost:hover{background:none; color:var(--muted); border-color:transparent;}
+  .btn.danger:hover{background:#FCEBE9; border-color:#FCEBE9; color:#C0392B;}
+  .menu-btn:hover{border-color:var(--line-strong); color:var(--ink); background:var(--paper);}
+  .trip-card:hover,.hub-card:hover,.design-card:hover,.dash-tile:hover{
+    transform:none; box-shadow:var(--shadow); border-color:var(--line);}
+  .theme-swatch:hover,.bg-card:hover{transform:none; box-shadow:var(--shadow);}
+  .wheel-item:hover,.emoji-pick:hover,.pack-check[role=checkbox]:hover,
+  .poll-opt[role=button]:hover{border-color:var(--line-strong);}
+  .plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,
+  .card.plan-click:hover{border-color:var(--line);}
+  .tabbar-new:hover{background:var(--brand); transform:none;}
+  .tabbar-new.open:hover{transform:rotate(45deg);}
 }
 @media print{.btn,.menu-btn,.tabbar,.crumb{display:none!important;}}
 
@@ -687,6 +719,12 @@ a.dash-tile{text-decoration:none;}
 .plan-daytab.on{background:var(--brand); border-color:var(--brand); color:#fff;}
 .plan-daytab:focus-visible{outline:2px solid var(--brand); outline-offset:1px;}
 /* a touch more room between cards than elsewhere, same reasoning as the day gap above */
+/* a leg you just turn up for: a line on the page rather than a card, so it doesn't carry the
+   same weight as the flight above it */
+.plan-leg{display:flex; align-items:flex-start; gap:9px; padding:6px 2px; margin-bottom:20px; font-size:.9rem; color:var(--ink);}
+.plan-leg.plan-click{cursor:pointer; border-radius:var(--radius-sm);}
+.plan-leg-icon{flex-shrink:0; line-height:1.4;}
+.plan-leg-text{min-width:0; overflow-wrap:anywhere;}
 .plan-card{margin-bottom:20px;}
 
 /* ---------- packing list ---------- */
@@ -811,8 +849,18 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.65.0';
+const APP_VERSION = '1.66.0';
 const CHANGELOG = [
+  {version:'1.66.0', notes:[
+    'Design articles now come through with their images, headings, bold text and quotes rather than as flat paragraphs.',
+    'Places I\'ve Been counts from the bottom up, so #1 is the first place you went.',
+    'Accommodation cards: check-in and check-out on a line each instead of one repeated range, and every button (booking, map, copy, edit, delete) is now just its icon, all on one row.',
+    'Tasks are simpler: no date, no edit, just tick or delete. "Booked" is now "Completed".',
+    'Getting a bus, taxi or walking somewhere reads as a line on the Itinerary ("Bus to Kassiopi - leave by 14:00") rather than a card. Flights, ferries and trains keep theirs, since those are booked and timed.',
+    '"Nothing Planned" days offer Add Ideas as well as Add Stop.',
+    'Fixed cards keeping a red outline after you tapped them: that was a hover effect sticking on a touch screen.',
+    'Documents & Links is now Docs & Links so it fits, and Google Maps links show the Maps pin rather than the Google G.'
+  ]},
   {version:'1.65.0', notes:[
     'Design articles now open and read inside the app instead of sending you off to the browser, at a proper reading width. The original is still one tap away at the bottom of each one.',
     'Where a publication only puts a preview in its feed, the reader says so rather than showing you a stub.'
@@ -2487,9 +2535,11 @@ function drawPlacesGrid(){
        (they're the next ones to happen) and carry their number like the rest, they're just
        faded until the trip's dates pass */
     const cards = upcoming.map(co => ({co, upcoming:true})).concat(list.map(co => ({co, upcoming:false})));
-    /* the numbers are worked out once, over the whole run, so a country keeps the same number
-       in either view - grouping by continent reorders the cards, it doesn't renumber them */
-    cards.forEach((c,i) => { c.num = i+1; });
+    /* numbered from the bottom up: #1 is the first place you went, at the foot of the list,
+       counting up to the most recent at the top. Worked out once, over the whole run, so a
+       country keeps its number in either view - grouping by continent reorders the cards, it
+       doesn't renumber them. */
+    cards.forEach((c,i) => { c.num = cards.length - i; });
     const cardHTML = c => c.upcoming ? beenUpcomingCardHTML(c.co, c.num) : beenCardHTML(c.co, c.num);
     if(CUR_BEEN_VIEW==='continents'){
       const byContinent = {};
@@ -2878,13 +2928,45 @@ function bgCardHTML(g){
    through the worker the same reason Games does). No login, nothing device-specific: just a
    GET, so there's no connect step here, straight to the list. */
 let DESIGN_ARTICLES = [];   // the last fetch, held so opening one doesn't refetch the lot
-/* the proxy hands back each article's body as plain paragraphs rather than HTML, so reading
-   one in place is just text - see htmlToParagraphs in worker.js for why. A feed that only
-   publishes a teaser gives us too little to read, in which case the reader says so and hands
-   over to the site rather than pretending a two-line stub is the article. */
+/* The proxy describes each article rather than sending its HTML - headings, paragraphs,
+   bold/italic runs, list items, quotes and image URLs, with every piece of text carried as
+   text (see htmlToBlocks in worker.js for why). The tags below are ours and every string goes
+   through esc() on the way in, so nothing a feed sends can become markup here.
+   A feed that only publishes a teaser gives us too little to read, in which case the reader
+   says so and hands over to the site rather than pretending a stub is the article. */
 const READABLE_MIN_CHARS = 400;
-const articleTextLength = a => (a.body||[]).reduce((n,p)=>n+p.length, 0);
+const blockTextLength = b =>
+  typeof b === 'string' ? b.length
+  : b && b.r ? b.r.reduce((n,run)=>n+(run.x||'').length, 0)
+  : 0;
+const articleTextLength = a => (a.body||[]).reduce((n,b)=>n+blockTextLength(b), 0);
 const articleIsReadable = a => articleTextLength(a) >= READABLE_MIN_CHARS;
+function articleRunsHTML(runs){
+  return (runs||[]).map(r => {
+    const x = esc(r.x||'');
+    if(r.b && r.i) return `<strong><em>${x}</em></strong>`;
+    if(r.b) return `<strong>${x}</strong>`;
+    if(r.i) return `<em>${x}</em>`;
+    return x;
+  }).join('');
+}
+function articleBlockHTML(b){
+  // an older proxy sends plain strings; treat each as a paragraph
+  if(typeof b === 'string') return b.trim() ? `<p class="article-p">${esc(b)}</p>` : '';
+  if(!b) return '';
+  if(b.t === 'img'){
+    /* checked at both ends: the worker only emits https image URLs, and nothing else gets
+       rendered here either */
+    return /^https:\/\//i.test(b.src||'')
+      ? `<img class="article-img" src="${esc(b.src)}" alt="${esc(b.alt||'')}" loading="lazy">` : '';
+  }
+  const inner = articleRunsHTML(b.r);
+  if(!inner) return '';
+  if(b.t === 'h')  return `<h2 class="article-h">${inner}</h2>`;
+  if(b.t === 'li') return `<p class="article-li">${inner}</p>`;
+  if(b.t === 'q')  return `<blockquote class="article-q">${inner}</blockquote>`;
+  return `<p class="article-p">${inner}</p>`;
+}
 
 function designShell(inner){
   return `
@@ -2960,7 +3042,7 @@ function renderDesignArticle(i){
       <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
       <h1 class="article-title">${esc(a.title)}</h1>
       ${readable
-        ? (a.body||[]).map(p=>`<p class="article-p">${esc(p)}</p>`).join('')
+        ? (a.body||[]).map(articleBlockHTML).join('')
         : `<p class="article-p">${esc(a.summary||'')}</p>
            <p class="small muted article-note">${esc(a.source)} only publishes a preview to its feed,
              so there's nothing more to show here - the rest is on their site.</p>`}
@@ -3483,7 +3565,7 @@ const TABS = [
   ['polls','Polls'],
   ['money','Money'],
   ['photos','Photos'],
-  ['docs','Documents & Links'],
+  ['docs','Docs & Links'],
   ['notes','Notes'],
   ['contacts','Contacts']
 ];
@@ -3884,7 +3966,7 @@ function tabHome(t, ro){
     ['money','Money', moneySum, !nRec],
     ['photos','Photos', album ? album+' Linked' : 'No Shared Album Yet', !album],
     ['contacts','Contacts', nContacts ? nContacts+(nContacts===1?' Contact Logged':' Contacts Logged') : 'None Added Yet', !nContacts],
-    ['docs','Documents & Links', docParts.join(', ') || 'Nothing Saved Yet', !docParts.length],
+    ['docs','Docs & Links', docParts.join(', ') || 'Nothing Saved Yet', !docParts.length],
     ['notes','Notes', nNotes ? nNotes+(nNotes===1?' Note':' Notes') : 'No Notes Yet', !nNotes]
   ];
   // every tile, including Photos, opens its own tab first; the tab itself links out to the album
@@ -4101,14 +4183,13 @@ function taskRowHTML(t, task, i, ro){
       <div class="section-head" style="margin-bottom:4px">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="pack-check${task.done?' on':''}" role="checkbox" tabindex="0" aria-checked="${task.done}"
-            aria-label="${task.done?'Mark as still outstanding':'Mark as booked'}"
+            aria-label="${task.done?'Mark as not done':'Mark as completed'}"
             onclick="App.toggleTask('${task.id}')"
             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.toggleTask('${task.id}')}">${task.done?fa('check'):''}</span>
           <h3>${esc(task.title)}</h3>
         </div>
-        ${!ro?`<button class="iconbtn edit" aria-label="Edit task" title="Edit" onclick="App.taskForm(${i})">${ICONS.edit}</button><button class="iconbtn del" aria-label="Remove task" title="Remove" onclick="App.delTask(${i})">${ICONS.trash}</button>`:''}
+        ${!ro?`<button class="iconbtn del" aria-label="Remove task" title="Remove" onclick="App.delTask(${i})">${ICONS.trash}</button>`:''}
       </div>
-      ${!task.done?`<p class="task-still small">Still to book</p>`:''}
       ${when?`<p class="small muted" style="margin-top:4px">${esc(when)}</p>`:''}
       ${task.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(task.notes)}</p>`:''}
     </div>`;
@@ -4123,7 +4204,7 @@ function tabTasks(t, ro){
   const done = rows.filter(o=>o.x.done);
   return `
     ${todo.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}
-    ${done.length?`<h3 class="pack-heading">Booked</h3>${done.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}`:''}`;
+    ${done.length?`<h3 class="pack-heading">Completed</h3>${done.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}`:''}`;
 }
 App.taskForm = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -4132,7 +4213,6 @@ App.taskForm = i => {
     <h2>${i>=0?'Edit Task':'Add Task'}</h2>
     <div class="field"><label class="label" for="tk-title">What needs sorting</label>
       <input id="tk-title" type="text" value="${esc(task.title||'')}" placeholder="e.g. Hotel near the airport"></div>
-    ${dayOrDateFieldHTML('tk', t, task)}
     <div class="field"><label class="label" for="tk-notes">Notes</label>
       <textarea id="tk-notes" rows="3" placeholder="Optional">${esc(task.notes||'')}</textarea></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveTask(${i})">Save</button></div>`);
@@ -4141,11 +4221,11 @@ App.saveTask = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const title = ($('#tk-title').value||'').trim();
   if(!title) return markErr('#tk-title','Give it a name');
-  const {date, day} = readDayOrDate('tk');
   const notes = ($('#tk-notes').value||'').trim();
   t.tasks = t.tasks||[];
-  if(i>=0) Object.assign(t.tasks[i], {title, date, day, notes});
-  else t.tasks.push({id:uid(), title, date, day, notes, done:false});
+  /* no day/date on the form any more, so an existing task keeps whatever it already had */
+  if(i>=0) Object.assign(t.tasks[i], {title, notes});
+  else t.tasks.push({id:uid(), title, notes, done:false});
   logEdit('Tasks', (i>=0?'edited task: ':'added task: ')+title);
   save(); closeModal(); rerender();
 };
@@ -4768,13 +4848,17 @@ function tabPlan(t, ro){
                 (s._autoStay==='checkin' && s.ac.arrivalTime) || s.time)}
       ${accomCardHTML(s.ac, {showDates:false, compact:true, phase:s._autoStay})}
     </div>`;
+  /* A flight, ferry or train is a booked thing with a time you have to make, so it earns a
+     card. Getting a bus, a taxi or walking somewhere is not that: you turn up and pay, and it
+     doesn't want the same weight on the page as the flight above it. Those read as one line -
+     "Bus to Kassiopi - leave by 14:00" - and still open the same form on a tap. */
+  const BOOKED_MODES = ['flight','ferry','train'];
   const travelCard = s => {
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
-    const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
+    const booked = BOOKED_MODES.includes(s.mode);
     // a bare time is ambiguous on a journey, so say which end of it the time refers to
     const when = timeBadge(s) ? (s.time && s.timing==='arrive' ? 'arrive by '+timeBadge(s)
                               : s.time ? 'leave by '+timeBadge(s) : timeBadge(s)) : '';
-    const title = place + (when?' - '+esc(when):'');
     const duration = travelDurationLabel(s);
     // an auto-suggested entry (to the airport, or between two stays) has no itinerary index
     // yet, it isn't saved until you actually edit it, so it opens the same Add Travel form
@@ -4782,6 +4866,22 @@ function tabPlan(t, ro){
     const editFn = s._i!=null ? `App.travelLegForm(${s._i})`
                  : s.fi!=null ? `App.airportTravelForm(${s.fi})`
                  : `App.stayTravelForm(${s.aci})`;
+    if(!booked){
+      /* named by how you're getting there rather than by both ends: "Bus to Kassiopi" is what
+         you'd say, where "Corfu Town → Kassiopi" is a timetable entry */
+      const way = s.mode==='walk' ? 'Walk' : mode.label;
+      const line = s.to ? `${way} to ${esc(s.to)}`
+                 : s.from ? `${way} from ${esc(s.from)}`
+                 : way;
+      const meta = [when, duration].filter(Boolean).join(' · ');
+      return `
+      <div class="plan-leg${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
+        <span class="plan-leg-icon">${secEmoji(mode.emoji)}</span>
+        <span class="plan-leg-text">${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
+      </div>`;
+    }
+    const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
+    const title = place + (when?' - '+esc(when):'');
     return `
     <div class="card plan-card plan-travel${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
       <div class="section-head" style="margin-bottom:${duration?'4px':'0'}">
@@ -4819,7 +4919,6 @@ function tabPlan(t, ro){
           <h3>${esc(s.title)}</h3>
         </div>
       </div>
-      <p class="task-still small">Still to book</p>
       ${s.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
     </div>`;
   const card = s =>
@@ -4836,7 +4935,10 @@ function tabPlan(t, ro){
   const emptyDayCard = k => `
     <div class="card plan-card gap-card">
       <div class="section-head" style="margin-bottom:0"><h3>${secEmoji('📍')}Nothing Planned</h3></div>
-      ${ro?'':`<button class="btn primary sm" style="margin-top:10px" onclick="App.planGapForm('${k}', ${rough})">+ Add Stop</button>`}
+      ${ro?'':`<div class="btn-row" style="margin-top:10px">
+        <button class="btn primary sm" onclick="App.planGapForm('${k}', ${rough})">+ Add Stop</button>
+        <button class="btn sm" onclick="App.tab('mood')">${secEmoji('\u{1F4A1}')} Add Ideas</button>
+      </div>`}
     </div>`;
   const dayBlock = k => {
     const dayItems = groups[k].slice().sort(planCompare);
@@ -5271,7 +5373,7 @@ function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&que
    anything else (a maps.apple.com or what3words link somebody pasted) keeps the emoji */
 function mapIcon(url){
   return /(^|\.)google\.[^/]*\/maps|(^|\.)goo\.gl\/maps|(^|\.)maps\.app\.goo\.gl/i.test(url||'')
-    ? faviconFor('https://www.google.com/maps') : secEmoji('🗺️');
+    ? faviconFor('https://maps.google.com') : secEmoji('🗺️');
 }
 /* best-effort town/city out of a full address, drop a trailing postcode-looking segment,
    then take the last comma-separated part, e.g. "1 Rua X, Lisbon, 1000-001" -> "Lisbon" */
@@ -5324,30 +5426,36 @@ function accomCardHTML(a, opts){
      check-in date instead. */
   const headNote = opts.phase==='checkin'  ? (a.checkinTime  ? 'From '+a.checkinTime   : 'Check in')
                  : opts.phase==='checkout' ? (a.checkoutTime ? 'Until '+a.checkoutTime : 'Check out')
-                 : (a.checkin ? fmtDate(a.checkin) : '');
-  const bookingBtn = a.bookingUrl ? (opts.compact
-      ? `<a class="btn icon-only" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')" aria-label="View Booking" title="View Booking">${faviconFor(a.bookingUrl)}</a>`
-      : `<a class="btn" style="flex:1.4;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')">${faviconFor(a.bookingUrl)}View Booking</a>`) : '';
-  const mapBtn = a.address ? (opts.compact
-      ? `<a class="btn icon-only" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')" aria-label="Open Map" title="Open Map">${mapIcon(googleMapsUrl(a.address))}</a>`
-      : `<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')">${mapIcon(googleMapsUrl(a.address))}Open Map</a>`) : '';
-  const copyBtn = a.address ? (opts.compact
-      ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)" aria-label="Copy address" title="Copy address">${secEmoji('🔗')}</button>`
-      : `<button type="button" class="btn" style="flex:1;min-width:0" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)">${secEmoji('🔗')}Copy Address</button>`) : '';
+                 : '';
+  /* every button here is its own icon: a favicon, a map pin, a link, a pencil, a bin. The
+     labels were saying what the icons already say, and three of them wrapped onto two lines
+     each on a phone. */
+  const iconBtn = (inner, label, attrs) =>
+    `<a class="btn icon-only" ${attrs} aria-label="${esc(label)}" title="${esc(label)}">${inner}</a>`;
+  const bookingBtn = a.bookingUrl ? iconBtn(faviconFor(a.bookingUrl), 'View Booking',
+      `href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')"`) : '';
+  const mapBtn = a.address ? iconBtn(mapIcon(googleMapsUrl(a.address)), 'Open Map',
+      `href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')"`) : '';
+  const copyBtn = a.address
+      ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)" aria-label="Copy address" title="Copy address">${secEmoji('\u{1F517}')}</button>`
+      : '';
+  /* the two ends of the stay, a line each. They used to share one line that also repeated the
+     check-in date already sitting up in the head. */
+  const inLine  = a.checkin  ? `${fmtDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix}` : '';
+  const outLine = a.checkout ? `${fmtDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}` : '';
+  const stayLine = (label, value) => value
+    ? `<div class="small accom-when"><span class="accom-when-label">${label}</span><span>${value}</span></div>` : '';
   return `
     <div class="flight-strip">
       <div class="flight-head">
         <strong>${esc(a.name||'Accommodation')}</strong>
-        <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
-          ${headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
-          ${opts.headerActions||''}
-        </span>
+        ${headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
       </div>
       <div class="accom-body">
-        ${opts.showDates!==false && stayRange ? `<div class="small" style="display:flex;align-items:center;gap:8px">${ICONS.calendar}<span>${esc(stayRange)}</span></div>` : ''}
+        ${opts.showDates!==false ? stayLine('In', inLine) + stayLine('Out', outLine) : ''}
         ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
-        ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">${bookingBtn}${mapBtn}${copyBtn}</div>`:''}
-        ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
+        ${bookingBtn || mapBtn || copyBtn || opts.rowActions
+          ? `<div class="btn-row accom-btns" onclick="event.stopPropagation()">${bookingBtn}${mapBtn}${copyBtn}${opts.rowActions||''}</div>` : ''}
       </div>
     </div>`;
 }
@@ -5402,7 +5510,7 @@ function tabStay(t, ro){
   /* booked stays and the holes between them, read in date order, so a missing night shows up
      exactly where it falls rather than in a list of warnings at the bottom */
   const rows = list.map((a,i)=>({date:a.checkin||'', html: accomCardHTML(a, {
-      headerActions: !ro?`<button class="iconbtn edit" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${i})">${ICONS.edit}</button><button class="iconbtn del" aria-label="Remove accommodation" title="Remove" onclick="App.delAccom(${i})">${ICONS.trash}</button>`:''
+      rowActions: !ro?`<button type="button" class="btn icon-only" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${i})">${ICONS.edit}</button><button type="button" class="btn icon-only danger" aria-label="Remove accommodation" title="Remove" onclick="App.delAccom(${i})">${ICONS.trash}</button>`:''
     })}))
     .concat(gaps.map(g=>({date:g.firstNight, html: stayGapCardHTML(g, ro)})));
   rows.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));

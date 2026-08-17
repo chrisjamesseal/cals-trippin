@@ -147,7 +147,7 @@ const SUMMARY_MAX = 220;
    would make this response far bigger than it needs to be; anything longer keeps its last
    paragraph and points at the original. */
 const BODY_MAX_CHARS = 2600;
-const BODY_MAX_PARAS = 14;
+const BODY_MAX_BLOCKS = 24;
 
 function extractTag(xml, tag){
   const m = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i').exec(xml);
@@ -170,32 +170,101 @@ function decodeEntities(s){
 function stripHtml(s){
   return s.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
 }
-/* Feed content into plain paragraphs for the in-app reader.
-   Deliberately NOT returning HTML: this is somebody else's markup from a feed we don't
-   control, and the app would have to inject it into its own page to show it. Text can't do
-   anything when it lands, so the reader takes text and the app escapes it on the way in.
-   Images, embeds and links are the cost; that suits a "quick to skim" reader anyway. */
-function htmlToParagraphs(html){
-  if(!html) return [];
-  const paras = html
-    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
-    /* mark the block boundaries before the tags themselves go, otherwise everything runs
-       together into one wall of text */
-    .replace(/<\/(p|div|section|article|li|h[1-6]|blockquote|figcaption|tr)\s*>/gi, '\n\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .split(/\n\s*\n/)
-    .map(chunk => decodeEntities(stripHtml(chunk)).trim())
-    /* a stray "|" or a leftover bullet isn't a paragraph */
-    .filter(p => p.length > 1);
+/* Feed content into structured blocks for the in-app reader.
+   Deliberately NOT passing the feed's own HTML through: this is somebody else's markup from a
+   site we don't control, and the app would have to inject it into its own page to show it.
+   What crosses instead is a description of the article - headings, paragraphs, bold/italic
+   runs, list items, quotes and image URLs - with every piece of text carried as text. The app
+   builds the tags itself and escapes the text on the way in, so nothing that arrives here can
+   become markup there. Rich enough to read properly, with no way to smuggle anything in.
 
-  const out = [];
-  let total = 0;
-  for(const p of paras){
-    if(out.length >= BODY_MAX_PARAS || total >= BODY_MAX_CHARS) break;
-    out.push(p);
-    total += p.length;
+   The control characters below are private markers, inserted after the tags they stand for
+   have been recognised and before the rest are stripped, so a block's type survives the split
+   into blocks. They're scrubbed from the text at the end. */
+function inlineRuns(html){
+  const marked = html
+    .replace(/<(b|strong)\b[^>]*>/gi, '\u0001B').replace(/<\/(b|strong)\s*>/gi, '\u0001b')
+    .replace(/<(i|em)\b[^>]*>/gi, '\u0001I').replace(/<\/(i|em)\s*>/gi, '\u0001i')
+    .replace(/<[^>]+>/g, ' ');
+  const text = decodeEntities(marked);
+  const runs = [];
+  let bold = 0, ital = 0, buf = '';
+  const flush = () => {
+    if(!buf) return;
+    const run = {x: buf.replace(/\s+/g, ' ')};
+    if(bold > 0) run.b = 1;
+    if(ital > 0) run.i = 1;
+    runs.push(run);
+    buf = '';
+  };
+  for(let k = 0; k < text.length; k++){
+    if(text[k] === '\u0001'){
+      const cmd = text[++k];
+      flush();
+      if(cmd === 'B') bold++;
+      else if(cmd === 'b') bold = Math.max(0, bold - 1);
+      else if(cmd === 'I') ital++;
+      else if(cmd === 'i') ital = Math.max(0, ital - 1);
+      continue;
+    }
+    buf += text[k];
   }
-  return out;
+  flush();
+  /* an empty run is noise, but a run that's only a space is the gap between two bold words
+     and has to stay */
+  const out = runs.filter(r => r.x !== '');
+  if(out.length) out[0].x = out[0].x.replace(/^\s+/, '');
+  if(out.length) out[out.length-1].x = out[out.length-1].x.replace(/\s+$/, '');
+  return out.filter(r => r.x !== '');
+}
+function htmlToBlocks(html){
+  if(!html) return [];
+  let h = html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ');
+  /* an image becomes a block of its own, marked so it survives the split below */
+  h = h.replace(/<img\b[^>]*>/gi, tag => {
+    const src = (/\bsrc=["']([^"']+)["']/i.exec(tag) || [])[1] || '';
+    const alt = (/\balt=["']([^"']*)["']/i.exec(tag) || [])[1] || '';
+    return src ? `\n\n\u0002IMG\u0003${src}\u0003${alt}\u0002\n\n` : ' ';
+  });
+  h = h.replace(/<h[1-6]\b[^>]*>/gi, '\n\n\u0002H\u0002')
+       .replace(/<li\b[^>]*>/gi, '\n\n\u0002L\u0002')
+       .replace(/<blockquote\b[^>]*>/gi, '\n\n\u0002Q\u0002')
+       /* close tags mark where one block ends, before the tags themselves are stripped -
+          otherwise the whole article arrives as a single wall of text */
+       .replace(/<\/(p|div|section|article|li|h[1-6]|blockquote|figcaption|tr|ul|ol)\s*>/gi, '\n\n')
+       .replace(/<br\s*\/?>/gi, '\n');
+
+  const blocks = [];
+  let chars = 0;
+  for(const chunk of h.split(/\n\s*\n/)){
+    if(blocks.length >= BODY_MAX_BLOCKS || chars >= BODY_MAX_CHARS) break;
+    const raw = chunk.trim();
+    if(!raw) continue;
+    const img = /^\u0002IMG\u0003([\s\S]*?)\u0003([\s\S]*?)\u0002$/.exec(raw);
+    if(img){
+      const src = img[1].trim();
+      /* https only. A feed can put whatever it likes in a src and this ends up in the app's
+         own page, so anything that isn't plainly a remote image is dropped rather than
+         cleaned up. */
+      if(/^https:\/\/[^"'\s<>]+$/i.test(src)){
+        blocks.push({t:'img', src, alt: decodeEntities(img[2].trim()).slice(0,200)});
+      }
+      continue;
+    }
+    let t = 'p', body = raw;
+    const mark = /^\u0002([HLQ])\u0002/.exec(raw);
+    if(mark){
+      t = mark[1]==='H' ? 'h' : mark[1]==='L' ? 'li' : 'q';
+      body = raw.slice(3);
+    }
+    body = body.replace(/[\u0002\u0003]/g, ' ');   // leftovers from unbalanced markup
+    const runs = inlineRuns(body);
+    const len = runs.reduce((n,r) => n + r.x.length, 0);
+    if(len < 2) continue;                          // a stray bullet or "|" isn't a block
+    blocks.push({t, r: runs});
+    chars += len;
+  }
+  return blocks;
 }
 /* hand-rolled rather than a real XML parser: Workers have no DOMParser, and RSS/Atom's shape
    is regular enough that pulling each <item>/<entry> block and reading a few known tags out
