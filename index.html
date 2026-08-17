@@ -124,7 +124,9 @@ a{color:var(--brand-dark);}
 
 
 /* ---------- trip list ---------- */
-.trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:18px;}
+/* no margin-top: the "Your Trips" heading already leaves its own gap underneath, and having
+   both put a hole between the heading and the first card */
+.trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px;}
 .trip-card{
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:18px; cursor:pointer; position:relative;
@@ -364,7 +366,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .place-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
 .place-head .status-pill{flex-shrink:0;}
 .place-actions{display:flex; align-items:center; justify-content:space-between; gap:6px;}
-.places-continent-heading{margin:0 0 10px; font-size:.95rem;}
+.places-continent-heading{margin:0 0 10px; font-size:.95rem; display:flex; align-items:center; gap:7px;}
+.places-continent-heading + .places-grid{margin-bottom:22px;}
+.been-cont-count{font-weight:600;}
 /* capital and language sit side by side now the card is full width, which halves its height:
    at one country per row that's a lot less scrolling through 223 of them */
 .place-info{display:flex; flex-wrap:wrap; gap:4px 16px; margin:6px 0; font-size:.74rem; color:var(--muted);}
@@ -799,8 +803,13 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.63.0';
+const APP_VERSION = '1.64.0';
 const CHANGELOG = [
+  {version:'1.64.0', notes:[
+    'Places I\'ve Been has two tabs now: In Order (the numbered list) and Continents, which groups the same countries by where in the world they are, with a count on each. A country keeps its number in both.',
+    'Closed the gap between the Your Trips heading and the first trip card.',
+    'Board Games now says so plainly when the proxy is running an older version without the board games endpoint, rather than just showing a 404.'
+  ]},
   {version:'1.63.0', notes:[
     'Places I\'ve Been is one continuous numbered list now: countries on a booked trip sit at the top with their own number, still faded, instead of under a separate "Coming Up" heading.',
     'Want to Go is now ❤️ rather than a star.',
@@ -1973,6 +1982,7 @@ function placesCounts(){
 let CUR_PLACES_REGION = null;   // continent name, or null to show the region picker
 let CUR_PLACES_FILTER = 'been'; // 'been' | 'want' | 'all', set by whichever view is open
 let CUR_PLACES_VIEW = 'been';   // which of the three list screens is showing
+let CUR_BEEN_VIEW = 'list';     // Been only: 'list' (one numbered run) or 'continents' (grouped)
 function placesRegionTileHTML(k, codes, emoji, wide, trips){
   const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, trips[c])!=='none' : placesStatusOf(c, trips[c])===CUR_PLACES_FILTER);
   const pct = codes.length ? Math.round(shown.length/codes.length*100) : 0;
@@ -2312,10 +2322,12 @@ function renderPlaces(view){
           ${esc(PLACES_VIEWS[v].title)}</span>
       </div>
     </div>
+    ${v==='been' ? `<div class="subtabs" id="been-subtabs"></div>` : ''}
     <div id="places-grid"></div>
     <div class="places-search">
       <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
     </div>`;
+  drawBeenSubtabs();
   drawPlacesGrid();
   loadPlacesCloud(cloud => {
     DB.places = cloud||{};
@@ -2373,6 +2385,13 @@ function placeCardHTML(co, tripStatus){
    number for when it landed in the order, the flag (stacked above the name now there's
    nothing to share the row with, so both get more room) and a single way to change anything,
    taking it back off. */
+/* Been can be read two ways: the order you went (one numbered run) or where in the world it
+   was (grouped by continent). Same cards and the same numbers either way, just regrouped. */
+function drawBeenSubtabs(){
+  const el = $('#been-subtabs'); if(!el) return;
+  const tab = (k, label) => `<button class="subtab${CUR_BEEN_VIEW===k?' on':''}" onclick="App.beenView('${k}')">${label}</button>`;
+  el.innerHTML = tab('list','🔢 In Order') + tab('continents','🌍 Continents');
+}
 function beenCardHTML(co, num){
   const removeLabel = "Remove "+co.name+" from Places I've Been";
   return `
@@ -2456,9 +2475,22 @@ function drawPlacesGrid(){
        (they're the next ones to happen) and carry their number like the rest, they're just
        faded until the trip's dates pass */
     const cards = upcoming.map(co => ({co, upcoming:true})).concat(list.map(co => ({co, upcoming:false})));
-    el.innerHTML = `<div class="places-grid dense">${
-      cards.map((c,i) => c.upcoming ? beenUpcomingCardHTML(c.co, i+1) : beenCardHTML(c.co, i+1)).join('')
-    }</div>`;
+    /* the numbers are worked out once, over the whole run, so a country keeps the same number
+       in either view - grouping by continent reorders the cards, it doesn't renumber them */
+    cards.forEach((c,i) => { c.num = i+1; });
+    const cardHTML = c => c.upcoming ? beenUpcomingCardHTML(c.co, c.num) : beenCardHTML(c.co, c.num);
+    if(CUR_BEEN_VIEW==='continents'){
+      const byContinent = {};
+      cards.forEach(c => { const k = continentOf(c.co.code); (byContinent[k] = byContinent[k]||[]).push(c); });
+      const order = CONTINENT_ORDER.filter(k=>byContinent[k])
+        .concat(Object.keys(byContinent).filter(k=>!CONTINENT_ORDER.includes(k)));
+      el.innerHTML = order.map(k => `
+        <h3 class="places-continent-heading">${CONTINENT_EMOJI[k]?secEmoji(CONTINENT_EMOJI[k]):''} ${esc(k)}
+          <span class="muted small been-cont-count">${byContinent[k].length}</span></h3>
+        <div class="places-grid dense">${byContinent[k].map(cardHTML).join('')}</div>`).join('');
+      return;
+    }
+    el.innerHTML = `<div class="places-grid dense">${cards.map(cardHTML).join('')}</div>`;
     return;
   }
 
@@ -2724,7 +2756,14 @@ function loadBoardGames(q){
   const grid = $('#bg-grid'); if(!grid) return;
   grid.innerHTML = `<div class="empty">Loading board games…</div>`;
   fetch(psnUrl('/board-games') + (q ? '?q='+encodeURIComponent(q) : ''))
-    .then(r => { if(!r.ok) throw new Error('status '+r.status); return r.json(); })
+    .then(r => {
+      /* a 404 here means the proxy answered but has never heard of /board-games, i.e. it's
+         running an older copy of worker.js - worth saying so, because "status 404" on its own
+         sends you looking for a bug in the app instead of at the deploy */
+      if(r.status===404) throw new Error("Your proxy is running an older version that doesn't have board games yet. Redeploy the worker in psn-proxy/ and this'll fill in.");
+      if(!r.ok) throw new Error('status '+r.status);
+      return r.json();
+    })
     .then(data => {
       if(CUR_GAMES_TAB!=='board' || !$('#bg-grid')) return;   // moved on while it was in flight
       BG_GAMES = data.games||[];
@@ -3000,6 +3039,7 @@ App.setPlaceStatus = (code, status) => {
   savePlaces();
   drawPlacesGrid();
 };
+App.beenView = k => { CUR_BEEN_VIEW = k; drawBeenSubtabs(); drawPlacesGrid(); };
 App.selectPlacesRegion = k => {
   CUR_PLACES_REGION = k;
   const inp = $('#places-filter'); if(inp) inp.value = '';
