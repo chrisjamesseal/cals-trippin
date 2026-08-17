@@ -231,6 +231,14 @@ a{color:var(--brand-dark);}
 .design-meta{text-transform:uppercase; letter-spacing:.04em; font-size:.68rem; font-weight:700;}
 .design-title{margin:4px 0 0; color:var(--ink);}
 .design-summary{margin-top:6px; color:var(--ink); opacity:.8;}
+.design-card{cursor:pointer;}
+/* a reading surface rather than a card: a narrower measure and looser lines than the rest of
+   the app, because this is the one screen you sit and read instead of scan */
+.article{max-width:38rem;}
+.article-title{font-size:1.6rem; margin:6px 0 18px;}
+.article-p{margin-bottom:16px; font-size:1.02rem; line-height:1.65; color:var(--ink); overflow-wrap:anywhere;}
+.article-note{margin-top:-4px; margin-bottom:16px;}
+.article-actions{margin-top:22px; padding-top:18px; border-top:1px solid var(--line);}
 
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
@@ -803,8 +811,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.64.0';
+const APP_VERSION = '1.65.0';
 const CHANGELOG = [
+  {version:'1.65.0', notes:[
+    'Design articles now open and read inside the app instead of sending you off to the browser, at a proper reading width. The original is still one tap away at the bottom of each one.',
+    'Where a publication only puts a preview in its feed, the reader says so rather than showing you a stub.'
+  ]},
   {version:'1.64.0', notes:[
     'Places I\'ve Been has two tabs now: In Order (the numbered list) and Continents, which groups the same countries by where in the world they are, with a count on each. A country keeps its number in both.',
     'Closed the gap between the Your Trips heading and the first trip card.',
@@ -2865,10 +2877,22 @@ function bgCardHTML(g){
    most feeds don't send the CORS headers a browser needs to read them directly, so this goes
    through the worker the same reason Games does). No login, nothing device-specific: just a
    GET, so there's no connect step here, straight to the list. */
-function renderDesign(){
-  $('#app').innerHTML = `
+let DESIGN_ARTICLES = [];   // the last fetch, held so opening one doesn't refetch the lot
+/* the proxy hands back each article's body as plain paragraphs rather than HTML, so reading
+   one in place is just text - see htmlToParagraphs in worker.js for why. A feed that only
+   publishes a teaser gives us too little to read, in which case the reader says so and hands
+   over to the site rather than pretending a two-line stub is the article. */
+const READABLE_MIN_CHARS = 400;
+const articleTextLength = a => (a.body||[]).reduce((n,p)=>n+p.length, 0);
+const articleIsReadable = a => articleTextLength(a) >= READABLE_MIN_CHARS;
+
+function designShell(inner){
+  return `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Design</span></div></div>
-    <div id="design-body"></div>`;
+    ${inner}`;
+}
+function renderDesign(){
+  $('#app').innerHTML = designShell(`<div id="design-body"></div>`);
   const body = $('#design-body');
   if(!DESIGN_NEWS_URL){
     body.innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
@@ -2876,13 +2900,10 @@ function renderDesign(){
       <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
     return;
   }
+  if(DESIGN_ARTICLES.length){ renderDesignList(DESIGN_ARTICLES); return; }   // coming back from a read
   body.innerHTML = `<div class="empty">Loading design news…</div>`;
-  fetch(DESIGN_NEWS_URL.replace(/\/$/,'') + '/design-news')
-    .then(r => { if(!r.ok) throw new Error('status '+r.status); return r.json(); })
-    .then(data => {
-      if(!$('#design-body')) return;   // navigated away while this was in flight
-      renderDesignList(data.articles||[]);
-    })
+  loadDesignNews()
+    .then(articles => { if($('#design-body')) renderDesignList(articles); })
     .catch(e => {
       if(!$('#design-body')) return;
       $('#design-body').innerHTML = `<div class="empty">Couldn't load design news.<br>${esc(e.message||'')}
@@ -2891,20 +2912,60 @@ function renderDesign(){
         </div></div>`;
     });
 }
+function loadDesignNews(){
+  return fetch(DESIGN_NEWS_URL.replace(/\/$/,'') + '/design-news')
+    .then(r => { if(!r.ok) throw new Error('status '+r.status); return r.json(); })
+    .then(data => { DESIGN_ARTICLES = data.articles||[]; return DESIGN_ARTICLES; });
+}
 function renderDesignList(articles){
   const body = $('#design-body'); if(!body) return;
   if(!articles.length){ body.innerHTML = `<div class="empty">Nothing to show right now, try again shortly.</div>`; return; }
   body.innerHTML = `<div class="design-list">${articles.map(designCardHTML).join('')}</div>`;
 }
-function designCardHTML(a){
+function designCardHTML(a, i){
   const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
   return `
-    <a class="card design-card" href="${esc(a.link)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(a.link)}')">
+    <div class="card design-card" role="button" tabindex="0" onclick="App.readArticle(${i})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readArticle(${i})}">
       <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
       <h3 class="design-title">${esc(a.title)}</h3>
       ${a.summary?`<p class="small design-summary">${esc(a.summary)}</p>`:''}
-    </a>`;
+    </div>`;
+}
+/* the article itself, read in the app. Deep-linking straight here (a reload, a shared URL)
+   finds DESIGN_ARTICLES empty, so it fetches the list first and then shows the one asked for. */
+function renderDesignArticle(i){
+  if(!DESIGN_ARTICLES.length){
+    $('#app').innerHTML = designShell(`<div class="empty">Loading…</div>`);
+    loadDesignNews()
+      .then(()=>{ if(location.hash==='#/design/'+i) renderDesignArticle(i); })
+      .catch(()=>{ location.hash = '#/design'; });
+    return;
+  }
+  const a = DESIGN_ARTICLES[i];
+  if(!a){ location.hash = '#/design'; return; }
+  const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
+  const readable = articleIsReadable(a);
+  const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener"
+      onclick="return App.openExternal(event, '${esc(a.link)}')">${ICONS.ext}Read on ${esc(a.source)}</a>`;
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="App.goDesign()" aria-label="Back to Design">${ICONS.back}</button>
+          Reading</span>
+      </div>
+    </div>
+    <article class="article">
+      <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
+      <h1 class="article-title">${esc(a.title)}</h1>
+      ${readable
+        ? (a.body||[]).map(p=>`<p class="article-p">${esc(p)}</p>`).join('')
+        : `<p class="article-p">${esc(a.summary||'')}</p>
+           <p class="small muted article-note">${esc(a.source)} only publishes a preview to its feed,
+             so there's nothing more to show here - the rest is on their site.</p>`}
+      <div class="btn-row article-actions">${openBtn}</div>
+    </article>`;
 }
 
 function route(){
@@ -2926,6 +2987,10 @@ function route(){
   if(h === '#/games'){
     CUR_TRIP_ID = null; stopSub();
     renderGames(); window.scrollTo(0,0); return;
+  }
+  if(h.startsWith('#/design/')){
+    CUR_TRIP_ID = null; stopSub();
+    renderDesignArticle(+h.split('/')[2]); window.scrollTo(0,0); return;
   }
   if(h === '#/design'){
     CUR_TRIP_ID = null; stopSub();
@@ -3016,6 +3081,7 @@ App.toggleChangelog = () => {
 App.goPlaces = view => { location.hash = view ? '#/places/'+view : ''; };
 App.goGames = () => { location.hash = '#/games'; };
 App.goDesign = () => { location.hash = '#/design'; };
+App.readArticle = i => { location.hash = '#/design/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
