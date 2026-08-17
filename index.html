@@ -65,7 +65,7 @@ body{
 .logo .lg2{color:var(--brand);}
 
 /* the version now lives quietly at the foot of Your Trips instead of a top bar */
-.home-foot{display:flex; justify-content:center; border-top:1px solid var(--line); margin-top:30px; padding-top:16px;}
+.home-foot{display:flex; justify-content:center; border-top:1px solid var(--line); margin-top:14px; padding-top:14px;}
 .version-tag{background:none; border:none; padding:6px; margin:0; color:var(--muted); font-size:.75rem; font-weight:600;
   cursor:pointer; text-decoration:underline; text-decoration-color:transparent; transition:text-decoration-color .15s;}
 .version-tag:hover{text-decoration-color:currentColor; color:var(--brand-dark);}
@@ -146,11 +146,11 @@ a{color:var(--brand-dark);}
   box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s, border-color .1s;
 }
 .hub-card:hover,.hub-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
-.hub-emoji{font-size:2rem; line-height:1; margin-bottom:8px;
+.hub-emoji{font-size:1.33rem; line-height:1; margin-bottom:8px;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .hub-n{font-size:2.3rem; font-weight:800; line-height:1; color:var(--brand-dark); letter-spacing:-.02em;}
 .hub-label{font-family:var(--font-head); font-size:.82rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere;}
-@media(max-width:360px){.hub-emoji{font-size:1.6rem;} .hub-n{font-size:1.9rem;}}
+@media(max-width:360px){.hub-emoji{font-size:1.07rem;} .hub-n{font-size:1.9rem;}}
 
 /* ---------- games (PSN progress) ---------- */
 .games-list{display:flex; flex-direction:column; gap:10px;}
@@ -294,7 +294,8 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    whose safe-area inset made the bar taller than the arithmetic said */
 .places-search,.games-search{position:fixed; left:0; right:0; z-index:55;
   bottom:calc(var(--bar-h,61px) + var(--kb-inset,0px));
-  padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);}
+  padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);
+  transform:translateZ(0); will-change:transform;}
 .places-search input,.games-search input{background:var(--paper);}
 /* one country per row: side by side, a long name and its capital and language had nowhere to
    go and the card grew a paragraph tall. Two columns once the screen is wide enough to give
@@ -382,6 +383,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .flight-strip{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden;}
 .flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--brand-ghost);}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
+/* accommodation runs down the card rather than across it, but shares the flight card's
+   strip/head shell so the two read as the same kind of thing on the Itinerary */
+.accom-body{padding:14px; display:flex; flex-direction:column; gap:10px;}
+.accom-body > *{margin-top:0!important;}
+.accom-addr{color:var(--ink); overflow-wrap:anywhere;}
 .flight-body.loc-stack{display:flex; flex-direction:column; gap:10px;}
 .flight-apt{font-size:1.5rem; font-weight:800; letter-spacing:.02em; color:var(--ink);}
 .apt-name{font-size:.72rem; color:var(--muted); margin-top:1px; line-height:1.2;}
@@ -487,6 +493,9 @@ a.dash-tile{text-decoration:none;}
   background:var(--paper); border-top:1px solid var(--line);
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
   box-shadow:0 -2px 14px rgba(20,40,47,.06);
+  /* forces its own compositor layer so mobile Safari/Chrome keep it pinned smoothly
+     during momentum scroll instead of lagging a frame behind and looking "unstuck" */
+  transform:translateZ(0); will-change:transform;
 }
 .tabbar-item{
   display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
@@ -743,8 +752,15 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.60.0';
+const APP_VERSION = '1.61.0';
 const CHANGELOG = [
+  {version:'1.61.0', notes:[
+    'Accommodation cards now look like flight cards: the name sits in a title bar at the top with the time you can get in ("From 15:00") or have to be out ("Until 11:00") to its right. On the Itinerary the label above them just says "Accommodation" now, since the card itself says which end of the stay it is.',
+    'Dropped the location pin from accommodation and stop cards, and added a 🔗 button next to Open Map that copies the address.',
+    'Places I\'ve Been: "Coming Up" moved to the top of the page, above the numbered list of everywhere you\'ve already been.',
+    'Places I\'ve Been is now 📍 and Going is now ✈️ on the front page, and all four card emojis are a third smaller.',
+    'Tightened the gap under Your Trips, and the bottom bar and search box now stay put properly while the page scrolls.'
+  ]},
   {version:'1.60.0', notes:[
     'The bottom bar\'s Places is now labelled Travel, and Country Finder is now just Countries.',
     'The serif headline font now shows on every page title and card title (My Travels, Games, trip names, dashboard tiles, country names…), not just the section headings inside a trip; things you actually need to read at speed - flight codes, times, numbers - stay on the plain sans-serif body font.',
@@ -1221,6 +1237,11 @@ function logEdit(section, summary){
 const $ = s => document.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2,10);
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* text safe to pass as a single-quoted argument inside an onclick attribute. esc() alone
+   isn't enough there: the browser turns its &#39; back into a real apostrophe before the JS
+   is parsed, so an address like "St John's Road" would end the string early. Percent-encoding
+   leaves nothing behind that either parser reacts to; the handler decodeURIComponent's it. */
+const jsArg = s => encodeURIComponent(String(s==null?'':s)).replace(/'/g, '%27');
 /* The pop-up that used to slide over the bottom bar after every action is gone. It said
    things you already knew ("Stop saved", right after you saved a stop) and covered the bar
    while it did. Every delete already asks first, so its Undo was a second safety net rather
@@ -2174,8 +2195,8 @@ function placesHubCardsHTML(){
       <span class="hub-n">${n}</span>
       <span class="hub-label">${esc(label)}</span>
     </a>`;
-  return card('#/places/been', '✅', c.been, "Places I've Been")
-       + card('#/trips', '🧳', goingCount(), 'Going')
+  return card('#/places/been', '📍', c.been, "Places I've Been")
+       + card('#/trips', '✈️', goingCount(), 'Going')
        + card('#/places/want', '⭐', c.want, 'Want to Go')
        + card('#/places/finder', '🌍', c.all, 'Countries');
 }
@@ -2371,11 +2392,13 @@ function drawPlacesGrid(){
       el.innerHTML = `<div class="empty">${q ? `No countries match "${esc(q)}"` : "Nowhere yet. Countries fill in here once a trip there has finished, or tick one off in Want to Go."}</div>`;
       return;
     }
-    const beenHTML = list.length ? `<div class="places-grid dense">${list.map((co,i)=>beenCardHTML(co,i+1)).join('')}</div>` : '';
+    /* Coming Up leads the page - it's what's about to change - with the numbered, most-recent-
+       first log of everywhere already Been underneath it. */
     const upcomingHTML = upcoming.length ? `
-      <h3 class="places-continent-heading" style="margin-top:${list.length?'22px':'0'}">Coming Up</h3>
+      <h3 class="places-continent-heading">Coming Up</h3>
       <div class="places-grid dense">${upcoming.map(beenUpcomingCardHTML).join('')}</div>` : '';
-    el.innerHTML = beenHTML + upcomingHTML;
+    const beenHTML = list.length ? `<div class="places-grid dense"${upcoming.length?' style="margin-top:22px"':''}>${list.map((co,i)=>beenCardHTML(co,i+1)).join('')}</div>` : '';
+    el.innerHTML = upcomingHTML + beenHTML;
     return;
   }
 
@@ -2982,6 +3005,27 @@ App.copyShare = () => {
 };
 App.nativeShare = () => {
   navigator.share({title:"Trip invite", url: $('#share-url').value}).catch(()=>{});
+};
+/* Copy an address/location. The text arrives percent-encoded (see jsArg) so an apostrophe in
+   it can't break out of the onclick attribute. There are no toasts in this app, so the button
+   itself confirms by flashing a tick rather than popping anything up. */
+App.copyText = (enc, btn) => {
+  const text = decodeURIComponent(enc);
+  const done = () => {
+    if(!btn) return;
+    const was = btn.innerHTML;
+    btn.innerHTML = `<span class="sec-emoji" aria-hidden="true">✅</span>`;
+    setTimeout(()=>{ btn.innerHTML = was; }, 1200);
+  };
+  const manual = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){}
+    ta.remove();
+  };
+  if(navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(manual);
+  else manual();
 };
 
 /* ================= trip shell ================= */
@@ -4354,10 +4398,12 @@ function tabPlan(t, ro){
       ${autoTag(secEmoji(s._autoCar==='pickup'?'🚗':'🅿️'), s._autoCar==='pickup'?'Car Hire Pick Up':'Car Hire Drop Off', s.time)}
       ${carStripHTML(s.c, s.ci, '')}
     </div>`;
+  /* the tag just names the thing ("Accommodation"); which end of the stay it is, and at what
+     time, is on the card's own head now ("From 15:00" / "Until 11:00") */
   const autoStayCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
-      ${autoTag(secEmoji(s._autoStay==='checkin'?'🔑':'👋'), s._autoStay==='checkin'?'Check In':'Check Out', s.time)}
-      ${accomCardHTML(s.ac, {showDates:false, compact:true})}
+      ${autoTag(secEmoji(s._autoStay==='checkin'?'🔑':'👋'), 'Accommodation', '')}
+      ${accomCardHTML(s.ac, {showDates:false, compact:true, phase:s._autoStay})}
     </div>`;
   const travelCard = s => {
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
@@ -4395,11 +4441,12 @@ function tabPlan(t, ro){
         </div>
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
-      ${s.location ? `<div class="small" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        ${secEmoji('📍')}<span>${esc(s.location)}</span>
-      </div>` : ''}
+      ${s.location ? `<div class="small accom-addr" style="margin-bottom:10px">${esc(s.location)}</div>` : ''}
       ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
-      ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px"><a class="btn icon-only" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}')" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a></div>` : ''}
+      ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px">
+        <a class="btn icon-only" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}')" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a>
+        ${s.location?`<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(s.location)}',this)" aria-label="Copy location" title="Copy location">${secEmoji('🔗')}</button>`:''}
+      </div>` : ''}
     </div>`;
   const taskCard = s => `
     <div class="card plan-card task-card${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
@@ -4902,25 +4949,38 @@ function accomCardHTML(a, opts){
     : a.checkin ? `${fmtDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix}`
     : a.checkout ? `${fmtDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
     : '';
+  /* the head's right-hand slot mirrors a flight's date. On the Itinerary the card is pinned to
+     one end of the stay, so it carries that end's own time ("From 15:00" / "Until 11:00"); on
+     the Accommodation tab, where both ends are spelled out in the body anyway, it carries the
+     check-in date instead. */
+  const headNote = opts.phase==='checkin'  ? (a.checkinTime  ? 'From '+a.checkinTime   : 'Check in')
+                 : opts.phase==='checkout' ? (a.checkoutTime ? 'Until '+a.checkoutTime : 'Check out')
+                 : (a.checkin ? fmtDate(a.checkin) : '');
   const bookingBtn = a.bookingUrl ? (opts.compact
       ? `<a class="btn icon-only" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')" aria-label="View Booking" title="View Booking">${faviconFor(a.bookingUrl)}</a>`
       : `<a class="btn" style="flex:1.4;min-width:0" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')">${faviconFor(a.bookingUrl)}View Booking</a>`) : '';
   const mapBtn = a.address ? (opts.compact
       ? `<a class="btn icon-only" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')" aria-label="Open Map" title="Open Map">${secEmoji('🗺️')}</a>`
       : `<a class="btn" style="flex:1;min-width:0" href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')">${secEmoji('🗺️')}Open Map</a>`) : '';
+  const copyBtn = a.address ? (opts.compact
+      ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)" aria-label="Copy address" title="Copy address">${secEmoji('🔗')}</button>`
+      : `<button type="button" class="btn" style="flex:1;min-width:0" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)">${secEmoji('🔗')}Copy Address</button>`) : '';
   return `
-    <div class="card">
-      <div class="section-head" style="margin-bottom:0">
-        <h3>${esc(a.name||'Accommodation')}</h3>
-        ${opts.headerActions?`<span class="btn-row" onclick="event.stopPropagation()">${opts.headerActions}</span>`:''}
+    <div class="flight-strip">
+      <div class="flight-head">
+        <strong>${esc(a.name||'Accommodation')}</strong>
+        <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
+          ${headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
+          ${opts.headerActions||''}
+        </span>
       </div>
-      ${opts.showDates!==false && stayRange ? `<div class="small" style="display:flex;align-items:center;gap:8px;margin-top:10px">${ICONS.calendar}<span>${esc(stayRange)}</span></div>` : ''}
-      ${a.address ? `<div class="small" style="display:flex;align-items:center;gap:8px;margin-top:10px">
-        ${secEmoji('📍')}<span>${esc(a.address)}</span>
-      </div>` : ''}
-      ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
-      ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">${bookingBtn}${mapBtn}</div>`:''}
-      ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
+      <div class="accom-body">
+        ${opts.showDates!==false && stayRange ? `<div class="small" style="display:flex;align-items:center;gap:8px">${ICONS.calendar}<span>${esc(stayRange)}</span></div>` : ''}
+        ${a.address ? `<div class="small accom-addr">${esc(a.address)}</div>` : ''}
+        ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
+        ${a.bookingUrl || a.address ? `<div class="btn-row" style="margin-top:14px;flex-wrap:nowrap">${bookingBtn}${mapBtn}${copyBtn}</div>`:''}
+        ${opts.footerActions?`<div style="margin-top:12px" onclick="event.stopPropagation()">${opts.footerActions}</div>`:''}
+      </div>
     </div>`;
 }
 const DAY_MS = 86400000;
