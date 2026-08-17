@@ -698,8 +698,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.53.0';
+const APP_VERSION = '1.54.0';
 const CHANGELOG = [
+  {version:'1.54.0', notes:[
+    'Itinerary: once a trip has anything on it, every day shows, not just the ones with something planned - a day with nothing yet gets the same dashed card as an accommodation gap, with its own + Add Stop button, right where the gap falls.',
+    'Travel: no flights booked now shows the same dashed card instead of a plain message.'
+  ]},
   {version:'1.53.0', notes:[
     'An archived trip shows "Archived" as a pill top-right of its title, instead of a small pin-emoji phrase sharing the line with the countdown.'
   ]},
@@ -4037,6 +4041,20 @@ function tabPlan(t, ro){
       from:mv.from, to:mv.to, time:mv.time, timing:mv.timing, aci:mv.aci});
   });
   const hasAny = Object.keys(groups).length > 0;
+  /* once there's something on the trip, every day of it shows up, not just the ones with
+     something on them: a day nothing's been added to yet gets a dashed placeholder (same
+     treatment as an accommodation gap) instead of silently not appearing at all. Only once
+     the trip's length is actually known, real dates or a "How long" on a rough one, since
+     otherwise there's no day range to fill in. Skipped entirely for a blank trip, which
+     already gets its own "Nothing planned yet" empty state below. */
+  if(hasAny){
+    if(!rough && t.startDate && t.endDate){
+      for(let d=t.startDate; d<=t.endDate; d=isoAddDays(d,1)) if(!groups[d]) groups[d] = [];
+    } else if(rough){
+      const days = roughTripDays(t);
+      for(let d=1; d<=days; d++) if(!groups['d'+d]) groups['d'+d] = [];
+    }
+  }
   /* day numbers have to sort as numbers, or Day 10 lands before Day 3 */
   const keys = Object.keys(groups).sort(rough
     ? (a,b)=>(a?+a.slice(1):9999)-(b?+b.slice(1):9999)
@@ -4130,12 +4148,20 @@ function tabPlan(t, ro){
     : s._autoStay ? autoStayCard(s)
     : s.kind==='travel' ? travelCard(s)
     : stopCard(s);
+  /* the same dashed-box treatment as an accommodation gap, for a day nothing's been added to
+     yet: a quiet prompt sitting right where the gap falls rather than the day just not
+     appearing at all */
+  const emptyDayCard = k => `
+    <div class="card gap-card">
+      <div class="section-head" style="margin-bottom:0"><h3>${secEmoji('📍')}Nothing Planned</h3></div>
+      ${ro?'':`<button class="btn primary sm" style="margin-top:10px" onclick="App.planGapForm('${k}', ${rough})">+ Add Stop</button>`}
+    </div>`;
   const dayBlock = k => {
     const dayItems = groups[k].slice().sort(planCompare);
     const stay = stayingAt(k);
     return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</h3>
       ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏠')}Staying at ${esc(stay)}</p>`:''}
-      ${dayItems.map(card).join('')}`;
+      ${dayItems.length ? dayItems.map(card).join('') : emptyDayCard(k)}`;
   };
   return `
     ${hasAny ? keys.map(dayBlock).join('')
@@ -4193,6 +4219,9 @@ App.planWhenChange = () => {
   const wrap = $('#pl-time-wrap'); if(!wrap) return;
   wrap.style.display = $('#pl-when').value==='time' ? 'grid' : 'none';
 };
+/* the dashed "nothing planned" card opens the normal Add Stop form with that day already
+   filled in, same idea as the accommodation gap card's App.accomGapForm */
+App.planGapForm = (key, rough) => App.planForm(-1, rough ? {day:+key.slice(1)} : {date:key});
 App.planForm = (i, prefill, moodIndex) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const s = prefill || (i>=0 ? (t.itinerary||[])[i] || {} : {});
@@ -4518,9 +4547,17 @@ function tabTravel(t, ro){
   const ferries = (t.ferries||[]).map((f,i)=>ferryStripHTML(f, i, editDel(`App.ferryForm(${i})`, `App.delFerry(${i})`))).join('');
   const cars = (t.carHire||[]).map((c,i)=>carStripHTML(c, i, editDel(`App.carForm(${i})`, `App.delCar(${i})`))).join('');
 
+  /* no flights booked is an outstanding gap the same way an empty accommodation night is, so
+     it gets the same dashed treatment instead of a plain empty message */
+  const noFlightsCard = `
+    <div class="card gap-card">
+      <div class="section-head" style="margin-bottom:6px"><h3>${secEmoji('✈️')}No Flights Yet</h3></div>
+      <p class="small muted" style="margin-bottom:${ro?'0':'12px'}">${ro?'None added.':'Add one and attach the boarding pass.'}</p>
+      ${ro?'':`<button class="btn primary sm" onclick="App.flightForm(-1)">+ Add Flight</button>`}
+    </div>`;
   return `
     <div class="section-head" style="margin-top:6px"><h3>${secEmoji('✈️')} Flights</h3>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
-    ${flights || `<div class="empty">No flights yet.${!ro?' Add one and attach the boarding pass.':''}</div>`}
+    ${flights || noFlightsCard}
 
     <div class="section-head" style="margin-top:30px"><h3>${secEmoji('⛴️')} Ferries</h3>${!ro?`<button class="btn sm" onclick="App.ferryForm(-1)">+ Add Ferry</button>`:''}</div>
     ${ferries || `<div class="empty">No ferries yet.</div>`}
