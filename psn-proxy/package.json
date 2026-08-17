@@ -1,0 +1,13 @@
+{
+  "name": "cals-trippin-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker proxying the PlayStation, RSS and BoardGameGeek calls a browser can't make itself",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}
