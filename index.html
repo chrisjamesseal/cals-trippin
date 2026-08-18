@@ -431,19 +431,24 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .gap-card{border:2px dashed var(--line-strong); background:none; box-shadow:none;}
 .gap-card h3{color:var(--muted);}
 
-/* an outstanding task: the same red used everywhere else something still needs doing (an
-   unpaid balance, packing left for you), a stripe down the side rather than the dashed
-   outline a gap gets, since this one was typed in by hand rather than worked out from dates */
-/* a task only wears the red while it still needs a day - once it's on the Itinerary it's a
+/* an outstanding task, or anything else still needing a decision, wears the same dashed
+   outline a gap card gets - it isn't a plan yet either - tinted the red used everywhere else
+   something still needs doing (an unpaid balance, packing left for you). One shared look for
+   an unscheduled Task and for a flight/ferry/car hire/accommodation/stop/travel leg marked
+   Undecided, so "still needs a decision" reads the same wherever it shows up. */
+.card-undecided{border:2px dashed #C0392B !important; background:none !important; box-shadow:none !important;}
+.card-undecided .flight-head{background:none !important; border-bottom:1px dashed #C0392B !important;}
+.card-undecided h3,.card-undecided .head-with-logo,.card-undecided .head-with-logo span,.card-undecided strong{color:#C0392B;}
+/* a task only wears this while it still needs a day - once it's on the Itinerary it's a
    plan like any other */
 .task-card{border-left:3px solid var(--line-strong);}
-.task-unscheduled{border-left-color:#C0392B;}
+.task-card.task-unscheduled{border:2px dashed #C0392B; border-left:2px dashed #C0392B; background:none; box-shadow:none;}
 .task-nowhen{color:#C0392B; font-weight:600;}
 .task-flag{font-size:.95rem; line-height:1;}
 .task-card.task-done{border-left-color:var(--line-strong); opacity:.6;}
 .task-card.task-done h3{text-decoration:line-through; color:var(--muted);}
-/* the same red, reused wherever a flight/ferry/car hire/stay/stop is missing something -
-   its own "Undecided?" badge, or a single field (airline, operator, company…) left blank */
+/* the same red, for a single field (airline, operator, company…) left blank on a card that's
+   otherwise a real, filled-in card - too small a gap to earn the full dashed treatment */
 .text-undecided{color:#C0392B; font-weight:600;}
 
 /* ---------- misc components ---------- */
@@ -556,6 +561,12 @@ details .d-body{padding:14px 16px;}
   .card.plan-click:hover{border-color:var(--line);}
   .tabbar-new:hover{background:var(--brand); transform:none;}
   .tabbar-new.open:hover{transform:rotate(45deg);}
+  /* the trash/pencil icon on every card list (places, tasks, travel, accommodation…) - its
+     hover tint is a red-tinted pink that sticks on whichever one you last tapped, reading as
+     a stray red outline on a "random" card until you tap something else */
+  .iconbtn:hover{color:var(--muted); background:none;}
+  .iconbtn.edit:hover{color:var(--brand); background:none;}
+  .iconbtn.del:hover{color:#C0392B; background:none;}
 }
 @media print{.btn,.menu-btn,.tabbar,.crumb{display:none!important;}}
 
@@ -871,8 +882,14 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.70.0';
+const APP_VERSION = '1.71.0';
 const CHANGELOG = [
+  {version:'1.71.0', notes:[
+    'An Undecided item now still shows on the Itinerary (and the Travel/Accommodation tab it belongs to), not just as a Task - drawn with the same dashed red outline as an empty day or a "No Flights Yet" gap, since it isn\'t a plan yet either, just one you know is coming.',
+    'Fixed a sticky red hover tint on a card\'s edit/delete icon after tapping it on a touch screen - the fix that stopped whole cards doing this didn\'t cover these icons.',
+    'Places I\'ve Been: corrected the order of the earliest countries so England is #1 (the very first) and Wales #2, with the rest of that early run following on from there.',
+    'Polls can now allow selecting multiple answers (a new toggle when creating one), and anyone answering an open poll can add another option on the spot, not just when it\'s first created.'
+  ]},
   {version:'1.70.0', notes:[
     'Added an "Undecided?" checkbox to every Add form (stops, travel, flights, ferries, car hire, accommodation): tick it for something you know you need but haven\'t sorted yet, and it becomes a single red Task instead of a half-empty card on the Itinerary - resolve it later and the Task clears itself.',
     'A blank airline, operator or company on an otherwise-filled-in card now shows in red with a ❓, rather than just being left out, so a still-open detail stands out even when the rest of the booking is done.'
@@ -2526,10 +2543,11 @@ function beenUpcomingCardHTML(co, num){
     </div>`;
 }
 /* the real, remembered order of first sixteen: given by hand rather than derived, since
-   nothing in the data says *when* each of these actually happened. Most recent first.
-   Anything ticked Been from here on (not in this list) is assumed to be more recent than all
-   of these and sorts above them. */
-const BEEN_VISIT_ORDER = ['XE','XW','FR','IE','XS','US','ES','NL','BE','PT','CH','NO','IT','VA','TH','HR'];
+   nothing in the data says *when* each of these actually happened. Oldest first - England
+   was the very first (#1, at the foot of the list), Wales second, and so on up to the most
+   recent of these sixteen. Anything ticked Been from here on (not in this list) is assumed
+   to be more recent than all of these and sorts above them. */
+const BEEN_VISIT_ORDER = ['HR','TH','VA','IT','NO','CH','PT','BE','NL','ES','US','XS','IE','FR','XW','XE'];
 const BEEN_VISIT_SET = new Set(BEEN_VISIT_ORDER);
 function beenOrderedCountries(trips){
   const out = [], seen = new Set();
@@ -4439,10 +4457,15 @@ App.packReminder = () => {
    your old one rather than stacking up, and everyone can see who wanted what. Anyone can
    close a poll (same trust model as the rest of the app: one shared link, one shared PIN). */
 function pollVotes(p){ return (p && p.votes) || {}; }
-function pollCount(p, optId){ return Object.values(pollVotes(p)).filter(v=>v===optId).length; }
+/* a vote is a single option id for a normal poll, or an array of them once "allow multiple
+   answers" is on - every reader goes through this so neither shape needs special-casing
+   anywhere else */
+function voteHasOpt(v, optId){ return Array.isArray(v) ? v.includes(optId) : v===optId; }
+function pollCount(p, optId){ return Object.values(pollVotes(p)).filter(v=>voteHasOpt(v,optId)).length; }
 function pollTotal(p){ return Object.keys(pollVotes(p)).length; }
 function pollVotersFor(p, optId){
-  return Object.keys(pollVotes(p)).filter(n=>pollVotes(p)[n]===optId);
+  const votes = pollVotes(p);
+  return Object.keys(votes).filter(n=>voteHasOpt(votes[n], optId));
 }
 /* the option(s) in front, so a decided poll reads at a glance; ties are kept as ties */
 function pollLeaders(p){
@@ -4469,7 +4492,7 @@ function pollCardHTML(t, p, i, ro){
     const n = pollCount(p, o.id);
     const pct = total ? Math.round(n/total*100) : 0;
     const voters = pollVotersFor(p, o.id);
-    const picked = mine===o.id;
+    const picked = voteHasOpt(mine, o.id);
     const won = leaders.includes(o.id);
     const canVote = !ro && !p.closed && me;
     return `
@@ -4486,15 +4509,21 @@ function pollCardHTML(t, p, i, ro){
   const yetToVote = (t.participants||[]).filter(n=>!pollVotes(p)[n]);
   return `
     <div class="card poll-card">
-      <div class="section-head" style="margin-bottom:10px">
+      <div class="section-head" style="margin-bottom:${p.multi&&!p.closed?'2px':'10px'}">
         <h3>${esc(p.q)}</h3>
         ${!ro?`<div style="display:flex;gap:2px;flex-shrink:0">
           <button class="iconbtn" title="${p.closed?'Reopen poll':'Close poll'}" aria-label="${p.closed?'Reopen poll':'Close poll'}" onclick="App.togglePoll('${p.id}')">${p.closed?fa('lock-open'):fa('lock')}</button>
           <button class="iconbtn del" title="Remove" aria-label="Remove poll" onclick="App.delPoll('${p.id}')">${ICONS.trash}</button>
         </div>`:''}
       </div>
+      ${p.multi&&!p.closed?`<p class="small muted" style="margin:0 0 10px">Pick as many as you like</p>`:''}
       ${p.closed?`<p class="small muted" style="margin:-4px 0 10px;display:flex;align-items:center;gap:6px">${fa('lock')}Closed${leaders.length?' · '+esc((p.options||[]).filter(o=>leaders.includes(o.id)).map(o=>o.text).join(' / ')):''}</p>`:''}
       ${rows}
+      ${!ro&&!p.closed?`
+      <div class="pack-add" style="margin-top:10px;margin-bottom:0" onclick="event.stopPropagation()">
+        <input type="text" id="po-add-${p.id}" placeholder="Add another option…" onkeydown="if(event.key==='Enter'){event.preventDefault();App.addPollOptionLive('${p.id}')}">
+        <button class="btn" type="button" onclick="App.addPollOptionLive('${p.id}')">+ Add</button>
+      </div>`:''}
       <p class="small muted" style="margin-top:10px">
         ${total?`${total} ${total===1?'vote':'votes'}`:'No votes yet'}${!me?' · pick your name on the Overview to vote':''}${(!p.closed && me && yetToVote.length)?` · waiting on ${esc(yetToVote.join(', '))}`:''}
       </p>
@@ -4516,6 +4545,11 @@ App.pollForm = () => {
     <h2>New Poll</h2>
     <div class="field"><label class="label" for="po-q">Question</label>
       <input id="po-q" type="text" placeholder="e.g. Where should we eat on Friday?"></div>
+    <div class="field">
+      <label class="switch-row"><span>Allow selecting multiple answers</span>
+        <span class="switch"><input type="checkbox" id="po-multi"><span class="knob"></span></span>
+      </label>
+    </div>
     <div class="field"><label class="label">Options</label>
       <div id="po-opts">
         ${[0,1,2].map(i=>`<input class="po-opt" type="text" placeholder="Option ${i+1}" style="margin-bottom:8px">`).join('')}
@@ -4539,9 +4573,22 @@ App.savePoll = () => {
   const opts = [...document.querySelectorAll('.po-opt')].map(el=>(el.value||'').trim()).filter(Boolean);
   if(opts.length<2) return markErr('#po-q','Add at least two options');
   t.polls = t.polls||[];
-  t.polls.unshift({id:uid(), q, options:opts.map(text=>({id:uid(), text})), votes:{}, closed:false, createdBy:whoAmI(t.id)||t.organiser||''});
+  t.polls.unshift({id:uid(), q, options:opts.map(text=>({id:uid(), text})), votes:{}, closed:false,
+    multi:$('#po-multi').checked, createdBy:whoAmI(t.id)||t.organiser||''});
   logEdit('Polls','started a poll');
   save(); closeModal(); CUR_TAB='polls'; rerender(); toast('Poll created');
+};
+/* answering, not just creating: someone mid-vote might realise the option they want isn't
+   there yet, so any open poll offers the same "+ Add" a fresh one does */
+App.addPollOptionLive = pollId => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const p = (t.polls||[]).find(x=>x.id===pollId); if(!p || p.closed) return;
+  const inp = $('#po-add-'+pollId); if(!inp) return;
+  const text = (inp.value||'').trim(); if(!text) return;
+  p.options = p.options||[];
+  p.options.push({id:uid(), text});
+  logEdit('Polls','added an option to a poll');
+  save(); rerender(); toast('Option added');
 };
 App.votePoll = (pollId, optId) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -4549,8 +4596,16 @@ App.votePoll = (pollId, optId) => {
   const me = whoAmI(t.id);
   if(!me){ noteModal('Who Are You?', 'Pick your name on the Overview first, so everyone knows who voted.'); return; }
   p.votes = p.votes||{};
-  if(p.votes[me]===optId) delete p.votes[me];   // tapping your own choice again clears it
-  else p.votes[me] = optId;
+  if(p.multi){
+    // several picks per person, so the stored vote is an array once multi is on
+    const cur = Array.isArray(p.votes[me]) ? p.votes[me].slice() : (p.votes[me]!=null ? [p.votes[me]] : []);
+    const idx = cur.indexOf(optId);
+    if(idx>=0) cur.splice(idx,1); else cur.push(optId);   // tapping a picked option again clears just that one
+    if(cur.length) p.votes[me] = cur; else delete p.votes[me];
+  } else {
+    if(p.votes[me]===optId) delete p.votes[me];   // tapping your own choice again clears it
+    else p.votes[me] = optId;
+  }
   logEdit('Polls','voted in a poll');
   save(); rerender();
 };
@@ -4886,15 +4941,14 @@ function tabPlan(t, ro){
      day number to sit under, so it falls into Anytime until the trip gets real dates. */
   const rough = hasRoughWhen(t);
   items.forEach((s,i)=>{
-    // undecided (nothing nailed down yet) lives only as its linked Task, not here too
-    if(s.undecided) return;
+    // undecided (nothing nailed down yet) still shows here, highlighted red, with no date
+    // it falls into Anytime same as an unscheduled Task - it also has one, in Tasks
     const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
     (groups[k]=groups[k]||[]).push({...s, _i:i});
   });
   // fold travel + accommodation into the schedule, with their full detail, so the whole trip
   // reads in one place, each still lives and is edited in its own section
   (t.flights||[]).forEach((f,fi)=>{
-    if(f.undecided) return;   // its linked Task is where this lives until it's booked
     const k = rough ? '' : (f.date||'');
     // a lightweight reminder to get to the airport, it's a real Add Travel card (same
     // rendering, same edit form) rather than a bespoke one, just suggested rather than
@@ -4903,7 +4957,7 @@ function tabPlan(t, ro){
     // (stable sort keeps insertion order for ties). Skipped once a real entry for this
     // flight exists, so saving it once doesn't leave a duplicate suggestion behind.
     const alreadyAdded = (t.itinerary||[]).some(s=>s._autoForFlight===fi);
-    if(f.from && !alreadyAdded){
+    if(f.from && !f.undecided && !alreadyAdded){
       const name = airportName(f.from) || f.from;
       const beThereBy = airportArriveBy(f.depTime);
       (groups[k]=groups[k]||[]).push({kind:'travel', mode:'undecided', from:'', to:name,
@@ -4912,23 +4966,31 @@ function tabPlan(t, ro){
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
   (t.ferries||[]).forEach((f,fi)=>{
-    if(f.undecided) return;
     const k = rough ? '' : (f.date||'');
     (groups[k]=groups[k]||[]).push({_autoFerry:1, time:f.depTime||'', f, fi});
   });
   (t.carHire||[]).forEach((c,ci)=>{
-    if(c.undecided) return;
     const pk = rough ? '' : c.pickupDate, dk = rough ? '' : c.dropoffDate;
-    if(c.pickupDate) (groups[pk]=groups[pk]||[]).push({_autoCar:'pickup', time:c.pickupTime||'', c, ci});
-    if(c.dropoffDate) (groups[dk]=groups[dk]||[]).push({_autoCar:'dropoff', time:c.dropoffTime||'', c, ci});
+    // undecided and neither date set yet: still has to land somewhere, same Anytime bucket
+    // an unscheduled Task would use, rather than vanishing until a pick-up date exists
+    if(!c.pickupDate && !c.dropoffDate){
+      (groups['']=groups['']||[]).push({_autoCar:'pickup', time:'', c, ci});
+    } else {
+      if(c.pickupDate) (groups[pk]=groups[pk]||[]).push({_autoCar:'pickup', time:c.pickupTime||'', c, ci});
+      if(c.dropoffDate) (groups[dk]=groups[dk]||[]).push({_autoCar:'dropoff', time:c.dropoffTime||'', c, ci});
+    }
   });
   (t.accommodations||[]).forEach((ac,aci)=>{
-    if(ac.undecided) return;
     // your actual arrival time, when you've set one, is what the day should sort by, not
     // the property's generic check-in time
     const ik = rough ? '' : ac.checkin, ok = rough ? '' : ac.checkout;
-    if(ac.checkin) (groups[ik]=groups[ik]||[]).push({_autoStay:'checkin', time:ac.arrivalTime||ac.checkinTime||'', ac, aci});
-    if(ac.checkout) (groups[ok]=groups[ok]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac, aci});
+    if(!ac.checkin && !ac.checkout){
+      // undecided with no dates yet: same Anytime bucket an unscheduled Task would use
+      (groups['']=groups['']||[]).push({_autoStay:'checkin', time:'', ac, aci});
+    } else {
+      if(ac.checkin) (groups[ik]=groups[ik]||[]).push({_autoStay:'checkin', time:ac.arrivalTime||ac.checkinTime||'', ac, aci});
+      if(ac.checkout) (groups[ok]=groups[ok]||[]).push({_autoStay:'checkout', time:ac.checkoutTime||'', ac, aci});
+    }
   });
   /* checking out of one place and into another on the same day means a journey between them
      that nothing else on the page accounts for. Same deal as the airport suggestion: a real
@@ -5046,9 +5108,9 @@ function tabPlan(t, ro){
     if(!booked){
       /* named by how you're getting there rather than by both ends: "Bus to Kassiopi" is what
          you'd say, where "Corfu Town → Kassiopi" is a timetable entry */
-      const undecided = !s.mode || s.mode==='undecided';
+      const modeUndecided = !s.mode || s.mode==='undecided';
       const way = s.mode==='walk' ? 'Walk' : mode.label;
-      const line = undecided
+      const line = modeUndecided
                  ? (s.to ? `Travel to ${esc(s.to)} not decided` : 'Travel not decided')
                  : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
@@ -5057,13 +5119,13 @@ function tabPlan(t, ro){
       return `
       <div class="plan-leg${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
         <span class="plan-leg-icon">${secEmoji(mode.emoji)}</span>
-        <span class="plan-leg-text">${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
+        <span class="plan-leg-text${s.undecided?' text-undecided':''}">${s.undecided&&!modeUndecided?'❓ ':''}${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
       </div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
-    const title = place + (when?' - '+esc(when):'');
+    const title = (s.undecided?'❓ ':'') + place + (when?' - '+esc(when):'');
     return `
-    <div class="card plan-card plan-travel${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
+    <div class="card plan-card plan-travel${s.undecided?' card-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
       <div class="section-head" style="margin-bottom:${duration?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="plan-travel-icon">${secEmoji(mode.emoji)}</span>
@@ -5077,10 +5139,10 @@ function tabPlan(t, ro){
      (Delete Stop lives in there, same as every other section's edit form), so there's no way
      to lose something with a stray tap while scrolling */
   const stopCard = s => `
-    <div class="card plan-card${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
+    <div class="card plan-card${s.undecided?' card-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       <div class="section-head" style="margin-bottom:4px">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
+          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${s.undecided?`❓ ${esc(s.name||'Something to decide')}`:esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
@@ -5478,7 +5540,7 @@ function flightTrackLink(f){
 /* the full flight card, shared by Travel and, read-only (whole card opens the edit form), by the Itinerary */
 function flightStripHTML(f, i, actionsHTML){
   return `
-    <div class="flight-strip">
+    <div class="flight-strip${f.undecided?' card-undecided':''}">
       <div class="flight-head">
         <strong class="head-with-logo">${(() => {
           const missingAirline = !f.airline && !f.undecided;
@@ -5505,7 +5567,7 @@ function flightStripHTML(f, i, actionsHTML){
 }
 function ferryStripHTML(f, i, actionsHTML){
   return `
-    <div class="flight-strip">
+    <div class="flight-strip${f.undecided?' card-undecided':''}">
       <div class="flight-head">
         <strong${!f.operator&&!f.undecided?' class="text-undecided"':''}>${!f.operator&&!f.undecided?'❓ ':''}${esc(f.operator||'Ferry')}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
@@ -5526,7 +5588,7 @@ function carStripHTML(c, i, actionsHTML){
   const pickWhen = [c.pickupDate?fmtDate(c.pickupDate):'', c.pickupTime||''].filter(Boolean).join(' ');
   const dropWhen = [c.dropoffDate?fmtDate(c.dropoffDate):'', c.dropoffTime||''].filter(Boolean).join(' ');
   return `
-    <div class="flight-strip">
+    <div class="flight-strip${c.undecided?' card-undecided':''}">
       <div class="flight-head">
         <strong${!c.company&&!c.undecided?' class="text-undecided"':''}>${!c.company&&!c.undecided?'❓ ':''}${esc(c.company||'Car hire')}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
@@ -5691,7 +5753,7 @@ function accomCardHTML(a, opts){
   const stayLine = (label, value) => value
     ? `<div class="small accom-when"><span class="accom-when-label">${label}</span><span>${value}</span></div>` : '';
   return `
-    <div class="flight-strip">
+    <div class="flight-strip${a.undecided?' card-undecided':''}">
       <div class="flight-head">
         <strong class="head-with-logo">${a.bookingUrl?siteLogoFor(a.bookingUrl, '', a.name||'Accommodation'):''}<span${!a.name&&!a.undecided?' class="text-undecided"':''}>${!a.name&&!a.undecided?'❓ ':''}${esc(a.name||'Accommodation')}</span></strong>
         ${a.undecided?`<span class="text-undecided small">❓ Undecided</span>`:headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
