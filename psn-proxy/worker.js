@@ -459,6 +459,9 @@ export default {
       }
       return json({error:'not found'}, 404, env);
     }catch(e){
+      // the response body already carries e.message, but that's invisible in the Cloudflare
+      // Logs stream (which only sees status codes) unless it's also logged here
+      console.error(url.pathname, e.stack || e.message || e);
       return json({error: e.message || 'unexpected error'}, e.status || 500, env);
     }
   },
