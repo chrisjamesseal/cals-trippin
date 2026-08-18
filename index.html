@@ -149,9 +149,10 @@ a{color:var(--brand-dark);}
 .hub-emoji{font-size:1.4rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .hub-text{display:flex; align-items:baseline; gap:5px; min-width:0; flex-wrap:wrap; line-height:1.2;}
-.hub-n{font-size:1.15rem; font-weight:800; color:var(--brand-dark); letter-spacing:-.02em; flex-shrink:0;}
-.hub-label{font-family:var(--font-head); font-size:.8rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere;}
-@media(max-width:360px){.hub-emoji{font-size:1.15rem;} .hub-n{font-size:1rem;} .hub-label{font-size:.74rem;}}
+.hub-text > span{font-family:var(--font-head); font-size:.88rem; font-weight:700;}
+.hub-n{color:var(--brand-dark); flex-shrink:0;}
+.hub-label{color:var(--ink); overflow-wrap:anywhere;}
+@media(max-width:360px){.hub-emoji{font-size:1.15rem;} .hub-text > span{font-size:.78rem;}}
 
 /* ---------- games (PSN progress) ---------- */
 .games-list{display:flex; flex-direction:column; gap:10px;}
@@ -887,8 +888,16 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.72.0';
+const APP_VERSION = '1.73.0';
 const CHANGELOG = [
+  {version:'1.73.0', notes:[
+    'Travel legs get their own "Not Booked Yet?" toggle, separate from the Mode picker - for when you know it\'s a ferry, know the route and time, just haven\'t actually bought it. Shows dashed on the Itinerary and lists in Tasks, same as everywhere else something\'s still outstanding.',
+    'Fixed Places I\'ve Been ordering across multiple finished trips: countries were being marked Been in whatever order the trips happened to sit in rather than the order they actually finished, which could show a more recent trip\'s countries as older than an earlier one\'s.',
+    'The four home page cards: number and label are now the same size and style, just the number stays the brand colour. Tapping Going scrolls down to Your Trips instead of opening a second copy of the same list.',
+    '"All day" no longer prints on an Itinerary card\'s title - it\'s the default, so leaving it off a card said the same thing a shorter way.',
+    'The Tasks dashboard tile now counts everything the Tasks tab actually lists: hand-typed tasks, Undecided flights/ferries/car hire/accommodation, nights with nowhere booked, and days with nothing planned yet - not just hand-typed tasks.',
+    'Tasks\' emoji is now ☑.'
+  ]},
   {version:'1.72.0', notes:[
     'Undecided items are back to Undecided flights/ferries/car hire/accommodation only - stops and travel legs don\'t need the checkbox, a travel leg\'s existing "Not Decided" mode and a stop\'s own detail already say that clearly enough.',
     'An Undecided flight/ferry/car hire/accommodation is no longer a separate Task kept in sync with it - it IS the Task, read straight from wherever it already lives, so editing or deleting it in either place is editing or deleting the one thing.',
@@ -2077,7 +2086,11 @@ function applyArchiveTransitions(){
   if(!DB.places) DB.places = {};
   if(!Array.isArray(DB.placesArchived)) DB.placesArchived = [];
   let changed = false;
-  DB.trips.forEach(t=>{
+  /* oldest-finished trip first, not whatever order the trips happen to sit in - Been's order
+     is read off DB.places' own insertion order (newest key first), so a trip archived out of
+     travel-date order would leave its countries reading as more/less recent than they really
+     were, regardless of when the trip was actually created in the app */
+  DB.trips.slice().sort((a,b)=>(a.endDate||'').localeCompare(b.endDate||'')).forEach(t=>{
     if(!isArchived(t) || DB.placesArchived.includes(t.id)) return;
     (t.countries||[]).forEach(c=>{ DB.places[c] = 'been'; });
     DB.placesArchived.push(t.id);
@@ -2403,8 +2416,16 @@ function placesHubCardsHTML(){
       <span class="hub-emoji" aria-hidden="true">${emoji}</span>
       <span class="hub-text"><span class="hub-n">${n}</span><span class="hub-label">${esc(label)}</span></span>
     </a>`;
+  /* Going already has its own answer sitting right below the cards - Your Trips - so this
+     one scrolls down to it instead of opening a second copy of the same list on its own URL */
+  const goingCard = `
+    <div class="hub-card" role="button" tabindex="0" onclick="App.goToYourTrips()"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goToYourTrips()}">
+      <span class="hub-emoji" aria-hidden="true">✈️</span>
+      <span class="hub-text"><span class="hub-n">${goingCount()}</span><span class="hub-label">Going</span></span>
+    </div>`;
   return card('#/places/been', '📍', c.been, "Places I've Been")
-       + card('#/trips', '✈️', goingCount(), 'Going')
+       + goingCard
        + card('#/places/want', '❤️', c.want, 'Want to Go')
        + card('#/places/finder', '🌍', c.all, 'Countries');
 }
@@ -2420,7 +2441,7 @@ function renderPlacesHub(){
         </div>
       </div>
       <div class="hub-grid" id="hub-grid">${placesHubCardsHTML()}</div>
-      <h2 class="trips-heading">Your Trips</h2>
+      <h2 class="trips-heading" id="trips-heading">Your Trips</h2>
       <div id="home-grid">${homeGridHTML(DB.trips, cloudEnabled())}</div>
       <div class="home-foot">
         <button class="version-tag" onclick="App.toggleChangelog()">v${esc(APP_VERSION)} &middot; What's new</button>
@@ -3245,6 +3266,11 @@ App.toggleChangelog = () => {
 };
 /* no argument goes to the hub; a view name opens that list */
 App.goPlaces = view => { location.hash = view ? '#/places/'+view : ''; };
+/* the Going hub card doesn't navigate anywhere - Your Trips is already the next thing down
+   this same page, so it just scrolls to it */
+App.goToYourTrips = () => {
+  const el = $('#trips-heading'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+};
 App.goGames = () => { location.hash = '#/games'; };
 App.goDesign = () => { location.hash = '#/design'; };
 App.readArticle = i => { location.hash = '#/design/'+i; };
@@ -3636,7 +3662,7 @@ const ICONS = {
    The compact menu and in-button icons stay on Font Awesome, where a single-colour glyph
    lines up better at small sizes. */
 const TAB_EMOJI = {
-  edit:'✏️', plan:'🗺️', travel:'✈️', stay:'🏠', mood:'💡', pack:'🧳', tasks:'📌',
+  edit:'✏️', plan:'🗺️', travel:'✈️', stay:'🏠', mood:'💡', pack:'🧳', tasks:'☑',
   polls:'📊', money:'💰', photos:'📸', contacts:'📞', docs:'📎', notes:'📝'
 };
 function tileIcon(k){
@@ -4085,12 +4111,25 @@ function tabHome(t, ro){
     : 'Nothing Planned Yet';
   const tasks = t.tasks||[];
   const openTasks = tasks.filter(x=>!x.done).length;
-  const taskSum = !tasks.length ? 'Nothing Added Yet'
-    : openTasks ? openTasks+(openTasks===1?' Thing to Book':' Things to Book')
-    : 'All Booked';
+  /* everything that shows in the derived Tasks list, not just what's typed in by hand: an
+     Undecided flight/ferry/car hire/accommodation, a stretch of nights with nowhere booked,
+     and a day with nothing on it yet - all outstanding in the same way a hand-typed task is */
+  const undecidedCount = (t.flights||[]).filter(f=>f.undecided).length
+    + (t.ferries||[]).filter(f=>f.undecided).length
+    + (t.carHire||[]).filter(c=>c.undecided).length
+    + (t.accommodations||[]).filter(a=>a.undecided).length
+    + (t.itinerary||[]).filter(s=>s.kind==='travel' && s.notBooked).length;
+  const gaps = stayGaps(t);
+  const {groups:planGroups, keys:planKeys} = planDayGroups(t);
+  const gapFirstNights = new Set(gaps.map(g=>g.firstNight));
+  const emptyDayCount = planKeys.filter(k => planGroups[k].length===0 && !gapFirstNights.has(k)).length;
+  const outstanding = openTasks + undecidedCount + gaps.length + emptyDayCount;
+  const allBooked = tasks.length>0 && !outstanding;
+  const taskSum = outstanding ? outstanding+(outstanding===1?' Thing to Book':' Things to Book')
+    : allBooked ? 'All Booked' : 'Nothing Added Yet';
   const tiles = [
     ['plan','Itinerary', planSum, !(nStops || nLegs)],
-    ['tasks','Tasks', taskSum, !tasks.length || !!openTasks],
+    ['tasks','Tasks', taskSum, !allBooked],
     ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
@@ -4343,6 +4382,12 @@ function undecidedItemsHTML(t, ro){
     inner:carStripHTML(c,i,''), editFn:`App.carForm(${i})`}); });
   (t.accommodations||[]).forEach((a,i)=>{ if(a.undecided) rows.push({icon:secEmoji('🏠'), label:'Accommodation',
     inner:accomCardHTML(a,{}), editFn:`App.accomForm(${i})`}); });
+  (t.itinerary||[]).forEach((s,i)=>{ if(s.kind==='travel' && s.notBooked){
+    const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
+    const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : mode.label;
+    rows.push({icon:secEmoji(mode.emoji), label:'Not Booked Yet',
+      inner:`<p class="small" style="margin:0">${place}</p>`, editFn:`App.travelLegForm(${i})`});
+  }});
   const cards = rows.map(r => `
     <div class="plan-auto${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
@@ -4957,7 +5002,10 @@ function stayMoves(t){
   });
   return out;
 }
-function tabPlan(t, ro){
+/* the day-by-day grouping tabPlan renders from, factored out so tabHome can count from the
+   exact same buckets (an empty day, an undecided item, a gap) rather than keeping a second,
+   drifting idea of what's still outstanding */
+function planDayGroups(t){
   const items = (t.itinerary||[]);
   const groups = {};
   /* A trip that's only pencilled in for "next summer" has no calendar to hang things off, so
@@ -5053,6 +5101,10 @@ function tabPlan(t, ro){
   const keys = Object.keys(groups).sort(rough
     ? (a,b)=>(a?+a.slice(1):9999)-(b?+b.slice(1):9999)
     : (a,b)=>(a||'9999').localeCompare(b||'9999'));
+  return {groups, keys, rough, hasAny};
+}
+function tabPlan(t, ro){
+  const {groups, keys, rough, hasAny} = planDayGroups(t);
   const todayKey = todayStr();
   const dayLabel = k => {
     if(!k) return 'Anytime';
@@ -5071,7 +5123,8 @@ function tabPlan(t, ro){
     const ac = (t.accommodations||[]).find(a=>a.checkin && a.checkout && k>a.checkin && k<a.checkout);
     return ac ? (ac.name||'') : '';
   };
-  const timeBadge = s => s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][0]) || '';
+  // All day is the default - worth a picker option, not worth spelling out on every card
+  const timeBadge = s => s.time || (s.period && s.period!=='allday' && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][0]) || '';
   const autoTag = (icon, label, time) => `
     <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong></div>`;
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
@@ -5127,22 +5180,23 @@ function tabPlan(t, ro){
                  : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
                  : way;
-      const meta = [when, duration].filter(Boolean).join(' · ');
+      const meta = [when, duration, s.notBooked?'not booked yet':''].filter(Boolean).join(' · ');
       return `
       <div class="plan-leg${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
         <span class="plan-leg-icon">${secEmoji(mode.emoji)}</span>
-        <span class="plan-leg-text">${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
+        <span class="plan-leg-text${s.notBooked?' text-undecided':''}">${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
       </div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
     return `
-    <div class="card plan-card plan-travel${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
+    <div class="card plan-card plan-travel${s.notBooked?' card-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
       <div class="section-head" style="margin-bottom:${duration?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="plan-travel-icon">${secEmoji(mode.emoji)}</span>
           <h3>${title}</h3>
         </div>
+        ${s.notBooked?`<span class="text-undecided small">🎫 Not Booked</span>`:''}
       </div>
       ${duration?`<p class="small muted">${esc(duration)}</p>`:''}
     </div>`;
@@ -5169,7 +5223,7 @@ function tabPlan(t, ro){
     <div class="card plan-card task-card${s.unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
       <div class="section-head" style="margin-bottom:0">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <span class="task-flag" aria-hidden="true">📌</span>
+          <span class="task-flag" aria-hidden="true">☑</span>
           <h3>${esc(s.title)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
       </div>
@@ -5396,6 +5450,12 @@ App.travelLegForm = (i, prefill) => {
     <div class="field"><label class="label" id="tv-mode-label">Mode</label>
       <input type="hidden" id="tv-mode" value="${s.mode||'undecided'}">
       <div class="mode-picker" role="radiogroup" aria-labelledby="tv-mode-label">${modePicks}</div></div>
+    <div class="field">
+      <label class="switch-row"><span>🎫 Not Booked Yet?</span>
+        <span class="switch"><input type="checkbox" id="tv-notbooked" ${s.notBooked?'checked':''}><span class="knob"></span></span>
+      </label>
+      <p class="muted small" style="margin-top:4px">For when the plan's set but you haven't actually bought it - shows dashed here and lists it in Tasks.</p>
+    </div>
     <div class="grid2">
       <div class="field"><label class="label" for="tv-from">From</label>
         <input id="tv-from" type="text" list="loc-list" value="${esc(s.from||'')}" placeholder="e.g. Corfu Town"></div>
@@ -5454,6 +5514,7 @@ App.saveTravelLeg = i => {
   const timing = time ? (($('#tv-timing')||{}).value === 'arrive' ? 'arrive' : 'leave') : '';
   const dd = readDayOrDate('tv');
   const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
+             notBooked:$('#tv-notbooked').checked,
              from, to, date:dd.date, day:dd.day, time, period, timing, durationH, durationM,
              ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
