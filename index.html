@@ -305,6 +305,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 textarea{min-height:90px; resize:vertical;}
 input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(14,133,119,.16);}
 .field{margin-bottom:14px;}
+/* a small search-as-you-type picker, built rather than relying on <datalist> - iOS Safari
+   doesn't render datalist suggestions at all, so on a phone the old airline field was a plain
+   text box with no picker in sight */
+.combo-wrap{position:relative;}
+.combo-list{position:absolute; left:0; right:0; top:100%; margin-top:4px; z-index:40;
+  max-height:220px; overflow-y:auto; background:var(--paper); border:1px solid var(--line-strong);
+  border-radius:var(--radius-sm); box-shadow:var(--shadow-lift); display:none;}
+.combo-list.show{display:block;}
+.combo-opt{padding:10px 14px; font-size:.88rem; cursor:pointer;}
+.combo-opt:hover,.combo-opt.active{background:var(--brand-ghost); color:var(--brand-dark);}
+
 .field-clearwrap{position:relative; display:block;}
 .field-clearwrap input,.field-clearwrap textarea{padding-right:34px;}
 .field-clear{position:absolute; right:4px; top:8px; display:none; align-items:center; justify-content:center;
@@ -857,8 +868,15 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.68.0';
+const APP_VERSION = '1.69.0';
 const CHANGELOG = [
+  {version:'1.69.0', notes:[
+    'Added Midday to When, alongside All day, Morning, Afternoon and Evening - on stops, travel legs and now tasks too, which get the same picker instead of a bare time field.',
+    'Edit Trip is now a button above Share Trip instead of a dashboard tile.',
+    'Fixed easyJet\'s logo not showing on flight cards (and any other airline/site whose icon comes back blank rather than missing) - it now falls back to the airline name and flight number instead of a gap.',
+    'Flight cards only show the flight number when the airline\'s logo is showing, since the logo already says who; no logo still shows the full airline name.',
+    'Airline is now a proper search-as-you-type picker rather than a plain text box - the old one used the browser\'s built-in autocomplete, which iOS Safari doesn\'t actually show a dropdown for.'
+  ]},
   {version:'1.68.0', notes:[
     'Tasks take a day and a time again, and show on the Itinerary on that day. One without a day yet sits under "Anytime" in red, on both screens, as the thing still to sort out. Tap a task to fill it in; there\'s still no edit button, the card itself is the way in.',
     'Fixed links opening in the in-app browser when you came BACK to the app after reading them in Safari. iOS pauses timers while the app is in the background, so the fallback that was meant to have been cancelled on the way out was firing on the way back in.'
@@ -2154,9 +2172,17 @@ const AIRLINES = {BA:'British Airways',EZY:'easyJet',U2:'easyJet',FR:'Ryanair',R
   WN:'Southwest',AS:'Alaska Airlines',WS:'WestJet',NZ:'Air New Zealand',MS:'EgyptAir',SV:'Saudia',
   GF:'Gulf Air',AI:'Air India',TG:'Thai Airways',VN:'Vietnam Airlines',GA:'Garuda Indonesia',
   MH:'Malaysia Airlines',KE:'Korean Air',OU:'Croatia Airlines',KM:'KM Malta Airlines',RO:'TAROM'};
-function airlineDatalist(){
-  const names = [...new Set(Object.values(AIRLINES))].sort((a,b)=>a.localeCompare(b));
-  return `<datalist id="airline-list">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`;
+const AIRLINE_NAMES = [...new Set(Object.values(AIRLINES))].sort((a,b)=>a.localeCompare(b));
+/* a text field that filters a dropdown of AIRLINE_NAMES as you type - not a strict picker
+   (whatever's typed is still what gets saved, so an airline that isn't in the list works
+   fine), just a much easier way to find the one you want than typing it out blind, and one
+   that actually shows something on an iPhone, unlike <datalist>. */
+function airlineFieldHTML(id, value, label){
+  return `<div class="field combo-wrap"><label class="label" for="${id}">${esc(label||'Airline')}</label>
+    <input id="${id}" type="text" value="${esc(value||'')}" placeholder="Start typing an airline"
+      autocomplete="off" oninput="App.comboFilter('${id}')" onfocus="App.comboFilter('${id}')"
+      onblur="App.comboBlur('${id}')">
+    <div class="combo-list" id="${id}-list"></div></div>`;
 }
 
 /* ================= modal ================= */
@@ -3464,6 +3490,39 @@ App.nativeShare = () => {
 /* Copy an address/location. The text arrives percent-encoded (see jsArg) so an apostrophe in
    it can't break out of the onclick attribute. There are no toasts in this app, so the button
    itself confirms by flashing a tick rather than popping anything up. */
+/* a logo image that never loaded (bad domain, network) or came back as Google's blank
+   1x1 placeholder for "no favicon on file" both end up here: hide the image, and if the
+   caller gave us text to fall back to, show that in its place instead of leaving a gap */
+function cardLogoRestore(img){
+  img.style.display = 'none';
+  const span = img.nextElementSibling;
+  const text = img.dataset.restore;
+  if(span && text) span.textContent = text;
+}
+App.cardLogoFail = img => cardLogoRestore(img);
+/* Suggestions narrow as you type; up to 8 shown, closest match first isn't attempted, plain
+   substring is plenty for a list this short. onmousedown (not onclick) + preventDefault fires
+   the pick before the input's own blur handler would otherwise dismiss the list first - the
+   same reason it needs the setTimeout below rather than hiding immediately on blur, which
+   would eat the click on a phone before it registers. */
+App.comboFilter = id => {
+  const inp = $('#'+id), list = $('#'+id+'-list'); if(!inp || !list) return;
+  const q = (inp.value||'').trim().toLowerCase();
+  const matches = (q ? AIRLINE_NAMES.filter(n => n.toLowerCase().includes(q)) : AIRLINE_NAMES).slice(0, 8);
+  if(!matches.length){ list.classList.remove('show'); list.innerHTML = ''; return; }
+  list.innerHTML = matches.map(n =>
+    `<div class="combo-opt" onmousedown="event.preventDefault();App.comboPick('${id}','${jsArg(n)}')">${esc(n)}</div>`
+  ).join('');
+  list.classList.add('show');
+};
+App.comboBlur = id => { setTimeout(() => { const list = $('#'+id+'-list'); if(list) list.classList.remove('show'); }, 150); };
+App.comboPick = (id, encValue) => {
+  const inp = $('#'+id); if(inp) inp.value = decodeURIComponent(encValue);
+  const list = $('#'+id+'-list'); if(list) list.classList.remove('show');
+};
+App.cardLogoCheck = img => {
+  if(img.naturalWidth <= 16 && img.naturalHeight <= 16) cardLogoRestore(img);
+};
 App.copyText = (enc, btn) => {
   const text = decodeURIComponent(enc);
   const done = () => {
@@ -3622,8 +3681,10 @@ function renderTrip(t){
       </div>
     </div>`}
     <div id="tab-body"></div>
+    ${CUR_TAB==='home' && !ro ? `
+    <button class="btn" style="width:100%;margin-top:40px" onclick="App.tripForm()">${secEmoji('✏️')} Edit Trip</button>`:''}
     ${CUR_TAB==='home' ? `
-    <button class="btn" style="width:100%;margin-top:40px" onclick="App.share('${t.id}')">${secEmoji('🔗')} Share Trip</button>`:''}
+    <button class="btn" style="width:100%;margin-top:10px" onclick="App.share('${t.id}')">${secEmoji('🔗')} Share Trip</button>`:''}
     ${CUR_TAB==='home' && !ro ? `
     <button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
     ${CUR_TAB==='home' ? tabLog(t) : ''}`;
@@ -4011,18 +4072,7 @@ function tabHome(t, ro){
       <span class="dash-icon">${tileIcon(k)}</span>
       <span class="dash-text"><span class="dash-label">${esc(label)}</span><span class="dash-sum${empty?' unfilled':''}">${esc(sum)}</span></span>
     </div>`;
-  // last tile in the grid rather than a separate full-width button: trip settings are the
-  // least-used thing here, so the sections you actually open lead. Its summary lists who's
-  // coming, since people are managed from this same Edit Trip screen (the countdown lives in
-  // the header now, so repeating it here would just say the same thing twice)
-  const goingSum = peopleSummary(t, 'No One Added Yet');
-  const editTile = !ro ? `
-    <div class="dash-tile" role="button" tabindex="0" aria-label="Edit Trip"
-         onclick="App.tripForm()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tripForm()}">
-      <span class="dash-icon">${tileIcon('edit')}</span>
-      <span class="dash-text"><span class="dash-label">Edit Trip</span><span class="dash-sum${(t.participants||[]).length?'':' unfilled'}">${esc(goingSum)}</span></span>
-    </div>` : '';
-  return `<div class="dash-grid">${tiles.map(tile).join('')}${editTile}</div>`;
+  return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
 }
 /* ================= TAB: log (who changed what) ================= */
 /* which tab a log entry's section belongs to, so each row can jump straight there,
@@ -4209,7 +4259,8 @@ function packUnpackedFor(t){
    booked, at which point it's done in both places at once since it's the same record. */
 function taskWhenLabel(t, task){
   const day = hasRoughWhen(t) ? (task.day ? 'Day '+task.day : '') : (task.date ? fmtDate(task.date) : '');
-  return [day, task.time||''].filter(Boolean).join(' · ');
+  const time = task.time || (task.period && PLAN_PERIODS[task.period] && PLAN_PERIODS[task.period][0]) || '';
+  return [day, time].filter(Boolean).join(' · ');
 }
 /* a task nobody has put a day against isn't on the Itinerary yet, so it's the one still
    needing a decision - that's what the red is for */
@@ -4254,29 +4305,47 @@ function tabTasks(t, ro){
 App.taskForm = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const task = i>=0 ? (t.tasks||[])[i] || {} : {};
+  const initWhen = task.time ? 'time' : (task.period || 'allday');
+  const {h:initHour, m:initMin} = roundToQuarterHour(task.time);
+  const hourOpts = Array.from({length:24}, (_,h)=>h)
+    .map(h=>`<option value="${String(h).padStart(2,'0')}" ${h===initHour?'selected':''}>${String(h).padStart(2,'0')}</option>`).join('');
+  const minOpts = [0,15,30,45]
+    .map(m=>`<option value="${String(m).padStart(2,'0')}" ${m===initMin?'selected':''}>${String(m).padStart(2,'0')}</option>`).join('');
   openModal(`
     <h2>${i>=0?'Edit Task':'Add Task'}</h2>
     <div class="field"><label class="label" for="tk-title">What needs sorting</label>
       <input id="tk-title" type="text" value="${esc(task.title||'')}" placeholder="e.g. Hotel near the airport"></div>
     <div class="grid2">
       ${dayOrDateFieldHTML('tk', t, task)}
-      <div class="field"><label class="label" for="tk-time">Time</label>
-        <input id="tk-time" type="time" value="${esc(task.time||'')}"></div>
+      <div class="field"><label class="label" for="tk-when">When</label>
+        <select id="tk-when" onchange="App.taskWhenChange()">${whenOptionsHTML(initWhen)}</select></div>
+    </div>
+    <div class="grid2 pair" id="tk-time-wrap" style="${initWhen==='time'?'':'display:none'}">
+      <div class="field"><label class="label" for="tk-hour">Hour</label>
+        <select id="tk-hour">${hourOpts}</select></div>
+      <div class="field"><label class="label" for="tk-min">Minute</label>
+        <select id="tk-min">${minOpts}</select></div>
     </div>
     <div class="field"><label class="label" for="tk-notes">Notes</label>
       <textarea id="tk-notes" rows="3" placeholder="Optional">${esc(task.notes||'')}</textarea></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveTask(${i})">Save</button></div>`);
+};
+App.taskWhenChange = () => {
+  const wrap = $('#tk-time-wrap'); if(!wrap) return;
+  wrap.style.display = $('#tk-when').value==='time' ? 'grid' : 'none';
 };
 App.saveTask = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const title = ($('#tk-title').value||'').trim();
   if(!title) return markErr('#tk-title','Give it a name');
   const {date, day} = readDayOrDate('tk');
-  const time = ($('#tk-time').value||'').trim();
+  const when = $('#tk-when').value;
+  const time = when==='time' ? $('#tk-hour').value+':'+$('#tk-min').value : '';
+  const period = when==='time' ? '' : when;
   const notes = ($('#tk-notes').value||'').trim();
   t.tasks = t.tasks||[];
-  if(i>=0) Object.assign(t.tasks[i], {title, date, day, time, notes});
-  else t.tasks.push({id:uid(), title, date, day, time, notes, done:false});
+  if(i>=0) Object.assign(t.tasks[i], {title, date, day, time, period, notes});
+  else t.tasks.push({id:uid(), title, date, day, time, period, notes, done:false});
   logEdit('Tasks', (i>=0?'edited task: ':'added task: ')+title);
   save(); closeModal(); rerender();
 };
@@ -4687,8 +4756,17 @@ function mapQuery(t, name){
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
 /* '00:00' puts an all-day thing at the head of its day, which is where it belongs when
    everything else that day has a real time */
-const PLAN_PERIODS = {allday:['All day','00:00'], morning:['Morning','06:00'],
+const PLAN_PERIODS = {allday:['All day','00:00'], morning:['Morning','06:00'], midday:['Midday','11:00'],
   afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
+const PLAN_PERIOD_ORDER = ['allday','morning','midday','afternoon','evening'];
+/* the same five options (plus "Specific time...") wherever a When picker appears - stops,
+   travel legs, tasks - built from PLAN_PERIODS once so a period added here shows up
+   everywhere rather than needing the same edit made three times over */
+function whenOptionsHTML(initWhen){
+  return PLAN_PERIOD_ORDER.map(k =>
+    `<option value="${k}" ${initWhen===k?'selected':''}>${PLAN_PERIODS[k][0]}</option>`).join('')
+    + `<option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>`;
+}
 const TRAVEL_MODES = {
   undecided: {label:'Not Decided', icon:ICONS.question, emoji:'❓'},
   drive: {label:'Drive', icon:ICONS.car, emoji:'🚗'},
@@ -4827,7 +4905,7 @@ function tabPlan(t, ro){
     /* no day means it lands under "Anytime" rather than on a day, which is exactly the thing
        still needing a decision - so it carries the red over from the Tasks tab */
     (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes,
-      time:task.time||'', unscheduled:!k, ti});
+      time:task.time||'', period:task.period||'', unscheduled:!k, ti});
   });
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
@@ -4976,7 +5054,7 @@ function tabPlan(t, ro){
       <div class="section-head" style="margin-bottom:0">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="task-flag" aria-hidden="true">📌</span>
-          <h3>${esc(s.title)}${s.time?' - '+esc(s.time):''}</h3>
+          <h3>${esc(s.title)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
       </div>
       ${s.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
@@ -5104,13 +5182,7 @@ App.planForm = (i, prefill, moodIndex) => {
     <div class="grid2">
       ${dayOrDateFieldHTML('pl', t, s)}
       <div class="field"><label class="label" for="pl-when">When</label>
-        <select id="pl-when" onchange="App.planWhenChange()">
-          <option value="allday" ${initWhen==='allday'?'selected':''}>All day</option>
-          <option value="morning" ${initWhen==='morning'?'selected':''}>Morning</option>
-          <option value="afternoon" ${initWhen==='afternoon'?'selected':''}>Afternoon</option>
-          <option value="evening" ${initWhen==='evening'?'selected':''}>Evening</option>
-          <option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>
-        </select></div>
+        <select id="pl-when" onchange="App.planWhenChange()">${whenOptionsHTML(initWhen)}</select></div>
     </div>
     <div class="grid2 pair" id="pl-time-wrap" style="${initWhen==='time'?'':'display:none'}">
       <div class="field"><label class="label" for="pl-hour">Hour</label>
@@ -5223,13 +5295,7 @@ App.travelLegForm = (i, prefill) => {
     <div class="grid2">
       ${dayOrDateFieldHTML('tv', t, s)}
       <div class="field"><label class="label" for="tv-when">When</label>
-        <select id="tv-when" onchange="App.travelWhenChange()">
-          <option value="allday" ${initWhen==='allday'?'selected':''}>All day</option>
-          <option value="morning" ${initWhen==='morning'?'selected':''}>Morning</option>
-          <option value="afternoon" ${initWhen==='afternoon'?'selected':''}>Afternoon</option>
-          <option value="evening" ${initWhen==='evening'?'selected':''}>Evening</option>
-          <option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>
-        </select></div>
+        <select id="tv-when" onchange="App.travelWhenChange()">${whenOptionsHTML(initWhen)}</select></div>
     </div>
     <div id="tv-time-wrap" style="${initWhen==='time'?'':'display:none'}">
       <!-- the chips read as their own question, so they carry no visible label and sit
@@ -5356,7 +5422,12 @@ function flightStripHTML(f, i, actionsHTML){
   return `
     <div class="flight-strip">
       <div class="flight-head">
-        <strong class="head-with-logo">${airlineLogoFor(f.airline)}<span>${esc(f.airline||'Flight')} ${esc(f.flightNo||'')}</span></strong>
+        <strong class="head-with-logo">${(() => {
+          const airline = f.airline||'Flight';
+          const full = [airline, f.flightNo||''].filter(Boolean).join(' ');
+          const logo = airlineLogoFor(airline, full);
+          return logo + `<span>${esc(logo ? (f.flightNo||airline) : full)}</span>`;
+        })()}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
           <span class="muted small">${f.date?fmtDate(f.date):''}</span>
           ${actionsHTML||''}
@@ -5454,17 +5525,24 @@ const AIRLINE_SITES = {
   'Singapore Airlines':'singaporeair.com','Cathay Pacific':'cathaypacific.com','Icelandair':'icelandair.com',
   'ITA Airways':'ita-airways.com','airBaltic':'airbaltic.com','Croatia Airlines':'croatiaairlines.com'
 };
-function logoSquare(domain, label){
+/* Google's favicon service doesn't guarantee it actually has one - some sites (easyJet's
+   among them) come back blank rather than 404, which an onerror alone won't catch, so this
+   also gives the <img> a byte-count floor: a real favicon is never a 1x1 transparent pixel,
+   but that's exactly what a "no icon" response looks like. Either way, restoreText is what the
+   caller wanted showing if there'd been no logo at all, so losing the logo just falls back to
+   that rather than leaving a gap. */
+function logoSquare(domain, label, restoreText){
   if(!domain) return '';
   return `<img class="card-logo" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128"
-    alt="${esc(label||'')}" loading="lazy">`;
+    alt="${esc(label||'')}" loading="lazy" data-restore="${esc(restoreText||label||'')}"
+    onerror="App.cardLogoFail(this)" onload="App.cardLogoCheck(this)">`;
 }
-function siteLogoFor(url, label){
-  try{ return logoSquare(new URL(url).hostname, label); }catch(e){ return ''; }
+function siteLogoFor(url, label, restoreText){
+  try{ return logoSquare(new URL(url).hostname, label, restoreText); }catch(e){ return ''; }
 }
-function airlineLogoFor(name){
+function airlineLogoFor(name, restoreText){
   const site = AIRLINE_SITES[name];
-  return site ? logoSquare(site, name) : '';
+  return site ? logoSquare(site, name, restoreText) : '';
 }
 function faviconFor(url){
   try{ const h = new URL(url).hostname; return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy">`; }
@@ -5550,7 +5628,7 @@ function accomCardHTML(a, opts){
   return `
     <div class="flight-strip">
       <div class="flight-head">
-        <strong class="head-with-logo">${a.bookingUrl?siteLogoFor(a.bookingUrl, ''):''}<span>${esc(a.name||'Accommodation')}</span></strong>
+        <strong class="head-with-logo">${a.bookingUrl?siteLogoFor(a.bookingUrl, '', a.name||'Accommodation'):''}<span>${esc(a.name||'Accommodation')}</span></strong>
         ${headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
       </div>
       <div class="accom-body">
@@ -5709,10 +5787,9 @@ App.flightForm = i => {
   openModal(`
     <h2>${i>=0?'Edit Flight':'Add Flight'}</h2>
     <div class="grid2">
-      <div class="field"><label class="label">Airline</label><input id="fl-air" type="text" list="airline-list" value="${esc(f.airline||'')}" placeholder="Start typing an airline"></div>
+      ${airlineFieldHTML('fl-air', f.airline)}
       <div class="field"><label class="label">Flight no.</label><input id="fl-no" type="text" value="${esc(f.flightNo||'')}" placeholder="BA432"></div>
     </div>
-    ${airlineDatalist()}
     <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||todayStr())}"></div>
     <div class="grid2">
       <div class="field"><label class="label">From (airport)</label><input id="fl-from" type="text" list="airport-list" value="${esc(airportInputVal(f.from))}" placeholder="Start typing a city or code"></div>
