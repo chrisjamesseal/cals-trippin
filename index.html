@@ -138,19 +138,20 @@ a{color:var(--brand-dark);}
    side by side, and since every card holds the same shape (emoji, number, label) both rows
    land the same height as each other too. */
 .hub-page{display:flex; flex-direction:column;}
-.hub-grid{display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:12px;}
+.hub-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px;}
 .hub-card{
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-  text-align:center; padding:22px 10px; min-width:0; text-decoration:none;
+  display:flex; flex-direction:row; align-items:center; gap:10px;
+  text-align:left; padding:14px; min-width:0; text-decoration:none;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s, border-color .1s;
 }
 .hub-card:hover,.hub-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
-.hub-emoji{font-size:1.33rem; line-height:1; margin-bottom:8px;
+.hub-emoji{font-size:1.4rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.hub-n{font-size:2.3rem; font-weight:800; line-height:1; color:var(--brand-dark); letter-spacing:-.02em;}
-.hub-label{font-family:var(--font-head); font-size:.82rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere;}
-@media(max-width:360px){.hub-emoji{font-size:1.07rem;} .hub-n{font-size:1.9rem;}}
+.hub-text{display:flex; align-items:baseline; gap:5px; min-width:0; flex-wrap:wrap; line-height:1.2;}
+.hub-n{font-size:1.15rem; font-weight:800; color:var(--brand-dark); letter-spacing:-.02em; flex-shrink:0;}
+.hub-label{font-family:var(--font-head); font-size:.8rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere;}
+@media(max-width:360px){.hub-emoji{font-size:1.15rem;} .hub-n{font-size:1rem;} .hub-label{font-size:.74rem;}}
 
 /* ---------- games (PSN progress) ---------- */
 .games-list{display:flex; flex-direction:column; gap:10px;}
@@ -253,6 +254,12 @@ a{color:var(--brand-dark);}
   color:var(--muted); cursor:pointer; user-select:none; white-space:nowrap;}
 .want-opt.on{background:var(--brand-tint); color:var(--brand-dark);}
 .want-opt:focus-visible{outline:2px solid var(--brand); outline-offset:-2px;}
+/* a country already on a booked trip has nothing to toggle - Want to Go/Not Exploring makes
+   no sense once you're already going - so it gets this instead, styled the same as those
+   chips but greyed out and fixed, sitting where the switch would otherwise be */
+.going-pill{display:inline-block; border:1px solid var(--line-strong); border-radius:999px;
+  padding:7px 14px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--paper);
+  white-space:nowrap; flex-shrink:0;}
 .place-actions.finder{display:block;}
 .trip-card .trip-flags{margin-bottom:4px;}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
@@ -607,6 +614,11 @@ details .d-body{padding:14px 16px;}
 .dash-tile .dash-sum.unfilled{color:#C0392B; font-weight:600;}
 .dash-tile.wide{grid-column:span 2;}
 a.dash-tile{text-decoration:none;}
+/* the Countries/Want to Go region tiles: icon and name side by side on one line rather than
+   stacked, so the tile can be shorter - no progress count underneath, still two columns */
+.dash-tile.region-tile{flex-direction:row; align-items:center; gap:10px; padding:14px;}
+.dash-tile.region-tile .dash-text{width:auto;}
+.dash-tile.region-tile .dash-label{white-space:normal;}
 
 /* ---------- backup / restore bar ---------- */
 /* ---------- bottom bar ---------- */
@@ -744,13 +756,6 @@ a.dash-tile{text-decoration:none;}
 .wx-chip{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
 .wx-emoji{font-size:.9rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-/* the Day 1 / Day 2 / All picker: pick one day to see just that day, so the itinerary tab
-   doesn't have to mean "every day at once" */
-.plan-daytabs{display:flex; gap:8px; overflow-x:auto; padding:2px 2px 10px; margin-bottom:4px; -webkit-overflow-scrolling:touch;}
-.plan-daytab{flex-shrink:0; border:1px solid var(--line-strong); background:var(--paper); color:var(--muted);
-  font:inherit; font-weight:700; font-size:.78rem; padding:7px 15px; border-radius:999px; cursor:pointer; white-space:nowrap;}
-.plan-daytab.on{background:var(--brand); border-color:var(--brand); color:#fff;}
-.plan-daytab:focus-visible{outline:2px solid var(--brand); outline-offset:1px;}
 /* a touch more room between cards than elsewhere, same reasoning as the day gap above */
 /* a leg you just turn up for: a line on the page rather than a card, so it doesn't carry the
    same weight as the flight above it */
@@ -882,8 +887,18 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.71.0';
+const APP_VERSION = '1.72.0';
 const CHANGELOG = [
+  {version:'1.72.0', notes:[
+    'Undecided items are back to Undecided flights/ferries/car hire/accommodation only - stops and travel legs don\'t need the checkbox, a travel leg\'s existing "Not Decided" mode and a stop\'s own detail already say that clearly enough.',
+    'An Undecided flight/ferry/car hire/accommodation is no longer a separate Task kept in sync with it - it IS the Task, read straight from wherever it already lives, so editing or deleting it in either place is editing or deleting the one thing.',
+    'Nights with nowhere booked now show on the Itinerary too (not just the Accommodation tab), and as a reminder in Tasks - both worked out fresh each time rather than something that can go stale or get deleted by mistake.',
+    'Removed the All / Day 1 / Day 2… row from the top of the Itinerary; every day shows at once.',
+    'The four home page cards (Places I\'ve Been, Going, Want to Go, Countries) are shorter now: icon on the left, the count and label together on one line.',
+    'Countries: region tiles dropped their "X of Y" count, fit on one line, and the full country list now sits right below them instead of behind a tap on an "All" tile.',
+    'A country already on a booked trip no longer shows the Want to Go / Not Exploring switch on Country Finder - nothing to toggle once you\'re already going - just a fixed, greyed "Going" pill.',
+    'Train\'s emoji is now 🚆, and Taxi joins Drive/Walk/Ferry/Flight/Train/Bus as a travel mode.'
+  ]},
   {version:'1.71.0', notes:[
     'An Undecided item now still shows on the Itinerary (and the Travel/Accommodation tab it belongs to), not just as a Task - drawn with the same dashed red outline as an empty day or a "No Flights Yet" gap, since it isn\'t a plan yet either, just one you know is coming.',
     'Fixed a sticky red hover tint on a card\'s edit/delete icon after tapping it on a touch screen - the fix that stopped whole cards doing this didn\'t cover these icons.',
@@ -1236,7 +1251,6 @@ const LS_KEY = 'calstrippin_v1';
 const SCHEMA = 1;
 var DB = load();
 let CUR_TAB = 'info';
-let CUR_PLAN_DAY = null;     // null = every day on the Itinerary tab; else one group key from tabPlan
 let CUR_TRIP_ID = null;      // id of the trip currently open
 let fbRoot = null;           // firebase database ref, or null when local-only
 let tripSub = null;          // { id, ref } for the active onValue subscription
@@ -1794,7 +1808,6 @@ const CONTINENT_EMOJI = {
   'South America': '🦙',
   Oceania: '🏝️'
 };
-const PLACES_ALL_EMOJI = '🌎';
 /* capital, primary language(s) — sourced from the world-countries dataset (mirrors restcountries.com), a few language orderings hand-corrected for accuracy where the source data listed a minority language first */
 const COUNTRY_INFO = {
   AD:['Andorra la Vella','Catalan'],
@@ -2103,20 +2116,19 @@ let CUR_PLACES_REGION = null;   // continent name, or null to show the region pi
 let CUR_PLACES_FILTER = 'been'; // 'been' | 'want' | 'all', set by whichever view is open
 let CUR_PLACES_VIEW = 'been';   // which of the three list screens is showing
 let CUR_BEEN_VIEW = 'list';     // Been only: 'list' (one numbered run) or 'continents' (grouped)
-function placesRegionTileHTML(k, codes, emoji, wide, trips){
-  const shown = codes.filter(c=>CUR_PLACES_FILTER==='all' ? placesStatusOf(c, trips[c])!=='none' : placesStatusOf(c, trips[c])===CUR_PLACES_FILTER);
-  const pct = codes.length ? Math.round(shown.length/codes.length*100) : 0;
-  const label = `${shown.length} of ${codes.length} (${pct}%)`;
-  return `<div class="dash-tile${wide?' wide':''}" role="button" tabindex="0" aria-label="${esc(k)}"
+function placesRegionTileHTML(k, emoji){
+  return `<div class="dash-tile region-tile" role="button" tabindex="0" aria-label="${esc(k)}"
       onclick="App.selectPlacesRegion('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.selectPlacesRegion('${k}')}">
     <span class="dash-icon"><span class="dash-emoji" aria-hidden="true">${emoji}</span></span>
-    <span class="dash-text"><span class="dash-label">${esc(k)}</span><span class="dash-sum${shown.length===0?' unfilled':''}">${esc(label)}</span></span>
+    <span class="dash-text"><span class="dash-label">${esc(k)}</span></span>
   </div>`;
 }
-function placesRegionGridHTML(trips){
-  const allTile = placesRegionTileHTML('All', COUNTRY_CODES, PLACES_ALL_EMOJI, true, trips);
-  const tiles = CONTINENT_ORDER.map(k => placesRegionTileHTML(k, COUNTRY_CONTINENT[k].split(' '), CONTINENT_EMOJI[k], false, trips)).join('');
-  return `<div class="dash-grid">${allTile}${tiles}</div>`;
+/* the region tiles, with the full country list (grouped the same way) sitting right below
+   them - that list used to only appear once you'd tapped an "All" tile, which was just this
+   same list one click further away */
+function placesRegionGridHTML(){
+  const tiles = CONTINENT_ORDER.map(k => placesRegionTileHTML(k, CONTINENT_EMOJI[k])).join('');
+  return `<div class="dash-grid">${tiles}</div>`;
 }
 
 /* ================= airports ================= */
@@ -2389,8 +2401,7 @@ function placesHubCardsHTML(){
   const card = (href, emoji, n, label) => `
     <a class="hub-card" href="${href}">
       <span class="hub-emoji" aria-hidden="true">${emoji}</span>
-      <span class="hub-n">${n}</span>
-      <span class="hub-label">${esc(label)}</span>
+      <span class="hub-text"><span class="hub-n">${n}</span><span class="hub-label">${esc(label)}</span></span>
     </a>`;
   return card('#/places/been', '📍', c.been, "Places I've Been")
        + card('#/trips', '✈️', goingCount(), 'Going')
@@ -2487,8 +2498,13 @@ function placeCardHTML(co, tripStatus){
       <span class="want-opt ${status==='want'?'':'on'}" role="radio" tabindex="0" aria-checked="${status!=='want'}"
             ${act(`App.setPlaceStatus('${co.code}',null)`)}>Not Exploring</span>
     </div>`;
+  /* on Country Finder, a country already on a booked trip has nothing left to toggle - Want
+     to Go / Not Exploring doesn't mean anything once you're already going - so the switch is
+     replaced by a fixed, greyed "Going" pill instead, up where the switch would read */
+  const goingLocked = view==='finder' && status==='going';
   const actions =
-      view==='finder' ? wantSwitch
+      goingLocked ? ''
+    : view==='finder' ? wantSwitch
     : `<div class="chips">${beenChip}${starChip}</div>
        <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener"
         onclick="return App.openExternal(event, '${esc(flightUrl)}')"
@@ -2500,13 +2516,14 @@ function placeCardHTML(co, tripStatus){
           <span class="flag">${co.flag}</span>
           <span class="place-name-text">${esc(co.name)}</span>
         </div>
-        ${status==='going'?`<span class="status-pill soon">Going</span>`:''}
+        ${goingLocked ? `<span class="going-pill">Going</span>`
+          : status==='going' ? `<span class="status-pill soon">Going</span>` : ''}
       </div>
       ${info ? `<div class="place-info">
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
         <span title="Language">${fa('language')}${esc(info[1])}</span>
       </div>` : ''}
-      <div class="place-actions${view==='finder'?' finder':''}" style="margin-top:6px">${actions}</div>
+      ${actions ? `<div class="place-actions${view==='finder'?' finder':''}" style="margin-top:6px">${actions}</div>` : ''}
     </div>`;
 }
 /* Been is just a log, not an editor: no capital/language, no add-a-country control, just a
@@ -2625,16 +2642,15 @@ function drawPlacesGrid(){
     return;
   }
 
-  /* Want to Go and Country Finder both start on the region picker; browsing the whole world
-     benefits from picking a corner of it first, unlike Been above. */
-  if(!q && !CUR_PLACES_REGION && PLACES_VIEWS[CUR_PLACES_VIEW].regions){
-    el.innerHTML = placesRegionGridHTML(trips);
-    return;
-  }
+  /* Want to Go and Country Finder both show the region tiles up top, to pick a corner of the
+     world at a glance; the full list sits right below them rather than behind a click on an
+     "All" tile, since that's the same list either way. */
+  const regionTilesHTML = (!q && !CUR_PLACES_REGION && PLACES_VIEWS[CUR_PLACES_VIEW].regions)
+    ? placesRegionGridHTML() : '';
 
   let list = COUNTRIES;
   if(q) list = list.filter(c=>c.name.toLowerCase().includes(q));
-  else if(CUR_PLACES_REGION && CUR_PLACES_REGION!=='All') list = list.filter(c=>continentOf(c.code)===CUR_PLACES_REGION);
+  else if(CUR_PLACES_REGION) list = list.filter(c=>continentOf(c.code)===CUR_PLACES_REGION);
   /* a search overrides the region the same way it overrides the status filter: you typed a
      country's name, so you want that country whatever state it's in */
   if(!q) list = list.filter(c=>CUR_PLACES_FILTER==='all' || placesStatusOf(c.code, trips[c.code])===CUR_PLACES_FILTER);
@@ -2643,7 +2659,7 @@ function drawPlacesGrid(){
     const empty = q ? `No countries match "${esc(q)}"`
       : CUR_PLACES_VIEW==='want' ? 'Nothing on the wish list yet. Countries is where you add them.'
       : 'No countries match this filter';
-    el.innerHTML = `<div class="empty">${empty}</div>`; return;
+    el.innerHTML = regionTilesHTML + `<div class="empty">${empty}</div>`; return;
   }
 
   const backRow = (!q && CUR_PLACES_REGION) ? `<button class="btn sm" style="margin-bottom:14px" onclick="App.clearPlacesRegion()">${ICONS.back} All Regions</button>` : '';
@@ -2654,8 +2670,8 @@ function drawPlacesGrid(){
   const showHeadings = order.length>1 || (!q && !CUR_PLACES_REGION);
   /* a single-continent region view still needs a title now that the per-continent heading
      it used to inherit is suppressed (there's nothing else on the page saying "Europe") */
-  const regionTitle = (!q && CUR_PLACES_REGION && CUR_PLACES_REGION!=='All' && !showHeadings) ? `<h3 class="places-continent-heading">${esc(CUR_PLACES_REGION)}</h3>` : '';
-  el.innerHTML = backRow + regionTitle + order.map(k => `
+  const regionTitle = (!q && CUR_PLACES_REGION && !showHeadings) ? `<h3 class="places-continent-heading">${esc(CUR_PLACES_REGION)}</h3>` : '';
+  el.innerHTML = regionTilesHTML + backRow + regionTitle + order.map(k => `
     ${showHeadings?`<h3 class="places-continent-heading">${esc(k)}</h3>`:''}
     <div class="places-grid">${byContinent[k].map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>
   `).join('');
@@ -3170,7 +3186,6 @@ function route(){
 }
 function openTrip(id){
   CUR_TAB = 'home';   // opening a trip always lands on the dashboard
-  CUR_PLAN_DAY = null;  // and Itinerary starts back on All, not wherever it was left
   CUR_TRIP_ID = id;
   // 'busy' until the real .info/connected listener (in initCloud) confirms the connection,
   // don't claim Synced before Firebase has actually said so
@@ -3609,6 +3624,7 @@ const ICONS = {
   walk: fa('person-walking'),
   train: fa('train'),
   bus: fa('bus'),
+  taxi: fa('taxi'),
   polls: fa('square-poll-vertical'),
   pack: fa('suitcase-rolling'),
   bell: fa('bell'),
@@ -3991,7 +4007,6 @@ App.tab = k => {
   }
   window.scrollTo(0,0);
 };
-App.selectPlanDay = k => { CUR_PLAN_DAY = k; rerender(); };
 function renderTab(t){
   const el = $('#tab-body');
   const ro = readOnly(t);
@@ -4012,13 +4027,10 @@ function renderTab(t){
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
   switch(CUR_TAB){
-    /* with a single day showing, these add to that day rather than making you pick it again */
-    case 'plan': {
-      const dayArg = CUR_PLAN_DAY ? `'${CUR_PLAN_DAY}', ${hasRoughWhen(t)}` : '';
-      return `<button class="btn sm" onclick="${dayArg?`App.ideasForDay(${dayArg})`:`App.tab('mood')`}">${secEmoji('💡')} Add Ideas</button>`
+    case 'plan':
+      return `<button class="btn sm" onclick="App.tab('mood')">${secEmoji('💡')} Add Ideas</button>`
         + `<button class="btn sm" onclick="App.travelLegForm(-1)">${secEmoji('🧭')} Add Travel</button>`
-        + `<button class="btn sm" onclick="${dayArg?`App.planGapForm(${dayArg})`:`App.planForm(-1)`}">${secEmoji('📍')} Add Stop</button>`;
-    }
+        + `<button class="btn sm" onclick="App.planForm(-1)">${secEmoji('📍')} Add Stop</button>`;
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
@@ -4315,15 +4327,42 @@ function taskRowHTML(t, task, i, ro){
       ${task.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(task.notes)}</p>`:''}
     </div>`;
 }
+/* everything still needing a decision, read straight out of where it actually lives rather
+   than a separate record kept in sync with it: an Undecided flight/ferry/car hire/
+   accommodation (tapping it opens its own real Add/Edit form, same as everywhere else it
+   shows), and any stretch of nights with nowhere booked (worked out fresh every render, like
+   the airport-trip suggestion elsewhere on the Itinerary - nothing stored, nothing to go
+   stale, nothing that needs deleting separately). */
+function undecidedItemsHTML(t, ro){
+  const rows = [];
+  (t.flights||[]).forEach((f,i)=>{ if(f.undecided) rows.push({icon:secEmoji('✈️'), label:'Flight',
+    inner:flightStripHTML(f,i,''), editFn:`App.flightForm(${i})`}); });
+  (t.ferries||[]).forEach((f,i)=>{ if(f.undecided) rows.push({icon:secEmoji('⛴️'), label:'Ferry',
+    inner:ferryStripHTML(f,i,''), editFn:`App.ferryForm(${i})`}); });
+  (t.carHire||[]).forEach((c,i)=>{ if(c.undecided) rows.push({icon:secEmoji('🚗'), label:'Car Hire',
+    inner:carStripHTML(c,i,''), editFn:`App.carForm(${i})`}); });
+  (t.accommodations||[]).forEach((a,i)=>{ if(a.undecided) rows.push({icon:secEmoji('🏠'), label:'Accommodation',
+    inner:accomCardHTML(a,{}), editFn:`App.accomForm(${i})`}); });
+  const cards = rows.map(r => `
+    <div class="plan-auto${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
+      <div class="plan-auto-tag">${r.icon}<strong>${r.label}</strong></div>
+      ${r.inner}
+    </div>`).join('');
+  const gapCards = stayGaps(t).map(g => stayGapCardHTML(g, ro)).join('');
+  return cards + gapCards;
+}
 function tabTasks(t, ro){
   const items = t.tasks||[];
-  if(!items.length){
+  const undecidedHTML = undecidedItemsHTML(t, ro);
+  if(!items.length && !undecidedHTML){
     return `<div class="empty">Nothing to book yet.${!ro?'<br><br><button class="btn primary" onclick="App.taskForm(-1)">+ Add Task</button>':''}</div>`;
   }
   const rows = items.map((x,i)=>({x,i}));
   const todo = rows.filter(o=>!o.x.done);
   const done = rows.filter(o=>o.x.done);
   return `
+    ${undecidedHTML}
     ${todo.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}
     ${done.length?`<h3 class="pack-heading">Completed</h3>${done.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}`:''}`;
 }
@@ -4829,34 +4868,19 @@ function whenOptionsHTML(initWhen){
     `<option value="${k}" ${initWhen===k?'selected':''}>${PLAN_PERIODS[k][0]}</option>`).join('')
     + `<option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>`;
 }
-/* the "Undecided?" toggle available on every Add form (stop, travel leg, flight, ferry, car
-   hire, accommodation): ticking it means nothing about this item is nailed down yet, so
-   instead of a half-empty card on the Itinerary it becomes a single red Task ("Book a
-   flight", "Decide: campsite"…) that clears itself the moment the item is resolved (or
-   deleted). One field, reused everywhere it applies rather than six near-identical ones. */
+/* the "Undecided?" toggle available on flight/ferry/car hire/accommodation forms: ticking it
+   means nothing about this item is nailed down yet. It still shows on the Itinerary and its
+   own tab (drawn dashed and red, .card-undecided, so it reads as outstanding rather than a
+   real plan), and it shows in Tasks too - not as a separate stored record, just this same
+   item read straight out of its own array, so editing or deleting it in either place is
+   editing or deleting the one thing, nothing to keep in sync. */
 function undecidedFieldHTML(id, checked){
   return `<div class="field">
     <label class="switch-row"><span>❓ Undecided?</span>
       <span class="switch"><input type="checkbox" id="${id}" ${checked?'checked':''}><span class="knob"></span></span>
     </label>
-    <p class="muted small" style="margin-top:4px">Puts this in Tasks instead of on the Itinerary, until you know more.</p>
+    <p class="muted small" style="margin-top:4px">Also lists this in Tasks, until you know more.</p>
   </div>`;
-}
-/* keeps exactly one Task in sync with an undecided item: adds/renames it while the box stays
-   ticked, removes it the moment the item is resolved. Matched by a link back to the item's
-   own id rather than its array index, so it survives other items being reordered or deleted.
-   Also the tidy-up call when the item itself is deleted, undecided or not (undecided:false
-   with no matching task is a no-op). */
-function syncUndecidedTask(t, kind, itemId, undecided, title){
-  if(!itemId) return;
-  t.tasks = t.tasks||[];
-  const idx = t.tasks.findIndex(tk=>tk.link && tk.link.kind===kind && tk.link.id===itemId);
-  if(undecided){
-    if(idx>=0) t.tasks[idx].title = title;
-    else t.tasks.push({id:uid(), title, notes:'', done:false, link:{kind, id:itemId}});
-  } else if(idx>=0){
-    t.tasks.splice(idx,1);
-  }
 }
 const TRAVEL_MODES = {
   undecided: {label:'Not Decided', icon:ICONS.question, emoji:'❓'},
@@ -4864,8 +4888,9 @@ const TRAVEL_MODES = {
   walk: {label:'Walk', icon:ICONS.walk, emoji:'🚶'},
   ferry: {label:'Ferry', icon:ICONS.ferry, emoji:'⛴️'},
   flight: {label:'Flight', icon:ICONS.flight, emoji:'✈️'},
-  train: {label:'Train', icon:ICONS.train, emoji:'🚂'},
-  bus: {label:'Bus', icon:ICONS.bus, emoji:'🚌'}
+  train: {label:'Train', icon:ICONS.train, emoji:'🚆'},
+  bus: {label:'Bus', icon:ICONS.bus, emoji:'🚌'},
+  taxi: {label:'Taxi', icon:ICONS.taxi, emoji:'🚕'}
 };
 function itineraryTimeKey(s){ return s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][1]) || '99:99'; }
 function travelDurationLabel(s){
@@ -4941,8 +4966,6 @@ function tabPlan(t, ro){
      day number to sit under, so it falls into Anytime until the trip gets real dates. */
   const rough = hasRoughWhen(t);
   items.forEach((s,i)=>{
-    // undecided (nothing nailed down yet) still shows here, highlighted red, with no date
-    // it falls into Anytime same as an unscheduled Task - it also has one, in Tasks
     const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
     (groups[k]=groups[k]||[]).push({...s, _i:i});
   });
@@ -5041,17 +5064,6 @@ function tabPlan(t, ro){
     }
     return n + fmtDate(k);
   };
-  // the short form for a day tab: just "Day 3", not the full date, so a long trip's row of
-  // tabs stays scannable rather than repeating what the day heading underneath already says
-  const dayPillLabel = k => {
-    if(!k) return 'Anytime';
-    if(rough) return 'Day '+k.slice(1);
-    if(t.startDate){
-      const d = Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1;
-      if(d>0) return 'Day '+d;
-    }
-    return fmtDateNoYear(k);
-  };
   // a day strictly between a stay's check-in and check-out gets a reminder of where you're
   // sleeping, the check-in/check-out days themselves already show their own auto-card
   const stayingAt = k => {
@@ -5119,13 +5131,13 @@ function tabPlan(t, ro){
       return `
       <div class="plan-leg${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
         <span class="plan-leg-icon">${secEmoji(mode.emoji)}</span>
-        <span class="plan-leg-text${s.undecided?' text-undecided':''}">${s.undecided&&!modeUndecided?'❓ ':''}${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
+        <span class="plan-leg-text">${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
       </div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
-    const title = (s.undecided?'❓ ':'') + place + (when?' - '+esc(when):'');
+    const title = place + (when?' - '+esc(when):'');
     return `
-    <div class="card plan-card plan-travel${s.undecided?' card-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
+    <div class="card plan-card plan-travel${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
       <div class="section-head" style="margin-bottom:${duration?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="plan-travel-icon">${secEmoji(mode.emoji)}</span>
@@ -5139,10 +5151,10 @@ function tabPlan(t, ro){
      (Delete Stop lives in there, same as every other section's edit form), so there's no way
      to lose something with a stray tap while scrolling */
   const stopCard = s => `
-    <div class="card plan-card${s.undecided?' card-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
+    <div class="card plan-card${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       <div class="section-head" style="margin-bottom:4px">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${s.undecided?`❓ ${esc(s.name||'Something to decide')}`:esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
+          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
       </div>
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
@@ -5182,26 +5194,21 @@ function tabPlan(t, ro){
         <button class="btn sm" onclick="App.ideasForDay('${k}', ${rough})">${secEmoji('\u{1F4A1}')} Add Ideas</button>
       </div>`}
     </div>`;
+  /* a night nobody's booked anywhere for - shown once, on its first night, the same dashed
+     card the Accommodation tab uses, so a gap can't quietly slip by unnoticed on either tab */
+  const stayGapsList = stayGaps(t);
+  const stayGapAt = k => stayGapsList.find(g => g.firstNight === k);
   const dayBlock = k => {
     const dayItems = groups[k].slice().sort(planCompare);
     const stay = stayingAt(k);
+    const gap = stayGapAt(k);
     return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</h3>
       ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏠')}Staying at ${esc(stay)}</p>`:''}
-      ${dayItems.length ? dayItems.map(card).join('') : emptyDayCard(k)}`;
+      ${gap?stayGapCardHTML(gap, ro):''}
+      ${dayItems.length ? dayItems.map(card).join('') : (gap?'':emptyDayCard(k))}`;
   };
-  /* All plus one tab per day: a long trip's itinerary doesn't have to mean scrolling through
-     every day at once, pick one and see just that. Only worth showing once there's more than
-     one day to pick between; the selection itself lives in CUR_PLAN_DAY so it survives a
-     redraw (ticking a task, saving a stop) but resets to All when you leave and come back. */
-  const dayTab = (k,label) => `<button class="plan-daytab${(CUR_PLAN_DAY===k)?' on':''}" onclick="App.selectPlanDay(${k?`'${esc(k)}'`:"''"})">${esc(label)}</button>`;
-  const dayTabs = (hasAny && keys.length>1) ? `<div class="plan-daytabs">
-      <button class="plan-daytab${CUR_PLAN_DAY==null?' on':''}" onclick="App.selectPlanDay(null)">All</button>
-      ${keys.map(k=>dayTab(k, dayPillLabel(k))).join('')}
-    </div>` : '';
-  const visibleKeys = (CUR_PLAN_DAY==null || !keys.includes(CUR_PLAN_DAY)) ? keys : [CUR_PLAN_DAY];
   return `
-    ${dayTabs}
-    ${hasAny ? visibleKeys.map(dayBlock).join('')
+    ${hasAny ? keys.map(dayBlock).join('')
     : `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
         <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
         <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`}`;
@@ -5282,7 +5289,6 @@ App.planForm = (i, prefill, moodIndex) => {
     <h2>${i>=0?'Edit Stop':'Add Stop'}</h2>
     <div class="field"><label class="label" for="pl-name">Place name</label>
       <input id="pl-name" type="text" value="${esc(s.name||'')}" placeholder="e.g. Time Out Market" oninput="App.ideaTitleTyped('#pl-name')"></div>
-    ${undecidedFieldHTML('pl-undecided', s.undecided)}
     ${ideaEmojiFieldHTML(s.emoji || ideaEmojiFor(s.name||''))}
     <div class="grid2">
       ${dayOrDateFieldHTML('pl', t, s)}
@@ -5310,9 +5316,8 @@ App.planForm = (i, prefill, moodIndex) => {
 };
 App.savePlan = (i, moodIndex) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const undecided = $('#pl-undecided').checked;
   const name = $('#pl-name').value.trim();
-  if(!name && !undecided) return markErr('#pl-name','Give the stop a place name');
+  if(!name) return markErr('#pl-name','Give the stop a place name');
   const when = $('#pl-when').value;
   const time = when==='time' ? $('#pl-hour').value+':'+$('#pl-min').value : '';
   const period = when==='time' ? '' : when;
@@ -5320,15 +5325,14 @@ App.savePlan = (i, moodIndex) => {
   if(mapsUrl && !/^https?:\/\//i.test(mapsUrl)) mapsUrl = 'https://' + mapsUrl;
   const emoji = (($('#md-emoji')||{}).value||'').trim() || ideaEmojiFor(name);
   const dd = readDayOrDate('pl');
-  const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name, emoji, undecided,
+  const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name, emoji,
              date:dd.date, day:dd.day, time, period, mapsUrl,
              location:$('#pl-loc').value.trim(), notes:$('#pl-notes').value.trim(), image:PLAN_IMG};
   t.itinerary = t.itinerary||[];
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   if(moodIndex!=null && t.moodBoard && t.moodBoard[moodIndex]) t.moodBoard[moodIndex].itineraryId = s.id;
-  syncUndecidedTask(t, 'stop', s.id, undecided, undecidedItineraryTaskTitle(s));
   PLAN_IMG = null;
-  logEdit('Itinerary', (i>=0?'edited ':'added ')+(name||'a stop'));
+  logEdit('Itinerary', (i>=0?'edited ':'added ')+name);
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast('Stop saved');
 };
 App.travelWhenChange = () => {
@@ -5389,7 +5393,6 @@ App.travelLegForm = (i, prefill) => {
     .map(m=>`<option value="${m}" ${m===(s.durationM||0)?'selected':''}>${m} m</option>`).join('');
   openModal(`
     <h2>${i>=0?'Edit Travel':'Add Travel'}</h2>
-    ${undecidedFieldHTML('tv-undecided', s.undecided)}
     <div class="field"><label class="label" id="tv-mode-label">Mode</label>
       <input type="hidden" id="tv-mode" value="${s.mode||'undecided'}">
       <div class="mode-picker" role="radiogroup" aria-labelledby="tv-mode-label">${modePicks}</div></div>
@@ -5437,9 +5440,8 @@ App.travelLegForm = (i, prefill) => {
 App.deleteTravelFromForm = i => { closeModal(); App.delPlan(i); };
 App.saveTravelLeg = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const undecided = $('#tv-undecided').checked;
   const from = $('#tv-from').value.trim(), to = $('#tv-to').value.trim();
-  if(!from && !to && !undecided) return markErr('#tv-from','Add at least a from or to location');
+  if(!from && !to) return markErr('#tv-from','Add at least a from or to location');
   const when = $('#tv-when').value;
   const time = when==='time' ? $('#tv-hour').value+':'+$('#tv-min').value : '';
   const period = when==='time' ? '' : when;
@@ -5451,12 +5453,11 @@ App.saveTravelLeg = i => {
   const autoLink = i<0 ? TRAVEL_AUTO_LINK : travelAutoLinkOf(existing);
   const timing = time ? (($('#tv-timing')||{}).value === 'arrive' ? 'arrive' : 'leave') : '';
   const dd = readDayOrDate('tv');
-  const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value, undecided,
+  const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
              from, to, date:dd.date, day:dd.day, time, period, timing, durationH, durationM,
              ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
-  syncUndecidedTask(t, 'travel', s.id, undecided, undecidedItineraryTaskTitle(s));
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
 };
@@ -5501,27 +5502,17 @@ App.removeIdeaFromItinerary = i => {
   m.itineraryId = null;
   save(); rerender(); toast('Removed from itinerary');
 };
-/* an undecided stop/travel leg's task title, shared between saving it and restoring one
-   from the delete-undo toast, since both have to produce the exact same task */
-function undecidedItineraryTaskTitle(s){
-  return s.kind==='travel'
-    ? 'Decide travel'+(s.to?` to ${s.to}`:s.from?` from ${s.from}`:'')
-    : 'Decide: '+(s.name||'a stop');
-}
 App.delPlan = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.itinerary[i];
   const label = itineraryItemLabel(removed);
-  t.itinerary.splice(i,1);
-  syncUndecidedTask(t, removed.kind==='travel'?'travel':'stop', removed.id, false, '');
-  logEdit('Itinerary','removed '+label); save(); rerender();
+  t.itinerary.splice(i,1); logEdit('Itinerary','removed '+label); save(); rerender();
   toast(removed.kind==='travel'?'Travel removed':'Stop removed', ()=>{
     // re-fetch: a Firebase echo may have swapped in a new trip object since delete
     const t2 = getTrip(tripId); if(!t2) return;
     t2.itinerary = t2.itinerary||[];
     t2.itinerary.splice(Math.min(i,t2.itinerary.length),0,removed);
-    if(removed.undecided) syncUndecidedTask(t2, removed.kind==='travel'?'travel':'stop', removed.id, true, undecidedItineraryTaskTitle(removed));
     logEdit('Itinerary','restored '+label); save(); rerender();
   });
 };
@@ -5953,7 +5944,6 @@ App.saveFlight = i => {
   if(!f.airline && !f.flightNo && !f.from && !f.to && !undecided) return markErr('#fl-air','Add at least an airline or a route');
   const label = (f.airline||'flight')+(f.flightNo?' '+f.flightNo:'')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
   if(i>=0) t.flights[i]=f; else t.flights.push(f);
-  syncUndecidedTask(t, 'flight', f.id, undecided, undecidedFlightTaskTitle(f));
   FORM_DOC = null;
   logEdit('Travel', (i>=0?'edited ':'added ')+label);
   save(); closeModal(); rerender(); toast('Flight saved');
@@ -5964,13 +5954,11 @@ App.delFlight = i => {
   const tripId = t.id;
   const removed = t.flights[i]; const label=((removed.airline||'flight')+' '+(removed.flightNo||'')).trim();
   t.flights.splice(i,1);
-  syncUndecidedTask(t, 'flight', removed.id, false, '');
   logEdit('Travel','removed '+label); save(); rerender();
   toast('Flight removed', ()=>{
     const t2=getTrip(tripId); if(!t2) return;
     t2.flights = t2.flights||[];
     t2.flights.splice(Math.min(i,t2.flights.length),0,removed);
-    if(removed.undecided) syncUndecidedTask(t2, 'flight', removed.id, true, undecidedFlightTaskTitle(removed));
     logEdit('Travel','restored '+label); save(); rerender();
   });
 };
@@ -6010,7 +5998,6 @@ App.saveFerry = i => {
   t.ferries = t.ferries||[];
   const label = (f.operator||'ferry')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
   if(i>=0) t.ferries[i]=f; else t.ferries.push(f);
-  syncUndecidedTask(t, 'ferry', f.id, undecided, undecidedFerryTaskTitle(f));
   FORM_DOC = null;
   logEdit('Travel',(i>=0?'edited ':'added ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Ferry saved');
@@ -6020,13 +6007,11 @@ App.delFerry = i => {
   const tripId = t.id;
   const removed = t.ferries[i]; const label = removed.operator||'ferry';
   t.ferries.splice(i,1);
-  syncUndecidedTask(t, 'ferry', removed.id, false, '');
   logEdit('Travel','removed '+label); save(); rerender();
   toast('Ferry removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.ferries = t2.ferries||[];
     t2.ferries.splice(Math.min(i,t2.ferries.length),0,removed);
-    if(removed.undecided) syncUndecidedTask(t2, 'ferry', removed.id, true, undecidedFerryTaskTitle(removed));
     logEdit('Travel','restored '+label); save(); rerender();
   });
 };
@@ -6070,7 +6055,6 @@ App.saveCar = i => {
   t.carHire = t.carHire||[];
   const label = c.company||'car hire';
   if(i>=0) t.carHire[i]=c; else t.carHire.push(c);
-  syncUndecidedTask(t, 'car', c.id, undecided, undecidedCarTaskTitle(c));
   FORM_DOC = null;
   logEdit('Travel',(i>=0?'edited ':'added ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Car hire saved');
@@ -6080,13 +6064,11 @@ App.delCar = i => {
   const tripId = t.id;
   const removed = t.carHire[i]; const label = removed.company||'car hire';
   t.carHire.splice(i,1);
-  syncUndecidedTask(t, 'car', removed.id, false, '');
   logEdit('Travel','removed '+label); save(); rerender();
   toast('Car hire removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.carHire = t2.carHire||[];
     t2.carHire.splice(Math.min(i,t2.carHire.length),0,removed);
-    if(removed.undecided) syncUndecidedTask(t2, 'car', removed.id, true, undecidedCarTaskTitle(removed));
     logEdit('Travel','restored '+label); save(); rerender();
   });
 };
@@ -6147,7 +6129,6 @@ App.saveAccom = i => {
     checkout:$('#ac-out').value, checkoutTime:$('#ac-out-time').value,
     ref:$('#ac-ref').value.trim(), bookingUrl:url};
   if(i>=0) t.accommodations[i]=a; else t.accommodations.push(a);
-  syncUndecidedTask(t, 'accom', a.id, undecided, undecidedAccomTaskTitle(a));
   logEdit('Accommodation', (i>=0?'updated ':'added ')+(name||'accommodation'));
   save(); closeModal(); rerender();
 };
@@ -6160,13 +6141,11 @@ App.delAccom = i => {
   const label = removed.name||'this accommodation';
   confirmModal('Remove Accommodation?', `"${label}" and its details (address, dates, booking info) will be removed.`, 'Remove', ()=>{
     t.accommodations.splice(i,1);
-    syncUndecidedTask(t, 'accom', removed.id, false, '');
     logEdit('Accommodation','removed '+label); save(); rerender();
     toast('Accommodation removed', ()=>{
       const t2 = getTrip(tripId); if(!t2) return;
       t2.accommodations = t2.accommodations||[];
       t2.accommodations.splice(Math.min(i,t2.accommodations.length),0,removed);
-      if(removed.undecided) syncUndecidedTask(t2, 'accom', removed.id, true, undecidedAccomTaskTitle(removed));
       logEdit('Accommodation','restored '+label); save(); rerender();
     });
   });
