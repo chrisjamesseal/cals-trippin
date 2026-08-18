@@ -896,8 +896,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.75.0';
+const APP_VERSION = '1.76.0';
 const CHANGELOG = [
+  {version:'1.76.0', notes:[
+    'Fixed Places I\'ve Been order for Greece, Albania, Australia and Japan: they were archived out of order by the same old bug the previous fix addressed, but that fix only prevents new mistakes rather than correcting ones already baked into the saved order. These four are now pinned by hand to the right order (Greece, then Albania, then Australia, then Japan) regardless of how they were originally recorded.'
+  ]},
   {version:'1.75.0', notes:[
     'Countries: the full list below the region tiles is one flat list again, not grouped and re-labelled by continent underneath tiles that already sort by continent. The tiles themselves are one column instead of two.',
     '"Not Booked" is now a solid pill instead of just coloured text, so it stands out at a glance.',
@@ -2613,6 +2616,14 @@ function beenUpcomingCardHTML(co, num){
    to be more recent than all of these and sorts above them. */
 const BEEN_VISIT_ORDER = ['HR','TH','VA','IT','NO','CH','PT','BE','NL','ES','US','XS','IE','FR','XW','XE'];
 const BEEN_VISIT_SET = new Set(BEEN_VISIT_ORDER);
+/* Greece, Albania, Australia and Japan were archived out of order by the pre-fix
+   applyArchiveTransitions bug, and the wrong order was already written into DB.places'
+   insertion order by the time it was caught - there's nothing left in the data to recover the
+   real dates from, so this is corrected by hand instead, same as the older sixteen above.
+   Most recent of this set first (Japan), oldest last (Greece), and it sorts more recent than
+   the sixteen but older than anything else, matching where this cluster already sits. */
+const BEEN_MANUAL_ORDER = ['JP','AU','AL','GR'];
+const BEEN_MANUAL_SET = new Set(BEEN_MANUAL_ORDER);
 function beenOrderedCountries(trips){
   const out = [], seen = new Set();
   const placesKeys = Object.keys(DB.places||{});
@@ -2620,14 +2631,19 @@ function beenOrderedCountries(trips){
      it backwards */
   for(let i=placesKeys.length-1; i>=0; i--){
     const code = placesKeys[i];
-    if(seen.has(code) || BEEN_VISIT_SET.has(code) || placesStatusOf(code, trips[code])!=='been') continue;
+    if(seen.has(code) || BEEN_VISIT_SET.has(code) || BEEN_MANUAL_SET.has(code) || placesStatusOf(code, trips[code])!=='been') continue;
     const co = COUNTRIES.find(c=>c.code===code);
     if(co){ out.push(co); seen.add(code); }
   }
   /* the rare country that's Been purely because a trip finished but hasn't archived yet, so
      nothing's been written down for it anywhere to give it a real position */
   COUNTRY_CODES.forEach(code=>{
-    if(seen.has(code) || BEEN_VISIT_SET.has(code) || placesStatusOf(code, trips[code])!=='been') return;
+    if(seen.has(code) || BEEN_VISIT_SET.has(code) || BEEN_MANUAL_SET.has(code) || placesStatusOf(code, trips[code])!=='been') return;
+    const co = COUNTRIES.find(c=>c.code===code);
+    if(co){ out.push(co); seen.add(code); }
+  });
+  BEEN_MANUAL_ORDER.forEach(code=>{
+    if(seen.has(code) || placesStatusOf(code, trips[code])!=='been') return;
     const co = COUNTRIES.find(c=>c.code===code);
     if(co){ out.push(co); seen.add(code); }
   });

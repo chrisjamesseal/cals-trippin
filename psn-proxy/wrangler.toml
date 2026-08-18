@@ -2,6 +2,9 @@ name = "mytrips"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
+[observability]
+enabled = true
+
 # Optional: lock the proxy down to your app's origin instead of "*". Uncomment and set this,
 # then redeploy with `wrangler deploy`.
 # [vars]
