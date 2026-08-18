@@ -442,6 +442,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .task-flag{font-size:.95rem; line-height:1;}
 .task-card.task-done{border-left-color:var(--line-strong); opacity:.6;}
 .task-card.task-done h3{text-decoration:line-through; color:var(--muted);}
+/* the same red, reused wherever a flight/ferry/car hire/stay/stop is missing something -
+   its own "Undecided?" badge, or a single field (airline, operator, company…) left blank */
+.text-undecided{color:#C0392B; font-weight:600;}
 
 /* ---------- misc components ---------- */
 .list-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line);}
@@ -868,8 +871,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.69.0';
+const APP_VERSION = '1.70.0';
 const CHANGELOG = [
+  {version:'1.70.0', notes:[
+    'Added an "Undecided?" checkbox to every Add form (stops, travel, flights, ferries, car hire, accommodation): tick it for something you know you need but haven\'t sorted yet, and it becomes a single red Task instead of a half-empty card on the Itinerary - resolve it later and the Task clears itself.',
+    'A blank airline, operator or company on an otherwise-filled-in card now shows in red with a ❓, rather than just being left out, so a still-open detail stands out even when the rest of the booking is done.'
+  ]},
   {version:'1.69.0', notes:[
     'Added Midday to When, alongside All day, Morning, Afternoon and Evening - on stops, travel legs and now tasks too, which get the same picker instead of a bare time field.',
     'Edit Trip is now a button above Share Trip instead of a dashboard tile.',
@@ -4767,6 +4774,35 @@ function whenOptionsHTML(initWhen){
     `<option value="${k}" ${initWhen===k?'selected':''}>${PLAN_PERIODS[k][0]}</option>`).join('')
     + `<option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>`;
 }
+/* the "Undecided?" toggle available on every Add form (stop, travel leg, flight, ferry, car
+   hire, accommodation): ticking it means nothing about this item is nailed down yet, so
+   instead of a half-empty card on the Itinerary it becomes a single red Task ("Book a
+   flight", "Decide: campsite"…) that clears itself the moment the item is resolved (or
+   deleted). One field, reused everywhere it applies rather than six near-identical ones. */
+function undecidedFieldHTML(id, checked){
+  return `<div class="field">
+    <label class="switch-row"><span>❓ Undecided?</span>
+      <span class="switch"><input type="checkbox" id="${id}" ${checked?'checked':''}><span class="knob"></span></span>
+    </label>
+    <p class="muted small" style="margin-top:4px">Puts this in Tasks instead of on the Itinerary, until you know more.</p>
+  </div>`;
+}
+/* keeps exactly one Task in sync with an undecided item: adds/renames it while the box stays
+   ticked, removes it the moment the item is resolved. Matched by a link back to the item's
+   own id rather than its array index, so it survives other items being reordered or deleted.
+   Also the tidy-up call when the item itself is deleted, undecided or not (undecided:false
+   with no matching task is a no-op). */
+function syncUndecidedTask(t, kind, itemId, undecided, title){
+  if(!itemId) return;
+  t.tasks = t.tasks||[];
+  const idx = t.tasks.findIndex(tk=>tk.link && tk.link.kind===kind && tk.link.id===itemId);
+  if(undecided){
+    if(idx>=0) t.tasks[idx].title = title;
+    else t.tasks.push({id:uid(), title, notes:'', done:false, link:{kind, id:itemId}});
+  } else if(idx>=0){
+    t.tasks.splice(idx,1);
+  }
+}
 const TRAVEL_MODES = {
   undecided: {label:'Not Decided', icon:ICONS.question, emoji:'❓'},
   drive: {label:'Drive', icon:ICONS.car, emoji:'🚗'},
@@ -4825,8 +4861,8 @@ function stayMoves(t){
   const stays = (t.accommodations||[]);
   const out = [];
   stays.forEach((leaving, li)=>{
-    if(!leaving.checkout) return;
-    const arriving = stays.findIndex((a,ai)=>ai!==li && a.checkin===leaving.checkout);
+    if(!leaving.checkout || leaving.undecided) return;
+    const arriving = stays.findIndex((a,ai)=>ai!==li && a.checkin===leaving.checkout && !a.undecided);
     if(arriving < 0) return;
     const to = stays[arriving];
     const fromName = leaving.name||'', toName = to.name||'';
@@ -4850,12 +4886,15 @@ function tabPlan(t, ro){
      day number to sit under, so it falls into Anytime until the trip gets real dates. */
   const rough = hasRoughWhen(t);
   items.forEach((s,i)=>{
+    // undecided (nothing nailed down yet) lives only as its linked Task, not here too
+    if(s.undecided) return;
     const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
     (groups[k]=groups[k]||[]).push({...s, _i:i});
   });
   // fold travel + accommodation into the schedule, with their full detail, so the whole trip
   // reads in one place, each still lives and is edited in its own section
   (t.flights||[]).forEach((f,fi)=>{
+    if(f.undecided) return;   // its linked Task is where this lives until it's booked
     const k = rough ? '' : (f.date||'');
     // a lightweight reminder to get to the airport, it's a real Add Travel card (same
     // rendering, same edit form) rather than a bespoke one, just suggested rather than
@@ -4873,15 +4912,18 @@ function tabPlan(t, ro){
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
   (t.ferries||[]).forEach((f,fi)=>{
+    if(f.undecided) return;
     const k = rough ? '' : (f.date||'');
     (groups[k]=groups[k]||[]).push({_autoFerry:1, time:f.depTime||'', f, fi});
   });
   (t.carHire||[]).forEach((c,ci)=>{
+    if(c.undecided) return;
     const pk = rough ? '' : c.pickupDate, dk = rough ? '' : c.dropoffDate;
     if(c.pickupDate) (groups[pk]=groups[pk]||[]).push({_autoCar:'pickup', time:c.pickupTime||'', c, ci});
     if(c.dropoffDate) (groups[dk]=groups[dk]||[]).push({_autoCar:'dropoff', time:c.dropoffTime||'', c, ci});
   });
   (t.accommodations||[]).forEach((ac,aci)=>{
+    if(ac.undecided) return;
     // your actual arrival time, when you've set one, is what the day should sort by, not
     // the property's generic check-in time
     const ik = rough ? '' : ac.checkin, ok = rough ? '' : ac.checkout;
@@ -5178,6 +5220,7 @@ App.planForm = (i, prefill, moodIndex) => {
     <h2>${i>=0?'Edit Stop':'Add Stop'}</h2>
     <div class="field"><label class="label" for="pl-name">Place name</label>
       <input id="pl-name" type="text" value="${esc(s.name||'')}" placeholder="e.g. Time Out Market" oninput="App.ideaTitleTyped('#pl-name')"></div>
+    ${undecidedFieldHTML('pl-undecided', s.undecided)}
     ${ideaEmojiFieldHTML(s.emoji || ideaEmojiFor(s.name||''))}
     <div class="grid2">
       ${dayOrDateFieldHTML('pl', t, s)}
@@ -5205,8 +5248,9 @@ App.planForm = (i, prefill, moodIndex) => {
 };
 App.savePlan = (i, moodIndex) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const undecided = $('#pl-undecided').checked;
   const name = $('#pl-name').value.trim();
-  if(!name) return markErr('#pl-name','Give the stop a place name');
+  if(!name && !undecided) return markErr('#pl-name','Give the stop a place name');
   const when = $('#pl-when').value;
   const time = when==='time' ? $('#pl-hour').value+':'+$('#pl-min').value : '';
   const period = when==='time' ? '' : when;
@@ -5214,14 +5258,15 @@ App.savePlan = (i, moodIndex) => {
   if(mapsUrl && !/^https?:\/\//i.test(mapsUrl)) mapsUrl = 'https://' + mapsUrl;
   const emoji = (($('#md-emoji')||{}).value||'').trim() || ideaEmojiFor(name);
   const dd = readDayOrDate('pl');
-  const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name, emoji,
+  const s = {id: i>=0 && t.itinerary[i] ? t.itinerary[i].id : uid(), name, emoji, undecided,
              date:dd.date, day:dd.day, time, period, mapsUrl,
              location:$('#pl-loc').value.trim(), notes:$('#pl-notes').value.trim(), image:PLAN_IMG};
   t.itinerary = t.itinerary||[];
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   if(moodIndex!=null && t.moodBoard && t.moodBoard[moodIndex]) t.moodBoard[moodIndex].itineraryId = s.id;
+  syncUndecidedTask(t, 'stop', s.id, undecided, undecidedItineraryTaskTitle(s));
   PLAN_IMG = null;
-  logEdit('Itinerary', (i>=0?'edited ':'added ')+name);
+  logEdit('Itinerary', (i>=0?'edited ':'added ')+(name||'a stop'));
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast('Stop saved');
 };
 App.travelWhenChange = () => {
@@ -5282,6 +5327,7 @@ App.travelLegForm = (i, prefill) => {
     .map(m=>`<option value="${m}" ${m===(s.durationM||0)?'selected':''}>${m} m</option>`).join('');
   openModal(`
     <h2>${i>=0?'Edit Travel':'Add Travel'}</h2>
+    ${undecidedFieldHTML('tv-undecided', s.undecided)}
     <div class="field"><label class="label" id="tv-mode-label">Mode</label>
       <input type="hidden" id="tv-mode" value="${s.mode||'undecided'}">
       <div class="mode-picker" role="radiogroup" aria-labelledby="tv-mode-label">${modePicks}</div></div>
@@ -5329,8 +5375,9 @@ App.travelLegForm = (i, prefill) => {
 App.deleteTravelFromForm = i => { closeModal(); App.delPlan(i); };
 App.saveTravelLeg = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const undecided = $('#tv-undecided').checked;
   const from = $('#tv-from').value.trim(), to = $('#tv-to').value.trim();
-  if(!from && !to) return markErr('#tv-from','Add at least a from or to location');
+  if(!from && !to && !undecided) return markErr('#tv-from','Add at least a from or to location');
   const when = $('#tv-when').value;
   const time = when==='time' ? $('#tv-hour').value+':'+$('#tv-min').value : '';
   const period = when==='time' ? '' : when;
@@ -5342,11 +5389,12 @@ App.saveTravelLeg = i => {
   const autoLink = i<0 ? TRAVEL_AUTO_LINK : travelAutoLinkOf(existing);
   const timing = time ? (($('#tv-timing')||{}).value === 'arrive' ? 'arrive' : 'leave') : '';
   const dd = readDayOrDate('tv');
-  const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
+  const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value, undecided,
              from, to, date:dd.date, day:dd.day, time, period, timing, durationH, durationM,
              ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
+  syncUndecidedTask(t, 'travel', s.id, undecided, undecidedItineraryTaskTitle(s));
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
 };
@@ -5391,17 +5439,27 @@ App.removeIdeaFromItinerary = i => {
   m.itineraryId = null;
   save(); rerender(); toast('Removed from itinerary');
 };
+/* an undecided stop/travel leg's task title, shared between saving it and restoring one
+   from the delete-undo toast, since both have to produce the exact same task */
+function undecidedItineraryTaskTitle(s){
+  return s.kind==='travel'
+    ? 'Decide travel'+(s.to?` to ${s.to}`:s.from?` from ${s.from}`:'')
+    : 'Decide: '+(s.name||'a stop');
+}
 App.delPlan = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.itinerary[i];
   const label = itineraryItemLabel(removed);
-  t.itinerary.splice(i,1); logEdit('Itinerary','removed '+label); save(); rerender();
+  t.itinerary.splice(i,1);
+  syncUndecidedTask(t, removed.kind==='travel'?'travel':'stop', removed.id, false, '');
+  logEdit('Itinerary','removed '+label); save(); rerender();
   toast(removed.kind==='travel'?'Travel removed':'Stop removed', ()=>{
     // re-fetch: a Firebase echo may have swapped in a new trip object since delete
     const t2 = getTrip(tripId); if(!t2) return;
     t2.itinerary = t2.itinerary||[];
     t2.itinerary.splice(Math.min(i,t2.itinerary.length),0,removed);
+    if(removed.undecided) syncUndecidedTask(t2, removed.kind==='travel'?'travel':'stop', removed.id, true, undecidedItineraryTaskTitle(removed));
     logEdit('Itinerary','restored '+label); save(); rerender();
   });
 };
@@ -5423,12 +5481,15 @@ function flightStripHTML(f, i, actionsHTML){
     <div class="flight-strip">
       <div class="flight-head">
         <strong class="head-with-logo">${(() => {
+          const missingAirline = !f.airline && !f.undecided;
           const airline = f.airline||'Flight';
           const full = [airline, f.flightNo||''].filter(Boolean).join(' ');
-          const logo = airlineLogoFor(airline, full);
-          return logo + `<span>${esc(logo ? (f.flightNo||airline) : full)}</span>`;
+          const logo = missingAirline ? '' : airlineLogoFor(airline, full);
+          const text = logo ? (f.flightNo||airline) : full;
+          return logo + `<span${missingAirline?' class="text-undecided"':''}>${missingAirline?'❓ ':''}${esc(text)}</span>`;
         })()}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
+          ${f.undecided?`<span class="text-undecided small">❓ Undecided</span>`:''}
           <span class="muted small">${f.date?fmtDate(f.date):''}</span>
           ${actionsHTML||''}
         </span>
@@ -5446,8 +5507,9 @@ function ferryStripHTML(f, i, actionsHTML){
   return `
     <div class="flight-strip">
       <div class="flight-head">
-        <strong>${esc(f.operator||'Ferry')}</strong>
+        <strong${!f.operator&&!f.undecided?' class="text-undecided"':''}>${!f.operator&&!f.undecided?'❓ ':''}${esc(f.operator||'Ferry')}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
+          ${f.undecided?`<span class="text-undecided small">❓ Undecided</span>`:''}
           <span class="muted small">${f.date?fmtDate(f.date):''}</span>
           ${actionsHTML||''}
         </span>
@@ -5466,8 +5528,11 @@ function carStripHTML(c, i, actionsHTML){
   return `
     <div class="flight-strip">
       <div class="flight-head">
-        <strong>${esc(c.company||'Car hire')}</strong>
-        <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">${actionsHTML||''}</span>
+        <strong${!c.company&&!c.undecided?' class="text-undecided"':''}>${!c.company&&!c.undecided?'❓ ':''}${esc(c.company||'Car hire')}</strong>
+        <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
+          ${c.undecided?`<span class="text-undecided small">❓ Undecided</span>`:''}
+          ${actionsHTML||''}
+        </span>
       </div>
       <div class="flight-body loc-stack">
         ${addrRow(c.pickupLoc, pickWhen)}
@@ -5628,8 +5693,8 @@ function accomCardHTML(a, opts){
   return `
     <div class="flight-strip">
       <div class="flight-head">
-        <strong class="head-with-logo">${a.bookingUrl?siteLogoFor(a.bookingUrl, '', a.name||'Accommodation'):''}<span>${esc(a.name||'Accommodation')}</span></strong>
-        ${headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
+        <strong class="head-with-logo">${a.bookingUrl?siteLogoFor(a.bookingUrl, '', a.name||'Accommodation'):''}<span${!a.name&&!a.undecided?' class="text-undecided"':''}>${!a.name&&!a.undecided?'❓ ':''}${esc(a.name||'Accommodation')}</span></strong>
+        ${a.undecided?`<span class="text-undecided small">❓ Undecided</span>`:headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
       </div>
       <div class="accom-body">
         ${opts.showDates!==false ? stayLine('In', inLine) + stayLine('Out', outLine) : ''}
@@ -5786,6 +5851,7 @@ App.flightForm = i => {
   const inc = f.includes || [];
   openModal(`
     <h2>${i>=0?'Edit Flight':'Add Flight'}</h2>
+    ${undecidedFieldHTML('fl-undecided', f.undecided)}
     <div class="grid2">
       ${airlineFieldHTML('fl-air', f.airline)}
       <div class="field"><label class="label">Flight no.</label><input id="fl-no" type="text" value="${esc(f.flightNo||'')}" placeholder="BA432"></div>
@@ -5810,18 +5876,22 @@ App.flightForm = i => {
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteFlightFromForm(${i})">Delete Flight</button>`:''}
     </div>`, {autofocus:false});
 };
+function undecidedFlightTaskTitle(f){ return 'Book a flight'+(f.to?` to ${airportName(f.to)||f.to}`:''); }
 App.saveFlight = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const undecided = $('#fl-undecided').checked;
   const includes = Array.from(document.querySelectorAll('.fl-inc')).filter(c=>c.checked).map(c=>c.value);
   const f = {
+    id: i>=0 && t.flights[i] ? t.flights[i].id : uid(), undecided,
     airline:$('#fl-air').value.trim(), flightNo:$('#fl-no').value.trim().toUpperCase(),
     date:$('#fl-date').value, from:parseAirport($('#fl-from').value), to:parseAirport($('#fl-to').value),
     depTime:$('#fl-dep').value, arrTime:$('#fl-arr').value,
     ref:$('#fl-ref').value.trim(), includes, doc:FORM_DOC
   };
-  if(!f.airline && !f.flightNo && !f.from && !f.to) return markErr('#fl-air','Add at least an airline or a route');
+  if(!f.airline && !f.flightNo && !f.from && !f.to && !undecided) return markErr('#fl-air','Add at least an airline or a route');
   const label = (f.airline||'flight')+(f.flightNo?' '+f.flightNo:'')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
   if(i>=0) t.flights[i]=f; else t.flights.push(f);
+  syncUndecidedTask(t, 'flight', f.id, undecided, undecidedFlightTaskTitle(f));
   FORM_DOC = null;
   logEdit('Travel', (i>=0?'edited ':'added ')+label);
   save(); closeModal(); rerender(); toast('Flight saved');
@@ -5831,11 +5901,14 @@ App.delFlight = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.flights[i]; const label=((removed.airline||'flight')+' '+(removed.flightNo||'')).trim();
-  t.flights.splice(i,1); logEdit('Travel','removed '+label); save(); rerender();
+  t.flights.splice(i,1);
+  syncUndecidedTask(t, 'flight', removed.id, false, '');
+  logEdit('Travel','removed '+label); save(); rerender();
   toast('Flight removed', ()=>{
     const t2=getTrip(tripId); if(!t2) return;
     t2.flights = t2.flights||[];
     t2.flights.splice(Math.min(i,t2.flights.length),0,removed);
+    if(removed.undecided) syncUndecidedTask(t2, 'flight', removed.id, true, undecidedFlightTaskTitle(removed));
     logEdit('Travel','restored '+label); save(); rerender();
   });
 };
@@ -5847,6 +5920,7 @@ App.ferryForm = i => {
   FORM_DOC = (i>=0 && t.ferries[i] && t.ferries[i].doc) || null;
   openModal(`
     <h2>${i>=0?'Edit Ferry':'Add Ferry'}</h2>
+    ${undecidedFieldHTML('fy-undecided', f.undecided)}
     <div class="field"><label class="label">Operator</label><input id="fy-op" type="text" value="${esc(f.operator||'')}" placeholder="e.g. Blue Star Ferries"></div>
     <div class="grid3">
       <div class="field"><label class="label">Date</label><input id="fy-date" type="date" value="${esc(f.date||todayStr())}"></div>
@@ -5862,15 +5936,19 @@ App.ferryForm = i => {
     ${attachField()}
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveFerry(${i})">Save Ferry</button></div>`, {autofocus:false});
 };
+function undecidedFerryTaskTitle(f){ return 'Book a ferry'+(f.to?` to ${f.to}`:''); }
 App.saveFerry = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const f = {operator:$('#fy-op').value.trim(), date:$('#fy-date').value,
+  const undecided = $('#fy-undecided').checked;
+  const f = {id: i>=0 && t.ferries[i] ? t.ferries[i].id : uid(), undecided,
+    operator:$('#fy-op').value.trim(), date:$('#fy-date').value,
     from:$('#fy-from').value.trim(), to:$('#fy-to').value.trim(),
     depTime:$('#fy-dep').value, arrTime:$('#fy-arr').value, ref:$('#fy-ref').value.trim(), note:$('#fy-note').value.trim(), doc:FORM_DOC};
-  if(!f.operator && !f.from && !f.to) return markErr('#fy-op','Add an operator or a route');
+  if(!f.operator && !f.from && !f.to && !undecided) return markErr('#fy-op','Add an operator or a route');
   t.ferries = t.ferries||[];
   const label = (f.operator||'ferry')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
   if(i>=0) t.ferries[i]=f; else t.ferries.push(f);
+  syncUndecidedTask(t, 'ferry', f.id, undecided, undecidedFerryTaskTitle(f));
   FORM_DOC = null;
   logEdit('Travel',(i>=0?'edited ':'added ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Ferry saved');
@@ -5879,11 +5957,14 @@ App.delFerry = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.ferries[i]; const label = removed.operator||'ferry';
-  t.ferries.splice(i,1); logEdit('Travel','removed '+label); save(); rerender();
+  t.ferries.splice(i,1);
+  syncUndecidedTask(t, 'ferry', removed.id, false, '');
+  logEdit('Travel','removed '+label); save(); rerender();
   toast('Ferry removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.ferries = t2.ferries||[];
     t2.ferries.splice(Math.min(i,t2.ferries.length),0,removed);
+    if(removed.undecided) syncUndecidedTask(t2, 'ferry', removed.id, true, undecidedFerryTaskTitle(removed));
     logEdit('Travel','restored '+label); save(); rerender();
   });
 };
@@ -5895,6 +5976,7 @@ App.carForm = i => {
   FORM_DOC = (i>=0 && t.carHire[i] && t.carHire[i].doc) || null;
   openModal(`
     <h2>${i>=0?'Edit Car Hire':'Add Car Hire'}</h2>
+    ${undecidedFieldHTML('cr-undecided', c.undecided)}
     <div class="field"><label class="label">Company</label><input id="cr-co" type="text" value="${esc(c.company||'')}" placeholder="e.g. Hertz"></div>
     <div class="field"><label class="label">Pick-up location</label><input id="cr-ploc" type="text" value="${esc(c.pickupLoc||'')}" placeholder="e.g. Corfu Airport"></div>
     <div class="grid2">
@@ -5913,16 +5995,20 @@ App.carForm = i => {
     ${attachField()}
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveCar(${i})">Save Car Hire</button></div>`, {autofocus:false});
 };
+function undecidedCarTaskTitle(c){ return 'Book car hire'+(c.pickupLoc?` at ${c.pickupLoc}`:''); }
 App.saveCar = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const c = {company:$('#cr-co').value.trim(), pickupLoc:$('#cr-ploc').value.trim(),
+  const undecided = $('#cr-undecided').checked;
+  const c = {id: i>=0 && t.carHire[i] ? t.carHire[i].id : uid(), undecided,
+    company:$('#cr-co').value.trim(), pickupLoc:$('#cr-ploc').value.trim(),
     pickupDate:$('#cr-pdate').value, pickupTime:$('#cr-ptime').value,
     dropoffLoc:$('#cr-dloc').value.trim(), dropoffDate:$('#cr-ddate').value, dropoffTime:$('#cr-dtime').value,
     ref:$('#cr-ref').value.trim(), note:$('#cr-note').value.trim(), doc:FORM_DOC};
-  if(!c.company && !c.pickupLoc) return markErr('#cr-co','Add a company or pick-up location');
+  if(!c.company && !c.pickupLoc && !undecided) return markErr('#cr-co','Add a company or pick-up location');
   t.carHire = t.carHire||[];
   const label = c.company||'car hire';
   if(i>=0) t.carHire[i]=c; else t.carHire.push(c);
+  syncUndecidedTask(t, 'car', c.id, undecided, undecidedCarTaskTitle(c));
   FORM_DOC = null;
   logEdit('Travel',(i>=0?'edited ':'added ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Car hire saved');
@@ -5931,11 +6017,14 @@ App.delCar = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.carHire[i]; const label = removed.company||'car hire';
-  t.carHire.splice(i,1); logEdit('Travel','removed '+label); save(); rerender();
+  t.carHire.splice(i,1);
+  syncUndecidedTask(t, 'car', removed.id, false, '');
+  logEdit('Travel','removed '+label); save(); rerender();
   toast('Car hire removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.carHire = t2.carHire||[];
     t2.carHire.splice(Math.min(i,t2.carHire.length),0,removed);
+    if(removed.undecided) syncUndecidedTask(t2, 'car', removed.id, true, undecidedCarTaskTitle(removed));
     logEdit('Travel','restored '+label); save(); rerender();
   });
 };
@@ -5950,6 +6039,7 @@ App.accomForm = (i, prefill) => {
   const a = (i>=0 && t.accommodations[i]) || prefill || {};
   openModal(`
     <h2>${i>=0?'Edit Accommodation':'Add Accommodation'}</h2>
+    ${undecidedFieldHTML('ac-undecided', a.undecided)}
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…" oninput="App.accomAutoName()"></div>
     <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name (fills in automatically once you add a link or address)"</div>
     <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}" oninput="App.accomAutoName()"></div>
@@ -5979,20 +6069,23 @@ App.accomAutoName = () => {
   nameEl.value = auto;
   nameEl.dataset.auto = auto;
 };
+function undecidedAccomTaskTitle(a){ return 'Book accommodation'+(a.checkin?` for ${fmtDate(a.checkin)}`:''); }
 App.saveAccom = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   t.accommodations = t.accommodations||[];
+  const undecided = $('#ac-undecided').checked;
   let url = $('#ac-url').value.trim();
   if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
   const address = $('#ac-addr').value.trim();
   const name = $('#ac-name').value.trim() || autoAccomName(url, address);
-  if(!name && !address) return markErr('#ac-name','Give it a name or address');
-  const a = {id: i>=0 && t.accommodations[i] ? t.accommodations[i].id : uid(),
+  if(!name && !address && !undecided) return markErr('#ac-name','Give it a name or address');
+  const a = {id: i>=0 && t.accommodations[i] ? t.accommodations[i].id : uid(), undecided,
     name, address,
     checkin:$('#ac-in').value, checkinTime:$('#ac-in-time').value, arrivalTime:$('#ac-arrival-time').value,
     checkout:$('#ac-out').value, checkoutTime:$('#ac-out-time').value,
     ref:$('#ac-ref').value.trim(), bookingUrl:url};
   if(i>=0) t.accommodations[i]=a; else t.accommodations.push(a);
+  syncUndecidedTask(t, 'accom', a.id, undecided, undecidedAccomTaskTitle(a));
   logEdit('Accommodation', (i>=0?'updated ':'added ')+(name||'accommodation'));
   save(); closeModal(); rerender();
 };
@@ -6004,11 +6097,14 @@ App.delAccom = i => {
   const removed = t.accommodations[i]; if(!removed) return;
   const label = removed.name||'this accommodation';
   confirmModal('Remove Accommodation?', `"${label}" and its details (address, dates, booking info) will be removed.`, 'Remove', ()=>{
-    t.accommodations.splice(i,1); logEdit('Accommodation','removed '+label); save(); rerender();
+    t.accommodations.splice(i,1);
+    syncUndecidedTask(t, 'accom', removed.id, false, '');
+    logEdit('Accommodation','removed '+label); save(); rerender();
     toast('Accommodation removed', ()=>{
       const t2 = getTrip(tripId); if(!t2) return;
       t2.accommodations = t2.accommodations||[];
       t2.accommodations.splice(Math.min(i,t2.accommodations.length),0,removed);
+      if(removed.undecided) syncUndecidedTask(t2, 'accom', removed.id, true, undecidedAccomTaskTitle(removed));
       logEdit('Accommodation','restored '+label); save(); rerender();
     });
   });
