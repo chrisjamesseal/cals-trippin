@@ -442,8 +442,8 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 /* an outstanding task, or anything else still needing a decision, wears the same dashed
    outline a gap card gets - it isn't a plan yet either - tinted the red used everywhere else
    something still needs doing (an unpaid balance, packing left for you). One shared look for
-   an unscheduled Task and for a flight/ferry/car hire/accommodation/stop/travel leg marked
-   Undecided, so "still needs a decision" reads the same wherever it shows up. */
+   an unscheduled Task and for a flight/ferry/car hire/accommodation marked Not Booked Yet or
+   a travel leg marked the same, so "still outstanding" reads the same wherever it shows up. */
 .card-undecided{border:2px dashed #C0392B !important; background:none !important; box-shadow:none !important;}
 .card-undecided .flight-head{background:none !important; border-bottom:1px dashed #C0392B !important;}
 .card-undecided h3,.card-undecided .head-with-logo,.card-undecided .head-with-logo span,.card-undecided strong{color:#C0392B;}
@@ -888,8 +888,15 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.73.0';
+const APP_VERSION = '1.74.0';
 const CHANGELOG = [
+  {version:'1.74.0', notes:[
+    'Only Flight and Ferry legs get a full card on the Itinerary now - Train and everything else (Drive, Walk, Bus, Taxi) read as a single line, the same lighter treatment Bus/Walk already had.',
+    '"Undecided?" is now "Not Booked Yet?" everywhere it appears (flights, ferries, car hire, accommodation) - the same wording travel legs already used, so it reads the same across the whole app.',
+    'A travel leg marked Not Booked Yet now matches the same dashed-card look as everything else in Tasks, instead of showing as plain text.',
+    'Travel\'s emoji is now 🚌, matching the + menu\'s Travel item.',
+    'The "Places I\'ve Been" home page card is now just "Places Been".'
+  ]},
   {version:'1.73.0', notes:[
     'Travel legs get their own "Not Booked Yet?" toggle, separate from the Mode picker - for when you know it\'s a ferry, know the route and time, just haven\'t actually bought it. Shows dashed on the Itinerary and lists in Tasks, same as everywhere else something\'s still outstanding.',
     'Fixed Places I\'ve Been ordering across multiple finished trips: countries were being marked Been in whatever order the trips happened to sit in rather than the order they actually finished, which could show a more recent trip\'s countries as older than an earlier one\'s.',
@@ -2424,7 +2431,7 @@ function placesHubCardsHTML(){
       <span class="hub-emoji" aria-hidden="true">✈️</span>
       <span class="hub-text"><span class="hub-n">${goingCount()}</span><span class="hub-label">Going</span></span>
     </div>`;
-  return card('#/places/been', '📍', c.been, "Places I've Been")
+  return card('#/places/been', '📍', c.been, "Places Been")
        + goingCard
        + card('#/places/want', '❤️', c.want, 'Want to Go')
        + card('#/places/finder', '🌍', c.all, 'Countries');
@@ -3662,7 +3669,7 @@ const ICONS = {
    The compact menu and in-button icons stay on Font Awesome, where a single-colour glyph
    lines up better at small sizes. */
 const TAB_EMOJI = {
-  edit:'✏️', plan:'🗺️', travel:'✈️', stay:'🏠', mood:'💡', pack:'🧳', tasks:'☑',
+  edit:'✏️', plan:'🗺️', travel:'🚌', stay:'🏠', mood:'💡', pack:'🧳', tasks:'☑',
   polls:'📊', money:'💰', photos:'📸', contacts:'📞', docs:'📎', notes:'📝'
 };
 function tileIcon(k){
@@ -4111,9 +4118,10 @@ function tabHome(t, ro){
     : 'Nothing Planned Yet';
   const tasks = t.tasks||[];
   const openTasks = tasks.filter(x=>!x.done).length;
-  /* everything that shows in the derived Tasks list, not just what's typed in by hand: an
-     Undecided flight/ferry/car hire/accommodation, a stretch of nights with nowhere booked,
-     and a day with nothing on it yet - all outstanding in the same way a hand-typed task is */
+  /* everything that shows in the derived Tasks list, not just what's typed in by hand: a Not
+     Booked Yet flight/ferry/car hire/accommodation/travel leg, a stretch of nights with
+     nowhere booked, and a day with nothing on it yet - all outstanding the same way a
+     hand-typed task is */
   const undecidedCount = (t.flights||[]).filter(f=>f.undecided).length
     + (t.ferries||[]).filter(f=>f.undecided).length
     + (t.carHire||[]).filter(c=>c.undecided).length
@@ -4366,12 +4374,12 @@ function taskRowHTML(t, task, i, ro){
       ${task.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(task.notes)}</p>`:''}
     </div>`;
 }
-/* everything still needing a decision, read straight out of where it actually lives rather
-   than a separate record kept in sync with it: an Undecided flight/ferry/car hire/
-   accommodation (tapping it opens its own real Add/Edit form, same as everywhere else it
-   shows), and any stretch of nights with nowhere booked (worked out fresh every render, like
-   the airport-trip suggestion elsewhere on the Itinerary - nothing stored, nothing to go
-   stale, nothing that needs deleting separately). */
+/* everything still outstanding, read straight out of where it actually lives rather than a
+   separate record kept in sync with it: a Not Booked Yet flight/ferry/car hire/accommodation/
+   travel leg (tapping it opens its own real Add/Edit form, same as everywhere else it shows),
+   and any stretch of nights with nowhere booked (worked out fresh every render, like the
+   airport-trip suggestion elsewhere on the Itinerary - nothing stored, nothing to go stale,
+   nothing that needs deleting separately). */
 function undecidedItemsHTML(t, ro){
   const rows = [];
   (t.flights||[]).forEach((f,i)=>{ if(f.undecided) rows.push({icon:secEmoji('✈️'), label:'Flight',
@@ -4386,7 +4394,8 @@ function undecidedItemsHTML(t, ro){
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : mode.label;
     rows.push({icon:secEmoji(mode.emoji), label:'Not Booked Yet',
-      inner:`<p class="small" style="margin:0">${place}</p>`, editFn:`App.travelLegForm(${i})`});
+      inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${place}</h3></div>`,
+      editFn:`App.travelLegForm(${i})`});
   }});
   const cards = rows.map(r => `
     <div class="plan-auto${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
@@ -4913,18 +4922,19 @@ function whenOptionsHTML(initWhen){
     `<option value="${k}" ${initWhen===k?'selected':''}>${PLAN_PERIODS[k][0]}</option>`).join('')
     + `<option value="time" ${initWhen==='time'?'selected':''}>Specific time…</option>`;
 }
-/* the "Undecided?" toggle available on flight/ferry/car hire/accommodation forms: ticking it
-   means nothing about this item is nailed down yet. It still shows on the Itinerary and its
-   own tab (drawn dashed and red, .card-undecided, so it reads as outstanding rather than a
-   real plan), and it shows in Tasks too - not as a separate stored record, just this same
-   item read straight out of its own array, so editing or deleting it in either place is
-   editing or deleting the one thing, nothing to keep in sync. */
+/* the "Not Booked Yet?" toggle available on flight/ferry/car hire/accommodation forms (travel
+   legs get their own copy of this, see the "Not Booked Yet?" field in App.travelLegForm):
+   ticking it means nothing about this item is nailed down yet. It still shows on the
+   Itinerary and its own tab (drawn dashed and red, .card-undecided, so it reads as
+   outstanding rather than a real plan), and it shows in Tasks too - not as a separate stored
+   record, just this same item read straight out of its own array, so editing or deleting it
+   in either place is editing or deleting the one thing, nothing to keep in sync. */
 function undecidedFieldHTML(id, checked){
   return `<div class="field">
-    <label class="switch-row"><span>❓ Undecided?</span>
+    <label class="switch-row"><span>🎫 Not Booked Yet?</span>
       <span class="switch"><input type="checkbox" id="${id}" ${checked?'checked':''}><span class="knob"></span></span>
     </label>
-    <p class="muted small" style="margin-top:4px">Also lists this in Tasks, until you know more.</p>
+    <p class="muted small" style="margin-top:4px">Shows dashed here and lists it in Tasks, until you've booked it.</p>
   </div>`;
 }
 const TRAVEL_MODES = {
@@ -5152,11 +5162,12 @@ function tabPlan(t, ro){
                 (s._autoStay==='checkin' && s.ac.arrivalTime) || s.time)}
       ${accomCardHTML(s.ac, {showDates:false, compact:true, phase:s._autoStay})}
     </div>`;
-  /* A flight, ferry or train is a booked thing with a time you have to make, so it earns a
-     card. Getting a bus, a taxi or walking somewhere is not that: you turn up and pay, and it
-     doesn't want the same weight on the page as the flight above it. Those read as one line -
-     "Bus to Kassiopi - leave by 14:00" - and still open the same form on a tap. */
-  const BOOKED_MODES = ['flight','ferry','train'];
+  /* A flight or ferry is a booked thing with a time you have to make, so it earns a card.
+     Everything else - a train, a bus, a taxi, driving yourself - is not that: you turn up and
+     go, and it doesn't want the same weight on the page as the flight above it. Those read as
+     one line - "Train to London Gatwick - leave by 14:00" - and still open the same form on a
+     tap. */
+  const BOOKED_MODES = ['flight','ferry'];
   const travelCard = s => {
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
     const booked = BOOKED_MODES.includes(s.mode);
@@ -5603,7 +5614,7 @@ function flightStripHTML(f, i, actionsHTML){
           return logo + `<span${missingAirline?' class="text-undecided"':''}>${missingAirline?'❓ ':''}${esc(text)}</span>`;
         })()}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
-          ${f.undecided?`<span class="text-undecided small">❓ Undecided</span>`:''}
+          ${f.undecided?`<span class="text-undecided small">🎫 Not Booked</span>`:''}
           <span class="muted small">${f.date?fmtDate(f.date):''}</span>
           ${actionsHTML||''}
         </span>
@@ -5623,7 +5634,7 @@ function ferryStripHTML(f, i, actionsHTML){
       <div class="flight-head">
         <strong${!f.operator&&!f.undecided?' class="text-undecided"':''}>${!f.operator&&!f.undecided?'❓ ':''}${esc(f.operator||'Ferry')}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
-          ${f.undecided?`<span class="text-undecided small">❓ Undecided</span>`:''}
+          ${f.undecided?`<span class="text-undecided small">🎫 Not Booked</span>`:''}
           <span class="muted small">${f.date?fmtDate(f.date):''}</span>
           ${actionsHTML||''}
         </span>
@@ -5644,7 +5655,7 @@ function carStripHTML(c, i, actionsHTML){
       <div class="flight-head">
         <strong${!c.company&&!c.undecided?' class="text-undecided"':''}>${!c.company&&!c.undecided?'❓ ':''}${esc(c.company||'Car hire')}</strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
-          ${c.undecided?`<span class="text-undecided small">❓ Undecided</span>`:''}
+          ${c.undecided?`<span class="text-undecided small">🎫 Not Booked</span>`:''}
           ${actionsHTML||''}
         </span>
       </div>
@@ -5808,7 +5819,7 @@ function accomCardHTML(a, opts){
     <div class="flight-strip${a.undecided?' card-undecided':''}">
       <div class="flight-head">
         <strong class="head-with-logo">${a.bookingUrl?siteLogoFor(a.bookingUrl, '', a.name||'Accommodation'):''}<span${!a.name&&!a.undecided?' class="text-undecided"':''}>${!a.name&&!a.undecided?'❓ ':''}${esc(a.name||'Accommodation')}</span></strong>
-        ${a.undecided?`<span class="text-undecided small">❓ Undecided</span>`:headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
+        ${a.undecided?`<span class="text-undecided small">🎫 Not Booked</span>`:headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
       </div>
       <div class="accom-body">
         ${opts.showDates!==false ? stayLine('In', inLine) + stayLine('Out', outLine) : ''}
@@ -5990,7 +6001,6 @@ App.flightForm = i => {
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteFlightFromForm(${i})">Delete Flight</button>`:''}
     </div>`, {autofocus:false});
 };
-function undecidedFlightTaskTitle(f){ return 'Book a flight'+(f.to?` to ${airportName(f.to)||f.to}`:''); }
 App.saveFlight = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const undecided = $('#fl-undecided').checked;
@@ -6047,7 +6057,6 @@ App.ferryForm = i => {
     ${attachField()}
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveFerry(${i})">Save Ferry</button></div>`, {autofocus:false});
 };
-function undecidedFerryTaskTitle(f){ return 'Book a ferry'+(f.to?` to ${f.to}`:''); }
 App.saveFerry = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const undecided = $('#fy-undecided').checked;
@@ -6103,7 +6112,6 @@ App.carForm = i => {
     ${attachField()}
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveCar(${i})">Save Car Hire</button></div>`, {autofocus:false});
 };
-function undecidedCarTaskTitle(c){ return 'Book car hire'+(c.pickupLoc?` at ${c.pickupLoc}`:''); }
 App.saveCar = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const undecided = $('#cr-undecided').checked;
@@ -6174,7 +6182,6 @@ App.accomAutoName = () => {
   nameEl.value = auto;
   nameEl.dataset.auto = auto;
 };
-function undecidedAccomTaskTitle(a){ return 'Book accommodation'+(a.checkin?` for ${fmtDate(a.checkin)}`:''); }
 App.saveAccom = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   t.accommodations = t.accommodations||[];
