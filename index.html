@@ -423,7 +423,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 /* an outstanding task: the same red used everywhere else something still needs doing (an
    unpaid balance, packing left for you), a stripe down the side rather than the dashed
    outline a gap gets, since this one was typed in by hand rather than worked out from dates */
-.task-card{border-left:3px solid #C0392B;}
+/* a task only wears the red while it still needs a day - once it's on the Itinerary it's a
+   plan like any other */
+.task-card{border-left:3px solid var(--line-strong);}
+.task-unscheduled{border-left-color:#C0392B;}
+.task-nowhen{color:#C0392B; font-weight:600;}
 .task-flag{font-size:.95rem; line-height:1;}
 .task-card.task-done{border-left-color:var(--line-strong); opacity:.6;}
 .task-card.task-done h3{text-decoration:line-through; color:var(--muted);}
@@ -853,8 +857,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.67.0';
+const APP_VERSION = '1.68.0';
 const CHANGELOG = [
+  {version:'1.68.0', notes:[
+    'Tasks take a day and a time again, and show on the Itinerary on that day. One without a day yet sits under "Anytime" in red, on both screens, as the thing still to sort out. Tap a task to fill it in; there\'s still no edit button, the card itself is the way in.',
+    'Fixed links opening in the in-app browser when you came BACK to the app after reading them in Safari. iOS pauses timers while the app is in the background, so the fallback that was meant to have been cancelled on the way out was firing on the way back in.'
+  ]},
   {version:'1.67.0', notes:[
     'Adding a stop or an idea from a particular day now fills that day in for you, whether you came from the day\'s own card or had that day showing on the Day picker.',
     'When: added an "All day" option, which sits at the head of its day.',
@@ -3547,20 +3555,29 @@ function iosStandalone(){
 App.openExternal = (ev, url) => {
   if(!iosStandalone()) return true;          // let the plain link do its job everywhere else
   ev.preventDefault();
-  /* window.open() in a home-screen app IS the in-app browser, so this fallback is only for the
-     case where x-safari- silently did nothing. It used to hold off only while document.hidden
-     was true, but iOS doesn't reliably set that when Safari takes over, so the page would hand
-     off to Safari AND open the in-app browser underneath - which is what you'd find waiting
-     when you came back. Any sign of the app backgrounding now cancels it. Cancelling when we
-     shouldn't have costs a link that does nothing; not cancelling costs the exact browser
-     we're here to avoid, so it errs towards cancelling. */
-  const fallback = setTimeout(()=>window.open(url, '_blank', 'noopener'), 900);
+  /* window.open() in a home-screen app IS the in-app browser, so this fallback only exists for
+     the case where x-safari- silently did nothing.
+
+     Cancelling it on the way out isn't enough on its own. iOS SUSPENDS timers while the app is
+     backgrounded rather than running them, so a fallback still pending when Safari took over
+     would fire on the way back IN - which is why an article or a map you'd already read in
+     Safari was sitting there in the in-app browser when you returned, waiting to be dismissed.
+
+     So the timer checks, at the moment it fires, whether it still makes sense: the app must
+     have stayed visible throughout, and no more wall-clock time may have passed than the delay
+     itself. A suspended-then-resumed timer fails both. */
+  const DELAY = 900;
+  const startedAt = Date.now();
+  let leftTheApp = false;
   const events = ['visibilitychange','pagehide','blur'];
-  const cancel = () => {
-    clearTimeout(fallback);
-    events.forEach(e => window.removeEventListener(e, cancel));
-  };
-  events.forEach(e => window.addEventListener(e, cancel, {once:false}));
+  const noteLeaving = () => { leftTheApp = true; };
+  const stopListening = () => events.forEach(e => window.removeEventListener(e, noteLeaving));
+  events.forEach(e => window.addEventListener(e, noteLeaving));
+  setTimeout(() => {
+    stopListening();
+    if(leftTheApp || document.hidden || Date.now() - startedAt > DELAY + 400) return;
+    window.open(url, '_blank', 'noopener');
+  }, DELAY);
   location.href = 'x-safari-' + url;
   return false;
 };
@@ -4191,24 +4208,34 @@ function packUnpackedFor(t){
    one to a day folds it into that day's Itinerary too, in the same red, until it's ticked
    booked, at which point it's done in both places at once since it's the same record. */
 function taskWhenLabel(t, task){
-  if(hasRoughWhen(t)) return task.day ? 'Day '+task.day : '';
-  return task.date ? fmtDate(task.date) : '';
+  const day = hasRoughWhen(t) ? (task.day ? 'Day '+task.day : '') : (task.date ? fmtDate(task.date) : '');
+  return [day, task.time||''].filter(Boolean).join(' · ');
 }
+/* a task nobody has put a day against isn't on the Itinerary yet, so it's the one still
+   needing a decision - that's what the red is for */
+const taskUnscheduled = (t, task) => !task.done && !(hasRoughWhen(t) ? task.day : task.date);
 function taskRowHTML(t, task, i, ro){
   const when = taskWhenLabel(t, task);
+  const unscheduled = taskUnscheduled(t, task);
+  /* no edit button - tapping the card opens the form, the same way nothing on the Itinerary
+     deletes itself - but there has to be a way in, or a task flagged red for having no day
+     could never be given one */
   return `
-    <div class="card task-card${task.done?' task-done':''}">
+    <div class="card task-card${task.done?' task-done':''}${unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}"
+      ${!ro?`role="button" tabindex="0" onclick="App.taskForm(${i})"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.taskForm(${i})}"`:''}>
       <div class="section-head" style="margin-bottom:4px">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="pack-check${task.done?' on':''}" role="checkbox" tabindex="0" aria-checked="${task.done}"
             aria-label="${task.done?'Mark as not done':'Mark as completed'}"
-            onclick="App.toggleTask('${task.id}')"
-            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.toggleTask('${task.id}')}">${task.done?fa('check'):''}</span>
+            onclick="event.stopPropagation();App.toggleTask('${task.id}')"
+            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();App.toggleTask('${task.id}')}">${task.done?fa('check'):''}</span>
           <h3>${esc(task.title)}</h3>
         </div>
-        ${!ro?`<button class="iconbtn del" aria-label="Remove task" title="Remove" onclick="App.delTask(${i})">${ICONS.trash}</button>`:''}
+        ${!ro?`<button class="iconbtn del" aria-label="Remove task" title="Remove" onclick="event.stopPropagation();App.delTask(${i})">${ICONS.trash}</button>`:''}
       </div>
-      ${when?`<p class="small muted" style="margin-top:4px">${esc(when)}</p>`:''}
+      ${when?`<p class="small muted" style="margin-top:4px">${esc(when)}</p>`
+            : unscheduled?`<p class="small task-nowhen" style="margin-top:4px">No day set yet</p>`:''}
       ${task.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(task.notes)}</p>`:''}
     </div>`;
 }
@@ -4231,6 +4258,11 @@ App.taskForm = i => {
     <h2>${i>=0?'Edit Task':'Add Task'}</h2>
     <div class="field"><label class="label" for="tk-title">What needs sorting</label>
       <input id="tk-title" type="text" value="${esc(task.title||'')}" placeholder="e.g. Hotel near the airport"></div>
+    <div class="grid2">
+      ${dayOrDateFieldHTML('tk', t, task)}
+      <div class="field"><label class="label" for="tk-time">Time</label>
+        <input id="tk-time" type="time" value="${esc(task.time||'')}"></div>
+    </div>
     <div class="field"><label class="label" for="tk-notes">Notes</label>
       <textarea id="tk-notes" rows="3" placeholder="Optional">${esc(task.notes||'')}</textarea></div>
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveTask(${i})">Save</button></div>`);
@@ -4239,11 +4271,12 @@ App.saveTask = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const title = ($('#tk-title').value||'').trim();
   if(!title) return markErr('#tk-title','Give it a name');
+  const {date, day} = readDayOrDate('tk');
+  const time = ($('#tk-time').value||'').trim();
   const notes = ($('#tk-notes').value||'').trim();
   t.tasks = t.tasks||[];
-  /* no day/date on the form any more, so an existing task keeps whatever it already had */
-  if(i>=0) Object.assign(t.tasks[i], {title, notes});
-  else t.tasks.push({id:uid(), title, notes, done:false});
+  if(i>=0) Object.assign(t.tasks[i], {title, date, day, time, notes});
+  else t.tasks.push({id:uid(), title, date, day, time, notes, done:false});
   logEdit('Tasks', (i>=0?'edited task: ':'added task: ')+title);
   save(); closeModal(); rerender();
 };
@@ -4791,7 +4824,10 @@ function tabPlan(t, ro){
   (t.tasks||[]).forEach((task,ti)=>{
     if(task.done) return;
     const k = rough ? (task.day?'d'+task.day:'') : (task.date||'');
-    (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes, ti});
+    /* no day means it lands under "Anytime" rather than on a day, which is exactly the thing
+       still needing a decision - so it carries the red over from the Tasks tab */
+    (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes,
+      time:task.time||'', unscheduled:!k, ti});
   });
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
@@ -4936,11 +4972,11 @@ function tabPlan(t, ro){
       </div>` : ''}
     </div>`;
   const taskCard = s => `
-    <div class="card plan-card task-card${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
+    <div class="card plan-card task-card${s.unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
       <div class="section-head" style="margin-bottom:0">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="task-flag" aria-hidden="true">📌</span>
-          <h3>${esc(s.title)}</h3>
+          <h3>${esc(s.title)}${s.time?' - '+esc(s.time):''}</h3>
         </div>
       </div>
       ${s.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
