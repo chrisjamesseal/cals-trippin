@@ -896,8 +896,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.76.0';
+const APP_VERSION = '1.77.0';
 const CHANGELOG = [
+  {version:'1.77.0', notes:[
+    'Countries: added an "All Countries" title above the flat list, now that it\'s no longer broken up by continent headings of its own.'
+  ]},
   {version:'1.76.0', notes:[
     'Fixed Places I\'ve Been order for Greece, Albania, Australia and Japan: they were archived out of order by the same old bug the previous fix addressed, but that fix only prevents new mistakes rather than correcting ones already baked into the saved order. These four are now pinned by hand to the right order (Greece, then Albania, then Australia, then Japan) regardless of how they were originally recorded.'
   ]},
@@ -2731,7 +2734,11 @@ function drawPlacesGrid(){
      too was saying the same thing twice and just added clutter */
   const topLevel = !q && !CUR_PLACES_REGION;
   if(topLevel){
-    el.innerHTML = regionTilesHTML + `<div class="places-grid">${list.map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>`;
+    /* the region tiles read as their own picker without a label, but the flat list under them
+       needs something saying what it is now that it's no longer broken up by continent
+       headings of its own */
+    const allTitle = regionTilesHTML ? `<h3 class="places-continent-heading">All Countries</h3>` : '';
+    el.innerHTML = regionTilesHTML + allTitle + `<div class="places-grid">${list.map(co=>placeCardHTML(co, trips[co.code])).join('')}</div>`;
     return;
   }
   const byContinent = {};
