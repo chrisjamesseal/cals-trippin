@@ -446,6 +446,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .amount{font-weight:800; white-space:nowrap; color:var(--ink);}
 .flight-strip{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden;}
 .flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--brand-ghost);}
+/* the little square logo sitting with a card's title */
+.head-with-logo{display:flex; align-items:center; gap:9px; min-width:0;}
+.card-logo{width:26px; height:26px; flex-shrink:0; border-radius:6px; object-fit:contain;
+  background:var(--paper); border:1px solid var(--line);}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
 /* accommodation runs down the card rather than across it, but shares the flight card's
    strip/head shell so the two read as the same kind of thing on the Itinerary */
@@ -849,8 +853,14 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.66.0';
+const APP_VERSION = '1.67.0';
 const CHANGELOG = [
+  {version:'1.67.0', notes:[
+    'Adding a stop or an idea from a particular day now fills that day in for you, whether you came from the day\'s own card or had that day showing on the Day picker.',
+    'When: added an "All day" option, which sits at the head of its day.',
+    'Flights and accommodation show the airline or booking site\'s logo as a small square on the card.',
+    'A travel leg with no mode chosen now reads "Travel to Kassiopi not decided" rather than "Not Decided to Kassiopi".'
+  ]},
   {version:'1.66.0', notes:[
     'Design articles now come through with their images, headings, bold text and quotes rather than as flat paragraphs.',
     'Places I\'ve Been counts from the bottom up, so #1 is the first place you went.',
@@ -3865,6 +3875,8 @@ App.openMenu = () => {
 };
 App.menuGo = k => { closeMenu(); App.tab(k); };
 App.tab = k => {
+  // the day parked by "Add Ideas" only lives while you're actually on Ideas picking one
+  if(k !== 'mood') PENDING_PLAN_WHEN = null;
   CUR_TAB = k;
   const t = getTrip(CUR_TRIP_ID);
   if(t){
@@ -3897,7 +3909,13 @@ function renderTab(t){
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
   switch(CUR_TAB){
-    case 'plan':   return `<button class="btn sm" onclick="App.tab('mood')">${secEmoji('💡')} Add Ideas</button><button class="btn sm" onclick="App.travelLegForm(-1)">${secEmoji('🧭')} Add Travel</button><button class="btn sm" onclick="App.planForm(-1)">${secEmoji('📍')} Add Stop</button>`;
+    /* with a single day showing, these add to that day rather than making you pick it again */
+    case 'plan': {
+      const dayArg = CUR_PLAN_DAY ? `'${CUR_PLAN_DAY}', ${hasRoughWhen(t)}` : '';
+      return `<button class="btn sm" onclick="${dayArg?`App.ideasForDay(${dayArg})`:`App.tab('mood')`}">${secEmoji('💡')} Add Ideas</button>`
+        + `<button class="btn sm" onclick="App.travelLegForm(-1)">${secEmoji('🧭')} Add Travel</button>`
+        + `<button class="btn sm" onclick="${dayArg?`App.planGapForm(${dayArg})`:`App.planForm(-1)`}">${secEmoji('📍')} Add Stop</button>`;
+    }
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
@@ -4634,7 +4652,10 @@ function mapQuery(t, name){
   return encodeURIComponent(name + (extra ? ', '+extra : ''));
 }
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
-const PLAN_PERIODS = {morning:['Morning','06:00'], afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
+/* '00:00' puts an all-day thing at the head of its day, which is where it belongs when
+   everything else that day has a real time */
+const PLAN_PERIODS = {allday:['All day','00:00'], morning:['Morning','06:00'],
+  afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
 const TRAVEL_MODES = {
   undecided: {label:'Not Decided', icon:ICONS.question, emoji:'❓'},
   drive: {label:'Drive', icon:ICONS.car, emoji:'🚗'},
@@ -4869,8 +4890,11 @@ function tabPlan(t, ro){
     if(!booked){
       /* named by how you're getting there rather than by both ends: "Bus to Kassiopi" is what
          you'd say, where "Corfu Town → Kassiopi" is a timetable entry */
+      const undecided = !s.mode || s.mode==='undecided';
       const way = s.mode==='walk' ? 'Walk' : mode.label;
-      const line = s.to ? `${way} to ${esc(s.to)}`
+      const line = undecided
+                 ? (s.to ? `Travel to ${esc(s.to)} not decided` : 'Travel not decided')
+                 : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
                  : way;
       const meta = [when, duration].filter(Boolean).join(' · ');
@@ -4937,7 +4961,7 @@ function tabPlan(t, ro){
       <div class="section-head" style="margin-bottom:0"><h3>${secEmoji('📍')}Nothing Planned</h3></div>
       ${ro?'':`<div class="btn-row" style="margin-top:10px">
         <button class="btn primary sm" onclick="App.planGapForm('${k}', ${rough})">+ Add Stop</button>
-        <button class="btn sm" onclick="App.tab('mood')">${secEmoji('\u{1F4A1}')} Add Ideas</button>
+        <button class="btn sm" onclick="App.ideasForDay('${k}', ${rough})">${secEmoji('\u{1F4A1}')} Add Ideas</button>
       </div>`}
     </div>`;
   const dayBlock = k => {
@@ -5016,7 +5040,15 @@ App.planWhenChange = () => {
 };
 /* the dashed "nothing planned" card opens the normal Add Stop form with that day already
    filled in, same idea as the accommodation gap card's App.accomGapForm */
-App.planGapForm = (key, rough) => App.planForm(-1, rough ? {day:+key.slice(1)} : {date:key});
+App.planGapForm = (key, rough) => App.planForm(-1, planWhenFor(key, rough));
+/* the day a gap card belongs to, in the shape the stop form wants */
+function planWhenFor(key, rough){ return rough ? {day:+String(key).slice(1)} : {date:key}; }
+/* Ideas are added to the Itinerary from the Ideas tab, which has no idea which day you came
+   from, so the day is parked here on the way over and used to pre-fill the form when you pick
+   one. It survives adding several ideas to the same day, and is dropped as soon as you go
+   anywhere other than Ideas. */
+let PENDING_PLAN_WHEN = null;
+App.ideasForDay = (key, rough) => { PENDING_PLAN_WHEN = planWhenFor(key, rough); App.tab('mood'); };
 App.planForm = (i, prefill, moodIndex) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const s = prefill || (i>=0 ? (t.itinerary||[])[i] || {} : {});
@@ -5037,6 +5069,7 @@ App.planForm = (i, prefill, moodIndex) => {
       ${dayOrDateFieldHTML('pl', t, s)}
       <div class="field"><label class="label" for="pl-when">When</label>
         <select id="pl-when" onchange="App.planWhenChange()">
+          <option value="allday" ${initWhen==='allday'?'selected':''}>All day</option>
           <option value="morning" ${initWhen==='morning'?'selected':''}>Morning</option>
           <option value="afternoon" ${initWhen==='afternoon'?'selected':''}>Afternoon</option>
           <option value="evening" ${initWhen==='evening'?'selected':''}>Evening</option>
@@ -5155,6 +5188,7 @@ App.travelLegForm = (i, prefill) => {
       ${dayOrDateFieldHTML('tv', t, s)}
       <div class="field"><label class="label" for="tv-when">When</label>
         <select id="tv-when" onchange="App.travelWhenChange()">
+          <option value="allday" ${initWhen==='allday'?'selected':''}>All day</option>
           <option value="morning" ${initWhen==='morning'?'selected':''}>Morning</option>
           <option value="afternoon" ${initWhen==='afternoon'?'selected':''}>Afternoon</option>
           <option value="evening" ${initWhen==='evening'?'selected':''}>Evening</option>
@@ -5240,7 +5274,8 @@ App.planFromIdea = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const m = (t.moodBoard||[])[i]; if(!m) return;
   const name = (m.title||'').replace(/^(Do|Eat|Tip):\s*/,'');
-  App.planForm(-1, {name, emoji: m.emoji||'', notes: m.text||'', location: name, mapsUrl: m.mapsUrl||'', image: m.dataUrl||null}, i);
+  App.planForm(-1, {name, emoji: m.emoji||'', notes: m.text||'', location: name,
+    mapsUrl: m.mapsUrl||'', image: m.dataUrl||null, ...(PENDING_PLAN_WHEN||{})}, i);
 };
 App.removeIdeaFromItinerary = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -5285,7 +5320,7 @@ function flightStripHTML(f, i, actionsHTML){
   return `
     <div class="flight-strip">
       <div class="flight-head">
-        <strong>${esc(f.airline||'Flight')} ${esc(f.flightNo||'')}</strong>
+        <strong class="head-with-logo">${airlineLogoFor(f.airline)}<span>${esc(f.airline||'Flight')} ${esc(f.flightNo||'')}</span></strong>
         <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
           <span class="muted small">${f.date?fmtDate(f.date):''}</span>
           ${actionsHTML||''}
@@ -5364,6 +5399,37 @@ function tabTravel(t, ro){
 }
 
 /* ================= TAB: accommodation (multiple stays) ================= */
+/* A small square logo for a card, from whatever we know about who it's with: the booking
+   link's own domain for a stay, the airline's site for a flight. This is the site's icon, not
+   a photo of the room - a real photo would mean scraping the page's og:image through the
+   proxy, and the big travel sites (Airbnb especially) block that. */
+const AIRLINE_SITES = {
+  'easyJet':'easyjet.com','Ryanair':'ryanair.com','British Airways':'britishairways.com',
+  'Jet2':'jet2.com','Wizz Air':'wizzair.com','Virgin Atlantic':'virginatlantic.com',
+  'Emirates':'emirates.com','Qatar Airways':'qatarairways.com','Lufthansa':'lufthansa.com',
+  'Air France':'airfrance.com','KLM':'klm.com','Iberia':'iberia.com','Vueling':'vueling.com',
+  'TAP Air Portugal':'flytap.com','Aer Lingus':'aerlingus.com','Aegean Airlines':'aegeanair.com',
+  'Turkish Airlines':'turkishairlines.com','SWISS':'swiss.com','Norwegian':'norwegian.com',
+  'Finnair':'finnair.com','SAS':'flysas.com','Transavia':'transavia.com','Volotea':'volotea.com',
+  'Pegasus Airlines':'flypgs.com','Brussels Airlines':'brusselsairlines.com','Eurowings':'eurowings.com',
+  'American Airlines':'aa.com','Delta':'delta.com','United':'united.com','JetBlue':'jetblue.com',
+  'Southwest':'southwest.com','Alaska Airlines':'alaskaair.com','WestJet':'westjet.com',
+  'Air Canada':'aircanada.com','Qantas':'qantas.com','Etihad Airways':'etihad.com',
+  'Singapore Airlines':'singaporeair.com','Cathay Pacific':'cathaypacific.com','Icelandair':'icelandair.com',
+  'ITA Airways':'ita-airways.com','airBaltic':'airbaltic.com','Croatia Airlines':'croatiaairlines.com'
+};
+function logoSquare(domain, label){
+  if(!domain) return '';
+  return `<img class="card-logo" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128"
+    alt="${esc(label||'')}" loading="lazy">`;
+}
+function siteLogoFor(url, label){
+  try{ return logoSquare(new URL(url).hostname, label); }catch(e){ return ''; }
+}
+function airlineLogoFor(name){
+  const site = AIRLINE_SITES[name];
+  return site ? logoSquare(site, name) : '';
+}
 function faviconFor(url){
   try{ const h = new URL(url).hostname; return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy">`; }
   catch(e){ return ''; }
@@ -5448,7 +5514,7 @@ function accomCardHTML(a, opts){
   return `
     <div class="flight-strip">
       <div class="flight-head">
-        <strong>${esc(a.name||'Accommodation')}</strong>
+        <strong class="head-with-logo">${a.bookingUrl?siteLogoFor(a.bookingUrl, ''):''}<span>${esc(a.name||'Accommodation')}</span></strong>
         ${headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
       </div>
       <div class="accom-body">
