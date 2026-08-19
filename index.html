@@ -224,6 +224,23 @@ a{color:var(--brand-dark);}
 .bg-mark{flex:1; min-width:0; gap:5px;}
 .bg-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
 
+/* ---------- wishlist (new & upcoming video games) - same shape as board game cards ---------- */
+#wl-grid{padding-bottom:44px;}
+.wl-list{display:flex; flex-direction:column; gap:12px;}
+.wl-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
+  box-shadow:var(--shadow); padding:14px;}
+.wl-marked{border-color:var(--brand);}
+.wl-top{display:flex; gap:12px; align-items:flex-start;}
+.wl-cover{width:64px; height:64px; flex-shrink:0; border-radius:var(--radius-sm); object-fit:cover;
+  border:1px solid var(--line); background:var(--bg);}
+.wl-cover-fallback{display:inline-flex; align-items:center; justify-content:center; font-size:1.7rem;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.wl-info{min-width:0; flex:1;}
+.wl-name{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
+.wl-facts{margin-top:2px;}
+.wl-actions{margin-top:12px;}
+.wl-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
+
 /* ---------- design (UX news feed) ---------- */
 .design-list{display:flex; flex-direction:column; gap:10px;}
 .design-card{display:block; text-decoration:none; transition:transform .1s, box-shadow .1s, border-color .1s;}
@@ -919,8 +936,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.94.0';
+const APP_VERSION = '1.95.0';
 const CHANGELOG = [
+  {version:'1.95.0', notes:[
+    'Added a Wishlist to the Games tab - search for a new or upcoming game (GTA VI, say) and save it to a list, backed by RAWG. Needs a free API key, see psn-proxy/README.md.'
+  ]},
   {version:'1.94.0', notes:[
     'Removed Switch Name and the per-trip identity system - this is a single-user app, so picking your name before every trip opened was friction with nothing behind it.',
     'Packing is a single shared checklist now instead of per-person: one tick per item, no more "who is this for" field.',
@@ -2916,9 +2936,10 @@ function renderGames(){
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
-    <div class="subtabs">${tab('psn','🎮 PlayStation')}${tab('board','🎲 Board Games')}</div>
+    <div class="subtabs">${tab('psn','🎮 PlayStation')}${tab('board','🎲 Board Games')}${tab('wishlist','🕹️ Wishlist')}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
+  if(CUR_GAMES_TAB==='wishlist'){ renderWishlist(); return; }
   renderPsnGames();
 }
 function renderPsnGames(){
@@ -3192,6 +3213,90 @@ function bgCardHTML(g){
       <div class="btn-row bg-actions">
         ${markBtn('want','⭐','Want to Play')}
         ${markBtn('played','✅','Played')}
+      </div>
+    </div>`;
+}
+
+/* ================= Wishlist (new & upcoming video games) =================
+   Same proxy pattern as Board Games: a Vercel function (api/game-search.js) rather than the
+   Cloudflare Worker, same-origin, no CORS header to add. No login - just a search box, backed
+   by RAWG (rawg.io), and a locally-saved shelf of what you've marked, the same way Board
+   Games' Want to Play/Played marks stay on-device. */
+const WL_KEY = 'calstrippin_game_wishlist';
+let WL_LAST_GAMES = [];   // the last fetch, so App.wlToggle can find a game's full data by id
+let WL_SEARCH_TIMER = null;
+function wishlistGames(){ try{ return JSON.parse(localStorage.getItem(WL_KEY)||'[]'); }catch(e){ return []; } }
+function saveWishlist(list){ try{ localStorage.setItem(WL_KEY, JSON.stringify(list)); }catch(e){} }
+function isWishlisted(id){ return wishlistGames().some(g=>g.id===id); }
+function wlPlatformsLabel(g){ return (g.platforms||[]).slice(0,3).join(' · '); }
+function wlReleaseLabel(g){
+  if(g.tba || !g.released) return 'To be announced';
+  return g.released > todayStr() ? 'Releases '+fmtDate(g.released) : fmtDate(g.released);
+}
+function renderWishlist(){
+  const body = $('#games-body'); if(!body) return;
+  body.innerHTML = `
+    <div id="wl-my"></div>
+    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>
+    <div class="games-search">
+      <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
+    </div>`;
+  drawWishlistMine();
+  loadGameSearch('');
+}
+function drawWishlistMine(){
+  const el = $('#wl-my'); if(!el) return;
+  const mine = wishlistGames();
+  if(!mine.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <h3 style="margin-bottom:10px">My Wishlist</h3>
+    <div class="wl-list" style="margin-bottom:22px">${mine.map(g=>wlCardHTML(g)).join('')}</div>`;
+}
+/* one network call per distinct search; the RAWG function itself decides what "coming up"
+   means when there's no query - see api/game-search.js */
+function loadGameSearch(q){
+  const grid = $('#wl-grid'); if(!grid) return;
+  grid.innerHTML = `<div class="empty">Loading new &amp; upcoming games…</div>`;
+  fetch('/api/game-search' + (q ? '?q='+encodeURIComponent(q) : ''))
+    .then(async r => {
+      if(!r.ok){
+        const body = await r.json().catch(()=>({}));
+        throw new Error(body.error || ('status '+r.status));
+      }
+      return r.json();
+    })
+    .then(data => {
+      if(CUR_GAMES_TAB!=='wishlist' || !$('#wl-grid')) return;   // moved on while it was in flight
+      WL_LAST_GAMES = data.games||[];
+      const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
+      $('#wl-grid').innerHTML = games.length
+        ? `<div class="wl-list">${games.map(g=>wlCardHTML(g)).join('')}</div>`
+        : `<div class="empty">${q?`No games match "${esc(q)}"`:'Nothing new to show right now.'}</div>`;
+    })
+    .catch(e => {
+      if(CUR_GAMES_TAB!=='wishlist' || !$('#wl-grid')) return;
+      $('#wl-grid').innerHTML = `<div class="empty">Couldn't load games.<br>${esc(e.message||'')}
+        <div class="btn-row" style="justify-content:center; margin-top:14px">
+          <button class="btn sm" onclick="App.wlReload()">Try Again</button>
+        </div></div>`;
+    });
+}
+function wlCardHTML(g){
+  const on = isWishlisted(g.id);
+  const facts = [wlPlatformsLabel(g), wlReleaseLabel(g)].filter(Boolean).join(' · ');
+  return `
+    <div class="wl-card${on?' wl-marked':''}">
+      <div class="wl-top">
+        ${g.image ? `<img class="wl-cover" src="${esc(g.image)}" alt="" loading="lazy">`
+                  : `<span class="wl-cover wl-cover-fallback" aria-hidden="true">🕹️</span>`}
+        <div class="wl-info">
+          <div class="wl-name">${esc(g.name)}</div>
+          ${facts?`<div class="wl-facts muted small">${esc(facts)}</div>`:''}
+        </div>
+      </div>
+      <div class="btn-row wl-actions">
+        <button type="button" class="btn sm wl-mark${on?' on':''}" onclick="App.wlToggle('${esc(g.id)}')" aria-pressed="${on}">
+          <span aria-hidden="true">${on?'✓':'⭐'}</span>${on?'On Wishlist':'Add to Wishlist'}</button>
       </div>
     </div>`;
 }
@@ -3797,6 +3902,28 @@ App.bgMark = (id, k) => {
   if(marks[id]===k) delete marks[id]; else marks[id] = k;   // tapping the same one again clears it
   saveBgMarks(marks);
   drawBgGrid();
+};
+App.wlReload = () => loadGameSearch((($('#wl-search')||{}).value||'').trim());
+/* each search is a real RAWG call, so wait for a pause in typing rather than firing per key */
+App.wlSearchInput = () => {
+  clearTimeout(WL_SEARCH_TIMER);
+  WL_SEARCH_TIMER = setTimeout(App.wlReload, 400);
+};
+App.wlToggle = id => {
+  const list = wishlistGames();
+  const i = list.findIndex(g=>g.id===id);
+  if(i>=0){ list.splice(i,1); }
+  else{
+    const g = WL_LAST_GAMES.find(x=>x.id===id);
+    if(g) list.unshift(g);
+  }
+  saveWishlist(list);
+  drawWishlistMine();
+  const grid = $('#wl-grid'); if(!grid) return;
+  const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
+  grid.innerHTML = games.length
+    ? `<div class="wl-list">${games.map(g=>wlCardHTML(g)).join('')}</div>`
+    : `<div class="empty">Nothing new to show right now.</div>`;
 };
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
