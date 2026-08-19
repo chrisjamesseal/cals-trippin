@@ -249,9 +249,9 @@ a{color:var(--brand-dark);}
 .article-actions{margin-top:22px; padding-top:18px; padding-bottom:8px; margin-bottom:24px; border-top:1px solid var(--line);}
 
 /* ---------- gigs (live music) ---------- */
-.gig-list{display:flex; flex-direction:column; gap:12px;}
+.gig-list{display:flex; flex-direction:column; gap:8px;}
 .gig-card{padding:14px;}
-.gig-top{display:flex; gap:12px; align-items:flex-start;}
+.gig-top{display:flex; gap:12px; align-items:center;}
 .gig-cover{width:56px; height:56px; flex-shrink:0; border-radius:50%; object-fit:cover;
   border:1px solid var(--line); background:var(--bg);}
 .gig-cover-fallback{display:inline-flex; align-items:center; justify-content:center; font-size:1.3rem; color:var(--muted);}
@@ -273,6 +273,9 @@ a{color:var(--brand-dark);}
 .gig-selected-artist{display:flex; align-items:center; gap:10px; padding:8px 10px;
   border:1px solid var(--line); border-radius:var(--radius-sm); margin-top:8px;}
 .gig-selected-artist img{width:36px; height:36px; border-radius:50%; object-fit:cover;}
+.gig-seen-pill{flex-shrink:0; display:inline-block; background:var(--brand-tint); color:var(--brand-dark);
+  font-weight:700; font-size:.72rem; padding:4px 10px; border-radius:999px; white-space:nowrap;}
+.gig-seen-pill.off{background:var(--bg); color:var(--muted);}
 
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
@@ -895,8 +898,13 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.87.0';
+const APP_VERSION = '1.88.0';
 const CHANGELOG = [
+  {version:'1.88.0', notes:[
+    'Gigs: new Artists tab, a checklist of every artist you follow on Spotify - ranked by how much you actually listen to them - with a Seen/Not seen status for each, worked out from your logged gigs. Tapping one opens the log-a-gig form pre-filled with that artist. Needs connecting your own Spotify account from the tab (separate from the plain artist search Add Gig already had). The old flat list of everything you\'ve logged is still there, now under an All Gigs tab.',
+    'Board Games\' proxy requests were getting rejected with a 401 - swapped its User-Agent for a generic browser one, which is what the request was actually being blocked on.',
+    'Gig cards on the Artists checklist and the artist search dropdown sit vertically centred against their photo now, and the list between them sits a bit tighter.'
+  ]},
   {version:'1.87.0', notes:[
     'A gig card no longer shows the venue - just the artist, city and date (on one line), and any notes.',
     'Design and Board Games now surface the proxy\'s actual error ("BoardGameGeek returned 403", a design feed\'s real status) instead of a bare status code, and Design tells you outright when every feed failed rather than showing "nothing to show right now" as if it were just a quiet news day.'
@@ -2480,7 +2488,8 @@ if(window.visualViewport){
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', ()=>{
   if(DB.trips.length){ DB.trips.forEach(normalizeTrip); saveLocal(); }
-  initCloud(); route();
+  initCloud();
+  handleSpotifyRedirect().then(route);
 });
 function stopSub(){ if(tripSub){ try{ tripSub.ref.off('value', tripSub.cb); }catch(e){} tripSub=null; } }
 /* opening the changelog leaves whatever trip/home page was showing untouched underneath
@@ -3306,7 +3315,58 @@ function renderDesignArticle(i){
 let GIG_SEARCH_TIMER = null;
 let GIG_SEARCH_RESULTS = [];   // last search response, held so a click on a result doesn't refetch
 let GIG_PICKED = null;         // {id,name,image} once a search result's been chosen for the open form
+
+/* ---------- Spotify user login (the Artists checklist) ----------
+   Who you follow and how much you actually listen to them is personal library data - Spotify
+   only hands that over once you've logged in and approved it (see /spotify-me in worker.js),
+   unlike the plain catalogue search above which needs no login at all. Tokens live in
+   localStorage exactly like PSN's, and the 401-retry-once shape of spotifyApi mirrors psnApi. */
+const SPOTIFY_TOKENS_KEY = 'calstrippin_spotify_tokens';
+function spotifyTokens(){ try{ return JSON.parse(localStorage.getItem(SPOTIFY_TOKENS_KEY)||'null'); }catch(e){ return null; } }
+function saveSpotifyTokens(tok){ try{ localStorage.setItem(SPOTIFY_TOKENS_KEY, JSON.stringify(tok)); }catch(e){} }
+function clearSpotifyTokens(){ try{ localStorage.removeItem(SPOTIFY_TOKENS_KEY); }catch(e){} }
+async function spotifyApi(path){
+  const tok = spotifyTokens();
+  if(!tok) throw new Error('Not connected');
+  let res = await fetch(psnUrl(path), {headers:{Authorization:'Bearer '+tok.accessToken}});
+  if(res.status===401 && tok.refreshToken){
+    const r = await fetch(psnUrl('/spotify-refresh'), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({refreshToken: tok.refreshToken})
+    });
+    if(!r.ok){ clearSpotifyTokens(); throw new Error('Your Spotify session expired, connect again'); }
+    const fresh = await r.json();
+    // Spotify doesn't always send a new refresh token back with a refreshed access token -
+    // keep the one already on file rather than losing it
+    saveSpotifyTokens({...fresh, refreshToken: fresh.refreshToken || tok.refreshToken});
+    res = await fetch(psnUrl(path), {headers:{Authorization:'Bearer '+fresh.accessToken}});
+  }
+  if(!res.ok) throw new Error('Could not reach Spotify (status '+res.status+')');
+  return res.json();
+}
+/* completes the redirect back from Spotify: exchanges the one-time ?code= for tokens, then
+   always scrubs the query string off the address bar (a code is single-use - left sitting in
+   the URL, a page refresh would try to redeem it again and fail). The state round-trip guards
+   against a stray/forged ?code= being redeemed as if it were one this tab actually started. */
+function handleSpotifyRedirect(){
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  if(!code) return Promise.resolve();
+  const expectedState = sessionStorage.getItem('spotify_oauth_state');
+  sessionStorage.removeItem('spotify_oauth_state');
+  history.replaceState(null, '', location.pathname + location.hash);
+  if(!expectedState || params.get('state') !== expectedState) return Promise.resolve();
+  return fetch(psnUrl('/spotify-callback'), {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code})
+  })
+    .then(r => r.json())
+    .then(data => { if(data.accessToken){ saveSpotifyTokens(data); location.hash = '#/gigs'; } })
+    .catch(()=>{});
+}
+let SPOTIFY_ARTISTS = null;   // last /spotify-me fetch, held so switching subtabs doesn't refetch
+let CUR_GIGS_TAB = 'artists';
 function renderGigs(){
+  const tab = (k, label) => `<button class="subtab${CUR_GIGS_TAB===k?' on':''}" onclick="App.gigsTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
@@ -3314,13 +3374,76 @@ function renderGigs(){
         <button class="btn sm primary" onclick="App.gigForm(-1)">+ Add Gig</button>
       </div>
     </div>
+    <div class="subtabs">${tab('artists','🎤 Artists')}${tab('log','☑ All Gigs')}</div>
     <div id="gigs-body"></div>`;
-  drawGigsList();
+  if(CUR_GIGS_TAB==='artists') renderGigsArtists(); else drawGigsList();
   loadGigsCloud(cloud => {
     DB.gigs = Array.isArray(cloud) ? cloud : [];
     saveLocal();
-    drawGigsList();
+    if(CUR_GIGS_TAB==='log') drawGigsList(); else if($('#gigs-body') && SPOTIFY_ARTISTS) drawGigsArtists();
   });
+}
+function renderGigsArtists(){
+  const body = $('#gigs-body'); if(!body) return;
+  if(!psnConfigured()){
+    body.innerHTML = `<div class="empty">No proxy is set up yet.<br>Deploy the one in
+      <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
+      <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
+    return;
+  }
+  if(!spotifyTokens()){ renderSpotifyConnect(body); return; }
+  if(SPOTIFY_ARTISTS){ drawGigsArtists(); return; }
+  body.innerHTML = `<div class="empty">Loading your artists…</div>`;
+  spotifyApi('/spotify-me').then(data => {
+    if(!$('#gigs-body')) return;   // navigated away while this was in flight
+    SPOTIFY_ARTISTS = data.artists||[];
+    drawGigsArtists();
+  }).catch(e => {
+    if(!$('#gigs-body')) return;
+    $('#gigs-body').innerHTML = `<div class="empty">Couldn't load your artists.<br>${esc(e.message||'')}
+      <div class="btn-row" style="justify-content:center; margin-top:14px">
+        <button class="btn sm" onclick="App.gigsTab('artists')">Try Again</button>
+        <button class="btn sm ghost" onclick="App.spotifyDisconnect()">Disconnect</button>
+      </div></div>`;
+  });
+}
+function renderSpotifyConnect(body){
+  body.innerHTML = `
+    <div class="card">
+      <h3 style="margin-bottom:8px">Connect Spotify</h3>
+      <p class="small muted" style="margin-bottom:14px">
+        See every artist you follow as a checklist, ranked by how much you actually listen to
+        them, and mark off the ones you've seen live.
+      </p>
+      <button class="btn primary" style="width:100%" onclick="App.spotifyConnect()">Connect Spotify</button>
+    </div>`;
+}
+function drawGigsArtists(){
+  const body = $('#gigs-body'); if(!body) return;
+  const artists = SPOTIFY_ARTISTS||[];
+  if(!artists.length){ body.innerHTML = `<div class="empty">You're not following any artists on Spotify yet.</div>`; return; }
+  body.innerHTML = `<div class="gig-list">${artists.map(gigArtistRowHTML).join('')}</div>
+    <div class="btn-row" style="justify-content:center; margin-top:6px">
+      <button class="btn sm ghost" onclick="App.spotifyDisconnect()">Disconnect Spotify</button>
+    </div>`;
+}
+function gigArtistRowHTML(a){
+  const seenCount = (DB.gigs||[]).filter(g=>g.artistId===a.id).length;
+  const status = seenCount
+    ? `<span class="gig-seen-pill">✓ Seen${seenCount>1?' ×'+seenCount:''}</span>`
+    : `<span class="gig-seen-pill off">Not seen yet</span>`;
+  return `
+    <div class="card gig-card" role="button" tabindex="0" onclick="App.gigFormForArtist('${esc(a.id)}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.gigFormForArtist('${esc(a.id)}')}">
+      <div class="gig-top">
+        ${a.image ? `<img class="gig-cover" src="${esc(a.image)}" alt="" loading="lazy">`
+                   : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">${fa('microphone')}</span>`}
+        <div class="gig-info">
+          <div class="gig-name">${esc(a.name)}</div>
+        </div>
+        ${status}
+      </div>
+    </div>`;
 }
 function drawGigsList(){
   const body = $('#gigs-body'); if(!body) return;
@@ -3369,9 +3492,10 @@ function gigPickedHTML(){
     <span>${esc(GIG_PICKED.name)}</span>
   </div>`;
 }
-function gigFormImpl(i){
-  const g = (i>=0 && (DB.gigs||[])[i]) || {};
-  GIG_PICKED = (i>=0 && g.artistId) ? {id:g.artistId, name:g.artist, image:g.image} : null;
+function gigFormImpl(i, prefillArtist){
+  const g = (i>=0 && (DB.gigs||[])[i])
+    || (prefillArtist ? {artist:prefillArtist.name, artistId:prefillArtist.id, image:prefillArtist.image} : {});
+  GIG_PICKED = g.artistId ? {id:g.artistId, name:g.artist, image:g.image} : null;
   GIG_SEARCH_RESULTS = [];
   openModal(`
     <h2>${i>=0?'Edit Gig':'Log a Gig'}</h2>
@@ -3443,12 +3567,14 @@ function saveGigImpl(i){
   };
   DB.gigs = DB.gigs||[];
   if(i>=0 && DB.gigs[i]) DB.gigs[i] = gig; else DB.gigs.push(gig);
-  saveGigs(); closeModal(); drawGigsList();
+  saveGigs(); closeModal();
+  if(CUR_GIGS_TAB==='artists') renderGigsArtists(); else drawGigsList();
 }
 function delGigImpl(i){
   DB.gigs = DB.gigs||[];
   DB.gigs.splice(i,1);
-  saveGigs(); drawGigsList();
+  saveGigs();
+  if(CUR_GIGS_TAB==='artists') renderGigsArtists(); else drawGigsList();
   toast('Gig removed');
 }
 
@@ -3580,11 +3706,25 @@ App.goToYourTrips = () => {
 App.goGames = () => { location.hash = '#/games'; };
 App.goDesign = () => { location.hash = '#/design'; };
 App.goGigs = () => { location.hash = '#/gigs'; };
+App.gigsTab = k => { CUR_GIGS_TAB = k; renderGigs(); window.scrollTo(0,0); };
 App.gigForm = gigFormImpl;
+App.gigFormForArtist = id => {
+  const a = (SPOTIFY_ARTISTS||[]).find(x=>x.id===id);
+  gigFormImpl(-1, a || null);
+};
 App.gigArtistInput = gigArtistInputImpl;
 App.gigArtistPick = gigArtistPickImpl;
 App.saveGig = saveGigImpl;
 App.delGig = delGigImpl;
+App.spotifyConnect = () => {
+  const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
+  sessionStorage.setItem('spotify_oauth_state', state);
+  fetch(psnUrl('/spotify-login-url?state='+encodeURIComponent(state)))
+    .then(r => r.json())
+    .then(data => { if(data.url) location.href = data.url; else throw new Error(data.error||'Could not start Spotify login'); })
+    .catch(e => noteModal('Spotify Not Connected', e.message||'Something went wrong'));
+};
+App.spotifyDisconnect = () => { clearSpotifyTokens(); SPOTIFY_ARTISTS = null; renderGigs(); };
 App.readArticle = i => { location.hash = '#/design/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };

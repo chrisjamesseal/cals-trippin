@@ -376,6 +376,109 @@ async function searchSpotifyArtists(env, q){
   return {artists};
 }
 
+/* ---------- Spotify user login (for the Gigs artist checklist) ----------
+   Who you follow and who you actually listen to are personal library data, not the public
+   catalogue - Spotify only hands that over once you've logged in and approved it, so this is a
+   real Authorization Code exchange (same shape as PSN's /session and /refresh above) rather
+   than the app-only Client Credentials flow searchSpotifyArtists uses.
+
+   The app itself is the redirect target (it's a static SPA with no server-side route to land
+   on) - Spotify sends the browser back to SPOTIFY_REDIRECT_URI with a ?code=... query param,
+   and the app's own JS reads that on load and posts it to /spotify-callback below. Update this
+   constant if you deploy the app somewhere other than the address it's already set to; it also
+   has to be added, byte-for-byte, as a Redirect URI in your Spotify app's dashboard settings. */
+const SPOTIFY_REDIRECT_URI = 'https://cals-trippin.vercel.app/';
+const SPOTIFY_SCOPES = 'user-follow-read user-top-read';
+function spotifyLoginUrl(env, state){
+  if(!env.SPOTIFY_CLIENT_ID) throw Object.assign(new Error("Spotify isn't configured - add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET as Worker secrets"), {status:503});
+  const p = new URLSearchParams({
+    client_id: env.SPOTIFY_CLIENT_ID, response_type: 'code',
+    redirect_uri: SPOTIFY_REDIRECT_URI, scope: SPOTIFY_SCOPES,
+  });
+  // round-tripped through Spotify unchanged and checked again once the app gets it back, so a
+  // stray ?code= (or one pointed at a different login) can't get redeemed as if it were this one
+  if(state) p.set('state', state);
+  return 'https://accounts.spotify.com/authorize?' + p.toString();
+}
+async function spotifyTokenRequest(env, body){
+  if(!env.SPOTIFY_CLIENT_ID || !env.SPOTIFY_CLIENT_SECRET){
+    throw Object.assign(new Error("Spotify isn't configured - add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET as Worker secrets"), {status:503});
+  }
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: 'Basic ' + btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`),
+    },
+    body,
+  });
+  if(!res.ok) throw new Error('Spotify rejected the token request (status ' + res.status + ')');
+  const data = await res.json();
+  return {
+    accessToken: data.access_token,
+    // a refresh isn't guaranteed a new one back - keep the one already on file when it doesn't
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
+  };
+}
+function exchangeSpotifyCode(env, code){
+  return spotifyTokenRequest(env, new URLSearchParams({
+    grant_type: 'authorization_code', code, redirect_uri: SPOTIFY_REDIRECT_URI,
+  }).toString());
+}
+function refreshSpotifyToken(env, refreshToken){
+  return spotifyTokenRequest(env, new URLSearchParams({
+    grant_type: 'refresh_token', refresh_token: refreshToken,
+  }).toString());
+}
+/* every artist you follow, each tagged with its rank (if any) in your top-artists-by-listening
+   list - both endpoints paginate, so each is walked to the end before the two are merged.
+   Capped well above what anyone plausibly follows/has ranked, just so a huge library can't
+   turn one page load into an unbounded number of upstream calls. */
+const SPOTIFY_PAGE_CAP = 1000;
+async function spotifyPaged(accessToken, path, itemsOf, nextOf){
+  const out = [];
+  let url = 'https://api.spotify.com/v1' + path;
+  while(url && out.length < SPOTIFY_PAGE_CAP){
+    const res = await fetch(url, {headers: {Authorization: 'Bearer ' + accessToken}});
+    if(res.status === 401) throw Object.assign(new Error('expired'), {status: 401});
+    if(!res.ok) throw new Error('Spotify returned status ' + res.status);
+    const data = await res.json();
+    out.push(...itemsOf(data));
+    url = nextOf(data);
+  }
+  return out;
+}
+async function fetchSpotifyArtistChecklist(accessToken){
+  const [followed, top] = await Promise.all([
+    spotifyPaged(accessToken, '/me/following?type=artist&limit=50',
+      d => (d.artists && d.artists.items) || [],
+      d => d.artists && d.artists.cursors && d.artists.cursors.after
+        ? '/me/following?type=artist&limit=50&after=' + d.artists.cursors.after : null),
+    spotifyPaged(accessToken, '/me/top/artists?time_range=long_term&limit=50',
+      d => d.items || [], d => d.next ? d.next.replace('https://api.spotify.com/v1', '') : null),
+  ]);
+  const rankOf = {};
+  top.forEach((a, i) => { rankOf[a.id] = i; });
+  const artists = followed.map(a => ({
+    id: a.id,
+    name: a.name,
+    image: (a.images && a.images.length) ? a.images[a.images.length-1].url : '',
+    genres: a.genres || [],
+    spotifyUrl: (a.external_urls && a.external_urls.spotify) || '',
+    rank: rankOf[a.id] ?? null,
+  }));
+  // ranked by how much you actually listen (top-artists order), least/never-played followed
+  // artists sorted alphabetically underneath rather than in Spotify's arbitrary follow order
+  artists.sort((a, b) => {
+    if(a.rank != null && b.rank != null) return a.rank - b.rank;
+    if(a.rank != null) return -1;
+    if(b.rank != null) return 1;
+    return a.name.localeCompare(b.name);
+  });
+  return {artists};
+}
+
 /* ================= Board games (BoardGameGeek) =================
    BGG's XML API is the only public source for this. Same three problems as the RSS feeds and
    then some: no CORS headers, XML in a Worker with no DOMParser (so the same hand-rolled
@@ -383,7 +486,10 @@ async function searchSpotifyArtists(env, q){
    is cached hard because of that last one, and each request is two calls at most: one for a
    list of ids (BGG's hot list, or a search), then ONE batched call for all their details. */
 const BGG = 'https://boardgamegeek.com/xmlapi2';
-const BGG_UA = {'User-Agent': 'Mozilla/5.0 (compatible; MyTripsBoardGames/1.0)'};
+/* a UA that plainly names itself as a script gets a 401 back from BGG (or whatever's fronting
+   it, most likely Cloudflare's own bot detection) - a generic browser UA is the standard
+   workaround other BGG-XML-API projects use for the same block */
+const BGG_UA = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'};
 const BGG_MAX = 36;
 
 /* <minplayers value="2"/> - the data hangs off attributes rather than element text. The \b
@@ -528,6 +634,25 @@ export default {
         res.headers.set('Cache-Control', 'public, max-age=3600');
         ctx.waitUntil(cache.put(cacheKey, res.clone()));
         return res;
+      }
+      if(request.method === 'GET' && url.pathname === '/spotify-login-url'){
+        return json({url: spotifyLoginUrl(env, url.searchParams.get('state'))}, 200, env);
+      }
+      if(request.method === 'POST' && url.pathname === '/spotify-callback'){
+        const {code} = await request.json();
+        if(!code) return json({error:'code is required'}, 400, env);
+        return json(await exchangeSpotifyCode(env, code), 200, env);
+      }
+      if(request.method === 'POST' && url.pathname === '/spotify-refresh'){
+        const {refreshToken} = await request.json();
+        if(!refreshToken) return json({error:'refreshToken is required'}, 400, env);
+        return json(await refreshSpotifyToken(env, refreshToken), 200, env);
+      }
+      if(request.method === 'GET' && url.pathname === '/spotify-me'){
+        // personal library data, one bearer token's worth - not public, not cached
+        const token = bearerFrom(request);
+        if(!token) return json({error:'missing bearer token'}, 401, env);
+        return json(await fetchSpotifyArtistChecklist(token), 200, env);
       }
       return json({error:'not found'}, 404, env);
     }catch(e){
