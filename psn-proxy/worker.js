@@ -310,9 +310,19 @@ async function fetchDesignNews(){
     return parseFeedItems(await res.text(), f.name);
   }));
   let articles = [];
-  results.forEach(r => { if(r.status === 'fulfilled') articles = articles.concat(r.value); });
+  const failures = [];
+  results.forEach((r, i) => {
+    if(r.status === 'fulfilled') articles = articles.concat(r.value);
+    else failures.push({name: DESIGN_FEEDS[i].name, reason: (r.reason && (r.reason.message || r.reason)) || 'unknown error'});
+  });
+  // a feed failing isn't fatal to the page (the others still show), but silently swallowing
+  // every failure meant "all five down" looked identical to "nothing published today" - logged
+  // here for the Cloudflare dashboard's Logs tab, and (only when EVERY feed failed) passed back
+  // to the app so it can say so instead of implying a quiet news day
+  failures.forEach(f => console.error('design-news feed failed:', f.name, f.reason));
   articles.sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0));
-  return {articles: articles.slice(0, 40)};
+  const allFailed = failures.length === DESIGN_FEEDS.length;
+  return {articles: articles.slice(0, 40), error: allFailed ? failures[0].reason : undefined};
 }
 
 /* ================= Spotify (artist lookup for Gigs) =================
