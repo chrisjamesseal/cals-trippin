@@ -927,7 +927,8 @@ const CHANGELOG = [
     '"City" is now "Location" on gig entries, since not every gig has one.',
     'The Artists checklist shows two columns instead of one, and gained a search box to jump straight to an artist.',
     'Added a "Not Seen" tab next to Artists - just the ones you follow but haven\'t logged a gig for yet, for working through as a checklist.',
-    'Design articles with a lead image now show it, both on the card and at the top of the article.'
+    'Design articles with a lead image now show it, both on the card and at the top of the article.',
+    'A gig with a future date now shows faded on the All Gigs list, the same treatment upcoming trips get on Places I\'ve Been - it hasn\'t happened yet, so it\'s there without looking like a done deal.'
   ]},
   {version:'1.90.0', notes:[
     'Board Games now talks to Board Game Atlas instead of BoardGameGeek, whose API kept 401ing every request from the proxy no matter what headers were sent - same search and trending list, just a different (and reachable) source. Needs its own free client_id, see psn-proxy/README.md. The Complexity filter is gone with it - Board Game Atlas doesn\'t have BGG\'s weight rating to filter by.',
@@ -3508,8 +3509,9 @@ function drawGigsList(){
 }
 function gigCardHTML(g, i){
   const facts = [g.city, g.date?fmtDate(g.date):''].filter(Boolean).join(' · ');
+  const isFuture = g.date && g.date > todayStr();
   return `
-    <div class="card gig-card">
+    <div class="card gig-card${isFuture?' been-upcoming':''}">
       <div class="gig-top">
         ${g.image ? `<img class="gig-cover" src="${esc(g.image)}" alt="" loading="lazy">`
                    : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">${fa('microphone')}</span>`}
