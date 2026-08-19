@@ -444,8 +444,8 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    something still needs doing (an unpaid balance, packing left for you). One shared look for
    an unscheduled Task and for a flight/ferry/car hire/accommodation marked Not Booked Yet or
    a travel leg marked the same, so "still outstanding" reads the same wherever it shows up. */
-.card-undecided{border:2px dashed #C0392B !important; background:none !important; box-shadow:none !important;}
-.card-undecided .flight-head{background:none !important; border-bottom:1px dashed #C0392B !important;}
+.card-undecided{border:2px dashed rgba(192,57,43,.35) !important; background:none !important; box-shadow:none !important;}
+.card-undecided .flight-head{background:none !important; border-bottom:1px dashed rgba(192,57,43,.35) !important;}
 .card-undecided h3,.card-undecided .head-with-logo,.card-undecided .head-with-logo span,.card-undecided strong{color:#C0392B;}
 /* a task only wears this while it still needs a day - once it's on the Itinerary it's a
    plan like any other */
@@ -896,8 +896,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.77.0';
+const APP_VERSION = '1.78.0';
 const CHANGELOG = [
+  {version:'1.78.0', notes:[
+    'The dashed "still outstanding" border (Not Booked, Nothing Planned) is a faint red now instead of a bold one, matching the accommodation-gap card\'s lighter weight.',
+    '"Nothing Planned" now uses ❌ instead of 📍.'
+  ]},
   {version:'1.77.0', notes:[
     'Countries: added an "All Countries" title above the flat list, now that it\'s no longer broken up by continent headings of its own.'
   ]},
@@ -4458,7 +4462,7 @@ function undecidedItemsHTML(t, ro){
   const gapFirstNights = new Set(stayGaps(t).map(g=>g.firstNight));
   dKeys.forEach(k=>{
     if(dGroups[k].length===0 && !gapFirstNights.has(k)){
-      rows.push({icon:secEmoji('📍'), label:'Nothing Planned',
+      rows.push({icon:secEmoji('❌'), label:'Nothing Planned',
         inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${esc(planDayLabel(t, k, rough, true))}</h3></div>`,
         editFn:`App.planGapForm('${k}', ${rough})`});
     }
@@ -5331,7 +5335,7 @@ function tabPlan(t, ro){
      appearing at all */
   const emptyDayCard = k => `
     <div class="card plan-card gap-card">
-      <div class="section-head" style="margin-bottom:0"><h3>${secEmoji('📍')}Nothing Planned</h3></div>
+      <div class="section-head" style="margin-bottom:0"><h3>${secEmoji('❌')}Nothing Planned</h3></div>
       ${ro?'':`<div class="btn-row" style="margin-top:10px">
         <button class="btn primary sm" onclick="App.planGapForm('${k}', ${rough})">+ Add Stop</button>
         <button class="btn sm" onclick="App.ideasForDay('${k}', ${rough})">${secEmoji('\u{1F4A1}')} Add Ideas</button>
