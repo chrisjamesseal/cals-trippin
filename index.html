@@ -326,10 +326,15 @@ a{color:var(--brand-dark);}
 .crumb-titlerow{display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; flex-wrap:wrap;}
 .crumb-action{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
 .fav{width:20px; height:20px; border-radius:5px; vertical-align:-4px; margin-right:7px; background:var(--bg);}
-/* the Maps pin's own artwork tapers to a point at the bottom, so its visual weight sits above
-   the true centre of its box - nudged down a touch so it reads as centred against the row
-   beside it instead of floating high */
-.accom-head-map{display:flex; align-items:center; transform:translateY(3px);}
+/* a same-size bordered badge, matching .card-logo's footprint exactly, so the two sit as
+   obviously matching siblings in the row instead of two differently-sized icons pixel-nudged
+   to try to line up - a badge this size is forgiving of whatever the Maps pin (or, for a non-
+   Google link, the 🗺️ fallback) looks like internally, since the badge itself is what the eye
+   lines up against, not the icon's own art */
+.accom-head-map{display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  width:26px; height:26px; border-radius:6px; background:var(--paper); border:1px solid var(--line);}
+.accom-head-map .fav{width:16px; height:16px; margin-right:0; vertical-align:baseline; background:none;}
+.accom-head-map .sec-emoji{transform:none; font-size:1rem;}
 
 /* ---------- forms ---------- */
 input[type=text],input[type=date],input[type=time],input[type=number],input[type=url],input[type=tel],input[type=password],select,textarea{
@@ -831,6 +836,10 @@ a.dash-tile{text-decoration:none;}
   .tabbar.on{display:none!important;}
   .wrap{max-width:1160px; margin:0; padding:calc(14px + env(safe-area-inset-top)) 40px 96px 32px; flex:1; min-width:0;}
   .dash-grid{grid-template-columns:repeat(3,1fr);}
+  /* the region tiles (Europe/Asia/Africa…) stay one-per-row on mobile so their row-flex layout
+     has room to breathe, but on a wide screen that reads as a wasteful single column - matches
+     the rest of the dashboard's 3-up grid here */
+  .dash-grid.region-grid{grid-template-columns:repeat(3,1fr);}
   /* Itinerary reads as a stack of phone-width cards, not a dashboard - the wide 3-column
      layout the rest of the trip's pages use doesn't suit it, so it keeps its mobile width
      instead, sitting centred with room either side (which just shrinks on its own as the
@@ -886,8 +895,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.84.0';
+const APP_VERSION = '1.85.0';
 const CHANGELOG = [
+  {version:'1.85.0', notes:[
+    'The accommodation card\'s logo and Maps icon now sit in matching badges of the same size, instead of two differently-sized icons each pixel-nudged to try to line up.',
+    'On desktop, the region tiles (Europe, Asia, Africa…) on Been/Want to Go/Countries now lay out three across instead of stacking one per row.'
+  ]},
   {version:'1.84.0', notes:[
     'Added Gigs, a new top-level section for logging live music you\'ve been to - artist, venue, city, date and notes, with the artist field searching Spotify (via the same proxy Games and Design use) for a photo as you type.',
     'The mobile bottom bar dropped its Menu and + Add buttons to make room for Gigs alongside Travel, Games and Design - the menu they opened now lives behind a button in the trip\'s own header instead, and everything the + used to add still has its own button in the section it belongs to.'
