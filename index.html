@@ -895,8 +895,14 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.85.0';
+const APP_VERSION = '1.86.0';
 const CHANGELOG = [
+  {version:'1.86.0', notes:[
+    'A stop\'s time ("Evening", or a set clock time) now reads as "Plan - Evening" above the card, the same way an auto-generated card\'s own tag sits above it, instead of as a plain line competing with the title inside.',
+    'A stop\'s location and description swapped order and the description lost its icon: location (with its pin) now comes first, description underneath as plain text.',
+    'Removed the copy-location link button from the bottom of a stop card.',
+    'Fixed the Maps icon on a stop or accommodation card showing the plain folded-map emoji instead of Google\'s own for almost every real Google Maps link - the check for "is this a Google Maps URL" only matched a link at the very start of the string or right after a subdomain dot, never right after the "https://" every real link actually has.'
+  ]},
   {version:'1.85.0', notes:[
     'The accommodation card\'s logo and Maps icon now sit in matching badges of the same size, instead of two differently-sized icons each pixel-nudged to try to line up.',
     'On desktop, the region tiles (Europe, Asia, Africa…) on Been/Want to Go/Countries now lay out three across instead of stacking one per row.'
@@ -5549,27 +5555,31 @@ function tabPlan(t, ro){
     const mapHref = s.mapsUrl || (s.location ? mapsSearchUrl(t, s.location) : '');
     const time = timeBadge(s);
     const mapBtnHTML = cls => mapHref ? `<a class="btn icon-only${cls?' '+cls:''}" href="${esc(mapHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(mapHref)}')" aria-label="Open Map" title="Open Map">${mapIcon(mapHref)}</a>` : '';
-    const copyBtn = s.location ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(s.location)}',this)" aria-label="Copy location" title="Copy location">${secEmoji('🔗')}</button>` : '';
     // a title-only card (nothing following it at all) has nothing to space away from, so the
     // head keeps no margin below it - otherwise the bottom padding stacks on top of that
     // margin and reads as lopsided against the plain top padding above the title
-    const hasBelow = !!(time || s.notes || s.location || hasImage || mapHref);
-    return `
-    <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
+    const hasBelow = !!(s.notes || s.location || hasImage || mapHref);
+    const card = `
+    <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro&&!time?' plan-click':''}"${!time?' '+clickAttrs(`App.planForm(${s._i})`):''}>
       <div class="section-head" style="margin-bottom:${hasBelow?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}</h3>
         </div>
       </div>
-      ${time?`<p class="small muted" style="margin-bottom:8px">${esc(time)}</p>`:''}
-      ${s.notes?`<p class="small plan-meta-line" style="margin-bottom:10px;white-space:pre-wrap">${secEmoji('📝')}<span>${esc(s.notes)}</span></p>`:''}
       ${s.location ? `<div class="small accom-addr plan-meta-line" style="margin-bottom:10px">${secEmoji('📍')}<span>${esc(s.location)}</span></div>` : ''}
+      ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${hasImage ? `<div class="plan-img-wrap">
         <img class="plan-img" src="${s.image}" alt="${esc(s.name)}">
         ${mapBtnHTML('plan-img-map')}
-      </div>${copyBtn?`<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${copyBtn}</div>`:''}`
-      : (mapHref || copyBtn) ? `<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${mapBtnHTML()}${copyBtn}</div>` : ''}
+      </div>`
+      : mapHref ? `<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${mapBtnHTML()}</div>` : ''}
     </div>`;
+    // the time - "Evening", or a set clock time - reads as "Plan - Evening" above the card,
+    // the same way an auto-generated card's own tag sits above it, rather than as a plain line
+    // inside the card competing with the title for the same kind of weight
+    return time
+      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji('🗺️'), 'Plan', time)}${card}</div>`
+      : card;
   };
   const taskCard = s => `
     <div class="card plan-card task-card${s.unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
@@ -6076,9 +6086,13 @@ function faviconFor(url){
 }
 function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
 /* a Google Maps link gets Google's own icon, the same way a booking link gets the site's;
-   anything else (a maps.apple.com or what3words link somebody pasted) keeps the emoji */
+   anything else (a maps.apple.com or what3words link somebody pasted) keeps the emoji.
+   The domain can be preceded by the start of the string, a "." (a subdomain, as in
+   "www.google.com/maps"), OR a "/" - which is what actually sits right before it in every
+   real "https://maps.google.com/…" or "https://goo.gl/maps/…" URL this is tested against,
+   so matching only "^" or "." here meant those never matched at all. */
 function mapIcon(url){
-  return /(^|\.)maps\.google\.[^/]*(\/|\?|$)|(^|\.)google\.[^/]*\/maps|(^|\.)goo\.gl\/maps|(^|\.)maps\.app\.goo\.gl/i.test(url||'')
+  return /(^|[./])maps\.google\.[^/]*(\/|\?|$)|(^|[./])google\.[^/]*\/maps|(^|[./])goo\.gl\/maps|(^|[./])maps\.app\.goo\.gl/i.test(url||'')
     ? faviconFor('https://maps.google.com') : secEmoji('🗺️');
 }
 /* best-effort town/city out of a full address, drop a trailing postcode-looking segment,
