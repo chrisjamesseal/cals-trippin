@@ -1,8 +1,9 @@
-# Proxy (for the Games and Design tabs)
+# Proxy (for the Games, Design and Gigs tabs)
 
-> Three endpoints live here, all for the same reason: a browser can't make these calls itself.
+> Four endpoints live here, all for the same reason: a browser can't make these calls itself.
 > `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design tab's RSS,
-> and `/board-games` for BoardGameGeek. Deploying this once turns all of them on.
+> `/board-games` for BoardGameGeek, and `/spotify-search` for Gigs' artist photo search.
+> Deploying this once turns all of them on.
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -48,6 +49,26 @@ The Games tab walks you through this, but in short:
 If a game you're mid-playthrough on doesn't show up, or Connect fails outright, see
 "If it breaks" below before assuming something's wrong with your account.
 
+## Connect Spotify (for Gigs)
+
+Gigs works without this - artist name/venue/date/notes can always be typed by hand - but
+Spotify's catalogue gives the artist field a live search with a photo, the way Board Games'
+search works against BoardGameGeek.
+
+1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+   (any redirect URI satisfies the form; `/spotify-search` never uses one - see `worker.js`
+   for why).
+2. Copy its Client ID and Client Secret.
+3. Set them as secrets on the deployed worker, **not** in `worker.js` or anywhere else in this
+   repo - unlike PSN's `CLIENT_ID`/`CLIENT_SECRET` below (a long-published, account-agnostic
+   value the community's reverse-engineered), a Spotify app's credentials are tied to your own
+   developer account, and this repo is public:
+   ```
+   wrangler secret put SPOTIFY_CLIENT_ID
+   wrangler secret put SPOTIFY_CLIENT_SECRET
+   ```
+   (or the Cloudflare dashboard: your worker → Settings → Variables and Secrets)
+
 ## If it breaks
 
 Sony hasn't published this API and hasn't promised not to change it. `worker.js`'s
@@ -68,3 +89,6 @@ which rate limits and will start returning errors if it's hammered; `/board-game
 six hours (an hour for searches) to stay well clear of that. BGG is also the reason the parsing
 in `worker.js` looks the way it does: Workers have no `DOMParser`, and BGG double-escapes its
 descriptions, so those get decoded twice where the RSS feeds are decoded once.
+
+If Gigs' artist search says "Spotify isn't connected yet", the worker is missing (or has a
+stale) `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` secret - see "Connect Spotify" above.

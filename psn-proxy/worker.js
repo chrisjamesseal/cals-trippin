@@ -315,6 +315,57 @@ async function fetchDesignNews(){
   return {articles: articles.slice(0, 40)};
 }
 
+/* ================= Spotify (artist lookup for Gigs) =================
+   Just the public catalogue - artist name, photo, genres - so the Client Credentials flow is
+   enough: an app-level token, no user login. The token is cached in memory between requests
+   (one Worker isolate serves many requests before Cloudflare recycles it) and refreshed a
+   little before it actually expires.
+
+   Requires SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET set as Worker secrets (dashboard:
+   Settings -> Variables and Secrets, or `wrangler secret put SPOTIFY_CLIENT_ID` etc from the
+   psn-proxy/ folder) - deliberately NOT hardcoded here the way PSN's CLIENT_ID/SECRET above
+   are. Those are a long-published, account-agnostic value the psn-api community reverse-
+   engineered; a Spotify app's credentials are tied to your own developer account, and this
+   file is in a public repo - anyone reading it would be able to spend your API quota. */
+let spotifyToken = null;   // {accessToken, expiresAt} - module scope, reused across requests
+async function spotifyAccessToken(env){
+  if(spotifyToken && spotifyToken.expiresAt > Date.now()) return spotifyToken.accessToken;
+  if(!env.SPOTIFY_CLIENT_ID || !env.SPOTIFY_CLIENT_SECRET){
+    throw Object.assign(new Error("Spotify isn't configured - add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET as Worker secrets"), {status:503});
+  }
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: 'Basic ' + btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`),
+    },
+    body: 'grant_type=client_credentials',
+  });
+  if(!res.ok) throw new Error('Spotify rejected the token request (status ' + res.status + ')');
+  const data = await res.json();
+  // a minute of slack so a token doesn't expire mid-flight on a request that's already using it
+  spotifyToken = {accessToken: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000};
+  return spotifyToken.accessToken;
+}
+async function searchSpotifyArtists(env, q){
+  if(!q) return {artists:[]};
+  const token = await spotifyAccessToken(env);
+  const url = 'https://api.spotify.com/v1/search?type=artist&limit=10&q=' + encodeURIComponent(q);
+  const res = await fetch(url, {headers: {Authorization: 'Bearer ' + token}});
+  if(!res.ok) throw new Error('Spotify search returned status ' + res.status);
+  const data = await res.json();
+  const items = (data.artists && data.artists.items) || [];
+  // Spotify lists an artist's images largest-first; the smallest is plenty for a thumbnail
+  const artists = items.map(a => ({
+    id: a.id,
+    name: a.name,
+    image: (a.images && a.images.length) ? a.images[a.images.length-1].url : '',
+    genres: a.genres || [],
+    spotifyUrl: (a.external_urls && a.external_urls.spotify) || '',
+  }));
+  return {artists};
+}
+
 /* ================= Board games (BoardGameGeek) =================
    BGG's XML API is the only public source for this. Same three problems as the RSS feeds and
    then some: no CORS headers, XML in a Worker with no DOMParser (so the same hand-rolled
@@ -454,6 +505,17 @@ export default {
         if(cached) return cached;
         const res = json(await fetchBoardGames(q), 200, env);
         res.headers.set('Cache-Control', 'public, max-age=' + (q ? 3600 : 21600));
+        ctx.waitUntil(cache.put(cacheKey, res.clone()));
+        return res;
+      }
+      if(request.method === 'GET' && url.pathname === '/spotify-search'){
+        const q = (url.searchParams.get('q')||'').trim();
+        const cache = caches.default;
+        const cacheKey = new Request(url.toString(), request);
+        const cached = await cache.match(cacheKey);
+        if(cached) return cached;
+        const res = json(await searchSpotifyArtists(env, q), 200, env);
+        res.headers.set('Cache-Control', 'public, max-age=3600');
         ctx.waitUntil(cache.put(cacheKey, res.clone()));
         return res;
       }
