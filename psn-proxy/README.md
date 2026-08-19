@@ -2,9 +2,10 @@
 
 > A handful of endpoints live here, all for the same reason: a browser can't make these calls
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
-> tab's RSS, `/board-games` for Board Game Atlas, and `/spotify-search` plus the `/spotify-login-url`
-> `/spotify-callback` `/spotify-refresh` `/spotify-me` group for Gigs' artist search and Artists
-> checklist. Deploying this once turns all of them on.
+> tab's RSS, and `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
+> `/spotify-refresh` `/spotify-me` group for Gigs' artist search and Artists checklist.
+> Deploying this once turns all of them on. (Board Games isn't here - see "Board Games"
+> under "If it breaks" below for where that actually lives.)
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -50,16 +51,13 @@ The Games tab walks you through this, but in short:
 If a game you're mid-playthrough on doesn't show up, or Connect fails outright, see
 "If it breaks" below before assuming something's wrong with your account.
 
-## Connect Board Game Atlas (for Board Games)
+## Board Games
 
-1. Sign up for a free `client_id` at [boardgameatlas.com/api/docs](https://www.boardgameatlas.com/api/docs).
-2. Set it on the deployed worker:
-   ```
-   wrangler secret put BGA_CLIENT_ID
-   ```
-   (or the Cloudflare dashboard: your worker → Settings → Variables and Secrets - a plain
-   Variable is fine here too, unlike the credentials above, since Board Game Atlas's own docs
-   show this id used openly as a query parameter rather than as a protected secret)
+Nothing to deploy or configure here - Board Games talks to
+[BoardGameGeek](https://boardgamegeek.com/wiki/page/BGG_XML_API2)'s public XML API through
+`api/board-games.js`, a Vercel Edge Function that ships and deploys with the app itself
+(same repo, same `git push`). It's a separate piece from this Worker on purpose - see "If it
+breaks" below for why.
 
 ## Connect Spotify (for Gigs)
 
@@ -102,12 +100,13 @@ likely moved or renamed its RSS URL - each feed is fetched independently, so the
 come through, but check the publication's site for its current feed link and update that one
 entry.
 
-Board Games talks to [Board Game Atlas](https://www.boardgameatlas.com/api/docs) - it used to
-be BoardGameGeek's XML API, switched after BGG (or whatever's fronting it) started 401ing
-every request from here regardless of what headers were sent, which pointed at a block on the
-Worker's own network fingerprint rather than anything fixable from this end. If Board Games
-says "isn't configured", the worker is missing (or has a stale) `BGA_CLIENT_ID` - see "Connect
-Board Game Atlas" above. `/board-games` caches for six hours (an hour for searches).
+Board Games lives in `api/board-games.js`, not this Worker - it used to be a route here, but
+BGG (or whatever's fronting it) started 401ing every request from this Worker's network
+regardless of what headers were sent, which pointed at a block on Cloudflare's IP range rather
+than anything fixable from this end. Vercel's network doesn't hit the same block, so it moved
+there instead - see that file's top comment for the full story. If Board Games itself is down,
+check BGG's own status rather than anything in this folder; that endpoint caches for six hours
+(an hour for searches).
 
 If Gigs' artist search says "Spotify isn't connected yet", the worker is missing (or has a
 stale) `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` secret - see "Connect Spotify" above. If

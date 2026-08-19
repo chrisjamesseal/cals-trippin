@@ -269,6 +269,20 @@ function htmlToBlocks(html){
 /* hand-rolled rather than a real XML parser: Workers have no DOMParser, and RSS/Atom's shape
    is regular enough that pulling each <item>/<entry> block and reading a few known tags out
    of it holds up fine in practice, without pulling in a dependency for it */
+/* a feed's lead/featured image, tried in the order feeds most commonly actually carry one:
+   Media RSS's own thumbnail/content tags, then an image enclosure, then (worst case) just the
+   first <img> anywhere in the item's own markup - usually the article's own body content, which
+   for most of these feeds opens on a relevant image anyway. https only, matching the same rule
+   inline body images already follow (see htmlToBlocks): the src is untrusted, from a feed this
+   app doesn't control. */
+function extractFeedImage(block){
+  const media = /<media:(?:thumbnail|content)\b[^>]*\burl=["']([^"']+)["']/i.exec(block);
+  const enclosure = /<enclosure\b[^>]*\burl=["']([^"']+)["'][^>]*\btype=["']image\/[^"']*["']/i.exec(block)
+                  || /<enclosure\b[^>]*\btype=["']image\/[^"']*["'][^>]*\burl=["']([^"']+)["']/i.exec(block);
+  const inline = /<img\b[^>]*\bsrc=["']([^"']+)["']/i.exec(block);
+  const src = (media && media[1]) || (enclosure && enclosure[1]) || (inline && inline[1]) || '';
+  return /^https:\/\/[^"'\s<>]+$/i.test(src) ? src : '';
+}
 function parseFeedItems(xml, sourceName){
   const blocks = [];
   const itemRe = /<item\b[^>]*>([\s\S]*?)<\/item>/gi;
@@ -300,7 +314,8 @@ function parseFeedItems(xml, sourceName){
     const rich = stripCdata(extractTag(block,'content:encoded') || extractTag(block,'content') || '');
     const teaser = stripCdata(extractTag(block,'description') || extractTag(block,'summary') || '');
     const body = htmlToBlocks(rich.length > teaser.length ? rich : teaser);
-    return {title, link, source: sourceName, date: (date && !isNaN(date)) ? date.toISOString() : null, summary, body};
+    const image = extractFeedImage(block);
+    return {title, link, source: sourceName, date: (date && !isNaN(date)) ? date.toISOString() : null, summary, image, body};
   }).filter(a => a.title && a.link);
 }
 async function fetchDesignNews(){
@@ -485,59 +500,9 @@ async function fetchSpotifyArtistChecklist(accessToken){
   return {artists};
 }
 
-/* ================= Board games (Board Game Atlas) =================
-   Used to be BoardGameGeek's XML API - switched after it started 401ing every request from
-   here (its own WAF, or whatever's fronting it, blocking the request outright; changing the
-   User-Agent and adding a fuller browser-like header set didn't clear it, which points at the
-   block being on the Worker's network fingerprint rather than anything fixable in a header).
-   Board Game Atlas (boardgameatlas.com) is a plain JSON REST API instead, covers the same
-   ground (search, a trending/popular list, ratings, categories, mechanics, cover art), and
-   hasn't shown the same blocking behaviour.
-
-   Requires BGA_CLIENT_ID as a Worker secret/var - free from
-   https://www.boardgameatlas.com/api/docs (`wrangler secret put BGA_CLIENT_ID`, or the
-   Cloudflare dashboard). Unlike a Spotify or PSN credential this isn't tied to a login and
-   Board Game Atlas's own docs show it used as a plain query param, so a var is fine (no need
-   for the extra protection a Worker secret gives) - but it's still kept out of this file rather
-   than hardcoded, the same as everything else account-specific in this proxy. */
-const BGA_BASE = 'https://api.boardgameatlas.com/api';
-const BGA_MAX = 36;
-const round2 = n => n==null ? null : Math.round(n*100)/100;
-function bgaMissingClientId(){
-  return Object.assign(new Error("Board Games isn't configured - add BGA_CLIENT_ID as a Worker secret or var (free from boardgameatlas.com/api/docs)"), {status:503});
-}
-async function fetchBoardGames(env, q){
-  if(!env.BGA_CLIENT_ID) throw bgaMissingClientId();
-  const p = new URLSearchParams({client_id: env.BGA_CLIENT_ID, limit: String(BGA_MAX)});
-  if(q) p.set('name', q);
-  // no search term: the closest thing to BGG's "hot list" is the site's own popularity ranking
-  else { p.set('order_by', 'rank'); p.set('ascending', 'true'); }
-  const res = await fetch(`${BGA_BASE}/search?${p.toString()}`);
-  if(!res.ok) throw new Error('Board Game Atlas returned '+res.status);
-  const data = await res.json();
-  const games = (data.games||[]).map(g => {
-    let description = stripHtml(g.description_preview || g.description || '');
-    if(description.length > 240) description = description.slice(0, 239).trim() + '…';
-    return {
-      id: g.id,
-      name: g.name || '',
-      year: g.year_published ?? null,
-      thumb: g.thumb_url || '',
-      image: g.image_url || g.thumb_url || '',
-      minPlayers: g.min_players ?? null,
-      maxPlayers: g.max_players ?? null,
-      minTime: g.min_playtime ?? null,
-      maxTime: g.max_playtime ?? null,
-      playTime: g.playtime ?? null,
-      weight: null,   // Board Game Atlas has no BGG-style 1-5 complexity rating
-      rating: round2(g.average_user_rating ?? null),
-      categories: (g.categories||[]).map(c => c.name).filter(Boolean),
-      mechanics: (g.mechanics||[]).map(m => m.name).filter(Boolean),
-      description
-    };
-  }).filter(g => g.name);
-  return {games};
-}
+/* Board Games moved to api/board-games.js, a Vercel serverless function alongside index.html
+   rather than a route on this Worker - see that file for why (BoardGameGeek's API 401s every
+   request that comes from here, and Vercel's network is worth a try instead of Cloudflare's). */
 
 export default {
   async fetch(request, env, ctx){
@@ -569,19 +534,6 @@ export default {
         if(cached) return cached;
         const res = json(await fetchDesignNews(), 200, env);
         res.headers.set('Cache-Control', 'public, max-age=1800');
-        ctx.waitUntil(cache.put(cacheKey, res.clone()));
-        return res;
-      }
-      if(request.method === 'GET' && url.pathname === '/board-games'){
-        // public and identical for everyone - cached the same way /design-news is, just with a
-        // longer window since the popularity list barely moves day to day
-        const q = (url.searchParams.get('q')||'').trim();
-        const cache = caches.default;
-        const cacheKey = new Request(url.toString(), request);
-        const cached = await cache.match(cacheKey);
-        if(cached) return cached;
-        const res = json(await fetchBoardGames(env, q), 200, env);
-        res.headers.set('Cache-Control', 'public, max-age=' + (q ? 3600 : 21600));
         ctx.waitUntil(cache.put(cacheKey, res.clone()));
         return res;
       }
