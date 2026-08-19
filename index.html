@@ -255,7 +255,7 @@ a{color:var(--brand-dark);}
 .article-actions{margin-top:22px; padding-top:18px; padding-bottom:8px; margin-bottom:24px; border-top:1px solid var(--line);}
 
 /* ---------- gigs (live music) ---------- */
-.gig-list{display:flex; flex-direction:column; gap:8px;}
+.gig-list{display:flex; flex-direction:column; gap:4px;}
 .gig-card{padding:14px;}
 .gig-top{display:flex; gap:12px; align-items:center;}
 .gig-cover{width:56px; height:56px; flex-shrink:0; border-radius:50%; object-fit:cover;
@@ -284,20 +284,23 @@ a{color:var(--brand-dark);}
 /* the checklist is just a photo, a name and a pill on every row - the roomier padding/gap the
    fuller gig cards (city, date) need reads as a lot of dead space here, so it's a tight 2-up
    grid instead of one full-width card per artist */
-.gig-list-artists{display:grid; grid-template-columns:repeat(2,1fr); gap:2px;}
+.gig-list-artists{display:grid; grid-template-columns:repeat(2,1fr); gap:14px;}
 /* a grid item's default min-width is its content's natural width, not 0 - without this the
    long-name column refused to shrink and pushed the whole second column off-screen instead of
    letting the name ellipsize the way it's meant to */
-.gig-list-artists .gig-artist-row{padding:10px; cursor:pointer; margin-bottom:0; min-width:0;}
+.gig-list-artists .gig-artist-row{padding:18px 10px; cursor:pointer; margin-bottom:0; min-width:0;}
 /* stacked and centred rather than the side-by-side row the fuller gig card uses: photo up top,
    name under it, then the seen/not-seen status last */
 .gig-list-artists .gig-top{flex-direction:column; align-items:center; gap:6px; text-align:center;}
-/* the 78% here (not 70%) is relative to the row's content box, inside its own 10px padding -
-   worked out so the circle actually lands at ~70% of the full card width */
-.gig-list-artists .gig-cover{width:78%; height:auto; aspect-ratio:1/1;}
-.gig-list-artists .gig-cover-fallback{width:78%; aspect-ratio:1/1; font-size:1.4rem;}
+/* relative to the row's content box, inside its own 10px padding - worked out so the circle
+   lands at ~49% of the full card width (30% smaller than the ~70% it started at) */
+.gig-list-artists .gig-cover{width:55%; height:auto; aspect-ratio:1/1;}
+.gig-list-artists .gig-cover-fallback{width:55%; aspect-ratio:1/1; font-size:1.1rem;}
 .gig-list-artists .gig-info{flex:none; width:100%;}
 .gig-list-artists .gig-name{font-size:.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+/* the "seen twice+" count rides on the name itself ("The Weeknd #2") rather than the pill, so
+   it reads as part of the artist's identity on this list, not a separate status */
+.gig-list-artists .gig-seen-count{color:var(--muted); font-weight:600;}
 .gig-list-artists .gig-seen-pill{font-size:.62rem; padding:3px 7px;}
 @media(max-width:380px){
   .gig-list-artists{grid-template-columns:1fr;}
@@ -589,7 +592,6 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .settle{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:4px 16px; margin-top:14px;}
 .settle-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:.95rem;}
 .settle-row:last-child{border-bottom:none;}
-.settle-row.me{font-weight:800; color:var(--ink);}
 .steps{counter-reset:st; list-style:none;}
 .steps li{counter-increment:st; padding:8px 0 8px 40px; position:relative; font-size:.9rem;}
 .steps li::before{
@@ -747,11 +749,6 @@ a.dash-tile{text-decoration:none;}
 .status-pill.soon{background:var(--brand-tint); border-color:var(--brand-tint); color:var(--brand-dark);}
 .status-pill.past,.status-pill.off{background:var(--bg); border-color:var(--bg); color:var(--muted);}
 
-/* ---------- personalised balance: plain text, green when owed, red when owing ---------- */
-.you-balance{margin:4px 0 18px; font-size:1.2rem; font-weight:800; letter-spacing:-.01em;}
-.you-balance.pos{color:#1E8E3E;}
-.you-balance.neg{color:#C0392B;}
-.you-balance.zero{color:var(--muted);}
 
 /* ---------- itinerary ---------- */
 /* more air between days than the rest of the app's headings get, on purpose: a long trip's
@@ -814,7 +811,6 @@ a.dash-tile{text-decoration:none;}
 .poll-opt-text{display:inline-flex; align-items:center; gap:8px; font-size:.85rem; font-weight:600; min-width:0; overflow-wrap:anywhere;}
 .poll-opt-text .icon{color:var(--brand-dark); flex-shrink:0;}
 .poll-opt-n{font-size:.74rem; font-weight:700; color:var(--muted); white-space:nowrap; flex-shrink:0;}
-.poll-voters{position:relative; z-index:1; margin-top:3px; font-size:.7rem; color:var(--muted); overflow-wrap:anywhere;}
 /* full-bleed, no radius of its own - .plan-card-photo clips it back to the card's own rounded
    corners via overflow instead, so it reads as one continuous edge rather than a photo with a
    frame around it */
@@ -846,7 +842,6 @@ a.dash-tile{text-decoration:none;}
 .log-row:last-child{border-bottom:none;}
 .log-row-link{cursor:pointer; margin:0 -8px; padding:12px 8px; border-radius:8px;}
 .log-row-link:hover,.log-row-link:focus-visible{background:var(--bg); outline:none;}
-.log-who{font-weight:700; color:var(--ink); white-space:nowrap; flex-shrink:0;}
 .log-what{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .log-when{color:var(--muted); font-size:.75rem; white-space:nowrap; flex-shrink:0; margin-left:auto;}
 
@@ -924,8 +919,15 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.93.0';
+const APP_VERSION = '1.94.0';
 const CHANGELOG = [
+  {version:'1.94.0', notes:[
+    'Removed Switch Name and the per-trip identity system - this is a single-user app, so picking your name before every trip opened was friction with nothing behind it.',
+    'Packing is a single shared checklist now instead of per-person: one tick per item, no more "who is this for" field.',
+    'Polls vote anonymously per device now instead of by name - one vote per poll, results just show counts.',
+    'Money\'s Balances no longer personalise ("You owe"/"you") since there\'s no identity to compare against - still shows every participant\'s balance and the fewest-payments settle-up.',
+    'Places I\'ve Been: countries on a future trip now sort by how soon that trip is, not an arbitrary order - a 2027 trip lists ahead of a 2028 one.'
+  ]},
   {version:'1.93.0', notes:[
     'Artists checklist cards are centred now - photo on top (a circle, about 70% of the card\'s width), name below it, seen/not-seen status last - instead of the photo-beside-name row.'
   ]},
@@ -1540,33 +1542,17 @@ function fetchTripOnce(id, done){
     .then(s=>done(s.exists()?s.val():null)).catch(err=>{ reportSyncError(err); done(null); });
 }
 
-/* ================= identity (who is editing) ================= */
-function meKey(id){ return 'calstrippin_me_'+id; }
-function whoAmI(id){ try{ return localStorage.getItem(meKey(id))||''; }catch(e){ return ''; } }
-function setMe(id, name){ try{ localStorage.setItem(meKey(id), name); }catch(e){} }
-function requireIdentity(t, cb){
-  if(whoAmI(t.id)){ cb(); return; }
-  identityModal(t, cb);
-}
-function identityModal(t, cb){
-  const people = (t.participants||[]);
-  openModal(`
-    <h2>Who are you?</h2>
-    <p class="small" style="margin-bottom:14px">So the trip's edit log can show who changed what. Just for this trip on this device. No account needed.</p>
-    <div class="field"><label class="label" for="who-sel">Pick your name</label>
-      <select id="who-sel">
-        <option value="">Choose…</option>
-        ${people.map(p=>`<option>${esc(p)}</option>`).join('')}
-        <option value="__new">+ Add a new name…</option>
-      </select>
-      <div class="field-err" id="who-err">Pick or type your name</div>
-    </div>
-    <div class="field" id="who-new-wrap" style="display:none"><label class="label" for="who-new">Your name</label>
-      <input id="who-new" type="text" placeholder="e.g. Chris"></div>
-    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.confirmIdentity('${t.id}')">Continue</button></div>`);
-  const sel = $('#who-sel');
-  sel.onchange = () => { $('#who-new-wrap').style.display = sel.value==='__new'?'block':'none'; if(sel.value==='__new') setTimeout(()=>$('#who-new').focus(),0); };
-  App._identityCb = cb;
+/* ================= device id (anonymous, for poll voting only) ================= */
+/* a single random id, generated once and kept in localStorage - not a name, not tied to any
+   trip, just enough to remember "this device already voted on this poll" without asking who's
+   using it. There's no more per-trip identity system (see git history: this app is single-user
+   now, so "who is this device" was a modal in the way, not a feature). */
+function deviceVoteId(){
+  try{
+    let id = localStorage.getItem('calstrippin_device_id');
+    if(!id){ id = uid()+uid(); localStorage.setItem('calstrippin_device_id', id); }
+    return id;
+  }catch(e){ return 'anon'; }
 }
 
 /* ================= edit log ================= */
@@ -1580,9 +1566,8 @@ function timeAgo(ts){
 }
 function logEdit(section, summary){
   const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID); if(!t) return;
-  const who = whoAmI(t.id) || t.organiser || 'Someone';
   t.editLog = t.editLog || [];
-  t.editLog.push({id:uid(), who, when:Date.now(), section, summary});
+  t.editLog.push({id:uid(), when:Date.now(), section, summary});
   if(t.editLog.length>200) t.editLog = t.editLog.slice(-200);
 }
 
@@ -2782,10 +2767,20 @@ function beenOrderedCountries(trips){
   return out;
 }
 function beenUpcomingCountries(trips){
+  // earliest upcoming trip's start date per country, so a country you're going to sooner
+  // (Australia in 2027) sorts ahead of one further out (Japan in 2028), not in whatever order
+  // COUNTRY_CODES happens to list them
+  const startOf = {};
+  DB.trips.forEach(t=>{
+    const start = upcomingStartDate(t);
+    if(!start) return;
+    (t.countries||[]).forEach(c=>{ if(!startOf[c] || start < startOf[c]) startOf[c] = start; });
+  });
   return COUNTRY_CODES
     .filter(code => placesStatusOf(code, trips[code])==='going')
     .map(code => COUNTRIES.find(c=>c.code===code))
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a,b) => (startOf[a.code]||'9999-99-99').localeCompare(startOf[b.code]||'9999-99-99'));
 }
 function drawPlacesGrid(){
   const el = $('#places-grid'); if(!el) return;
@@ -3496,8 +3491,11 @@ function gigArtistRowHTML(a){
   // every single one, so it's dropped there rather than repeated for no reason
   const seenCount = (DB.gigs||[]).filter(g=>g.artistId===a.id).length;
   const status = CUR_GIGS_TAB==='notseen' ? '' : seenCount
-    ? `<span class="gig-seen-pill">✓ Seen${seenCount>1?' ×'+seenCount:''}</span>`
+    ? `<span class="gig-seen-pill">✓ Seen</span>`
     : `<span class="gig-seen-pill off">Not seen yet</span>`;
+  // "The Weeknd #2" once you've seen them more than once - the count reads as part of their
+  // name here, so the pill above just says Seen rather than repeating it as "Seen ×2"
+  const nameSuffix = seenCount>1 ? ` <span class="gig-seen-count">#${seenCount}</span>` : '';
   return `
     <div class="card gig-card gig-artist-row" role="button" tabindex="0" onclick="App.gigFormForArtist('${esc(a.id)}')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.gigFormForArtist('${esc(a.id)}')}">
@@ -3505,7 +3503,7 @@ function gigArtistRowHTML(a){
         ${a.image ? `<img class="gig-cover" src="${esc(a.image)}" alt="" loading="lazy">`
                    : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">${fa('microphone')}</span>`}
         <div class="gig-info">
-          <div class="gig-name">${esc(a.name)}</div>
+          <div class="gig-name">${esc(a.name)}${nameSuffix}</div>
         </div>
         ${status}
       </div>
@@ -3707,7 +3705,6 @@ function openTrip(id){
   const local = getTrip(id);
   if(local){
     renderTrip(local);
-    if(!whoAmI(id)) identityModal(local, ()=>{});
   } else if(fbRoot){
       $('#app').innerHTML = `<div class="empty" style="margin-top:40px">Loading trip…</div>`;
     fetchTripOnce(id, remote=>{
@@ -3716,7 +3713,6 @@ function openTrip(id){
         normalizeTrip(remote);
         if(!getTrip(id)){ DB.trips.unshift(remote); saveLocal(); }
         const t = getTrip(id); renderTrip(t);
-        if(!whoAmI(id)) identityModal(t, ()=>{});
       } else {
         $('#app').innerHTML = `<div class="empty" style="margin-top:40px">We couldn't find this trip.<br>Ask whoever set it up to share the link again.</div>`;
       }
@@ -3817,23 +3813,6 @@ App.selectPlacesRegion = k => {
   drawPlacesGrid();
 };
 App.clearPlacesRegion = () => { CUR_PLACES_REGION = null; drawPlacesGrid(); };
-
-App.confirmIdentity = id => {
-  const t = getTrip(id); if(!t) return;
-  const sel = $('#who-sel');
-  let name = sel.value;
-  if(name==='__new') name = ($('#who-new').value||'').trim();
-  if(!name){ $('#who-sel').closest('.field').classList.add('err'); return; }
-  if(!t.participants.includes(name)){ t.participants.push(name); save(); }
-  setMe(id, name);
-  const cb = App._identityCb; App._identityCb = null;
-  closeModal();
-  if(cb) cb(); else rerender();
-};
-App.changeIdentity = () => {
-  const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  identityModal(t, ()=>{ rerender(); });
-};
 
 /* ================= home (trip list) ================= */
 /* who's coming, trimmed so a big group can't push a card out of shape. limit defaults to 3
@@ -4022,7 +4001,6 @@ App.createTrip = () => {
     receipts: [], photoAlbum: {url:'',service:''}, moodBoard: [],
     createdAt: Date.now()
   };
-  setMe(t.id, org);              // the creator is identified straight away
   DB.trips.unshift(t);
   CUR_TRIP_ID = t.id; save();     // persist + push the new trip to the shared store
   closeModal();
@@ -4403,9 +4381,7 @@ function tripNavItems(t){
     ${TABS.map(item).join('')}
     <hr class="menu-sep">
     <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.share('${t.id}')"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.share('${t.id}')}">${ICONS.share}<span>Share Trip</span></div>
-    <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.changeIdentity()"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.changeIdentity()}">${ICONS.user}<span>Switch Name${whoAmI(t.id)?' ('+esc(whoAmI(t.id))+')':''}</span></div>`;
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.share('${t.id}')}">${ICONS.share}<span>Share Trip</span></div>`;
 }
 /* the sidebar is the only nav on desktop/tablet (the mobile bottom bar is hidden there - see
    the .tabbar.on rule in the sidebar media query), so the tabbar's other destinations - Travel
@@ -4565,14 +4541,9 @@ function tabHome(t, ro){
   if((t.ferries||[]).length) travParts.push((t.ferries.length)+(t.ferries.length===1?' Ferry':' Ferries'));
   if((t.carHire||[]).length) travParts.push('Car Hire');
   // each row doubles as a counter: what's booked, added, pinned and owed
-  const me = whoAmI(t.id);
   const net = nRec ? computeBalances(t) : null;
-  const myNet = net && me && net[me]!==undefined ? net[me] : null;
-  const moneySum = !nRec ? 'No receipts yet' :
-    myNet===null ? 'Receipts added' :
-    myNet>0.005 ? `You're owed ${money(myNet)}` :
-    myNet<-0.005 ? `You owe ${money(-myNet)}` :
-    'All settled';
+  const allSettled = net && Object.values(net).every(v=>Math.abs(v)<0.005);
+  const moneySum = !nRec ? 'No receipts yet' : allSettled ? 'All settled' : 'Receipts added';
   const accoms = t.accommodations||[];
   const staySum = !accoms.length ? 'Not Added Yet' :
     accoms.length===1 ? (accoms[0].name||'1 Stay Added') :
@@ -4609,7 +4580,7 @@ function tabHome(t, ro){
     ['mood','Ideas', nPins ? nPins+' Pinned' : 'Nothing Pinned Yet', !nPins],
     ['travel','Travel', travParts.join(', ') || 'Nothing Booked Yet', !travParts.length],
     ['stay','Accommodation', staySum, !accoms.length],
-    ['pack','Packing', packSummaryLine(t), !(t.packing||[]).length || !!packStats(t).myLeft],
+    ['pack','Packing', packSummaryLine(t), !(t.packing||[]).length || !!packStats(t).left],
     ['polls','Polls', pollSummaryLine(t), !(t.polls||[]).length],
     ['money','Money', moneySum, !nRec],
     ['photos','Photos', album ? album+' Linked' : 'No Shared Album Yet', !album],
@@ -4626,7 +4597,7 @@ function tabHome(t, ro){
     </div>`;
   return `<div class="dash-grid">${tiles.map(tile).join('')}</div>`;
 }
-/* ================= TAB: log (who changed what) ================= */
+/* ================= TAB: log (what changed) ================= */
 /* which tab a log entry's section belongs to, so each row can jump straight there,
    'Trip info'/'People' edits live on Overview itself (where this list already sits),
    so those rows aren't made clickable */
@@ -4641,7 +4612,6 @@ function tabLog(t){
     const k = LOG_SECTION_TAB[e.section];
     return `
     <div class="log-row${k?' log-row-link':''}" ${k?`role="button" tabindex="0" onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}"`:''}>
-      <span class="log-who">${esc(e.who)}</span>
       <span class="log-what">${esc(e.summary)}</span>
       <span class="log-when">${timeAgo(e.when)}</span>
     </div>`;
@@ -4651,45 +4621,22 @@ function tabLog(t){
     ${log.length ? log.map(row).join('') : `<div class="empty">No changes logged yet.</div>`}`;
 }
 /* ================= TAB: packing (shared checklist + calendar reminder) ================= */
-/* Items are shared like everything else, but the tick is per person: two people packing
-   the same trip need their own boxes, and "who's still got things to pack" only means
-   anything if each person's list is tracked separately. An item with a name against it
-   belongs to that person alone; an item with no name is everyone's. */
+/* One shared list, one shared tick per item - there's no "who's still got things to pack"
+   split since it's just the one person using this. */
 const PACK_STARTERS = [
   'Passport','Travel insurance','Phone charger','Adapter plug','Toothbrush','Sun cream',
   'Medication','Cards and cash','Headphones','Reusable water bottle'
 ];
-function packMine(t, it){
-  const me = whoAmI(t.id);
-  return !it.who || (me && it.who===me);
-}
-function packDoneBy(it, who){ return !!((it.done||{})[who]); }
-/* an item counts as packed when everyone it applies to has ticked it */
-function packOwners(t, it){
-  return it.who ? [it.who] : (t.participants||[]).slice();
-}
-function packIsDone(t, it){
-  const owners = packOwners(t, it);
-  if(!owners.length) return packDoneBy(it, '_');
-  return owners.every(o=>packDoneBy(it, o));
-}
 function packStats(t){
   const items = t.packing||[];
-  const me = whoAmI(t.id);
-  const mine = items.filter(it=>packMine(t,it));
-  const myLeft = me ? mine.filter(it=>!packDoneBy(it, me)).length : mine.filter(it=>!packIsDone(t,it)).length;
-  return {
-    total: items.length,
-    done: items.filter(it=>packIsDone(t,it)).length,
-    mine: mine.length,
-    myLeft
-  };
+  const done = items.filter(it=>it.done).length;
+  return { total: items.length, done, left: items.length-done };
 }
 function packSummaryLine(t){
   const s = packStats(t);
   if(!s.total) return 'Nothing Listed Yet';
-  if(!s.myLeft) return `All Packed (${s.done} of ${s.total})`;
-  return `${s.myLeft} Still To Pack`;
+  if(!s.left) return `All Packed (${s.done} of ${s.total})`;
+  return `${s.left} Still To Pack`;
 }
 /* how many days until the trip starts, or null once it's begun, used for the nudge */
 function packDaysToGo(t){
@@ -4702,17 +4649,13 @@ function packDaysToGo(t){
 function packNudgeHTML(t){
   const s = packStats(t);
   const n = packDaysToGo(t);
-  if(n===null || !s.myLeft) return '';
+  if(n===null || !s.left) return '';
   if(n > 14) return '';   // no point nagging months out
   const when = n===0 ? 'You leave today' : n===1 ? 'You leave tomorrow' : `${n} days to go`;
-  return `<div class="pack-nudge">${ICONS.bell}<span><strong>${esc(when)}</strong> and you've still got ${s.myLeft} thing${s.myLeft===1?'':'s'} to pack.</span></div>`;
+  return `<div class="pack-nudge">${ICONS.bell}<span><strong>${esc(when)}</strong> and you've still got ${s.left} thing${s.left===1?'':'s'} to pack.</span></div>`;
 }
 function packRowHTML(t, it, i, ro){
-  const me = whoAmI(t.id);
-  const tickAs = me || '_';
-  const ticked = packDoneBy(it, tickAs);
-  const owners = packOwners(t, it);
-  const others = owners.filter(o=>o!==me && packDoneBy(it,o));
+  const ticked = !!it.done;
   const canTick = !ro;
   return `
     <div class="pack-row${ticked?' done':''}">
@@ -4721,8 +4664,6 @@ function packRowHTML(t, it, i, ro){
         aria-label="${esc(it.text)}">${ticked?fa('check'):''}</span>
       <span class="pack-text">
         <span class="pack-label">${esc(it.text)}</span>
-        ${it.who?`<span class="pack-who">${esc(it.who)}</span>`:''}
-        ${others.length?`<span class="pack-who done">${esc(others.join(', '))} packed</span>`:''}
       </span>
       ${!ro?`<button class="iconbtn del" title="Remove" aria-label="Remove ${esc(it.text)}" onclick="App.delPack('${it.id}')">${ICONS.trash}</button>`:''}
     </div>`;
@@ -4733,10 +4674,6 @@ function tabPack(t, ro){
   const addRow = ro ? '' : `
     <div class="pack-add">
       <input type="text" id="pk-new" placeholder="Add an item…" onkeydown="if(event.key==='Enter'){event.preventDefault();App.addPack()}">
-      <select id="pk-who" aria-label="Who is this for">
-        <option value="">Everyone</option>
-        ${(t.participants||[]).map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('')}
-      </select>
       <button class="btn" type="button" onclick="App.addPack()">+ Add</button>
     </div>`;
   if(!items.length){
@@ -4744,14 +4681,14 @@ function tabPack(t, ro){
       <div class="empty">Nothing on the packing list yet.${!ro?`<br><br>
         <button class="btn primary" onclick="App.addPackStarters()">Add the usual essentials</button>`:''}</div>`;
   }
-  const todo = items.filter(it=>!packDoneBy(it, whoAmI(t.id)||'_'));
-  const done = items.filter(it=>packDoneBy(it, whoAmI(t.id)||'_'));
+  const todo = items.filter(it=>!it.done);
+  const done = items.filter(it=>it.done);
   return `
     ${packNudgeHTML(t)}
     ${addRow}
     <div class="pack-progress">
       <div class="pack-progress-bar" style="width:${s.total?Math.round(s.done/s.total*100):0}%"></div>
-      <span>${s.done} of ${s.total} fully packed</span>
+      <span>${s.done} of ${s.total} packed</span>
     </div>
     ${todo.map((it,i)=>packRowHTML(t,it,i,ro)).join('')}
     ${done.length?`<h3 class="pack-heading">Packed</h3>${done.map((it,i)=>packRowHTML(t,it,i,ro)).join('')}`:''}`;
@@ -4761,9 +4698,8 @@ App.addPack = () => {
   const el = $('#pk-new'); if(!el) return;
   const text = (el.value||'').trim();
   if(!text) return markErr('#pk-new','Type something to pack');
-  const who = ($('#pk-who')||{}).value || '';
   t.packing = t.packing||[];
-  t.packing.push({id:uid(), text, who, done:{}});
+  t.packing.push({id:uid(), text, done:false});
   logEdit('Packing','added a packing item');
   save(); rerender();
   const again = $('#pk-new'); if(again) again.focus();
@@ -4772,16 +4708,14 @@ App.addPackStarters = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   t.packing = t.packing||[];
   const have = new Set(t.packing.map(it=>it.text.toLowerCase()));
-  PACK_STARTERS.forEach(text=>{ if(!have.has(text.toLowerCase())) t.packing.push({id:uid(), text, who:'', done:{}}); });
+  PACK_STARTERS.forEach(text=>{ if(!have.has(text.toLowerCase())) t.packing.push({id:uid(), text, done:false}); });
   logEdit('Packing','added the starter packing list');
   save(); rerender(); toast('Essentials added, edit away');
 };
 App.togglePack = itemId => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const it = (t.packing||[]).find(x=>x.id===itemId); if(!it) return;
-  const who = whoAmI(t.id) || '_';
-  it.done = it.done||{};
-  if(it.done[who]) delete it.done[who]; else it.done[who] = true;
+  it.done = !it.done;
   save(); rerender();
 };
 App.delPack = itemId => {
@@ -4799,8 +4733,7 @@ App.delPack = itemId => {
   });
 };
 function packUnpackedFor(t){
-  const me = whoAmI(t.id) || '_';
-  return (t.packing||[]).filter(it=>packMine(t,it) && !packDoneBy(it, me));
+  return (t.packing||[]).filter(it=>!it.done);
 }
 
 /* ================= TAB: tasks (placeholders for things still to book) ================= */
@@ -5063,9 +4996,9 @@ App.packReminder = () => {
   toast('Reminder saved, open it to add it to your calendar');
 };
 
-/* ================= TAB: polls (group decisions) ================= */
-/* Votes are keyed by the name you picked for this trip, so switching your answer replaces
-   your old one rather than stacking up, and everyone can see who wanted what. Anyone can
+/* ================= TAB: polls (single-tally voting) ================= */
+/* Votes are keyed by an anonymous per-device id (deviceVoteId()), not a name - each device
+   gets one vote per poll, results only ever show counts, never who picked what. Anyone can
    close a poll (same trust model as the rest of the app: one shared link, one shared PIN). */
 function pollVotes(p){ return (p && p.votes) || {}; }
 /* a vote is a single option id for a normal poll, or an array of them once "allow multiple
@@ -5074,10 +5007,6 @@ function pollVotes(p){ return (p && p.votes) || {}; }
 function voteHasOpt(v, optId){ return Array.isArray(v) ? v.includes(optId) : v===optId; }
 function pollCount(p, optId){ return Object.values(pollVotes(p)).filter(v=>voteHasOpt(v,optId)).length; }
 function pollTotal(p){ return Object.keys(pollVotes(p)).length; }
-function pollVotersFor(p, optId){
-  const votes = pollVotes(p);
-  return Object.keys(votes).filter(n=>voteHasOpt(votes[n], optId));
-}
 /* the option(s) in front, so a decided poll reads at a glance; ties are kept as ties */
 function pollLeaders(p){
   const counts = (p.options||[]).map(o=>pollCount(p,o.id));
@@ -5087,25 +5016,22 @@ function pollLeaders(p){
 function pollSummaryLine(t){
   const polls = t.polls||[];
   if(!polls.length) return 'No Polls Yet';
-  const me = whoAmI(t.id);
   const open = polls.filter(p=>!p.closed);
-  const needsMe = me ? open.filter(p=>!pollVotes(p)[me]).length : 0;
+  const needsMe = open.filter(p=>!pollVotes(p)[deviceVoteId()]).length;
   if(needsMe) return needsMe===1 ? '1 Poll Needs Your Vote' : needsMe+' Polls Need Your Vote';
   if(open.length) return open.length===1 ? '1 Open Poll' : open.length+' Open Polls';
   return polls.length===1 ? '1 Poll Closed' : 'All '+polls.length+' Polls Closed';
 }
 function pollCardHTML(t, p, i, ro){
-  const me = whoAmI(t.id);
-  const mine = me ? pollVotes(p)[me] : null;
+  const mine = pollVotes(p)[deviceVoteId()];
   const total = pollTotal(p);
   const leaders = p.closed ? pollLeaders(p) : [];
   const rows = (p.options||[]).map(o=>{
     const n = pollCount(p, o.id);
     const pct = total ? Math.round(n/total*100) : 0;
-    const voters = pollVotersFor(p, o.id);
     const picked = voteHasOpt(mine, o.id);
     const won = leaders.includes(o.id);
-    const canVote = !ro && !p.closed && me;
+    const canVote = !ro && !p.closed;
     return `
       <div class="poll-opt${picked?' picked':''}${won?' won':''}" ${canVote?`role="button" tabindex="0"
            onclick="App.votePoll('${p.id}','${o.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.votePoll('${p.id}','${o.id}')}"`:''}>
@@ -5114,10 +5040,8 @@ function pollCardHTML(t, p, i, ro){
           <span class="poll-opt-text">${picked?fa('circle-check'):(won?fa('trophy'):'')}${esc(o.text)}</span>
           <span class="poll-opt-n">${n}${total?` · ${pct}%`:''}</span>
         </div>
-        ${voters.length?`<div class="poll-voters">${esc(voters.join(', '))}</div>`:''}
       </div>`;
   }).join('');
-  const yetToVote = (t.participants||[]).filter(n=>!pollVotes(p)[n]);
   return `
     <div class="card poll-card">
       <div class="section-head" style="margin-bottom:${p.multi&&!p.closed?'2px':'10px'}">
@@ -5135,9 +5059,7 @@ function pollCardHTML(t, p, i, ro){
         <input type="text" id="po-add-${p.id}" placeholder="Add another option…" onkeydown="if(event.key==='Enter'){event.preventDefault();App.addPollOptionLive('${p.id}')}">
         <button class="btn" type="button" onclick="App.addPollOptionLive('${p.id}')">+ Add</button>
       </div>`:''}
-      <p class="small muted" style="margin-top:10px">
-        ${total?`${total} ${total===1?'vote':'votes'}`:'No votes yet'}${!me?' · pick your name on the Overview to vote':''}${(!p.closed && me && yetToVote.length)?` · waiting on ${esc(yetToVote.join(', '))}`:''}
-      </p>
+      <p class="small muted" style="margin-top:10px">${total?`${total} ${total===1?'vote':'votes'}`:'No votes yet'}</p>
     </div>`;
 }
 function tabPolls(t, ro){
@@ -5185,7 +5107,7 @@ App.savePoll = () => {
   if(opts.length<2) return markErr('#po-q','Add at least two options');
   t.polls = t.polls||[];
   t.polls.unshift({id:uid(), q, options:opts.map(text=>({id:uid(), text})), votes:{}, closed:false,
-    multi:$('#po-multi').checked, createdBy:whoAmI(t.id)||t.organiser||''});
+    multi:$('#po-multi').checked});
   logEdit('Polls','started a poll');
   save(); closeModal(); CUR_TAB='polls'; rerender(); toast('Poll created');
 };
@@ -5204,8 +5126,7 @@ App.addPollOptionLive = pollId => {
 App.votePoll = (pollId, optId) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const p = (t.polls||[]).find(x=>x.id===pollId); if(!p || p.closed) return;
-  const me = whoAmI(t.id);
-  if(!me){ noteModal('Who Are You?', 'Pick your name on the Overview first, so everyone knows who voted.'); return; }
+  const me = deviceVoteId();
   p.votes = p.votes||{};
   if(p.multi){
     // several picks per person, so the stored vote is an array once multi is on
@@ -7104,12 +7025,8 @@ function tabMoney(t, ro){
 
   const net = computeBalances(t);
   const stl = settlements(net);
-  const me = whoAmI(t.id);
-  const myNet = (me && net[me]!==undefined) ? net[me] : null;
   const hasRec = (t.receipts||[]).length;
   return `
-    ${myNet!==null && hasRec ? `
-      <div class="you-balance ${myNet>0.005?'pos':myNet<-0.005?'neg':'zero'}">${myNet>0.005?`You're owed ${money(myNet)}`:myNet<-0.005?`You owe ${money(-myNet)}`:`You're all square 🤝`}</div>`:''}
     ${hasRec ? `
       <h2>Settle Up</h2>
       <p class="muted small" style="margin-bottom:8px">Debts are combined into the fewest possible payments, so one transfer can settle several people at once.</p>
@@ -7121,7 +7038,7 @@ function tabMoney(t, ro){
     ${hasRec ? `
       <h2 style="margin-top:30px">Balances</h2>
       <div class="settle">
-        ${Object.entries(net).map(([p,v])=>`<div class="settle-row ${p===me?'me':''}"><span>${esc(p)}${p===me?' <span class="muted small">(you)</span>':''}</span><span class="amount mono">${v>0.005?'is owed '+money(v):v<-0.005?'owes '+money(-v):'all square'}</span></div>`).join('')}
+        ${Object.entries(net).map(([p,v])=>`<div class="settle-row"><span>${esc(p)}</span><span class="amount mono">${v>0.005?'is owed '+money(v):v<-0.005?'owes '+money(-v):'all square'}</span></div>`).join('')}
       </div>`:''}`;
 }
 
