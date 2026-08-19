@@ -248,6 +248,32 @@ a{color:var(--brand-dark);}
 .article-p strong,.article-li strong{font-weight:700; color:var(--ink);}
 .article-actions{margin-top:22px; padding-top:18px; padding-bottom:8px; margin-bottom:24px; border-top:1px solid var(--line);}
 
+/* ---------- gigs (live music) ---------- */
+.gig-list{display:flex; flex-direction:column; gap:12px;}
+.gig-card{padding:14px;}
+.gig-top{display:flex; gap:12px; align-items:flex-start;}
+.gig-cover{width:56px; height:56px; flex-shrink:0; border-radius:50%; object-fit:cover;
+  border:1px solid var(--line); background:var(--bg);}
+.gig-cover-fallback{display:inline-flex; align-items:center; justify-content:center; font-size:1.3rem; color:var(--muted);}
+.gig-info{min-width:0; flex:1;}
+.gig-name{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
+.gig-facts{margin-top:2px;}
+.gig-notes{margin-top:6px; color:var(--ink); opacity:.75;}
+.gig-actions{display:flex; gap:2px; flex-shrink:0;}
+/* the artist search dropdown floats over whatever's below it in the form rather than pushing
+   the rest of the fields down as results come and go */
+.gig-search-wrap{position:relative;}
+.gig-search-results{position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:5;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lift); max-height:260px; overflow-y:auto;}
+.gig-search-item{display:flex; align-items:center; gap:10px; padding:8px 10px; cursor:pointer;}
+.gig-search-item:hover,.gig-search-item:focus-visible{background:var(--bg); outline:none;}
+.gig-search-thumb{width:32px; height:32px; border-radius:50%; object-fit:cover; flex-shrink:0;
+  background:var(--bg); border:1px solid var(--line);}
+.gig-selected-artist{display:flex; align-items:center; gap:10px; padding:8px 10px;
+  border:1px solid var(--line); border-radius:var(--radius-sm); margin-top:8px;}
+.gig-selected-artist img{width:36px; height:36px; border-radius:50%; object-fit:cover;}
+
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
 .want-switch{display:flex; width:100%; border:1px solid var(--line-strong); border-radius:999px; overflow:hidden;}
@@ -572,12 +598,10 @@ details .d-body{padding:14px 16px;}
   .trip-card:hover,.hub-card:hover,.design-card:hover,.dash-tile:hover{
     transform:none; box-shadow:var(--shadow); border-color:var(--line);}
   .theme-swatch:hover,.bg-card:hover{transform:none; box-shadow:var(--shadow);}
-  .wheel-item:hover,.emoji-pick:hover,.pack-check[role=checkbox]:hover,
+  .emoji-pick:hover,.pack-check[role=checkbox]:hover,
   .poll-opt[role=button]:hover{border-color:var(--line-strong);}
   .plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,
   .card.plan-click:hover{border-color:var(--line);}
-  .tabbar-new:hover{background:var(--brand); transform:none;}
-  .tabbar-new.open:hover{transform:rotate(45deg);}
   /* the trash/pencil icon on every card list (places, tasks, travel, accommodation…) - its
      hover tint is a red-tinted pink that sticks on whichever one you last tapped, reading as
      a stray red outline on a "random" card until you tap something else */
@@ -635,7 +659,7 @@ a.dash-tile{text-decoration:none;}
 /* ---------- bottom bar ---------- */
 .tabbar{display:none;}
 .tabbar.on{
-  display:grid; grid-template-columns:repeat(5,1fr); align-items:center;
+  display:grid; grid-template-columns:repeat(4,1fr); align-items:center;
   position:fixed; left:0; right:0; bottom:0; z-index:60;
   background:var(--paper); border-top:1px solid var(--line);
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
@@ -651,74 +675,11 @@ a.dash-tile{text-decoration:none;}
 }
 /* only while the section menu is open, so the bar never floats over a full-screen form */
 .tabbar.over-menu{z-index:130;}
-/* and above the wheel's own scrim, so the + that opened it can close it again */
-.tabbar.over-wheel{z-index:71;}
 .tabbar-item:disabled{opacity:.3; cursor:default;}
 .tabbar-item.active{color:var(--brand-dark);}
 .tabbar-emoji{font-size:1.15rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .tabbar-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
-/* raised centre button, the one thing on the bar that creates rather than navigates */
-/* the plus is drawn rather than typed: a "+" glyph sits off-centre by a different amount in
-   every font, and this needs to look exactly centred in a circle */
-.tabbar-new{
-  justify-self:center; position:relative; width:52px; height:52px; margin-top:-20px;
-  border:3px solid var(--paper); border-radius:50%;
-  background:var(--brand); cursor:pointer; padding:0;
-  box-shadow:0 4px 12px rgba(14,133,119,.35); transition:transform .1s, background .1s;
-}
-.tabbar-new::before,.tabbar-new::after{
-  content:''; position:absolute; top:50%; left:50%; background:#fff; border-radius:2px;
-}
-.tabbar-new::before{width:20px; height:3px; transform:translate(-50%,-50%);}
-.tabbar-new::after{width:3px; height:20px; transform:translate(-50%,-50%);}
-.tabbar-new:hover,.tabbar-new:focus-visible{background:var(--brand-dark); transform:translateY(-1px); outline:none;}
-/* with the wheel open the same button closes it, so the plus turns into a cross by spinning
-   the two bars it's already made of, rather than swapping in a different glyph */
-.tabbar-new.open{transform:rotate(45deg); background:var(--brand-dark);}
-.tabbar-new.open:hover,.tabbar-new.open:focus-visible{transform:rotate(45deg) translateY(-1px);}
-
-/* ---------- add wheel ---------- */
-/* the + fans out into every "add" the app has, arranged on arcs around the button it came
-   from. Icon-only: at this size a label would be unreadable anyway, so each one carries its
-   name as aria-label/title instead. Sits above the bar (z-index 60) but below full-screen
-   modals (100), so opening a form covers it. */
-.wheel-scrim{position:fixed; inset:0; z-index:70; background:rgba(20,40,47,.58);
-  opacity:0; animation:wheel-fade .16s ease forwards; -webkit-tap-highlight-color:transparent;}
-@keyframes wheel-fade{to{opacity:1;}}
-/* Each button springs out of the + and drops back into it, rather than appearing where it
-   ends up. --dx/--dy are set per button to the offset back to the + itself, so the same pair
-   of keyframes serves both directions: out is from that offset, back is to it. The bezier
-   overshoots slightly on the way out for the bounce. */
-.wheel-item{
-  position:fixed; z-index:72; width:44px; height:44px; border-radius:50%; padding:0;
-  border:1px solid var(--line); background:var(--paper); cursor:pointer;
-  box-shadow:0 4px 14px rgba(20,40,47,.22);
-  display:flex; align-items:center; justify-content:center;
-  opacity:0; transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(.3);
-  animation:wheel-pop .34s cubic-bezier(.34,1.56,.64,1) forwards;
-}
-.wheel-item .sec-emoji{font-size:1.2rem; line-height:1;}
-.wheel-item:hover,.wheel-item:focus-visible{border-color:var(--brand); outline:none;}
-@keyframes wheel-pop{
-  from{opacity:0; transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(.3);}
-  40%{opacity:1;}
-  to{opacity:1; transform:translate(-50%,-50%) translate(0,0) scale(1);}
-}
-/* on the way back in they retract rather than blink out, outermost first so the wheel folds
-   up towards the button instead of collapsing all at once */
-#wheel-root.closing .wheel-item{animation:wheel-suck .2s cubic-bezier(.5,0,.75,0) forwards;}
-@keyframes wheel-suck{
-  from{opacity:1; transform:translate(-50%,-50%) translate(0,0) scale(1);}
-  to{opacity:0; transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(.3);}
-}
-#wheel-root.closing .wheel-scrim{animation:wheel-unfade .2s ease forwards;}
-@keyframes wheel-unfade{to{opacity:0;}}
-/* whoever prefers less motion gets the same wheel, just without the fan-out */
-@media(prefers-reduced-motion:reduce){
-  .wheel-scrim,.wheel-item,#wheel-root.closing .wheel-item{animation-duration:.01ms;}
-  .wheel-item{animation-delay:0ms!important;}
-}
 /* keep the last of the page clear of the bar (harmless on the PIN gate, where it's hidden),
    set after the narrow-screen rule above so it wins on phones too, where the bar still needs
    the same clearance the wider layouts give it */
@@ -889,7 +850,6 @@ a.dash-tile{text-decoration:none;}
 <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
 <div id="modal-root"></div>
 <div id="menu-root"></div>
-<div id="wheel-root"></div>
 <script>
 'use strict';
 /* ================= config ================= */
@@ -926,8 +886,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.83.0';
+const APP_VERSION = '1.84.0';
 const CHANGELOG = [
+  {version:'1.84.0', notes:[
+    'Added Gigs, a new top-level section for logging live music you\'ve been to - artist, venue, city, date and notes, with the artist field searching Spotify (via the same proxy Games and Design use) for a photo as you type.',
+    'The mobile bottom bar dropped its Menu and + Add buttons to make room for Gigs alongside Travel, Games and Design - the menu they opened now lives behind a button in the trip\'s own header instead, and everything the + used to add still has its own button in the section it belongs to.'
+  ]},
   {version:'1.83.0', notes:[
     'Fixed the desktop/tablet sidebar going blank on Games, Design and the Travel hub - it only ever held a trip\'s own menu, so leaving a trip left no navigation at all now the mobile bottom bar is hidden there. Travel, Games and Design now sit in the sidebar everywhere, underneath a trip\'s own menu when there is one.'
   ]},
@@ -1368,10 +1332,11 @@ function load(){
       db.schema = db.schema || SCHEMA;
       db.places = (db.places && typeof db.places==='object') ? db.places : {};
       db.placesArchived = Array.isArray(db.placesArchived) ? db.placesArchived : [];
+      db.gigs = Array.isArray(db.gigs) ? db.gigs : [];
       return db;
     }
   }catch(e){}
-  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[]};
+  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[]};
 }
 /* persist to localStorage. If storage is full, never lose a trip, drop only the heavy
    in-browser file/photo previews (they still live in the cloud copy when synced) and keep
@@ -2157,6 +2122,25 @@ function pushPlaces(){
     });
 }
 function savePlaces(){ saveLocal(); pushPlaces(); }
+function loadGigsCloud(cb){
+  if(!fbRoot){ cb(DB.gigs||[]); return; }
+  fbRoot.ref('gigs').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : (DB.gigs||[])))
+    .catch(() => cb(DB.gigs||[]));
+}
+function pushGigs(){
+  if(!fbRoot) return;
+  fbRoot.ref('gigs').set(DB.gigs||[])
+    .catch(err => {
+      console.error("My Trips, couldn't save Gigs:", err);
+      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        noteModal('Gigs Not Saved', "The database rules don't allow writing Gigs. Open the Firebase console, Realtime Database, Rules, and add a 'gigs' rule.");
+      }else{
+        noteModal('Not Saved', 'Check your connection and try again.');
+      }
+    });
+}
+function saveGigs(){ saveLocal(); pushGigs(); }
 /* countries on any non-archived trip's itinerary auto-count as Been; archived trips don't
    (those get folded into DB.places directly, see applyArchiveTransitions below) */
 /* What your trips say about each country: 'been' once a trip there has finished, 'going'
@@ -2355,7 +2339,6 @@ function attachFieldClears(root){
 /* forms and viewers open as full screens (no popups), a Back bar returns to the page below */
 function openModal(html, opts){
   opts = opts || {};
-  closeAddWheel();   // a form opened from the wheel takes over; the wheel shouldn't linger
   const root = $('#modal-root');
   const prev = root.querySelector('.modal-bg');
   const scrollPos = prev ? prev.scrollTop : 0;
@@ -2381,13 +2364,9 @@ function closeModal(){
 // Esc closes the top-most modal
 document.addEventListener('keydown', e=>{
   if(e.key!=='Escape') return;
-  if(wheelIsOpen()) closeAddWheel();
-  else if(menuIsOpen()) closeMenu();
+  if(menuIsOpen()) closeMenu();
   else if(modalOpen()) closeModal();
 });
-/* the wheel is positioned in real pixels around wherever the + happens to be, so a resize
-   (or a phone turning on its side) would leave it hanging in the wrong place */
-window.addEventListener('resize', ()=>{ if(wheelIsOpen()) closeAddWheel(); });
 /* an alert-style banner that always fits on one line, truncating with an ellipsis rather
    than wrapping and pushing the rest of the page down, a small button opens the full text
    in a modal so nothing said in the banner is ever actually lost to the truncation */
@@ -3276,8 +3255,164 @@ function renderDesignArticle(i){
     </article>`;
 }
 
+/* ================= Gigs (live music you've been to) =================
+   Its own top-level section rather than folded into a trip: a gig is a moment, not something
+   with the trip-shaped start/end dates the rest of the app is built around, and plenty happen
+   nowhere near a trip at all. Firebase-synced the same way Places is (DB.gigs, loadGigsCloud/
+   saveGigs above), since gig history is worth having on every device. The artist search hits
+   the proxy's /spotify-search endpoint for a name/photo/genres lookup, but that's an add-on -
+   a gig can be logged with a plain typed name whether or not a proxy is configured. */
+let GIG_SEARCH_TIMER = null;
+let GIG_SEARCH_RESULTS = [];   // last search response, held so a click on a result doesn't refetch
+let GIG_PICKED = null;         // {id,name,image} once a search result's been chosen for the open form
+function renderGigs(){
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">Gigs</span>
+        <button class="btn sm primary" onclick="App.gigForm(-1)">+ Add Gig</button>
+      </div>
+    </div>
+    <div id="gigs-body"></div>`;
+  drawGigsList();
+  loadGigsCloud(cloud => {
+    DB.gigs = Array.isArray(cloud) ? cloud : [];
+    saveLocal();
+    drawGigsList();
+  });
+}
+function drawGigsList(){
+  const body = $('#gigs-body'); if(!body) return;
+  const gigs = DB.gigs||[];
+  if(!gigs.length){ body.innerHTML = `<div class="empty">No gigs logged yet.<br>Tap + Add Gig to log the first one.</div>`; return; }
+  const ordered = gigs.map((g,i)=>({g,i})).sort((a,b)=>(b.g.date||'').localeCompare(a.g.date||''));
+  body.innerHTML = `<div class="gig-list">${ordered.map(o=>gigCardHTML(o.g,o.i)).join('')}</div>`;
+}
+function gigCardHTML(g, i){
+  const facts = [g.venue, g.city, g.date?fmtDate(g.date):''].filter(Boolean).join(' · ');
+  return `
+    <div class="card gig-card">
+      <div class="gig-top">
+        ${g.image ? `<img class="gig-cover" src="${esc(g.image)}" alt="" loading="lazy">`
+                   : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">${fa('microphone')}</span>`}
+        <div class="gig-info">
+          <div class="gig-name">${esc(g.artist||'Untitled')}</div>
+          ${facts?`<div class="gig-facts muted small">${esc(facts)}</div>`:''}
+          ${g.notes?`<div class="gig-notes small">${esc(g.notes)}</div>`:''}
+        </div>
+        <div class="gig-actions">
+          <button class="iconbtn edit" aria-label="Edit gig" title="Edit" onclick="App.gigForm(${i})">${ICONS.edit}</button>
+          <button class="iconbtn del" aria-label="Remove gig" title="Remove" onclick="App.delGig(${i})">${ICONS.trash}</button>
+        </div>
+      </div>
+    </div>`;
+}
+/* the artist field: a live search against Spotify (via the proxy) when one's configured, a
+   plain text box otherwise - logging a gig never has to wait on that being set up */
+function gigArtistFieldHTML(g){
+  if(!psnConfigured()){
+    return `<div class="field"><label class="label" for="gig-artist">Artist</label>
+      <input id="gig-artist" type="text" value="${esc(g.artist||'')}" placeholder="Artist or band name"></div>`;
+  }
+  return `<div class="field gig-search-wrap"><label class="label" for="gig-artist">Artist</label>
+    <input id="gig-artist" type="text" value="${esc(g.artist||'')}" placeholder="Search for an artist…"
+      autocomplete="off" oninput="App.gigArtistInput()">
+    <div id="gig-search-results"></div>
+    <div id="gig-picked"></div>
+  </div>`;
+}
+function gigPickedHTML(){
+  if(!GIG_PICKED) return '';
+  return `<div class="gig-selected-artist">
+    ${GIG_PICKED.image ? `<img src="${esc(GIG_PICKED.image)}" alt="">` : ''}
+    <span>${esc(GIG_PICKED.name)}</span>
+  </div>`;
+}
+function gigFormImpl(i){
+  const g = (i>=0 && (DB.gigs||[])[i]) || {};
+  GIG_PICKED = (i>=0 && g.artistId) ? {id:g.artistId, name:g.artist, image:g.image} : null;
+  GIG_SEARCH_RESULTS = [];
+  openModal(`
+    <h2>${i>=0?'Edit Gig':'Log a Gig'}</h2>
+    ${gigArtistFieldHTML(g)}
+    <div class="grid2">
+      <div class="field"><label class="label" for="gig-venue">Venue</label><input id="gig-venue" type="text" value="${esc(g.venue||'')}"></div>
+      <div class="field"><label class="label" for="gig-city">City</label><input id="gig-city" type="text" value="${esc(g.city||'')}"></div>
+    </div>
+    <div class="field"><label class="label" for="gig-date">Date</label><input id="gig-date" type="date" value="${esc(g.date||'')}"></div>
+    <div class="field"><label class="label" for="gig-notes">Notes</label><textarea id="gig-notes" rows="3">${esc(g.notes||'')}</textarea></div>
+    <button class="btn primary" style="width:100%" onclick="App.saveGig(${i>=0?i:-1})">${i>=0?'Save':'Add Gig'}</button>`);
+  const picked = $('#gig-picked'); if(picked) picked.innerHTML = gigPickedHTML();
+}
+/* each keystroke would hammer Spotify (via the proxy) on every letter, so this waits for a
+   pause in typing before firing, same as Board Games' search */
+function gigArtistInputImpl(){
+  GIG_PICKED = null;
+  const picked = $('#gig-picked'); if(picked) picked.innerHTML = '';
+  clearTimeout(GIG_SEARCH_TIMER);
+  const q = ($('#gig-artist').value||'').trim();
+  const results = $('#gig-search-results'); if(results) results.innerHTML = '';
+  if(!q) return;
+  GIG_SEARCH_TIMER = setTimeout(()=>gigArtistSearch(q), 400);
+}
+function gigArtistSearch(q){
+  const results = $('#gig-search-results'); if(!results) return;
+  results.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">Searching…</div></div>`;
+  fetch(psnUrl('/spotify-search') + '?q=' + encodeURIComponent(q))
+    .then(r => {
+      if(r.status===503) throw new Error("Spotify isn't connected yet - add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET as secrets on your proxy (see psn-proxy/README.md).");
+      if(r.status===404) throw new Error("Your proxy is running an older version that doesn't have Spotify search yet. Redeploy the worker in psn-proxy/ and this'll fill in.");
+      if(!r.ok) throw new Error('status '+r.status);
+      return r.json();
+    })
+    .then(data => {
+      const cur = $('#gig-search-results'); if(!cur) return;
+      GIG_SEARCH_RESULTS = data.artists||[];
+      if(!GIG_SEARCH_RESULTS.length){ cur.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">No artists found</div></div>`; return; }
+      cur.innerHTML = `<div class="gig-search-results">${GIG_SEARCH_RESULTS.map((a,n)=>`
+        <div class="gig-search-item" role="button" tabindex="0" onclick="App.gigArtistPick(${n})"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.gigArtistPick(${n})}">
+          ${a.image ? `<img class="gig-search-thumb" src="${esc(a.image)}" alt="">` : `<span class="gig-search-thumb gig-cover-fallback">${fa('microphone')}</span>`}
+          <span>${esc(a.name)}</span>
+        </div>`).join('')}</div>`;
+    })
+    .catch(e => {
+      const cur = $('#gig-search-results'); if(!cur) return;
+      cur.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">${esc(e.message||"Couldn't search")}</div></div>`;
+    });
+}
+function gigArtistPickImpl(n){
+  const a = GIG_SEARCH_RESULTS[n]; if(!a) return;
+  GIG_PICKED = a;
+  const inp = $('#gig-artist'); if(inp) inp.value = a.name;
+  const results = $('#gig-search-results'); if(results) results.innerHTML = '';
+  const picked = $('#gig-picked'); if(picked) picked.innerHTML = gigPickedHTML();
+}
+function saveGigImpl(i){
+  const artist = ($('#gig-artist').value||'').trim();
+  if(!artist) return markErr('#gig-artist','Enter an artist name');
+  const gig = {
+    artist,
+    artistId: (GIG_PICKED && GIG_PICKED.name===artist) ? GIG_PICKED.id : '',
+    image: (GIG_PICKED && GIG_PICKED.name===artist) ? GIG_PICKED.image : '',
+    venue: $('#gig-venue').value.trim(),
+    city: $('#gig-city').value.trim(),
+    date: $('#gig-date').value,
+    notes: $('#gig-notes').value.trim()
+  };
+  DB.gigs = DB.gigs||[];
+  if(i>=0 && DB.gigs[i]) DB.gigs[i] = gig; else DB.gigs.push(gig);
+  saveGigs(); closeModal(); drawGigsList();
+}
+function delGigImpl(i){
+  DB.gigs = DB.gigs||[];
+  DB.gigs.splice(i,1);
+  saveGigs(); drawGigsList();
+  toast('Gig removed');
+}
+
 function route(){
-  closeModal(); closeMenu(); closeAddWheel();
+  closeModal(); closeMenu();
   // #app is reused across routes (innerHTML swapped, not replaced), so a data-tab left over
   // from a previous trip visit would otherwise persist onto the hub/Places pages too
   const appEl = $('#app'); if(appEl) delete appEl.dataset.tab;
@@ -3301,6 +3436,10 @@ function route(){
   if(h === '#/games'){
     CUR_TRIP_ID = null; stopSub();
     renderGames(); window.scrollTo(0,0); return;
+  }
+  if(h === '#/gigs'){
+    CUR_TRIP_ID = null; stopSub();
+    renderGigs(); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/design/')){
     CUR_TRIP_ID = null; stopSub();
@@ -3399,6 +3538,12 @@ App.goToYourTrips = () => {
 };
 App.goGames = () => { location.hash = '#/games'; };
 App.goDesign = () => { location.hash = '#/design'; };
+App.goGigs = () => { location.hash = '#/gigs'; };
+App.gigForm = gigFormImpl;
+App.gigArtistInput = gigArtistInputImpl;
+App.gigArtistPick = gigArtistPickImpl;
+App.saveGig = saveGigImpl;
+App.delGig = delGigImpl;
 App.readArticle = i => { location.hash = '#/design/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
@@ -3867,12 +4012,16 @@ function renderTrip(t){
   renderSidebar(t);
   const phrase = statusPhrase(t);
   const upcoming = CUR_TAB==='home' ? upcomingStartDate(t) : null;
+  // mobile-only stand-in for the tabbar's old Menu slot (removed to free up room for Gigs);
+  // .menu-btn is already hidden by the desktop sidebar's own media query, so this needs no
+  // breakpoint logic of its own
+  const menuBtn = `<button class="menu-btn" onclick="App.openMenu()" aria-label="Open trip menu">${ICONS.menu}<span>Menu</span></button>`;
   $('#app').innerHTML = `
     ${CUR_TAB==='home' ? `
     <div class="page-head" style="margin-bottom:22px">
       <div class="trip-title-row">
         <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
-        ${isArchived(t) ? statusPill(t) : ''}
+        <span style="display:flex; align-items:center; gap:8px">${isArchived(t) ? statusPill(t) : ''}${menuBtn}</span>
       </div>
       <p class="muted trip-meta">
         <span><span class="meta-emoji" aria-hidden="true">📅</span><span class="meta-text">${esc(tripWhenLine(t))}</span></span>
@@ -3883,7 +4032,7 @@ function renderTrip(t){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here"><button class="crumb-backbtn" onclick="App.tab('home')" aria-label="Back to overview">${ICONS.back}</button>${esc((TABS.find(x=>x[0]===CUR_TAB)||[])[1]||'')}</span>
-        <span class="crumb-action">${ro?'':crumbAction(t)}</span>
+        <span class="crumb-action">${ro?'':crumbAction(t)}${menuBtn}</span>
       </div>
     </div>`}
     <div id="tab-body"></div>
@@ -4028,6 +4177,7 @@ function sidebarGlobalNav(inTrip){
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips' || !location.hash || location.hash==='#/';
   const onGames  = location.hash.startsWith('#/games');
   const onDesign = location.hash.startsWith('#/design');
+  const onGigs   = location.hash.startsWith('#/gigs');
   const item = (label, emoji, fn, active) => `
     <div class="menu-item${active?' active':''}" role="menuitem" tabindex="0" onclick="${fn}"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}">
@@ -4035,7 +4185,8 @@ function sidebarGlobalNav(inTrip){
     </div>`;
   return (inTrip ? '' : item('Travel','🌎',"App.goPlaces()", onPlaces))
     + item('Games','🎮',"App.goGames()", onGames)
-    + item('Design','🎨',"App.goDesign()", onDesign);
+    + item('Design','🎨',"App.goDesign()", onDesign)
+    + item('Gigs','🎤',"App.goGigs()", onGigs);
 }
 function renderSidebar(t){
   const root = $('#sidebar-root'); if(!root) return;
@@ -4048,18 +4199,17 @@ function renderTabbar(){
   const bar = $('#tabbar'); if(!bar) return;
   if(!pinOk()){ bar.innerHTML = ''; bar.classList.remove('on'); return; }
   bar.classList.add('on');
-  const t = CUR_TRIP_ID && getTrip(CUR_TRIP_ID);
   /* Places is the front door, so it owns the bare hash, its own list screens, and Your Trips
      (reached from the Going card) - Trips no longer has a tab of its own */
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips'
                     || !location.hash || location.hash==='#/';
   const onGames  = location.hash.startsWith('#/games');
   const onDesign = location.hash.startsWith('#/design');
-  /* with the menu open the bar rides above it, so the same thumb that opened it can close
-     it; anything else you tap from there dismisses the menu on the way through */
+  const onGigs   = location.hash.startsWith('#/gigs');
+  /* with the menu open the bar rides above it; anything tapped from there dismisses the menu
+     on the way through (the menu itself now opens from a button in the trip header, not here) */
   const menuOpen = menuIsOpen();
   bar.classList.toggle('over-menu', menuOpen);
-  bar.classList.toggle('over-wheel', wheelIsOpen());
   const go = fn => menuOpen ? 'App.closeMenu();'+fn : fn;
   const item = (label, emoji, fn, active, off) => `
     <button class="tabbar-item${active?' active':''}" ${off?'disabled aria-disabled="true"':''}
@@ -4070,92 +4220,12 @@ function renderTabbar(){
   bar.innerHTML =
       item('Travel','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
     + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
-    + `<button class="tabbar-new${wheelIsOpen()?' open':''}" onclick="${go('App.toggleAddWheel()')}"
-        aria-label="${wheelIsOpen()?'Close':'Add something'}" aria-expanded="${wheelIsOpen()}"></button>`
     + item('Design','🎨',go("App.goDesign()"), onDesign && !menuOpen, false)
-    + (menuOpen
-        ? item('Close','✕',"App.closeMenu()", true, false)
-        : item('Menu','☰',"App.openMenu()", false, !t));
+    + item('Gigs','🎤',go("App.goGigs()"), onGigs && !menuOpen, false);
   /* anything that has to sit on top of the bar (the Places search, the hub's height) needs
      its real height, inset and all, not a number that was right on one phone */
   document.documentElement.style.setProperty('--bar-h', bar.offsetHeight+'px');
 }
-/* ---------- add wheel ----------
-   The handful of things you add over and over, on one arc off the +, rather than having to
-   know which section each of them lives in first. Everything else is still added from its
-   own section, which is where you'd be anyway if you were adding one of the rarer things.
-   Documents takes you to its section rather than opening a form, because a file picker has
-   to be clicked by the person, not by us. */
-function addWheelItems(t, ro){
-  if(!t || ro) return [];   // nothing to add on the trips list or an archived trip
-  return [
-    ['💡','Idea',     "App.moodForm()"],
-    ['📍','Stop',     "App.planForm(-1)"],
-    ['💰','Receipt',  "App.receiptForm(-1)"],
-    ['🚌','Travel',   "App.travelLegForm(-1)"],
-    ['📎','Document', "App.tab('docs')"]
-  ];
-}
-/* mid-retraction counts as closed, so the + un-rotates straight away and tapping it again
-   re-opens rather than waiting for the animation to finish */
-function wheelIsOpen(){
-  const r = $('#wheel-root');
-  return !!r.firstChild && !r.classList.contains('closing');
-}
-let WHEEL_CLEANUP = null;
-function closeAddWheel(){
-  const root = $('#wheel-root');
-  if(!root.firstChild || root.classList.contains('closing')) return;
-  /* the buttons retract into the + rather than vanishing, so the markup has to outlive the
-     click by as long as that takes. Last one out goes first, mirroring the order they
-     appeared in, so the wheel folds back the way it unfolded. */
-  const items = [...root.querySelectorAll('.wheel-item')];
-  items.forEach((el,i)=>{ el.style.animationDelay = ((items.length-1-i)*14)+'ms'; });
-  root.classList.add('closing');
-  renderTabbar();
-  clearTimeout(WHEEL_CLEANUP);
-  WHEEL_CLEANUP = setTimeout(()=>{
-    const r = $('#wheel-root');
-    if(r.classList.contains('closing')){ r.classList.remove('closing'); r.innerHTML = ''; }
-  }, 320);
-}
-App.closeAddWheel = closeAddWheel;
-App.toggleAddWheel = () => {
-  if(wheelIsOpen()) return closeAddWheel();
-  const t = getTrip(CUR_TRIP_ID);
-  const items = addWheelItems(t, t && readOnly(t));
-  /* nothing to add here means the + keeps its old job: outside a trip it just starts one */
-  if(!items.length) return App.newTrip();
-  const btn = $('.tabbar-new'); if(!btn) return;
-  const b = btn.getBoundingClientRect();
-  const cx = b.left + b.width/2, cy = b.top + b.height/2;
-  /* the arc has to fit the screen it's drawn on, so the radius comes from the viewport
-     rather than being fixed: it never reaches closer than 30px to either edge */
-  const r = Math.max(84, Math.min(112, cx - 30, window.innerWidth - cx - 30));
-  /* stops well short of horizontal so the end buttons stay clear of the bar's own labels
-     rather than sitting on top of "Trips" and "Menu". A lone item sits straight up. */
-  const span = 140, from = 90 + span/2, to = 90 - span/2;
-  const all = items.map(([emoji,label,fn], n) => {
-    const frac = items.length===1 ? 0.5 : n/(items.length-1);
-    const rad = (from + (to-from)*frac)*Math.PI/180;
-    const x = cx + Math.cos(rad)*r, y = cy - Math.sin(rad)*r;
-    /* how far back to the + this button sits: where it springs from, and folds back into */
-    return {x, y, dx: Math.round(cx-x), dy: Math.round(cy-y), emoji, label, fn, delay: n*22};
-  });
-  clearTimeout(WHEEL_CLEANUP);
-  const root = $('#wheel-root');
-  root.classList.remove('closing');
-  root.innerHTML =
-    `<div class="wheel-scrim" onclick="App.closeAddWheel()"></div>`
-    + `<div role="menu" aria-label="Add">`
-    + all.map(w=>`<button class="wheel-item" role="menuitem"
-        style="left:${Math.round(w.x)}px; top:${Math.round(w.y)}px; --dx:${w.dx}px; --dy:${w.dy}px; animation-delay:${w.delay}ms"
-        aria-label="${esc(w.label)}" title="${esc(w.label)}"
-        onclick="App.closeAddWheel();${w.fn}">${secEmoji(w.emoji)}</button>`).join('')
-    + `</div>`;
-  renderTabbar();
-  const first = $('#wheel-root .wheel-item'); if(first) first.focus();
-};
 function menuIsOpen(){ return !!$('#menu-root').firstChild; }
 function closeMenu(){
   if(!menuIsOpen()) return;
