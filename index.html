@@ -288,10 +288,15 @@ a{color:var(--brand-dark);}
 /* a grid item's default min-width is its content's natural width, not 0 - without this the
    long-name column refused to shrink and pushed the whole second column off-screen instead of
    letting the name ellipsize the way it's meant to */
-.gig-list-artists .gig-artist-row{padding:6px 10px; cursor:pointer; margin-bottom:0; min-width:0;}
-.gig-list-artists .gig-top{gap:8px;}
-.gig-list-artists .gig-cover{width:34px; height:34px;}
-.gig-list-artists .gig-cover-fallback{font-size:.95rem;}
+.gig-list-artists .gig-artist-row{padding:10px; cursor:pointer; margin-bottom:0; min-width:0;}
+/* stacked and centred rather than the side-by-side row the fuller gig card uses: photo up top,
+   name under it, then the seen/not-seen status last */
+.gig-list-artists .gig-top{flex-direction:column; align-items:center; gap:6px; text-align:center;}
+/* the 78% here (not 70%) is relative to the row's content box, inside its own 10px padding -
+   worked out so the circle actually lands at ~70% of the full card width */
+.gig-list-artists .gig-cover{width:78%; height:auto; aspect-ratio:1/1;}
+.gig-list-artists .gig-cover-fallback{width:78%; aspect-ratio:1/1; font-size:1.4rem;}
+.gig-list-artists .gig-info{flex:none; width:100%;}
 .gig-list-artists .gig-name{font-size:.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .gig-list-artists .gig-seen-pill{font-size:.62rem; padding:3px 7px;}
 @media(max-width:380px){
@@ -919,8 +924,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.92.0';
+const APP_VERSION = '1.93.0';
 const CHANGELOG = [
+  {version:'1.93.0', notes:[
+    'Artists checklist cards are centred now - photo on top (a circle, about 70% of the card\'s width), name below it, seen/not-seen status last - instead of the photo-beside-name row.'
+  ]},
   {version:'1.92.0', notes:[
     'Board Games\' 401 wasn\'t a network block after all - last version\'s theory was wrong. BoardGameGeek now requires every request to carry a registered app token, which is why moving the request to a different host didn\'t help. Fixed properly this time: BGG_API_TOKEN is a one-time Vercel environment variable, see psn-proxy/README.md for how to get one (free, a couple of minutes).'
   ]},
