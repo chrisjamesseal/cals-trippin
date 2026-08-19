@@ -4,8 +4,9 @@
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
 > tab's RSS, and `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` group for Gigs' artist search and Artists checklist.
-> Deploying this once turns all of them on. (Board Games isn't here - see "Connect
-> BoardGameGeek" below for where that actually lives and its own one-time setup.)
+> Deploying this once turns all of them on. (Board Games and the Games tab's Wishlist aren't
+> here - see "Connect BoardGameGeek" and "Connect RAWG" below for where those actually live and
+> their own one-time setup.)
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -67,6 +68,22 @@ request to carry a registered application's token, so it does need one piece of 
    add `BGG_API_TOKEN` with the token as its value → redeploy (or just push again) for it to
    take effect.
 
+## Connect RAWG (for the Games Wishlist)
+
+The Games tab's Wishlist - search for a new or upcoming game (GTA VI, say) and save it to a
+list - talks to [RAWG](https://rawg.io/apidocs) through `api/game-search.js`, another Vercel
+Edge Function alongside `api/board-games.js` (same repo, same `git push`, no separate deploy).
+RAWG's free tier just needs a key, no OAuth dance:
+
+1. Sign up at [rawg.io/apidocs](https://rawg.io/apidocs) for a free API key (no credit card).
+2. Set it as an environment variable on the Vercel project (**not** in `api/game-search.js` or
+   anywhere else in this repo, tied to your own RAWG account the same as the other keys here):
+   Vercel dashboard → your project → Settings → Environment Variables → add `RAWG_API_KEY` with
+   the key as its value → redeploy (or just push again) for it to take effect.
+
+The Wishlist itself (which games you've saved) stays on-device in `localStorage`, the same way
+Board Games' Want to Play/Played marks do - no account, nothing synced.
+
 ## Connect Spotify (for Gigs)
 
 Gigs works without any of this - artist name/venue/date/notes can always be typed by hand - but
@@ -113,6 +130,10 @@ it moved). If it says "isn't configured", the Vercel project is missing (or has 
 `BGG_API_TOKEN` environment variable - see "Connect BoardGameGeek" above. A raw "BoardGameGeek
 returned 401" instead means the token itself is bad or expired - re-check it against BGG's own
 registration page. That endpoint caches for six hours (an hour for searches).
+
+The Wishlist lives in `api/game-search.js`, same setup as Board Games: if it says "isn't
+configured", the Vercel project is missing (or has a stale) `RAWG_API_KEY` environment variable
+- see "Connect RAWG" above.
 
 If Gigs' artist search says "Spotify isn't connected yet", the worker is missing (or has a
 stale) `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` secret - see "Connect Spotify" above. If
