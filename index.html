@@ -251,16 +251,13 @@ a{color:var(--brand-dark);}
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
 .want-switch{display:flex; width:100%; border:1px solid var(--line-strong); border-radius:999px; overflow:hidden;}
-.want-opt{flex:1; text-align:center; padding:7px 6px; font-size:.72rem; font-weight:700;
+.want-opt{flex:1; text-align:center; padding:7px 4px; font-size:.68rem; font-weight:700;
   color:var(--muted); cursor:pointer; user-select:none; white-space:nowrap;}
 .want-opt.on{background:var(--brand-tint); color:var(--brand-dark);}
 .want-opt:focus-visible{outline:2px solid var(--brand); outline-offset:-2px;}
-/* a country already on a booked trip has nothing to toggle - Want to Go/Not Exploring makes
-   no sense once you're already going - so it gets this instead, styled the same as those
-   chips but greyed out and fixed, sitting where the switch would otherwise be */
-.going-pill{display:inline-block; border:1px solid var(--line-strong); border-radius:999px;
-  padding:7px 14px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--paper);
-  white-space:nowrap; flex-shrink:0;}
+/* a country already on a booked trip has nothing left to toggle - Going is locked on, and the
+   other two options along with it, rather than pulling Going out into a pill of its own */
+.want-switch.locked .want-opt{cursor:default;}
 .place-actions.finder{display:block;}
 .trip-card .trip-flags{margin-bottom:4px;}
 .trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
@@ -303,6 +300,10 @@ a{color:var(--brand-dark);}
 .crumb-titlerow{display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; flex-wrap:wrap;}
 .crumb-action{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
 .fav{width:20px; height:20px; border-radius:5px; vertical-align:-4px; margin-right:7px; background:var(--bg);}
+/* the Maps pin's own artwork tapers to a point at the bottom, so its visual weight sits above
+   the true centre of its box - nudged down a touch so it reads as centred against the row
+   beside it instead of floating high */
+.accom-head-map{display:flex; align-items:center; transform:translateY(3px);}
 
 /* ---------- forms ---------- */
 input[type=text],input[type=date],input[type=time],input[type=number],input[type=url],input[type=tel],input[type=password],select,textarea{
@@ -399,7 +400,7 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .place-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
 .place-head .status-pill{flex-shrink:0;}
 .place-actions{display:flex; align-items:center; justify-content:space-between; gap:6px;}
-.places-continent-heading{margin:0 0 10px; font-size:.95rem; display:flex; align-items:center; gap:7px;}
+.places-continent-heading{margin:18px 0 10px; font-size:.95rem; display:flex; align-items:center; gap:7px;}
 .places-continent-heading + .places-grid{margin-bottom:22px;}
 .been-cont-count{font-weight:600;}
 /* capital and language sit side by side now the card is full width, which halves its height:
@@ -756,7 +757,7 @@ a.dash-tile{text-decoration:none;}
 /* more air between days than the rest of the app's headings get, on purpose: a long trip's
    itinerary is the most stacked-up page there is, and the gap is what breaks it into days
    you can take in one at a time instead of one long scroll */
-.plan-day{margin:40px 0 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.plan-day{margin:40px 0 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .plan-day:first-child{margin-top:4px;}
 /* "Day N" carries the weight - it's the number you actually navigate by while scrolling - the
    date beside it is just a cross-reference, so it stays small and quiet in comparison */
@@ -810,7 +811,14 @@ a.dash-tile{text-decoration:none;}
 .poll-opt-text .icon{color:var(--brand-dark); flex-shrink:0;}
 .poll-opt-n{font-size:.74rem; font-weight:700; color:var(--muted); white-space:nowrap; flex-shrink:0;}
 .poll-voters{position:relative; z-index:1; margin-top:3px; font-size:.7rem; color:var(--muted); overflow-wrap:anywhere;}
-.plan-img{width:100%; max-height:220px; object-fit:cover; border-radius:var(--radius-sm); display:block; margin-bottom:10px;}
+/* full-bleed, no radius of its own - .plan-card-photo clips it back to the card's own rounded
+   corners via overflow instead, so it reads as one continuous edge rather than a photo with a
+   frame around it */
+.plan-card.plan-card-photo{padding-left:0; padding-right:0; overflow:hidden;}
+.plan-card-photo .section-head,.plan-card-photo>p,.plan-card-photo>.small,.plan-card-photo>.btn-row{padding-left:18px; padding-right:18px;}
+.plan-img-wrap{position:relative;}
+.plan-img{width:100%; max-height:220px; object-fit:cover; display:block; margin-bottom:10px;}
+.plan-img-map{position:absolute; top:10px; right:10px; background:var(--paper); box-shadow:var(--shadow);}
 .plan-auto{margin-bottom:20px;}
 .plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--brand-dark);}
 .plan-auto-tag .icon{font-size:.95rem;}
@@ -896,8 +904,18 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.79.0';
+const APP_VERSION = '1.80.0';
 const CHANGELOG = [
+  {version:'1.80.0', notes:[
+    'A bit more air above "All Countries" and below a Day heading.',
+    'Country Finder: Going joins Want to Go / Not Exploring as a third option in the same switch, instead of a separate grey pill - locked once a country\'s actually going, and tapping it on one that isn\'t opens New Trip with that country already added.',
+    'Places I\'ve Been: removed the delete icon from each card.',
+    'The Accommodation gap card in Tasks now has a "Not Booked Yet" title above it like everything else there.',
+    'A Task without a specific day now shows the same dashed outline as everything else outstanding in Tasks, and Tasks got a "No Specific Day" toggle - a day-less task no longer shows on the Itinerary, just in Tasks.',
+    'The Accommodation tag\'s bracketed time now says what it is - "(15:00 Check In)", "(Check Out)" - and its Maps icon nudged down to sit centred against the row.',
+    'Flights on the Travel tab now shows a plain "No flights yet." like Ferries and Car Hire, instead of its own bigger empty-state card.',
+    'A stop\'s photo is full width and flush with the card now, with a Maps icon overlaid top-right on it instead of a button below; the time of day moved out of the title into its own line underneath.'
+  ]},
   {version:'1.79.0', notes:[
     'The Itinerary\'s accommodation card is one line now: the logo is the booking link itself, Maps takes the header\'s right-hand slot, and the auto-filled "Airbnb in X" name drops the service name since the logo already says it. The check-in time moved into brackets next to the Accommodation tag\'s own time above the card.',
     'A flight card\'s head (airline, number, date) now opens live flight status directly - the separate Track Flight link is gone.'
@@ -2553,19 +2571,22 @@ function placeCardHTML(co, tripStatus){
   const starChip = `<span class="chip pick mode-pick ${status==='want'?'on':''}" role="button" tabindex="0"
       aria-label="Want to Go" aria-pressed="${status==='want'}" title="Want to Go"
       ${act(`App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})`)}>${fa('heart')}</span>`;
-  const wantSwitch = `<div class="want-switch" role="radiogroup" aria-label="${esc(co.name)}">
+  /* on Country Finder, a country already on a booked trip has nothing left to toggle between
+     Want to Go and Not Exploring - so instead of a fixed pill sitting apart from the switch,
+     Going joins it as a third option, styled the same as the other two but locked once it's
+     already true (there's no trip to un-book from here). Tapping Going on a country that isn't
+     yet is how you'd book one - it opens New Trip with that country already added. */
+  const goingLocked = status==='going';
+  const wantSwitch = `<div class="want-switch${goingLocked?' locked':''}" role="radiogroup" aria-label="${esc(co.name)}">
       <span class="want-opt ${status==='want'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='want'}"
-            ${act(`App.setPlaceStatus('${co.code}','want')`)}>Want to Go</span>
-      <span class="want-opt ${status==='want'?'':'on'}" role="radio" tabindex="0" aria-checked="${status!=='want'}"
-            ${act(`App.setPlaceStatus('${co.code}',null)`)}>Not Exploring</span>
+            ${goingLocked?'aria-disabled="true"':act(`App.setPlaceStatus('${co.code}','want')`)}>Want to Go</span>
+      <span class="want-opt ${(!goingLocked && status!=='want')?'on':''}" role="radio" tabindex="0" aria-checked="${!goingLocked && status!=='want'}"
+            ${goingLocked?'aria-disabled="true"':act(`App.setPlaceStatus('${co.code}',null)`)}>Not Exploring</span>
+      <span class="want-opt ${goingLocked?'on':''}" role="radio" tabindex="0" aria-checked="${goingLocked}"
+            ${goingLocked?'aria-disabled="true"':act(`App.setPlaceGoing('${co.code}')`)}>Going</span>
     </div>`;
-  /* on Country Finder, a country already on a booked trip has nothing left to toggle - Want
-     to Go / Not Exploring doesn't mean anything once you're already going - so the switch is
-     replaced by a fixed, greyed "Going" pill instead, up where the switch would read */
-  const goingLocked = view==='finder' && status==='going';
   const actions =
-      goingLocked ? ''
-    : view==='finder' ? wantSwitch
+      view==='finder' ? wantSwitch
     : `<div class="chips">${beenChip}${starChip}</div>
        <a class="iconbtn" href="${esc(flightUrl)}" target="_blank" rel="noopener"
         onclick="return App.openExternal(event, '${esc(flightUrl)}')"
@@ -2577,8 +2598,7 @@ function placeCardHTML(co, tripStatus){
           <span class="flag">${co.flag}</span>
           <span class="place-name-text">${esc(co.name)}</span>
         </div>
-        ${goingLocked ? `<span class="going-pill">Going</span>`
-          : status==='going' ? `<span class="status-pill soon">Going</span>` : ''}
+        ${view!=='finder' && status==='going' ? `<span class="status-pill soon">Going</span>` : ''}
       </div>
       ${info ? `<div class="place-info">
         <span title="Capital">${fa('landmark')}${esc(info[0])}</span>
@@ -2599,12 +2619,9 @@ function drawBeenSubtabs(){
   el.innerHTML = tab('list','🔢 In Order') + tab('continents','🌍 Continents');
 }
 function beenCardHTML(co, num){
-  const removeLabel = "Remove "+co.name+" from Places I've Been";
   return `
     <div class="place-card been-card" data-code="${co.code}">
       <span class="been-num" aria-hidden="true">#${num}</span>
-      <button type="button" class="iconbtn been-delete-btn" aria-label="${esc(removeLabel)}" title="Remove"
-        onclick="App.setPlaceStatus('${co.code}','none')">${fa('trash')}</button>
       <span class="flag">${co.flag}</span>
       <span class="place-name-text">${esc(co.name)}</span>
     </div>`;
@@ -3552,6 +3569,13 @@ App.addTripCountry = () => {
   drawNTCountries();
 };
 App.delTripCountry = i => { NT_COUNTRIES.splice(i,1); drawNTCountries(); };
+/* tapping Going on a country that isn't yet is how you'd book one from Country Finder - there's
+   no "going" status to set on its own, going is just what a country on a real trip's dates
+   reads as, so this opens New Trip with the country already added instead */
+App.setPlaceGoing = code => {
+  App.newTrip();
+  if(!NT_COUNTRIES.includes(code)){ NT_COUNTRIES.push(code); drawNTCountries(); }
+};
 App.createTrip = () => {
   const name = $('#f-name').value.trim();
   if(!name){ noteModal('Name Needed', 'Give the trip a name first.'); return; }
@@ -4421,7 +4445,7 @@ function taskRowHTML(t, task, i, ro){
      deletes itself - but there has to be a way in, or a task flagged red for having no day
      could never be given one */
   return `
-    <div class="card task-card${task.done?' task-done':''}${unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}"
+    <div class="card task-card${task.done?' task-done':''}${!task.done?' card-undecided':''}${!ro?' plan-click':''}"
       ${!ro?`role="button" tabindex="0" onclick="App.taskForm(${i})"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.taskForm(${i})}"`:''}>
       <div class="section-head" style="margin-bottom:4px">
@@ -4477,14 +4501,23 @@ function undecidedItemsHTML(t, ro){
         editFn:`App.planGapForm('${k}', ${rough})`});
     }
   });
+  /* a stretch of nights with nowhere booked gets the same tag-above-card treatment as every
+     other row here, instead of sitting on its own with no label - tapping it opens the same
+     Add Accommodation form the gap card's own button does, so nothing's lost by dropping it */
+  stayGaps(t).forEach(g => {
+    const n = g.nights;
+    const when = n===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.lastNight);
+    rows.push({icon:secEmoji('🛏️'), label:'Not Booked Yet',
+      inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${n} Night${n===1?'':'s'}</h3><p class="small muted" style="margin-top:4px">${esc(when)}</p></div>`,
+      editFn:`App.accomGapForm('${g.firstNight}','${g.checkout}')`});
+  });
   const cards = rows.map(r => `
     <div class="plan-auto${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
       <div class="plan-auto-tag">${r.icon}<strong>${r.label}</strong></div>
       ${r.inner}
     </div>`).join('');
-  const gapCards = stayGaps(t).map(g => stayGapCardHTML(g, ro)).join('');
-  return cards + gapCards;
+  return cards;
 }
 function tabTasks(t, ro){
   const items = t.tasks||[];
@@ -4509,16 +4542,23 @@ App.taskForm = i => {
     .map(h=>`<option value="${String(h).padStart(2,'0')}" ${h===initHour?'selected':''}>${String(h).padStart(2,'0')}</option>`).join('');
   const minOpts = [0,15,30,45]
     .map(m=>`<option value="${String(m).padStart(2,'0')}" ${m===initMin?'selected':''}>${String(m).padStart(2,'0')}</option>`).join('');
+  const noDay = i>=0 && !task.date && !task.day;
   openModal(`
     <h2>${i>=0?'Edit Task':'Add Task'}</h2>
     <div class="field"><label class="label" for="tk-title">What needs sorting</label>
       <input id="tk-title" type="text" value="${esc(task.title||'')}" placeholder="e.g. Hotel near the airport"></div>
-    <div class="grid2">
+    <div class="field">
+      <label class="switch-row"><span>No Specific Day</span>
+        <span class="switch"><input type="checkbox" id="tk-noday" ${noDay?'checked':''} onchange="App.taskNoDayChange()"><span class="knob"></span></span>
+      </label>
+      <p class="muted small" style="margin-top:4px">Won't show on the Itinerary - just here in Tasks.</p>
+    </div>
+    <div class="grid2" id="tk-day-wrap" style="${noDay?'display:none':''}">
       ${dayOrDateFieldHTML('tk', t, task)}
       <div class="field"><label class="label" for="tk-when">When</label>
         <select id="tk-when" onchange="App.taskWhenChange()">${whenOptionsHTML(initWhen)}</select></div>
     </div>
-    <div class="grid2 pair" id="tk-time-wrap" style="${initWhen==='time'?'':'display:none'}">
+    <div class="grid2 pair" id="tk-time-wrap" style="${initWhen==='time' && !noDay?'':'display:none'}">
       <div class="field"><label class="label" for="tk-hour">Hour</label>
         <select id="tk-hour">${hourOpts}</select></div>
       <div class="field"><label class="label" for="tk-min">Minute</label>
@@ -4530,16 +4570,22 @@ App.taskForm = i => {
 };
 App.taskWhenChange = () => {
   const wrap = $('#tk-time-wrap'); if(!wrap) return;
-  wrap.style.display = $('#tk-when').value==='time' ? 'grid' : 'none';
+  wrap.style.display = ($('#tk-when').value==='time' && !$('#tk-noday').checked) ? 'grid' : 'none';
+};
+App.taskNoDayChange = () => {
+  const noDay = $('#tk-noday').checked;
+  const dayWrap = $('#tk-day-wrap'); if(dayWrap) dayWrap.style.display = noDay ? 'none' : 'grid';
+  App.taskWhenChange();
 };
 App.saveTask = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const title = ($('#tk-title').value||'').trim();
   if(!title) return markErr('#tk-title','Give it a name');
-  const {date, day} = readDayOrDate('tk');
-  const when = $('#tk-when').value;
-  const time = when==='time' ? $('#tk-hour').value+':'+$('#tk-min').value : '';
-  const period = when==='time' ? '' : when;
+  const noDay = $('#tk-noday').checked;
+  const {date, day} = noDay ? {date:'', day:0} : readDayOrDate('tk');
+  const when = noDay ? 'allday' : $('#tk-when').value;
+  const time = (!noDay && when==='time') ? $('#tk-hour').value+':'+$('#tk-min').value : '';
+  const period = (!noDay && when!=='time') ? when : '';
   const notes = ($('#tk-notes').value||'').trim();
   t.tasks = t.tasks||[];
   if(i>=0) Object.assign(t.tasks[i], {title, date, day, time, period, notes});
@@ -5163,14 +5209,15 @@ function planDayGroups(t){
       from:mv.from, to:mv.to, time:mv.time, timing:mv.timing, aci:mv.aci});
   });
   /* an outstanding task folds into the day it's linked to, same red as the Tasks tab; once
-     it's ticked booked there it stops appearing here too, since it's the same record */
+     it's ticked booked there it stops appearing here too, since it's the same record. A task
+     with no specific day isn't linked to anywhere on the Itinerary to fold into, so it's left
+     out entirely - it still shows in Tasks, which is where a day-less task belongs. */
   (t.tasks||[]).forEach((task,ti)=>{
     if(task.done) return;
     const k = rough ? (task.day?'d'+task.day:'') : (task.date||'');
-    /* no day means it lands under "Anytime" rather than on a day, which is exactly the thing
-       still needing a decision - so it carries the red over from the Tasks tab */
+    if(!k) return;
     (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes,
-      time:task.time||'', period:task.period||'', unscheduled:!k, ti});
+      time:task.time||'', period:task.period||'', unscheduled:false, ti});
   });
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
@@ -5245,8 +5292,10 @@ function tabPlan(t, ro){
      no longer repeats it itself. */
   const autoStayCard = s => {
     const checkin = s._autoStay==='checkin';
-    const tagTime = checkin ? s.ac.arrivalTime : s.time;
-    const tagTimeFull = (checkin && tagTime && s.ac.checkinTime) ? `${tagTime} (${s.ac.checkinTime})` : (tagTime || s.time);
+    const primary = checkin ? (s.ac.arrivalTime || s.time) : s.time;
+    const tagTimeFull = !primary ? ''
+      : checkin ? (s.ac.checkinTime ? `${primary} (${s.ac.checkinTime} Check In)` : primary)
+      : `${primary} (Check Out)`;
     return `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
       ${autoTag(secEmoji(checkin?'🏠':'👋'), 'Accommodation', tagTimeFull)}
@@ -5307,24 +5356,30 @@ function tabPlan(t, ro){
      (Delete Stop lives in there, same as every other section's edit form), so there's no way
      to lose something with a stray tap while scrolling */
   const stopCard = s => {
-    // a title-only card (no notes, location, image or map link) has nothing to space away
-    // from, so the head keeps no margin below it - otherwise the bottom padding stacks on top
-    // of that margin and reads as lopsided against the plain top padding above the title
-    const hasBelow = !!(s.notes || s.location || s.image || s.mapsUrl);
+    const hasImage = !!s.image;
+    const mapHref = s.mapsUrl || (s.location ? mapsSearchUrl(t, s.location) : '');
+    const time = timeBadge(s);
+    const mapBtnHTML = cls => mapHref ? `<a class="btn icon-only${cls?' '+cls:''}" href="${esc(mapHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(mapHref)}')" aria-label="Open Map" title="Open Map">${mapIcon(mapHref)}</a>` : '';
+    const copyBtn = s.location ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(s.location)}',this)" aria-label="Copy location" title="Copy location">${secEmoji('🔗')}</button>` : '';
+    // a title-only card (nothing following it at all) has nothing to space away from, so the
+    // head keeps no margin below it - otherwise the bottom padding stacks on top of that
+    // margin and reads as lopsided against the plain top padding above the title
+    const hasBelow = !!(time || s.notes || s.location || hasImage || mapHref);
     return `
-    <div class="card plan-card${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
+    <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       <div class="section-head" style="margin-bottom:${hasBelow?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
+          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}</h3>
         </div>
       </div>
+      ${time?`<p class="small muted" style="margin-bottom:8px">${esc(time)}</p>`:''}
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${s.location ? `<div class="small accom-addr" style="margin-bottom:10px">${esc(s.location)}</div>` : ''}
-      ${s.image ? `<img class="plan-img" src="${s.image}" alt="${esc(s.name)}">` : ''}
-      ${s.mapsUrl || s.location ? `<div class="btn-row" style="margin-top:8px">
-        <a class="btn icon-only" href="${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(s.mapsUrl || mapsSearchUrl(t, s.location))}')" aria-label="Open Map" title="Open Map">${mapIcon(s.mapsUrl || mapsSearchUrl(t, s.location))}</a>
-        ${s.location?`<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(s.location)}',this)" aria-label="Copy location" title="Copy location">${secEmoji('🔗')}</button>`:''}
-      </div>` : ''}
+      ${hasImage ? `<div class="plan-img-wrap">
+        <img class="plan-img" src="${s.image}" alt="${esc(s.name)}">
+        ${mapBtnHTML('plan-img-map')}
+      </div>${copyBtn?`<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${copyBtn}</div>`:''}`
+      : (mapHref || copyBtn) ? `<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${mapBtnHTML()}${copyBtn}</div>` : ''}
     </div>`;
   };
   const taskCard = s => `
@@ -5776,17 +5831,9 @@ function tabTravel(t, ro){
   const ferries = (t.ferries||[]).map((f,i)=>ferryStripHTML(f, i, editDel(`App.ferryForm(${i})`, `App.delFerry(${i})`))).join('');
   const cars = (t.carHire||[]).map((c,i)=>carStripHTML(c, i, editDel(`App.carForm(${i})`, `App.delCar(${i})`))).join('');
 
-  /* no flights booked is an outstanding gap the same way an empty accommodation night is, so
-     it gets the same dashed treatment instead of a plain empty message */
-  const noFlightsCard = `
-    <div class="card gap-card">
-      <div class="section-head" style="margin-bottom:6px"><h3>${secEmoji('✈️')}No Flights Yet</h3></div>
-      <p class="small muted" style="margin-bottom:${ro?'0':'12px'}">${ro?'None added.':'Add one and attach the boarding pass.'}</p>
-      ${ro?'':`<button class="btn primary sm" onclick="App.flightForm(-1)">+ Add Flight</button>`}
-    </div>`;
   return `
     <div class="section-head" style="margin-top:6px"><h3>${secEmoji('✈️')} Flights</h3>${!ro?`<button class="btn sm" onclick="App.flightForm(-1)">+ Add Flight</button>`:''}</div>
-    ${flights || noFlightsCard}
+    ${flights || `<div class="empty">No flights yet.</div>`}
 
     <div class="section-head" style="margin-top:30px"><h3>${secEmoji('⛴️')} Ferries</h3>${!ro?`<button class="btn sm" onclick="App.ferryForm(-1)">+ Add Ferry</button>`:''}</div>
     ${ferries || `<div class="empty">No ferries yet.</div>`}
