@@ -4,8 +4,8 @@
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
 > tab's RSS, and `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` group for Gigs' artist search and Artists checklist.
-> Deploying this once turns all of them on. (Board Games isn't here - see "Board Games"
-> under "If it breaks" below for where that actually lives.)
+> Deploying this once turns all of them on. (Board Games isn't here - see "Connect
+> BoardGameGeek" below for where that actually lives and its own one-time setup.)
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -51,13 +51,21 @@ The Games tab walks you through this, but in short:
 If a game you're mid-playthrough on doesn't show up, or Connect fails outright, see
 "If it breaks" below before assuming something's wrong with your account.
 
-## Board Games
+## Connect BoardGameGeek (for Board Games)
 
-Nothing to deploy or configure here - Board Games talks to
-[BoardGameGeek](https://boardgamegeek.com/wiki/page/BGG_XML_API2)'s public XML API through
-`api/board-games.js`, a Vercel Edge Function that ships and deploys with the app itself
-(same repo, same `git push`). It's a separate piece from this Worker on purpose - see "If it
-breaks" below for why.
+Board Games talks to [BoardGameGeek](https://boardgamegeek.com/wiki/page/BGG_XML_API2)'s XML
+API through `api/board-games.js`, a Vercel Edge Function that ships and deploys with the app
+itself (same repo, same `git push`, no separate deploy step) - but BGG now requires every
+request to carry a registered application's token, so it does need one piece of setup:
+
+1. Register at [boardgamegeek.com/using_the_xml_api](https://boardgamegeek.com/using_the_xml_api)
+   to get a free application token (a `Authorization: Bearer <token>` header BGG asks every XML
+   API caller to send now, not something specific to this app).
+2. Set it as an environment variable on the Vercel project (**not** in `api/board-games.js` or
+   anywhere else in this repo, the same reasoning as Spotify's credentials below - it's tied to
+   your own BGG account): Vercel dashboard → your project → Settings → Environment Variables →
+   add `BGG_API_TOKEN` with the token as its value → redeploy (or just push again) for it to
+   take effect.
 
 ## Connect Spotify (for Gigs)
 
@@ -100,13 +108,11 @@ likely moved or renamed its RSS URL - each feed is fetched independently, so the
 come through, but check the publication's site for its current feed link and update that one
 entry.
 
-Board Games lives in `api/board-games.js`, not this Worker - it used to be a route here, but
-BGG (or whatever's fronting it) started 401ing every request from this Worker's network
-regardless of what headers were sent, which pointed at a block on Cloudflare's IP range rather
-than anything fixable from this end. Vercel's network doesn't hit the same block, so it moved
-there instead - see that file's top comment for the full story. If Board Games itself is down,
-check BGG's own status rather than anything in this folder; that endpoint caches for six hours
-(an hour for searches).
+Board Games lives in `api/board-games.js`, not this Worker (see that file's top comment for why
+it moved). If it says "isn't configured", the Vercel project is missing (or has a stale)
+`BGG_API_TOKEN` environment variable - see "Connect BoardGameGeek" above. A raw "BoardGameGeek
+returned 401" instead means the token itself is bad or expired - re-check it against BGG's own
+registration page. That endpoint caches for six hours (an hour for searches).
 
 If Gigs' artist search says "Spotify isn't connected yet", the worker is missing (or has a
 stale) `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` secret - see "Connect Spotify" above. If
