@@ -2,7 +2,7 @@
 
 > A handful of endpoints live here, all for the same reason: a browser can't make these calls
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
-> tab's RSS, `/board-games` for BoardGameGeek, and `/spotify-search` plus the `/spotify-login-url`
+> tab's RSS, `/board-games` for Board Game Atlas, and `/spotify-search` plus the `/spotify-login-url`
 > `/spotify-callback` `/spotify-refresh` `/spotify-me` group for Gigs' artist search and Artists
 > checklist. Deploying this once turns all of them on.
 
@@ -50,6 +50,17 @@ The Games tab walks you through this, but in short:
 If a game you're mid-playthrough on doesn't show up, or Connect fails outright, see
 "If it breaks" below before assuming something's wrong with your account.
 
+## Connect Board Game Atlas (for Board Games)
+
+1. Sign up for a free `client_id` at [boardgameatlas.com/api/docs](https://www.boardgameatlas.com/api/docs).
+2. Set it on the deployed worker:
+   ```
+   wrangler secret put BGA_CLIENT_ID
+   ```
+   (or the Cloudflare dashboard: your worker → Settings → Variables and Secrets - a plain
+   Variable is fine here too, unlike the credentials above, since Board Game Atlas's own docs
+   show this id used openly as a query parameter rather than as a protected secret)
+
 ## Connect Spotify (for Gigs)
 
 Gigs works without any of this - artist name/venue/date/notes can always be typed by hand - but
@@ -91,11 +102,12 @@ likely moved or renamed its RSS URL - each feed is fetched independently, so the
 come through, but check the publication's site for its current feed link and update that one
 entry.
 
-Board Games talks to [BoardGameGeek's XML API](https://boardgamegeek.com/wiki/page/BGG_XML_API2),
-which rate limits and will start returning errors if it's hammered; `/board-games` caches for
-six hours (an hour for searches) to stay well clear of that. BGG is also the reason the parsing
-in `worker.js` looks the way it does: Workers have no `DOMParser`, and BGG double-escapes its
-descriptions, so those get decoded twice where the RSS feeds are decoded once.
+Board Games talks to [Board Game Atlas](https://www.boardgameatlas.com/api/docs) - it used to
+be BoardGameGeek's XML API, switched after BGG (or whatever's fronting it) started 401ing
+every request from here regardless of what headers were sent, which pointed at a block on the
+Worker's own network fingerprint rather than anything fixable from this end. If Board Games
+says "isn't configured", the worker is missing (or has a stale) `BGA_CLIENT_ID` - see "Connect
+Board Game Atlas" above. `/board-games` caches for six hours (an hour for searches).
 
 If Gigs' artist search says "Spotify isn't connected yet", the worker is missing (or has a
 stale) `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` secret - see "Connect Spotify" above. If

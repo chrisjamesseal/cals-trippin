@@ -447,7 +447,11 @@ async function spotifyPaged(accessToken, path, itemsOf, nextOf){
     if(!res.ok) throw Object.assign(new Error('Spotify returned status ' + res.status), {status: res.status});
     const data = await res.json();
     out.push(...itemsOf(data));
-    url = nextOf(data);
+    // nextOf can hand back either a full URL (Spotify's own "next" field, top-artists) or a
+    // relative path built by hand (the followed-artists cursor below) - either way this always
+    // fetches a full URL next time, rather than trying fetch() on a bare "/me/..." path
+    const next = nextOf(data);
+    url = next ? (/^https?:\/\//i.test(next) ? next : 'https://api.spotify.com/v1' + next) : null;
   }
   return out;
 }
@@ -458,7 +462,7 @@ async function fetchSpotifyArtistChecklist(accessToken){
       d => d.artists && d.artists.cursors && d.artists.cursors.after
         ? '/me/following?type=artist&limit=50&after=' + d.artists.cursors.after : null),
     spotifyPaged(accessToken, '/me/top/artists?time_range=long_term&limit=50',
-      d => d.items || [], d => d.next ? d.next.replace('https://api.spotify.com/v1', '') : null),
+      d => d.items || [], d => d.next || null),
   ]);
   const rankOf = {};
   top.forEach((a, i) => { rankOf[a.id] = i; });
@@ -481,109 +485,58 @@ async function fetchSpotifyArtistChecklist(accessToken){
   return {artists};
 }
 
-/* ================= Board games (BoardGameGeek) =================
-   BGG's XML API is the only public source for this. Same three problems as the RSS feeds and
-   then some: no CORS headers, XML in a Worker with no DOMParser (so the same hand-rolled
-   reading as parseFeedItems), and a rate limiter that will start refusing you. Everything here
-   is cached hard because of that last one, and each request is two calls at most: one for a
-   list of ids (BGG's hot list, or a search), then ONE batched call for all their details. */
-const BGG = 'https://boardgamegeek.com/xmlapi2';
-/* BGG (or whatever's fronting it, most likely Cloudflare's own bot detection) 401s a request
-   that reads like a script - a generic browser UA alone wasn't enough to clear that, so this
-   rounds out the rest of what a real browser's request carries too. If it's STILL 401ing after
-   this, the block is almost certainly on the request's network fingerprint (this Worker's own
-   IP range) rather than anything in the headers, which isn't fixable from here. */
-const BGG_UA = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept': 'text/xml,application/xml,text/html,*/*',
-  'Accept-Language': 'en-US,en;q=0.9',
-};
-const BGG_MAX = 36;
+/* ================= Board games (Board Game Atlas) =================
+   Used to be BoardGameGeek's XML API - switched after it started 401ing every request from
+   here (its own WAF, or whatever's fronting it, blocking the request outright; changing the
+   User-Agent and adding a fuller browser-like header set didn't clear it, which points at the
+   block being on the Worker's network fingerprint rather than anything fixable in a header).
+   Board Game Atlas (boardgameatlas.com) is a plain JSON REST API instead, covers the same
+   ground (search, a trending/popular list, ratings, categories, mechanics, cover art), and
+   hasn't shown the same blocking behaviour.
 
-/* <minplayers value="2"/> - the data hangs off attributes rather than element text. The \b
-   matters: without it <average> would also match <averageweight>. */
-function attrOf(block, tag){
-  const m = new RegExp('<'+tag+'\\b[^>]*\\bvalue="([^"]*)"', 'i').exec(block);
-  return m ? decodeEntities(m[1]) : '';
-}
-function numAttr(block, tag){
-  const v = parseFloat(attrOf(block, tag));
-  return isNaN(v) ? null : v;
-}
-function textOf(block, tag){
-  const m = new RegExp('<'+tag+'>([\\s\\S]*?)</'+tag+'>', 'i').exec(block);
-  return m ? m[1].trim() : '';
-}
-/* categories and mechanics both arrive as <link type="..." value="..."/> rows */
-function linkValues(block, type){
-  const re = new RegExp('<link\\b[^>]*\\btype="'+type+'"[^>]*\\bvalue="([^"]*)"', 'gi');
-  const out = []; let m;
-  while((m = re.exec(block))) out.push(decodeEntities(m[1]));
-  return out;
-}
-/* each match keeps its own opening tag, because the id is an attribute on it */
-function itemBlocks(xml){
-  const out = []; let m;
-  const paired = /<item\b[^>]*>[\s\S]*?<\/item>/gi;
-  while((m = paired.exec(xml))) out.push(m[0]);
-  if(!out.length){
-    const selfClosing = /<item\b[^>]*\/>/gi;
-    while((m = selfClosing.exec(xml))) out.push(m[0]);
-  }
-  return out;
-}
-function itemId(block){
-  const m = /<item\b[^>]*\bid="(\d+)"/i.exec(block);
-  return m ? m[1] : '';
-}
+   Requires BGA_CLIENT_ID as a Worker secret/var - free from
+   https://www.boardgameatlas.com/api/docs (`wrangler secret put BGA_CLIENT_ID`, or the
+   Cloudflare dashboard). Unlike a Spotify or PSN credential this isn't tied to a login and
+   Board Game Atlas's own docs show it used as a plain query param, so a var is fine (no need
+   for the extra protection a Worker secret gives) - but it's still kept out of this file rather
+   than hardcoded, the same as everything else account-specific in this proxy. */
+const BGA_BASE = 'https://api.boardgameatlas.com/api';
+const BGA_MAX = 36;
 const round2 = n => n==null ? null : Math.round(n*100)/100;
-
-async function bggIds(path){
-  const res = await fetch(BGG+path, {headers: BGG_UA});
-  if(!res.ok) throw new Error('BoardGameGeek returned '+res.status);
-  return itemBlocks(await res.text()).map(itemId).filter(Boolean).slice(0, BGG_MAX);
+function bgaMissingClientId(){
+  return Object.assign(new Error("Board Games isn't configured - add BGA_CLIENT_ID as a Worker secret or var (free from boardgameatlas.com/api/docs)"), {status:503});
 }
-async function bggDetails(ids){
-  if(!ids.length) return [];
-  const res = await fetch(`${BGG}/thing?id=${ids.join(',')}&stats=1`, {headers: BGG_UA});
-  if(!res.ok) throw new Error('BoardGameGeek returned '+res.status);
-  const byId = {};
-  itemBlocks(await res.text()).forEach(b => {
-    const id = itemId(b);
-    if(!id) return;
-    // a game carries every language's name; the one people know it by is type="primary"
-    const nameM = /<name\b[^>]*\btype="primary"[^>]*\bvalue="([^"]*)"/i.exec(b);
-    /* BGG double-encodes descriptions - an apostrophe reaches us as "&amp;#039;", which is the
-       XML-escaped form of "&#039;" - so this decodes twice where the feeds decode once, and
-       strips tags afterwards to catch any that only appear once the second pass has run. */
-    let description = stripHtml(decodeEntities(decodeEntities(textOf(b,'description'))));
+async function fetchBoardGames(env, q){
+  if(!env.BGA_CLIENT_ID) throw bgaMissingClientId();
+  const p = new URLSearchParams({client_id: env.BGA_CLIENT_ID, limit: String(BGA_MAX)});
+  if(q) p.set('name', q);
+  // no search term: the closest thing to BGG's "hot list" is the site's own popularity ranking
+  else { p.set('order_by', 'rank'); p.set('ascending', 'true'); }
+  const res = await fetch(`${BGA_BASE}/search?${p.toString()}`);
+  if(!res.ok) throw new Error('Board Game Atlas returned '+res.status);
+  const data = await res.json();
+  const games = (data.games||[]).map(g => {
+    let description = stripHtml(g.description_preview || g.description || '');
     if(description.length > 240) description = description.slice(0, 239).trim() + '…';
-    byId[id] = {
-      id,
-      name: nameM ? decodeEntities(nameM[1]) : '',
-      year: numAttr(b,'yearpublished'),
-      thumb: textOf(b,'thumbnail'),
-      image: textOf(b,'image'),
-      minPlayers: numAttr(b,'minplayers'),
-      maxPlayers: numAttr(b,'maxplayers'),
-      minTime: numAttr(b,'minplaytime'),
-      maxTime: numAttr(b,'maxplaytime'),
-      playTime: numAttr(b,'playingtime'),
-      weight: round2(numAttr(b,'averageweight')),   // BGG's complexity, 1-5
-      rating: round2(numAttr(b,'average')),
-      categories: linkValues(b,'boardgamecategory'),
-      mechanics: linkValues(b,'boardgamemechanic'),
+    return {
+      id: g.id,
+      name: g.name || '',
+      year: g.year_published ?? null,
+      thumb: g.thumb_url || '',
+      image: g.image_url || g.thumb_url || '',
+      minPlayers: g.min_players ?? null,
+      maxPlayers: g.max_players ?? null,
+      minTime: g.min_playtime ?? null,
+      maxTime: g.max_playtime ?? null,
+      playTime: g.playtime ?? null,
+      weight: null,   // Board Game Atlas has no BGG-style 1-5 complexity rating
+      rating: round2(g.average_user_rating ?? null),
+      categories: (g.categories||[]).map(c => c.name).filter(Boolean),
+      mechanics: (g.mechanics||[]).map(m => m.name).filter(Boolean),
       description
     };
-  });
-  // back into the order the list endpoint gave them, which is the ranking we asked for
-  return ids.map(id => byId[id]).filter(g => g && g.name);
-}
-async function fetchBoardGames(q){
-  const ids = q
-    ? await bggIds('/search?type=boardgame&query='+encodeURIComponent(q))
-    : await bggIds('/hot?type=boardgame');
-  return {games: await bggDetails(ids)};
+  }).filter(g => g.name);
+  return {games};
 }
 
 export default {
@@ -620,14 +573,14 @@ export default {
         return res;
       }
       if(request.method === 'GET' && url.pathname === '/board-games'){
-        // public and identical for everyone, and BGG rate limits hard, so this leans on the
-        // cache more than /design-news does: the hot list barely moves day to day
+        // public and identical for everyone - cached the same way /design-news is, just with a
+        // longer window since the popularity list barely moves day to day
         const q = (url.searchParams.get('q')||'').trim();
         const cache = caches.default;
         const cacheKey = new Request(url.toString(), request);
         const cached = await cache.match(cacheKey);
         if(cached) return cached;
-        const res = json(await fetchBoardGames(q), 200, env);
+        const res = json(await fetchBoardGames(env, q), 200, env);
         res.headers.set('Cache-Control', 'public, max-age=' + (q ? 3600 : 21600));
         ctx.waitUntil(cache.put(cacheKey, res.clone()));
         return res;
