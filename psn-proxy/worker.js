@@ -299,7 +299,7 @@ function parseFeedItems(xml, sourceName){
        there's enough there to be worth reading in place. */
     const rich = stripCdata(extractTag(block,'content:encoded') || extractTag(block,'content') || '');
     const teaser = stripCdata(extractTag(block,'description') || extractTag(block,'summary') || '');
-    const body = htmlToParagraphs(rich.length > teaser.length ? rich : teaser);
+    const body = htmlToBlocks(rich.length > teaser.length ? rich : teaser);
     return {title, link, source: sourceName, date: (date && !isNaN(date)) ? date.toISOString() : null, summary, body};
   }).filter(a => a.title && a.link);
 }
@@ -442,7 +442,9 @@ async function spotifyPaged(accessToken, path, itemsOf, nextOf){
   while(url && out.length < SPOTIFY_PAGE_CAP){
     const res = await fetch(url, {headers: {Authorization: 'Bearer ' + accessToken}});
     if(res.status === 401) throw Object.assign(new Error('expired'), {status: 401});
-    if(!res.ok) throw new Error('Spotify returned status ' + res.status);
+    // e.g. 403 if user-follow-read/user-top-read weren't both granted, or the app is in
+    // Development Mode and this Spotify account isn't added under its dashboard's user list
+    if(!res.ok) throw Object.assign(new Error('Spotify returned status ' + res.status), {status: res.status});
     const data = await res.json();
     out.push(...itemsOf(data));
     url = nextOf(data);
@@ -486,10 +488,16 @@ async function fetchSpotifyArtistChecklist(accessToken){
    is cached hard because of that last one, and each request is two calls at most: one for a
    list of ids (BGG's hot list, or a search), then ONE batched call for all their details. */
 const BGG = 'https://boardgamegeek.com/xmlapi2';
-/* a UA that plainly names itself as a script gets a 401 back from BGG (or whatever's fronting
-   it, most likely Cloudflare's own bot detection) - a generic browser UA is the standard
-   workaround other BGG-XML-API projects use for the same block */
-const BGG_UA = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'};
+/* BGG (or whatever's fronting it, most likely Cloudflare's own bot detection) 401s a request
+   that reads like a script - a generic browser UA alone wasn't enough to clear that, so this
+   rounds out the rest of what a real browser's request carries too. If it's STILL 401ing after
+   this, the block is almost certainly on the request's network fingerprint (this Worker's own
+   IP range) rather than anything in the headers, which isn't fixable from here. */
+const BGG_UA = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/xml,application/xml,text/html,*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
 const BGG_MAX = 36;
 
 /* <minplayers value="2"/> - the data hangs off attributes rather than element text. The \b
