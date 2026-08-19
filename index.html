@@ -204,7 +204,7 @@ a{color:var(--brand-dark);}
 .bg-sel select{width:100%; font-size:.82rem; padding:8px 6px;}
 .bg-list{display:flex; flex-direction:column; gap:12px;}
 /* the fixed search sits over the foot of the page, same as Places and PlayStation */
-#bg-grid{padding-bottom:44px;}
+#bg-grid,#gig-artists-grid{padding-bottom:44px;}
 .bg-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:14px;}
 .bg-marked{border-color:var(--brand);}
@@ -232,9 +232,15 @@ a{color:var(--brand-dark);}
 .design-title{margin:4px 0 0; color:var(--ink);}
 .design-summary{margin-top:6px; color:var(--ink); opacity:.8;}
 .design-card{cursor:pointer;}
+/* pulled out past the card's own padding to sit flush against its rounded top edge, the way a
+   featured image sits in most article-list designs, rather than boxed in like the text below */
+.design-card-img{display:block; width:calc(100% + 36px); height:160px; object-fit:cover;
+  margin:-18px -18px 12px; border-radius:var(--radius) var(--radius) 0 0;}
 /* a reading surface rather than a card: a narrower measure and looser lines than the rest of
    the app, because this is the one screen you sit and read instead of scan */
 .article{max-width:38rem;}
+.article-hero{display:block; width:100%; max-height:280px; object-fit:cover;
+  border-radius:var(--radius-sm); margin-bottom:16px;}
 .article-title{font-size:1.6rem; margin:6px 0 18px;}
 .article-p{margin-bottom:16px; font-size:1.02rem; line-height:1.65; color:var(--ink); overflow-wrap:anywhere;}
 .article-note{margin-top:-4px; margin-bottom:16px;}
@@ -258,7 +264,6 @@ a{color:var(--brand-dark);}
 .gig-info{min-width:0; flex:1;}
 .gig-name{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .gig-facts{margin-top:2px;}
-.gig-notes{margin-top:6px; color:var(--ink); opacity:.75;}
 .gig-actions{display:flex; gap:2px; flex-shrink:0;}
 /* the artist search dropdown floats over whatever's below it in the form rather than pushing
    the rest of the fields down as results come and go */
@@ -277,9 +282,21 @@ a{color:var(--brand-dark);}
   font-weight:700; font-size:.72rem; padding:4px 10px; border-radius:999px; white-space:nowrap;}
 .gig-seen-pill.off{background:var(--bg); color:var(--muted);}
 /* the checklist is just a photo, a name and a pill on every row - the roomier padding/gap the
-   fuller gig cards (venue, city, date, notes) need reads as a lot of dead space here */
-.gig-list-artists{gap:4px;}
-.gig-list-artists .gig-artist-row{padding:8px 14px; cursor:pointer;}
+   fuller gig cards (city, date) need reads as a lot of dead space here, so it's a tight 2-up
+   grid instead of one full-width card per artist */
+.gig-list-artists{display:grid; grid-template-columns:repeat(2,1fr); gap:2px;}
+/* a grid item's default min-width is its content's natural width, not 0 - without this the
+   long-name column refused to shrink and pushed the whole second column off-screen instead of
+   letting the name ellipsize the way it's meant to */
+.gig-list-artists .gig-artist-row{padding:6px 10px; cursor:pointer; margin-bottom:0; min-width:0;}
+.gig-list-artists .gig-top{gap:8px;}
+.gig-list-artists .gig-cover{width:34px; height:34px;}
+.gig-list-artists .gig-cover-fallback{font-size:.95rem;}
+.gig-list-artists .gig-name{font-size:.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.gig-list-artists .gig-seen-pill{font-size:.62rem; padding:3px 7px;}
+@media(max-width:380px){
+  .gig-list-artists{grid-template-columns:1fr;}
+}
 
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
@@ -902,8 +919,16 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.90.0';
+const APP_VERSION = '1.91.0';
 const CHANGELOG = [
+  {version:'1.91.0', notes:[
+    'Board Games is back on BoardGameGeek - Board Game Atlas turned out to have shut down, so last version\'s switch traded one broken source for a dead one. This time it\'s a small serverless function alongside the app itself rather than a route on the proxy, since BGG blocks the proxy\'s network specifically, not BGG access in general. Needs no setup on your end.',
+    'Log a Gig drops Venue and Notes - just artist, location and date now.',
+    '"City" is now "Location" on gig entries, since not every gig has one.',
+    'The Artists checklist shows two columns instead of one, and gained a search box to jump straight to an artist.',
+    'Added a "Not Seen" tab next to Artists - just the ones you follow but haven\'t logged a gig for yet, for working through as a checklist.',
+    'Design articles with a lead image now show it, both on the card and at the top of the article.'
+  ]},
   {version:'1.90.0', notes:[
     'Board Games now talks to Board Game Atlas instead of BoardGameGeek, whose API kept 401ing every request from the proxy no matter what headers were sent - same search and trending list, just a different (and reachable) source. Needs its own free client_id, see psn-proxy/README.md. The Complexity filter is gone with it - Board Game Atlas doesn\'t have BGG\'s weight rating to filter by.',
     'Fixed the Gigs Artists checklist failing to load past the first 50 artists you follow or the first 50 in your listening history - a "next page" URL was being mangled into something fetch() couldn\'t use.',
@@ -3000,11 +3025,12 @@ function psnToggleHiddenImpl(id){
   drawGamesList();
 }
 
-/* ================= Board games (Board Game Atlas) =================
-   Same proxy as Games and Design, for the same cross-origin reason (see psn-proxy/worker.js's
-   /board-games endpoint). No login - the list is the same for everyone - so what's yours is
-   just which games you've marked, and that stays on this device the way the PSN connection
-   does. */
+/* ================= Board games (BoardGameGeek) =================
+   Talks to /api/board-games (see api/board-games.js), a Vercel function rather than the PSN
+   proxy - BGG 401s every request that comes from the proxy's Cloudflare network no matter what
+   headers are sent, so this one endpoint lives on different infrastructure instead. No login -
+   the list is the same for everyone - so what's yours is just which games you've marked, and
+   that stays on this device the way the PSN connection does. */
 const BG_MARKS_KEY = 'calstrippin_boardgames';
 let BG_GAMES = [];          // the last fetch, held so the filters re-run without refetching
 let BG_FILTER = {cat:'all', players:0, time:0};
@@ -3013,11 +3039,10 @@ function bgMarks(){ try{ return JSON.parse(localStorage.getItem(BG_MARKS_KEY)||'
 function saveBgMarks(m){ try{ localStorage.setItem(BG_MARKS_KEY, JSON.stringify(m)); }catch(e){} }
 function bgMarkOf(id){ return bgMarks()[id] || ''; }
 
-/* Board Game Atlas returns dozens of categories and mechanics; these are the handful of
-   shelves people actually choose between, matched off the category/mechanic names it returns
-   (there's no complexity/weight rating like BGG had, so Strategy/Family fall back to their
-   category match alone). They live here rather than in the worker so a bucket can be retuned
-   without a redeploy. */
+/* BGG returns dozens of categories and mechanics; these are the handful of shelves people
+   actually choose between, matched off the category/mechanic names (and weight rating) it
+   returns. They live here rather than in api/board-games.js so a bucket can be retuned without
+   a redeploy. */
 const BG_CATS = [
   {k:'coop',     emoji:'🤝', label:'Co-op',    test:g => g.mechanics.some(m=>/cooperative/i.test(m))},
   {k:'party',    emoji:'🎉', label:'Party',    test:g => g.categories.some(c=>/party game|humor/i.test(c))},
@@ -3049,12 +3074,6 @@ function bgTimeLabel(g){
 }
 function renderBoardGames(){
   const body = $('#games-body'); if(!body) return;
-  if(!psnConfigured()){
-    body.innerHTML = `<div class="empty">No proxy is set up yet.<br>Deploy the one in
-      <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
-      <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
-    return;
-  }
   body.innerHTML = `
     <div id="bg-filters"></div>
     <div id="bg-grid"><div class="empty">Loading board games…</div></div>
@@ -3068,15 +3087,13 @@ function renderBoardGames(){
 function loadBoardGames(q){
   const grid = $('#bg-grid'); if(!grid) return;
   grid.innerHTML = `<div class="empty">Loading board games…</div>`;
-  fetch(psnUrl('/board-games') + (q ? '?q='+encodeURIComponent(q) : ''))
+  /* same-origin Vercel function (api/board-games.js), not the Cloudflare Worker the rest of
+     this proxy's endpoints go through - see that file for why */
+  fetch('/api/board-games' + (q ? '?q='+encodeURIComponent(q) : ''))
     .then(async r => {
-      /* a 404 here means the proxy answered but has never heard of /board-games, i.e. it's
-         running an older copy of worker.js - worth saying so, because "status 404" on its own
-         sends you looking for a bug in the app instead of at the deploy */
-      if(r.status===404) throw new Error("Your proxy is running an older version that doesn't have board games yet. Redeploy the worker in psn-proxy/ and this'll fill in.");
       if(!r.ok){
-        // the worker's own {error: e.message} body carries the real reason (Board Game Atlas
-        // rejecting the request, or BGA_CLIENT_ID missing) - a bare "status 500" hid that
+        // the function's own {error: e.message} body carries the real reason (BoardGameGeek
+        // rejecting the request, most likely) - a bare "status 500" hid that
         const body = await r.json().catch(()=>({}));
         throw new Error(body.error || ('status '+r.status));
       }
@@ -3160,7 +3177,7 @@ function bgCardHTML(g){
         <div class="bg-info">
           <div class="bg-name">${esc(g.name)}${g.year?` <span class="muted">(${g.year})</span>`:''}</div>
           ${facts?`<div class="bg-facts muted small">${esc(facts)}</div>`:''}
-          ${g.rating?`<div class="bg-facts muted small">★ ${g.rating.toFixed(1)} on Board Game Atlas</div>`:''}
+          ${g.rating?`<div class="bg-facts muted small">★ ${g.rating.toFixed(1)} on BoardGameGeek</div>`:''}
           ${tags?`<div class="bg-tags">${tags}</div>`:''}
         </div>
       </div>
@@ -3273,6 +3290,7 @@ function designCardHTML(a, i){
   return `
     <div class="card design-card" role="button" tabindex="0" onclick="App.readArticle(${i})"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readArticle(${i})}">
+      ${a.image?`<img class="design-card-img" src="${esc(a.image)}" alt="" loading="lazy">`:''}
       <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
       <h3 class="design-title">${esc(a.title)}</h3>
       ${a.summary?`<p class="small design-summary">${esc(a.summary)}</p>`:''}
@@ -3303,6 +3321,7 @@ function renderDesignArticle(i){
       </div>
     </div>
     <article class="article">
+      ${a.image?`<img class="article-hero" src="${esc(a.image)}" alt="">`:''}
       <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
       <h1 class="article-title">${esc(a.title)}</h1>
       ${readable
@@ -3386,13 +3405,13 @@ function renderGigs(){
         <button class="btn sm primary" onclick="App.gigForm(-1)">+ Add Gig</button>
       </div>
     </div>
-    <div class="subtabs">${tab('artists','🎤 Artists')}${tab('log','☑ All Gigs')}</div>
+    <div class="subtabs">${tab('notseen','⭐ Not Seen')}${tab('artists','🎤 Artists')}${tab('log','☑ All Gigs')}</div>
     <div id="gigs-body"></div>`;
-  if(CUR_GIGS_TAB==='artists') renderGigsArtists(); else drawGigsList();
+  if(CUR_GIGS_TAB==='log') drawGigsList(); else renderGigsArtists();
   loadGigsCloud(cloud => {
     DB.gigs = Array.isArray(cloud) ? cloud : [];
     saveLocal();
-    if(CUR_GIGS_TAB==='log') drawGigsList(); else if($('#gigs-body') && SPOTIFY_ARTISTS) drawGigsArtists();
+    if(CUR_GIGS_TAB==='log') drawGigsList(); else if($('#gigs-body') && SPOTIFY_ARTISTS) drawGigArtistsGrid();
   });
 }
 function renderGigsArtists(){
@@ -3414,7 +3433,7 @@ function renderGigsArtists(){
     if(!$('#gigs-body')) return;
     $('#gigs-body').innerHTML = `<div class="empty">Couldn't load your artists.<br>${esc(e.message||'')}
       <div class="btn-row" style="justify-content:center; margin-top:14px">
-        <button class="btn sm" onclick="App.gigsTab('artists')">Try Again</button>
+        <button class="btn sm" onclick="App.gigsTab('${CUR_GIGS_TAB}')">Try Again</button>
         <button class="btn sm ghost" onclick="App.spotifyDisconnect()">Disconnect</button>
       </div></div>`;
   });
@@ -3434,14 +3453,37 @@ function drawGigsArtists(){
   const body = $('#gigs-body'); if(!body) return;
   const artists = SPOTIFY_ARTISTS||[];
   if(!artists.length){ body.innerHTML = `<div class="empty">You're not following any artists on Spotify yet.</div>`; return; }
-  body.innerHTML = `<div class="gig-list gig-list-artists">${artists.map(gigArtistRowHTML).join('')}</div>
+  body.innerHTML = `
+    <div id="gig-artists-grid"></div>
+    <div class="games-search">
+      <input type="text" id="gig-artists-search" placeholder="Search your artists…" oninput="App.gigArtistsFilter()">
+    </div>
     <div class="btn-row" style="justify-content:center; margin-top:6px">
       <button class="btn sm ghost" onclick="App.spotifyDisconnect()">Disconnect Spotify</button>
     </div>`;
+  drawGigArtistsGrid();
+}
+/* re-filters the already-fetched list; leaves the search box and its cursor alone, same
+   pattern as Games' drawGamesList() and Board Games' drawBgGrid() */
+function drawGigArtistsGrid(){
+  const grid = $('#gig-artists-grid'); if(!grid) return;
+  const q = (($('#gig-artists-search')||{}).value||'').trim().toLowerCase();
+  let list = SPOTIFY_ARTISTS||[];
+  if(CUR_GIGS_TAB==='notseen') list = list.filter(a => !(DB.gigs||[]).some(g=>g.artistId===a.id));
+  if(q) list = list.filter(a => (a.name||'').toLowerCase().includes(q));
+  if(!list.length){
+    const msg = q ? `No artists match "${esc(q)}"`
+      : CUR_GIGS_TAB==='notseen' ? "You've seen everyone you follow - nice work." : 'No artists found';
+    grid.innerHTML = `<div class="empty">${msg}</div>`;
+    return;
+  }
+  grid.innerHTML = `<div class="gig-list gig-list-artists">${list.map(gigArtistRowHTML).join('')}</div>`;
 }
 function gigArtistRowHTML(a){
+  // every row on Not Seen is unseen by definition - the pill would just say the same thing on
+  // every single one, so it's dropped there rather than repeated for no reason
   const seenCount = (DB.gigs||[]).filter(g=>g.artistId===a.id).length;
-  const status = seenCount
+  const status = CUR_GIGS_TAB==='notseen' ? '' : seenCount
     ? `<span class="gig-seen-pill">✓ Seen${seenCount>1?' ×'+seenCount:''}</span>`
     : `<span class="gig-seen-pill off">Not seen yet</span>`;
   return `
@@ -3474,7 +3516,6 @@ function gigCardHTML(g, i){
         <div class="gig-info">
           <div class="gig-name">${esc(g.artist||'Untitled')}</div>
           ${facts?`<div class="gig-facts muted small">${esc(facts)}</div>`:''}
-          ${g.notes?`<div class="gig-notes small">${esc(g.notes)}</div>`:''}
         </div>
         <div class="gig-actions">
           <button class="iconbtn edit" aria-label="Edit gig" title="Edit" onclick="App.gigForm(${i})">${ICONS.edit}</button>
@@ -3512,12 +3553,8 @@ function gigFormImpl(i, prefillArtist){
   openModal(`
     <h2>${i>=0?'Edit Gig':'Log a Gig'}</h2>
     ${gigArtistFieldHTML(g)}
-    <div class="grid2">
-      <div class="field"><label class="label" for="gig-venue">Venue</label><input id="gig-venue" type="text" value="${esc(g.venue||'')}"></div>
-      <div class="field"><label class="label" for="gig-city">City</label><input id="gig-city" type="text" value="${esc(g.city||'')}"></div>
-    </div>
+    <div class="field"><label class="label" for="gig-city">Location</label><input id="gig-city" type="text" value="${esc(g.city||'')}"></div>
     <div class="field"><label class="label" for="gig-date">Date</label><input id="gig-date" type="date" value="${esc(g.date||'')}"></div>
-    <div class="field"><label class="label" for="gig-notes">Notes</label><textarea id="gig-notes" rows="3">${esc(g.notes||'')}</textarea></div>
     <button class="btn primary" style="width:100%" onclick="App.saveGig(${i>=0?i:-1})">${i>=0?'Save':'Add Gig'}</button>`);
   const picked = $('#gig-picked'); if(picked) picked.innerHTML = gigPickedHTML();
 }
@@ -3572,10 +3609,8 @@ function saveGigImpl(i){
     artist,
     artistId: (GIG_PICKED && GIG_PICKED.name===artist) ? GIG_PICKED.id : '',
     image: (GIG_PICKED && GIG_PICKED.name===artist) ? GIG_PICKED.image : '',
-    venue: $('#gig-venue').value.trim(),
     city: $('#gig-city').value.trim(),
-    date: $('#gig-date').value,
-    notes: $('#gig-notes').value.trim()
+    date: $('#gig-date').value
   };
   DB.gigs = DB.gigs||[];
   if(i>=0 && DB.gigs[i]) DB.gigs[i] = gig; else DB.gigs.push(gig);
@@ -3724,6 +3759,7 @@ App.gigFormForArtist = id => {
   const a = (SPOTIFY_ARTISTS||[]).find(x=>x.id===id);
   gigFormImpl(-1, a || null);
 };
+App.gigArtistsFilter = () => drawGigArtistsGrid();
 App.gigArtistInput = gigArtistInputImpl;
 App.gigArtistPick = gigArtistPickImpl;
 App.saveGig = saveGigImpl;
@@ -3742,7 +3778,7 @@ App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
 App.bgReload = () => loadBoardGames((($('#bg-search')||{}).value||'').trim());
-/* each search is a real Board Game Atlas call, so wait for a pause in typing rather than firing per key */
+/* each search is a real BGG call, so wait for a pause in typing rather than firing per key */
 App.bgSearchInput = () => {
   clearTimeout(BG_SEARCH_TIMER);
   BG_SEARCH_TIMER = setTimeout(App.bgReload, 400);
