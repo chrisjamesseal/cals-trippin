@@ -926,8 +926,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.82.0';
+const APP_VERSION = '1.83.0';
 const CHANGELOG = [
+  {version:'1.83.0', notes:[
+    'Fixed the desktop/tablet sidebar going blank on Games, Design and the Travel hub - it only ever held a trip\'s own menu, so leaving a trip left no navigation at all now the mobile bottom bar is hidden there. Travel, Games and Design now sit in the sidebar everywhere, underneath a trip\'s own menu when there is one.'
+  ]},
   {version:'1.82.0', notes:[
     'A stop\'s photo: the Maps icon moved to the bottom-right corner of the image, notes and location now carry their own icon, and the leftover gap below the photo is gone.',
     'Fixed the Maps icon showing the folded-map emoji instead of Google\'s own for a "maps.google.com/?q=…" style link.',
@@ -3278,6 +3281,9 @@ function route(){
   // #app is reused across routes (innerHTML swapped, not replaced), so a data-tab left over
   // from a previous trip visit would otherwise persist onto the hub/Places pages too
   const appEl = $('#app'); if(appEl) delete appEl.dataset.tab;
+  // baseline for every route - a page that isn't a trip (Games, Design...) has no other call
+  // to renderSidebar of its own; the trip route below overrides this with the fuller trip menu
+  renderSidebar(null);
   if(!pinOk()){ CUR_TRIP_ID = null; stopSub(); renderPinGate(); renderTabbar(); return; }
   setTimeout(renderTabbar, 0);   // after whichever render below has settled CUR_TRIP_ID/CUR_TAB
   const h = location.hash;
@@ -4010,9 +4016,30 @@ function tripNavItems(t){
     <div class="menu-item" role="menuitem" tabindex="0" onclick="App.closeMenu();App.changeIdentity()"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.closeMenu();App.changeIdentity()}">${ICONS.user}<span>Switch Name${whoAmI(t.id)?' ('+esc(whoAmI(t.id))+')':''}</span></div>`;
 }
+/* the sidebar is the only nav on desktop/tablet (the mobile bottom bar is hidden there - see
+   the .tabbar.on rule in the sidebar media query), so the tabbar's other destinations - Travel
+   (the Places/Countries front door), Games, Design - need a way in here too, not just the
+   trip-specific menu. Shown underneath the trip menu when there is one, or on its own
+   otherwise (the hub, Places, Games, Design). Travel itself is left out of that underneath-a-
+   trip case: "All Trips" right at the top of the trip menu already leads back out, and a
+   second item also called Travel (this one meaning the Places front door, not the trip's own
+   Travel tab) would just read as a confusing duplicate so close to it. */
+function sidebarGlobalNav(inTrip){
+  const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips' || !location.hash || location.hash==='#/';
+  const onGames  = location.hash.startsWith('#/games');
+  const onDesign = location.hash.startsWith('#/design');
+  const item = (label, emoji, fn, active) => `
+    <div class="menu-item${active?' active':''}" role="menuitem" tabindex="0" onclick="${fn}"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}">
+      ${secEmoji(emoji)}<span>${label}</span>
+    </div>`;
+  return (inTrip ? '' : item('Travel','🌎',"App.goPlaces()", onPlaces))
+    + item('Games','🎮',"App.goGames()", onGames)
+    + item('Design','🎨',"App.goDesign()", onDesign);
+}
 function renderSidebar(t){
   const root = $('#sidebar-root'); if(!root) return;
-  root.innerHTML = t ? tripNavItems(t) : '';
+  root.innerHTML = (t ? tripNavItems(t) + '<hr class="menu-sep">' : '') + sidebarGlobalNav(!!t);
 }
 /* ---- bottom bar: the app's main navigation, always within thumb reach ----
    Trip-specific slots stay in place but go inert on the home and Places pages, so the
