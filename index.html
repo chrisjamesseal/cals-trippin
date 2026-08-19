@@ -276,6 +276,10 @@ a{color:var(--brand-dark);}
 .gig-seen-pill{flex-shrink:0; display:inline-block; background:var(--brand-tint); color:var(--brand-dark);
   font-weight:700; font-size:.72rem; padding:4px 10px; border-radius:999px; white-space:nowrap;}
 .gig-seen-pill.off{background:var(--bg); color:var(--muted);}
+/* the checklist is just a photo, a name and a pill on every row - the roomier padding/gap the
+   fuller gig cards (venue, city, date, notes) need reads as a lot of dead space here */
+.gig-list-artists{gap:4px;}
+.gig-list-artists .gig-artist-row{padding:8px 14px; cursor:pointer;}
 
 /* Want to Go or not, as one control rather than a star you have to know the meaning of.
    Full width of the card, since it's the only thing on that row in Country Finder. */
@@ -898,8 +902,13 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.89.0';
+const APP_VERSION = '1.90.0';
 const CHANGELOG = [
+  {version:'1.90.0', notes:[
+    'Board Games now talks to Board Game Atlas instead of BoardGameGeek, whose API kept 401ing every request from the proxy no matter what headers were sent - same search and trending list, just a different (and reachable) source. Needs its own free client_id, see psn-proxy/README.md. The Complexity filter is gone with it - Board Game Atlas doesn\'t have BGG\'s weight rating to filter by.',
+    'Fixed the Gigs Artists checklist failing to load past the first 50 artists you follow or the first 50 in your listening history - a "next page" URL was being mangled into something fetch() couldn\'t use.',
+    'The Artists checklist rows sit closer together now, with less padding inside each one - they\'re just a photo, a name and a status, not a full gig card.'
+  ]},
   {version:'1.89.0', notes:[
     'Fixed Design news throwing on every article - a leftover reference to a renamed function meant every feed failed on every load.',
     'Board Games\' proxy request still 401s from BoardGameGeek after last version\'s User-Agent change - added the fuller set of headers a real browser sends along with it.',
@@ -2991,22 +3000,24 @@ function psnToggleHiddenImpl(id){
   drawGamesList();
 }
 
-/* ================= Board games (BoardGameGeek) =================
-   Same proxy as Games and Design, for the same reason: BGG serves XML with no CORS headers
-   (see psn-proxy/worker.js's /board-games endpoint, which does the parsing and the caching).
-   No login - the list is the same for everyone - so what's yours is just which games you've
-   marked, and that stays on this device the way the PSN connection does. */
+/* ================= Board games (Board Game Atlas) =================
+   Same proxy as Games and Design, for the same cross-origin reason (see psn-proxy/worker.js's
+   /board-games endpoint). No login - the list is the same for everyone - so what's yours is
+   just which games you've marked, and that stays on this device the way the PSN connection
+   does. */
 const BG_MARKS_KEY = 'calstrippin_boardgames';
 let BG_GAMES = [];          // the last fetch, held so the filters re-run without refetching
-let BG_FILTER = {cat:'all', players:0, time:0, weight:0};
+let BG_FILTER = {cat:'all', players:0, time:0};
 let BG_SEARCH_TIMER = null;
 function bgMarks(){ try{ return JSON.parse(localStorage.getItem(BG_MARKS_KEY)||'{}'); }catch(e){ return {}; } }
 function saveBgMarks(m){ try{ localStorage.setItem(BG_MARKS_KEY, JSON.stringify(m)); }catch(e){} }
 function bgMarkOf(id){ return bgMarks()[id] || ''; }
 
-/* BGG has hundreds of categories and mechanics; these are the handful of shelves people
-   actually choose between, each matched off the categories/mechanics/complexity BGG returns.
-   They live here rather than in the worker so a bucket can be retuned without a redeploy. */
+/* Board Game Atlas returns dozens of categories and mechanics; these are the handful of
+   shelves people actually choose between, matched off the category/mechanic names it returns
+   (there's no complexity/weight rating like BGG had, so Strategy/Family fall back to their
+   category match alone). They live here rather than in the worker so a bucket can be retuned
+   without a redeploy. */
 const BG_CATS = [
   {k:'coop',     emoji:'🤝', label:'Co-op',    test:g => g.mechanics.some(m=>/cooperative/i.test(m))},
   {k:'party',    emoji:'🎉', label:'Party',    test:g => g.categories.some(c=>/party game|humor/i.test(c))},
@@ -3036,8 +3047,6 @@ function bgTimeLabel(g){
   if(!lo || lo===hi) return `${hi} min`;
   return `${lo}-${hi} min`;
 }
-const bgWeightLabel = w => !w ? '' : w < 2 ? 'Light' : w < 3 ? 'Medium-light' : w < 4 ? 'Medium-heavy' : 'Heavy';
-
 function renderBoardGames(){
   const body = $('#games-body'); if(!body) return;
   if(!psnConfigured()){
@@ -3066,8 +3075,8 @@ function loadBoardGames(q){
          sends you looking for a bug in the app instead of at the deploy */
       if(r.status===404) throw new Error("Your proxy is running an older version that doesn't have board games yet. Redeploy the worker in psn-proxy/ and this'll fill in.");
       if(!r.ok){
-        // the worker's own {error: e.message} body carries the real reason (BGG rejecting or
-        // rate-limiting the request, most likely) - a bare "status 500" hid that
+        // the worker's own {error: e.message} body carries the real reason (Board Game Atlas
+        // rejecting the request, or BGA_CLIENT_ID missing) - a bare "status 500" hid that
         const body = await r.json().catch(()=>({}));
         throw new Error(body.error || ('status '+r.status));
       }
@@ -3105,7 +3114,6 @@ function drawBgFilters(){
     <div class="bg-selects">
       ${sel('players', BG_FILTER.players, 'Players', [[0,'Any'],[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6'],[7,'7'],[8,'8+']])}
       ${sel('time', BG_FILTER.time, 'Playtime', [[0,'Any'],[30,'Under 30 min'],[60,'Under 1 hour'],[120,'Under 2 hours'],[121,'2 hours +']])}
-      ${sel('weight', BG_FILTER.weight, 'Complexity', [[0,'Any'],[2,'Light'],[3,'Medium'],[4,'Heavy']])}
     </div>`;
 }
 function bgMatches(g){
@@ -3123,10 +3131,6 @@ function bgMatches(g){
     const t = g.maxTime || g.playTime || g.minTime || 0;
     if(+f.time===121 ? t <= 120 : !(t && t <= +f.time)) return false;
   }
-  if(f.weight){
-    const w = g.weight||0;
-    if(+f.weight===2 ? !(w && w < 2) : +f.weight===3 ? !(w >= 2 && w < 3.5) : !(w >= 3.5)) return false;
-  }
   return true;
 }
 function drawBgGrid(){
@@ -3143,7 +3147,7 @@ function bgCardHTML(g){
   const mark = bgMarkOf(g.id);
   const tags = bgCatsOf(g).slice(0,3)
     .map(c=>`<span class="bg-tag"><span aria-hidden="true">${c.emoji}</span>${esc(c.label)}</span>`).join('');
-  const facts = [bgPlayersLabel(g), bgTimeLabel(g), bgWeightLabel(g.weight)].filter(Boolean).join(' · ');
+  const facts = [bgPlayersLabel(g), bgTimeLabel(g)].filter(Boolean).join(' · ');
   const markBtn = (k, emoji, label) => `
     <button type="button" class="btn sm bg-mark${mark===k?' on':''}"
       onclick="App.bgMark('${esc(g.id)}','${k}')" aria-pressed="${mark===k}">
@@ -3156,7 +3160,7 @@ function bgCardHTML(g){
         <div class="bg-info">
           <div class="bg-name">${esc(g.name)}${g.year?` <span class="muted">(${g.year})</span>`:''}</div>
           ${facts?`<div class="bg-facts muted small">${esc(facts)}</div>`:''}
-          ${g.rating?`<div class="bg-facts muted small">★ ${g.rating.toFixed(1)} on BoardGameGeek</div>`:''}
+          ${g.rating?`<div class="bg-facts muted small">★ ${g.rating.toFixed(1)} on Board Game Atlas</div>`:''}
           ${tags?`<div class="bg-tags">${tags}</div>`:''}
         </div>
       </div>
@@ -3430,7 +3434,7 @@ function drawGigsArtists(){
   const body = $('#gigs-body'); if(!body) return;
   const artists = SPOTIFY_ARTISTS||[];
   if(!artists.length){ body.innerHTML = `<div class="empty">You're not following any artists on Spotify yet.</div>`; return; }
-  body.innerHTML = `<div class="gig-list">${artists.map(gigArtistRowHTML).join('')}</div>
+  body.innerHTML = `<div class="gig-list gig-list-artists">${artists.map(gigArtistRowHTML).join('')}</div>
     <div class="btn-row" style="justify-content:center; margin-top:6px">
       <button class="btn sm ghost" onclick="App.spotifyDisconnect()">Disconnect Spotify</button>
     </div>`;
@@ -3441,7 +3445,7 @@ function gigArtistRowHTML(a){
     ? `<span class="gig-seen-pill">✓ Seen${seenCount>1?' ×'+seenCount:''}</span>`
     : `<span class="gig-seen-pill off">Not seen yet</span>`;
   return `
-    <div class="card gig-card" role="button" tabindex="0" onclick="App.gigFormForArtist('${esc(a.id)}')"
+    <div class="card gig-card gig-artist-row" role="button" tabindex="0" onclick="App.gigFormForArtist('${esc(a.id)}')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.gigFormForArtist('${esc(a.id)}')}">
       <div class="gig-top">
         ${a.image ? `<img class="gig-cover" src="${esc(a.image)}" alt="" loading="lazy">`
@@ -3738,7 +3742,7 @@ App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
 App.bgReload = () => loadBoardGames((($('#bg-search')||{}).value||'').trim());
-/* each search is a real BGG call, so wait for a pause in typing rather than firing per key */
+/* each search is a real Board Game Atlas call, so wait for a pause in typing rather than firing per key */
 App.bgSearchInput = () => {
   clearTimeout(BG_SEARCH_TIMER);
   BG_SEARCH_TIMER = setTimeout(App.bgReload, 400);
