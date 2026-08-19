@@ -898,8 +898,13 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.88.0';
+const APP_VERSION = '1.89.0';
 const CHANGELOG = [
+  {version:'1.89.0', notes:[
+    'Fixed Design news throwing on every article - a leftover reference to a renamed function meant every feed failed on every load.',
+    'Board Games\' proxy request still 401s from BoardGameGeek after last version\'s User-Agent change - added the fuller set of headers a real browser sends along with it.',
+    'Design, Board Games and the Gigs Artists checklist now all show the proxy\'s real error message instead of a bare status code when something goes wrong.'
+  ]},
   {version:'1.88.0', notes:[
     'Gigs: new Artists tab, a checklist of every artist you follow on Spotify - ranked by how much you actually listen to them - with a Seen/Not seen status for each, worked out from your logged gigs. Tapping one opens the log-a-gig form pre-filled with that artist. Needs connecting your own Spotify account from the tab (separate from the plain artist search Add Gig already had). The old flat list of everything you\'ve logged is still there, now under an All Gigs tab.',
     'Board Games\' proxy requests were getting rejected with a 401 - swapped its User-Agent for a generic browser one, which is what the request was actually being blocked on.',
@@ -3341,7 +3346,10 @@ async function spotifyApi(path){
     saveSpotifyTokens({...fresh, refreshToken: fresh.refreshToken || tok.refreshToken});
     res = await fetch(psnUrl(path), {headers:{Authorization:'Bearer '+fresh.accessToken}});
   }
-  if(!res.ok) throw new Error('Could not reach Spotify (status '+res.status+')');
+  if(!res.ok){
+    const body = await res.json().catch(()=>({}));
+    throw new Error(body.error || ('Could not reach Spotify (status '+res.status+')'));
+  }
   return res.json();
 }
 /* completes the redirect back from Spotify: exchanges the one-time ?code= for tokens, then
