@@ -919,8 +919,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.91.0';
+const APP_VERSION = '1.92.0';
 const CHANGELOG = [
+  {version:'1.92.0', notes:[
+    'Board Games\' 401 wasn\'t a network block after all - last version\'s theory was wrong. BoardGameGeek now requires every request to carry a registered app token, which is why moving the request to a different host didn\'t help. Fixed properly this time: BGG_API_TOKEN is a one-time Vercel environment variable, see psn-proxy/README.md for how to get one (free, a couple of minutes).'
+  ]},
   {version:'1.91.0', notes:[
     'Board Games is back on BoardGameGeek - Board Game Atlas turned out to have shut down, so last version\'s switch traded one broken source for a dead one. This time it\'s a small serverless function alongside the app itself rather than a route on the proxy, since BGG blocks the proxy\'s network specifically, not BGG access in general. Needs no setup on your end.',
     'Log a Gig drops Venue and Notes - just artist, location and date now.',

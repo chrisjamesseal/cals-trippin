@@ -1,17 +1,14 @@
 /* Board Games data, served from Vercel instead of the Cloudflare Worker (psn-proxy/) the rest
-   of the proxy endpoints use. BoardGameGeek's XML API 401s every request from that Worker
-   regardless of what headers are sent - the general consensus is BGG's API itself is fine, so
-   that pointed at Cloudflare Workers' own network being blocked by BGG's side, not anything
-   fixable in the request. This runs on Vercel's network instead (already hosting this app, no
-   new account needed) on the chance that isn't blocked the same way.
+   of the proxy endpoints use - see git history for why (short version: it was never actually a
+   networking problem, see below, but this is still the right home for it, same-origin with the
+   app with no separate deploy step).
 
-   Deliberately not proxied through psn-proxy/worker.js: this endpoint is same-origin with the
-   app itself (served from /api/board-games on this same Vercel deployment), so there's no CORS
-   header to add and no separate deploy step - it goes out with every ordinary `git push`.
-
-   If this is STILL 401ing after landing here too, BGG (or whatever's fronting it) is blocking
-   on something no proxy's network location can route around, and Board Games may need a
-   different data source entirely. */
+   The 401s that led here were never a Cloudflare-specific network block, as first assumed -
+   BGG rolled out a real authorization requirement on the XML API: every request now needs a
+   registered application's Bearer token, regardless of which network it comes from. Moving to
+   Vercel didn't fix it because there was nothing network-level to route around. See
+   https://boardgamegeek.com/using_the_xml_api to register (free) and get a token, then set it
+   as the BGG_API_TOKEN environment variable on this Vercel project - see psn-proxy/README.md. */
 export const config = { runtime: 'edge' };
 
 function decodeEntities(s){
@@ -29,11 +26,19 @@ function stripHtml(s){
 }
 
 const BGG = 'https://boardgamegeek.com/xmlapi2';
-const BGG_UA = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept': 'text/xml,application/xml,text/html,*/*',
-  'Accept-Language': 'en-US,en;q=0.9',
-};
+/* every request needs this now - see the top comment. Read fresh per-request rather than once
+   at module load, the same way env vars are read elsewhere in this app, since Vercel can swap
+   the value without a full redeploy. */
+function bggHeaders(){
+  const token = process.env.BGG_API_TOKEN;
+  if(!token) throw Object.assign(new Error("Board Games isn't configured - add BGG_API_TOKEN as a Vercel environment variable"), {status:503});
+  return {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/xml,application/xml,text/html,*/*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Authorization': 'Bearer ' + token,
+  };
+}
 const BGG_MAX = 36;
 
 /* <minplayers value="2"/> - the data hangs off attributes rather than element text. The \b
@@ -75,13 +80,13 @@ function itemId(block){
 const round2 = n => n==null ? null : Math.round(n*100)/100;
 
 async function bggIds(path){
-  const res = await fetch(BGG+path, {headers: BGG_UA});
+  const res = await fetch(BGG+path, {headers: bggHeaders()});
   if(!res.ok) throw new Error('BoardGameGeek returned '+res.status);
   return itemBlocks(await res.text()).map(itemId).filter(Boolean).slice(0, BGG_MAX);
 }
 async function bggDetails(ids){
   if(!ids.length) return [];
-  const res = await fetch(`${BGG}/thing?id=${ids.join(',')}&stats=1`, {headers: BGG_UA});
+  const res = await fetch(`${BGG}/thing?id=${ids.join(',')}&stats=1`, {headers: bggHeaders()});
   if(!res.ok) throw new Error('BoardGameGeek returned '+res.status);
   const byId = {};
   itemBlocks(await res.text()).forEach(b => {
