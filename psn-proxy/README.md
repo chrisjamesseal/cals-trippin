@@ -1,9 +1,10 @@
 # Proxy (for the Games, Design and Gigs tabs)
 
-> Four endpoints live here, all for the same reason: a browser can't make these calls itself.
-> `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design tab's RSS,
-> `/board-games` for BoardGameGeek, and `/spotify-search` for Gigs' artist photo search.
-> Deploying this once turns all of them on.
+> A handful of endpoints live here, all for the same reason: a browser can't make these calls
+> itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
+> tab's RSS, `/board-games` for BoardGameGeek, and `/spotify-search` plus the `/spotify-login-url`
+> `/spotify-callback` `/spotify-refresh` `/spotify-me` group for Gigs' artist search and Artists
+> checklist. Deploying this once turns all of them on.
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -51,15 +52,19 @@ If a game you're mid-playthrough on doesn't show up, or Connect fails outright, 
 
 ## Connect Spotify (for Gigs)
 
-Gigs works without this - artist name/venue/date/notes can always be typed by hand - but
-Spotify's catalogue gives the artist field a live search with a photo, the way Board Games'
-search works against BoardGameGeek.
+Gigs works without any of this - artist name/venue/date/notes can always be typed by hand - but
+Spotify gives you two things on top of that: a live artist search with a photo (public catalogue,
+no login needed), and the Artists checklist, every artist you follow ranked by how much you
+actually listen to them, which needs you to log in and approve it since that's your personal
+library data, not the public catalogue.
 
-1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
-   (any redirect URI satisfies the form; `/spotify-search` never uses one - see `worker.js`
-   for why).
-2. Copy its Client ID and Client Secret.
-3. Set them as secrets on the deployed worker, **not** in `worker.js` or anywhere else in this
+1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).
+2. Add a **Redirect URI** in that app's settings, byte-for-byte the same as `SPOTIFY_REDIRECT_URI`
+   near the top of the Spotify section in `worker.js` (defaults to this app's own address -
+   `https://cals-trippin.vercel.app/` - change the constant first if you've deployed the app
+   somewhere else, then make the dashboard entry match it, not the other way round).
+3. Copy the app's Client ID and Client Secret.
+4. Set them as secrets on the deployed worker, **not** in `worker.js` or anywhere else in this
    repo - unlike PSN's `CLIENT_ID`/`CLIENT_SECRET` below (a long-published, account-agnostic
    value the community's reverse-engineered), a Spotify app's credentials are tied to your own
    developer account, and this repo is public:
@@ -68,6 +73,8 @@ search works against BoardGameGeek.
    wrangler secret put SPOTIFY_CLIENT_SECRET
    ```
    (or the Cloudflare dashboard: your worker → Settings → Variables and Secrets)
+5. In Gigs' Artists tab, tap **Connect Spotify** and approve access. Only the artist search
+   (step 1-4) is needed for the plain "add a gig" flow - the checklist needs this step too.
 
 ## If it breaks
 
@@ -91,4 +98,8 @@ in `worker.js` looks the way it does: Workers have no `DOMParser`, and BGG doubl
 descriptions, so those get decoded twice where the RSS feeds are decoded once.
 
 If Gigs' artist search says "Spotify isn't connected yet", the worker is missing (or has a
-stale) `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` secret - see "Connect Spotify" above.
+stale) `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` secret - see "Connect Spotify" above. If
+tapping **Connect Spotify** in the Artists tab sends you to Spotify and it complains the redirect
+URI is invalid, `SPOTIFY_REDIRECT_URI` in `worker.js` doesn't byte-for-byte match a Redirect URI
+in the Spotify app's dashboard settings (a trailing slash is enough of a mismatch to fail) -
+fix whichever one is wrong so they agree, then redeploy the worker if you changed the constant.
