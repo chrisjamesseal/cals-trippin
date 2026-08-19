@@ -241,6 +241,28 @@ a{color:var(--brand-dark);}
 .wl-actions{margin-top:12px;}
 .wl-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
 
+/* ---------- home dashboard (masonry widgets) ---------- */
+/* CSS multi-column rather than a JS masonry lib: content just flows down each column in turn,
+   and break-inside:avoid on every widget keeps a card from splitting across two columns. Widget
+   heights vary on their own (a stat tile is short, an item tile with an image is tall), which
+   is what actually produces the masonry look here, not anything explicit about sizing. */
+.dash-masonry{column-count:2; column-gap:12px; padding-bottom:24px;}
+.dash-widget{display:block; width:100%; margin:0 0 12px; break-inside:avoid;
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
+  box-shadow:var(--shadow); padding:16px; cursor:pointer;
+  transition:transform .1s, box-shadow .1s;}
+.dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
+.dash-widget-stat{text-align:center; padding:22px 16px;}
+.dash-stat-num{font-family:var(--font-head); font-weight:800; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
+.dash-stat-label{margin-top:6px; color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
+.dash-item-img{display:block; width:calc(100% + 32px); height:110px; object-fit:cover;
+  margin:-16px -16px 12px; border-radius:var(--radius) var(--radius) 0 0;}
+.dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
+.dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
+@media(min-width:760px){ .dash-masonry{column-count:3;} }
+
 /* ---------- design (UX news feed) ---------- */
 .design-list{display:flex; flex-direction:column; gap:10px;}
 .design-card{display:block; text-decoration:none; transition:transform .1s, box-shadow .1s, border-color .1s;}
@@ -712,7 +734,7 @@ a.dash-tile{text-decoration:none;}
 /* ---------- bottom bar ---------- */
 .tabbar{display:none;}
 .tabbar.on{
-  display:grid; grid-template-columns:repeat(4,1fr); align-items:center;
+  display:grid; grid-template-columns:repeat(5,1fr); align-items:center;
   position:fixed; left:0; right:0; bottom:0; z-index:60;
   background:var(--paper); border-top:1px solid var(--line);
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
@@ -936,8 +958,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.95.0';
+const APP_VERSION = '1.96.0';
 const CHANGELOG = [
+  {version:'1.96.0', notes:[
+    'Added a Home tab - a quick glance across every section (upcoming trip, gigs been to and coming up, currently playing, latest Design read) in a masonry layout, each tile linking straight into its own tab. First in the bottom bar.'
+  ]},
   {version:'1.95.0', notes:[
     'Added a Wishlist to the Games tab - search for a new or upcoming game (GTA VI, say) and save it to a list, backed by RAWG. Needs a free API key, see psn-proxy/README.md.'
   ]},
@@ -2591,6 +2616,138 @@ function placesHubCardsHTML(){
        + card('#/places/want', '❤️', c.want, 'Want to Go')
        + card('#/places/finder', '🌍', c.all, 'Countries');
 }
+/* ================= Home dashboard =================
+   The app's actual front door used to be Places (still is, for the bare hash) - this is a
+   second, newer one: a quick "what's going on" glance across every section, each tile linking
+   straight into its own tab rather than duplicating what's there. Deliberately thin - a count
+   or a single upcoming/most-recent item per section, image+title+one line at most, not a full
+   preview of the section itself. */
+function dashNextTrip(){
+  const withDates = DB.trips.filter(t=>upcomingStartDate(t));
+  withDates.sort((a,b)=>a.startDate.localeCompare(b.startDate));
+  return withDates[0]||null;
+}
+function dashTripWidgetHTML(){
+  const t = dashNextTrip();
+  if(!t) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlaces()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
+      <div class="dash-item-flags" aria-hidden="true">🌍</div>
+      <div class="dash-item-title">No Trips Booked</div>
+      <div class="dash-item-sub">Plan your next one</div>
+    </div>`;
+  const flags = tripFlags(t);
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/trip/${esc(t.id)}'"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${esc(t.id)}'}">
+      <div class="dash-item-flags" aria-hidden="true">${flags||'✈️'}</div>
+      <div class="dash-item-title">${esc(t.name)}</div>
+      <div class="dash-item-sub">${esc(daysToGoCount(t.startDate))}</div>
+    </div>`;
+}
+function dashGigsBeenCount(){ return (DB.gigs||[]).filter(g=>g.date && g.date<=todayStr()).length; }
+function dashGigsStatWidgetHTML(){
+  return `
+    <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.goGigs()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
+      <div class="dash-stat-num">${dashGigsBeenCount()}</div>
+      <div class="dash-stat-label">Gigs Been To</div>
+    </div>`;
+}
+function dashNextGig(){
+  const upcoming = (DB.gigs||[]).filter(g=>g.date && g.date>todayStr());
+  upcoming.sort((a,b)=>a.date.localeCompare(b.date));
+  return upcoming[0]||null;
+}
+function dashGigWidgetHTML(){
+  const g = dashNextGig();
+  if(!g) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGigs()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
+      <div class="dash-item-flags" aria-hidden="true">🎤</div>
+      <div class="dash-item-title">No Upcoming Gigs</div>
+    </div>`;
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGigs()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
+      ${g.image ? `<img class="dash-item-img" src="${esc(g.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
+      <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
+      <div class="dash-item-sub">${esc(fmtDate(g.date))}</div>
+    </div>`;
+}
+function dashDesignWidgetHTML(){
+  const a = designLastRead();
+  if(!a) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goDesign()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goDesign()}">
+      <div class="dash-item-flags" aria-hidden="true">🎨</div>
+      <div class="dash-item-title">Nothing Read Yet</div>
+    </div>`;
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goDesign()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goDesign()}">
+      ${a.image ? `<img class="dash-item-img" src="${esc(a.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎨</div>`}
+      <div class="dash-item-title">${esc(a.title)}</div>
+      <div class="dash-item-sub">${esc(a.source||'')}</div>
+    </div>`;
+}
+function dashGamesStatWidgetHTML(n){
+  return `
+    <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.goGames()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
+      <div class="dash-stat-num">${n}</div>
+      <div class="dash-stat-label">Games Played</div>
+    </div>`;
+}
+function dashCurrentlyPlayingWidgetHTML(g){
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
+      ${g.iconUrl ? `<img class="dash-item-img" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
+      <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
+      <div class="dash-item-sub">Currently Playing</div>
+    </div>`;
+}
+/* PlayStation needs a live fetch, unlike the other widgets which read straight from what's
+   already stored on-device - so this slot starts as a "connect" prompt (if not set up) or a
+   loading stat, then fills in once (if) the fetch comes back */
+function dashGamesPlaceholderHTML(){
+  if(!psnConfigured() || !psnTokens()) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
+      <div class="dash-item-flags" aria-hidden="true">🎮</div>
+      <div class="dash-item-title">Connect PlayStation</div>
+      <div class="dash-item-sub">See your games here</div>
+    </div>`;
+  return `<div class="dash-widget dash-widget-stat"><div class="dash-stat-num">…</div><div class="dash-stat-label">Games Played</div></div>`;
+}
+function loadDashboardGames(){
+  if(!psnConfigured() || !psnTokens()) return;   // the placeholder already shows the right prompt
+  psnApi('/titles?limit=200').then(data => {
+    const slot = $('#dash-games-slot'); if(!slot) return;
+    const titles = data.titles||[];
+    slot.innerHTML = dashGamesStatWidgetHTML(titles.length) + (titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : '');
+  }).catch(()=>{
+    // fails silently here - Games tab itself surfaces the real error if you go look
+    const slot = $('#dash-games-slot'); if(slot) slot.innerHTML = '';
+  });
+}
+function renderDashboard(){
+  renderSidebar(null);
+  $('#app').innerHTML = `
+    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span></div></div>
+    <div class="dash-masonry">
+      ${dashTripWidgetHTML()}
+      ${dashGigsStatWidgetHTML()}
+      ${dashGigWidgetHTML()}
+      ${dashDesignWidgetHTML()}
+      <div id="dash-games-slot">${dashGamesPlaceholderHTML()}</div>
+    </div>`;
+  loadDashboardGames();
+}
 function renderPlacesHub(){
   applyArchiveTransitions();
   renderSidebar(null);
@@ -3308,6 +3465,15 @@ function wlCardHTML(g){
    through the worker the same reason Games does). No login, nothing device-specific: just a
    GET, so there's no connect step here, straight to the list. */
 let DESIGN_ARTICLES = [];   // the last fetch, held so opening one doesn't refetch the lot
+/* the one article the Home dashboard's Design widget shows - just enough to render the card
+   without re-fetching the whole feed */
+const DESIGN_LAST_READ_KEY = 'calstrippin_design_last_read';
+function designLastRead(){ try{ return JSON.parse(localStorage.getItem(DESIGN_LAST_READ_KEY)||'null'); }catch(e){ return null; } }
+function saveDesignLastRead(a){
+  try{ localStorage.setItem(DESIGN_LAST_READ_KEY, JSON.stringify({
+    title:a.title, image:a.image||'', source:a.source, link:a.link, date:a.date||''
+  })); }catch(e){}
+}
 /* The proxy describes each article rather than sending its HTML - headings, paragraphs,
    bold/italic runs, list items, quotes and image URLs, with every piece of text carried as
    text (see htmlToBlocks in worker.js for why). The tags below are ours and every string goes
@@ -3420,6 +3586,7 @@ function renderDesignArticle(i){
   }
   const a = DESIGN_ARTICLES[i];
   if(!a){ location.hash = '#/design'; return; }
+  saveDesignLastRead(a);
   const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
   const readable = articleIsReadable(a);
   const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener"
@@ -3755,6 +3922,10 @@ function route(){
   if(h === '#/changelog'){
     renderChangelog(); window.scrollTo(0,0); return;
   }
+  if(h === '#/home'){
+    CUR_TRIP_ID = null; stopSub();
+    renderDashboard(); window.scrollTo(0,0); return;
+  }
   /* '#/places/been' and friends are the three list screens; the hub they hang off is the
      app's front door, so it answers to a bare hash rather than a path of its own */
   if(h === '#/places' || h.startsWith('#/places/')){
@@ -3852,6 +4023,7 @@ App.submitPin = () => {
 };
 /* Your Trips has its own address now that the bare hash belongs to the Places hub */
 App.goHome = () => { if(location.hash !== '#/trips'){ location.hash='#/trips'; } else { route(); } };
+App.goDashboard = () => { if(location.hash !== '#/home'){ location.hash='#/home'; } else { route(); } };
 let PRE_CHANGELOG_HASH = ''; // where we were before opening the changelog, so a second tap returns there
 App.toggleChangelog = () => {
   if(location.hash === '#/changelog') location.hash = PRE_CHANGELOG_HASH;
@@ -4519,6 +4691,7 @@ function tripNavItems(t){
    second item also called Travel (this one meaning the Places front door, not the trip's own
    Travel tab) would just read as a confusing duplicate so close to it. */
 function sidebarGlobalNav(inTrip){
+  const onHomeDash = location.hash==='#/home';
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips' || !location.hash || location.hash==='#/';
   const onGames  = location.hash.startsWith('#/games');
   const onDesign = location.hash.startsWith('#/design');
@@ -4528,7 +4701,8 @@ function sidebarGlobalNav(inTrip){
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}">
       ${secEmoji(emoji)}<span>${label}</span>
     </div>`;
-  return (inTrip ? '' : item('Travel','🌎',"App.goPlaces()", onPlaces))
+  return (inTrip ? '' : item('Home','🏠',"App.goDashboard()", onHomeDash))
+    + (inTrip ? '' : item('Travel','🌎',"App.goPlaces()", onPlaces))
     + item('Games','🎮',"App.goGames()", onGames)
     + item('Design','🎨',"App.goDesign()", onDesign)
     + item('Gigs','🎤',"App.goGigs()", onGigs);
@@ -4546,6 +4720,7 @@ function renderTabbar(){
   bar.classList.add('on');
   /* Places is the front door, so it owns the bare hash, its own list screens, and Your Trips
      (reached from the Going card) - Trips no longer has a tab of its own */
+  const onHomeDash = location.hash==='#/home';
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips'
                     || !location.hash || location.hash==='#/';
   const onGames  = location.hash.startsWith('#/games');
@@ -4563,7 +4738,8 @@ function renderTabbar(){
       <span class="tabbar-label">${esc(label)}</span>
     </button>`;
   bar.innerHTML =
-      item('Travel','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
+      item('Home','🏠',go("App.goDashboard()"), onHomeDash && !menuOpen, false)
+    + item('Travel','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
     + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
     + item('Design','🎨',go("App.goDesign()"), onDesign && !menuOpen, false)
     + item('Gigs','🎤',go("App.goGigs()"), onGigs && !menuOpen, false);
