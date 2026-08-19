@@ -896,8 +896,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.78.0';
+const APP_VERSION = '1.79.0';
 const CHANGELOG = [
+  {version:'1.79.0', notes:[
+    'The Itinerary\'s accommodation card is one line now: the logo is the booking link itself, Maps takes the header\'s right-hand slot, and the auto-filled "Airbnb in X" name drops the service name since the logo already says it. The check-in time moved into brackets next to the Accommodation tag\'s own time above the card.',
+    'A flight card\'s head (airline, number, date) now opens live flight status directly - the separate Track Flight link is gone.'
+  ]},
   {version:'1.78.0', notes:[
     'The dashed "still outstanding" border (Not Booked, Nothing Planned) is a faint red now instead of a bold one, matching the accommodation-gap card\'s lighter weight.',
     '"Nothing Planned" now uses ❌ instead of 📍.'
@@ -3769,6 +3773,12 @@ App.openExternal = (ev, url) => {
   location.href = 'x-safari-' + url;
   return false;
 };
+/* App.openExternal assumes it's being called from a real <a href> and lets the browser follow
+   it when it does nothing itself (the non-iOS-standalone case) - for a click target that isn't
+   an anchor (the flight card's head), that fallback has to be done by hand instead */
+App.trackFlight = url => {
+  if(App.openExternal({preventDefault(){}}, url)) window.open(url, '_blank', 'noopener');
+};
 const TABS = [
   ['home','Overview'],
   ['plan','Itinerary'],
@@ -5230,14 +5240,19 @@ function tabPlan(t, ro){
       ${carStripHTML(s.c, s.ci, '')}
     </div>`;
   /* the tag names the thing and says when you'd get there: the arrival time if the booking has
-     one, otherwise the check-in/check-out time it's sorted by. Which end of the stay it is is
-     on the card's own head ("From 15:00" / "Until 11:00"). */
-  const autoStayCard = s => `
+     one, otherwise the check-in/check-out time it's sorted by - with the property's own
+     check-in time tucked in brackets right after it on check-in, since the compact card below
+     no longer repeats it itself. */
+  const autoStayCard = s => {
+    const checkin = s._autoStay==='checkin';
+    const tagTime = checkin ? s.ac.arrivalTime : s.time;
+    const tagTimeFull = (checkin && tagTime && s.ac.checkinTime) ? `${tagTime} (${s.ac.checkinTime})` : (tagTime || s.time);
+    return `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
-      ${autoTag(secEmoji(s._autoStay==='checkin'?'🏠':'👋'), 'Accommodation',
-                (s._autoStay==='checkin' && s.ac.arrivalTime) || s.time)}
+      ${autoTag(secEmoji(checkin?'🏠':'👋'), 'Accommodation', tagTimeFull)}
       ${accomCardHTML(s.ac, {showDates:false, compact:true, phase:s._autoStay})}
     </div>`;
+  };
   /* A flight or ferry is a booked thing with a time you have to make, so it earns a card.
      Everything else - a train, a bus, a taxi, driving yourself - is not that: you turn up and
      go, and it doesn't want the same weight on the page as the flight above it. Those read as
@@ -5677,16 +5692,19 @@ function travelDocLink(arr, i, d){
       ? `<a class="doc-attach" href="#" onclick="event.preventDefault();event.stopPropagation();App.viewTravelDoc('${arr}',${i})">${ICONS.docs}${esc(d.name||'Document')}</a>`
       : `<span class="doc-attach" style="opacity:.55">${ICONS.docs}${esc(d.name||'Document')}</span>`) : '';
 }
-function flightTrackLink(f){
-  if(!f.flightNo) return '';
-  const url = 'https://www.google.com/search?q='+encodeURIComponent(f.flightNo+' flight status');
-  return `<a class="doc-attach" href="${esc(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(url)}')" title="Live flight status">${ICONS.ext}Track Flight</a>`;
+function flightTrackUrl(f){
+  return f.flightNo ? 'https://www.google.com/search?q='+encodeURIComponent(f.flightNo+' flight status') : '';
 }
 /* the full flight card, shared by Travel and, read-only (whole card opens the edit form), by the Itinerary */
 function flightStripHTML(f, i, actionsHTML){
+  const trackUrl = flightTrackUrl(f);
+  /* the head is the flight's own summary (airline, number, date) - the natural thing to tap
+     for live status, so it opens tracking directly instead of a separate "Track Flight" link
+     further down; the rest of the card still opens the edit form as normal. */
+  const headClick = trackUrl ? ` onclick="event.stopPropagation(); App.trackFlight('${esc(trackUrl)}')" role="button" tabindex="0" title="Live flight status"` : '';
   return `
     <div class="flight-strip${f.undecided?' card-undecided':''}">
-      <div class="flight-head">
+      <div class="flight-head${trackUrl?' plan-click':''}"${headClick}>
         <strong class="head-with-logo">${(() => {
           const missingAirline = !f.airline && !f.undecided;
           const airline = f.airline||'Flight';
@@ -5707,7 +5725,7 @@ function flightStripHTML(f, i, actionsHTML){
         ${airportBlock(f.to, f.arrTime, true)}
       </div>
       ${(f.includes||[]).length?`<div class="incl-chips">${f.includes.map(x=>`<span class="incl-chip">✓ ${esc(x)}</span>`).join('')}</div>`:''}
-      ${(f.ref||f.doc||f.flightNo)?`<div class="flight-meta">${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}${travelDocLink('flights',i,f.doc)}${flightTrackLink(f)}</div>`:''}
+      ${(f.ref||f.doc)?`<div class="flight-meta">${f.ref?`<span>Ref <strong>${esc(f.ref)}</strong></span>`:''}${travelDocLink('flights',i,f.doc)}</div>`:''}
     </div>`;
 }
 function ferryStripHTML(f, i, actionsHTML){
@@ -5872,10 +5890,11 @@ function accomCardHTML(a, opts){
     : a.checkin ? `${fmtDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix}`
     : a.checkout ? `${fmtDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
     : '';
-  /* the head's right-hand slot mirrors a flight's date. On the Itinerary the card is pinned to
-     one end of the stay, so it carries that end's own time ("From 15:00" / "Until 11:00"); on
-     the Accommodation tab, where both ends are spelled out in the body anyway, it carries the
-     check-in date instead. */
+  /* the head's right-hand slot mirrors a flight's date. On the Accommodation tab, where both
+     ends are spelled out in the body anyway, it carries the check-in date instead. On the
+     Itinerary's compact card it's a Maps link instead - the outer "Accommodation - 23:00" tag
+     already carries this end's specific time, so repeating it here (as "From 15:00") was just
+     the property's generic check-in window standing in for the useful thing, a way there. */
   const headNote = opts.phase==='checkin'  ? (a.checkinTime  ? 'From '+a.checkinTime   : 'Check in')
                  : opts.phase==='checkout' ? (a.checkoutTime ? 'Until '+a.checkoutTime : 'Check out')
                  : '';
@@ -5884,10 +5903,11 @@ function accomCardHTML(a, opts){
      each on a phone. */
   const iconBtn = (inner, label, attrs) =>
     `<a class="btn icon-only" ${attrs} aria-label="${esc(label)}" title="${esc(label)}">${inner}</a>`;
+  const mapsUrl = a.address ? googleMapsUrl(a.address) : '';
   const bookingBtn = a.bookingUrl ? iconBtn(faviconFor(a.bookingUrl), 'View Booking',
       `href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')"`) : '';
-  const mapBtn = a.address ? iconBtn(mapIcon(googleMapsUrl(a.address)), 'Open Map',
-      `href="${googleMapsUrl(a.address)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(googleMapsUrl(a.address))}')"`) : '';
+  const mapBtn = mapsUrl ? iconBtn(mapIcon(mapsUrl), 'Open Map',
+      `href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(mapsUrl)}')"`) : '';
   const copyBtn = a.address
       ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)" aria-label="Copy address" title="Copy address">${secEmoji('\u{1F517}')}</button>`
       : '';
@@ -5897,18 +5917,34 @@ function accomCardHTML(a, opts){
   const outLine = a.checkout ? `${fmtDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}` : '';
   const stayLine = (label, value) => value
     ? `<div class="small accom-when"><span class="accom-when-label">${label}</span><span>${value}</span></div>` : '';
+  /* the compact itinerary card folds both footer buttons into the head instead of a row below:
+     the logo becomes the booking link itself, and Maps takes the right-hand slot - between the
+     two there's nothing left for the footer row to do, so it drops entirely and the card is
+     just the one line. */
+  const logoInner = a.bookingUrl ? siteLogoFor(a.bookingUrl, '', a.name||'Accommodation') : '';
+  const logo = (opts.compact && a.bookingUrl)
+    ? `<a href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')" aria-label="View Booking" title="View Booking">${logoInner}</a>`
+    : logoInner;
+  /* "Airbnb in Palaiokastritsa" said the same thing twice once the logo is doing the "Airbnb"
+     part - only strips the exact auto-filled pattern, so a name typed or edited by hand is
+     left alone */
+  const service = detectBookingService(a.bookingUrl);
+  const displayName = (opts.compact && service && a.name && a.name.toLowerCase().startsWith((service+' in ').toLowerCase()))
+    ? a.name.slice(service.length+4) : (a.name||'Accommodation');
+  const headRight = a.undecided ? `<span class="pill-notbooked">🎫 Not Booked</span>`
+    : opts.compact ? (mapBtn ? `<a class="accom-head-map" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(mapsUrl)}')" aria-label="Open Map" title="Open Map">${mapIcon(mapsUrl)}</a>` : '')
+    : headNote ? `<span class="muted small">${esc(headNote)}</span>` : '';
+  const bodyInner = (opts.showDates!==false ? stayLine('In', inLine) + stayLine('Out', outLine) : '')
+    + (a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:'')
+    + (!opts.compact && (bookingBtn || mapBtn || copyBtn || opts.rowActions)
+        ? `<div class="btn-row accom-btns" onclick="event.stopPropagation()">${bookingBtn}${mapBtn}${copyBtn}${opts.rowActions||''}</div>` : '');
   return `
     <div class="flight-strip${a.undecided?' card-undecided':''}">
       <div class="flight-head">
-        <strong class="head-with-logo">${a.bookingUrl?siteLogoFor(a.bookingUrl, '', a.name||'Accommodation'):''}<span${!a.name&&!a.undecided?' class="text-undecided"':''}>${!a.name&&!a.undecided?'❓ ':''}${esc(a.name||'Accommodation')}</span></strong>
-        ${a.undecided?`<span class="pill-notbooked">🎫 Not Booked</span>`:headNote?`<span class="muted small">${esc(headNote)}</span>`:''}
+        <strong class="head-with-logo">${logo}<span${!a.name&&!a.undecided?' class="text-undecided"':''}>${!a.name&&!a.undecided?'❓ ':''}${esc(displayName)}</span></strong>
+        ${headRight}
       </div>
-      <div class="accom-body">
-        ${opts.showDates!==false ? stayLine('In', inLine) + stayLine('Out', outLine) : ''}
-        ${a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:''}
-        ${bookingBtn || mapBtn || copyBtn || opts.rowActions
-          ? `<div class="btn-row accom-btns" onclick="event.stopPropagation()">${bookingBtn}${mapBtn}${copyBtn}${opts.rowActions||''}</div>` : ''}
-      </div>
+      ${bodyInner ? `<div class="accom-body">${bodyInner}</div>` : ''}
     </div>`;
 }
 const DAY_MS = 86400000;
