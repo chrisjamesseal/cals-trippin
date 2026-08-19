@@ -483,8 +483,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--brand-ghost);}
 /* the little square logo sitting with a card's title */
 .head-with-logo{display:flex; align-items:center; gap:9px; min-width:0;}
+/* a square logo, flex-centred against the title beside it, reads as sitting a touch high -
+   the title text's own visual weight (cap-height, not its full line box) is lower than true
+   geometric centre, so the logo wants a small nudge down to actually look aligned */
 .card-logo{width:26px; height:26px; flex-shrink:0; border-radius:6px; object-fit:contain;
-  background:var(--paper); border:1px solid var(--line);}
+  background:var(--paper); border:1px solid var(--line); transform:translateY(2px);}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
 /* accommodation runs down the card rather than across it, but shares the flight card's
    strip/head shell so the two read as the same kind of thing on the Itinerary */
@@ -546,7 +549,9 @@ details .d-body{padding:14px 16px;}
 .section-head h2{margin-bottom:0;}
 .section-head h3{display:inline-flex; align-items:center; gap:8px;}
 .section-head h3 .icon{font-size:1.3rem; color:var(--brand); flex-shrink:0;}
-.sec-emoji{font-size:1.15rem; line-height:1; flex-shrink:0;
+/* most emoji glyphs carry extra padding low in their own box, so flex-centred against a
+   title they read as sitting a touch low - nudged up to actually look aligned */
+.sec-emoji{font-size:1.15rem; line-height:1; flex-shrink:0; transform:translateY(-1px);
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 @media(max-width:560px){
   h1{font-size:1.5rem;}
@@ -771,6 +776,10 @@ a.dash-tile{text-decoration:none;}
    same weight as the flight above it */
 .plan-leg{display:flex; align-items:flex-start; gap:9px; padding:6px 2px; margin-bottom:20px; font-size:.9rem; color:var(--ink);}
 .plan-leg.plan-click{cursor:pointer; border-radius:var(--radius-sm);}
+/* not booked yet already reads as dashed red text, same as every other "still outstanding"
+   thing on the page - the dashed box round it just makes that legible from a glance rather
+   than requiring you to actually read the words */
+.plan-leg.card-undecided{border-radius:var(--radius-sm); padding:12px 14px;}
 .plan-leg-icon{flex-shrink:0; line-height:1.4;}
 .plan-leg-text{min-width:0; overflow-wrap:anywhere;}
 .plan-card{margin-bottom:20px;}
@@ -814,11 +823,16 @@ a.dash-tile{text-decoration:none;}
 /* full-bleed, no radius of its own - .plan-card-photo clips it back to the card's own rounded
    corners via overflow instead, so it reads as one continuous edge rather than a photo with a
    frame around it */
-.plan-card.plan-card-photo{padding-left:0; padding-right:0; overflow:hidden;}
+.plan-card.plan-card-photo{padding-left:0; padding-right:0; padding-bottom:0; overflow:hidden;}
 .plan-card-photo .section-head,.plan-card-photo>p,.plan-card-photo>.small,.plan-card-photo>.btn-row{padding-left:18px; padding-right:18px;}
+.plan-card-photo>.btn-row{padding-bottom:18px;}
 .plan-img-wrap{position:relative;}
-.plan-img{width:100%; max-height:220px; object-fit:cover; display:block; margin-bottom:10px;}
-.plan-img-map{position:absolute; top:10px; right:10px; background:var(--paper); box-shadow:var(--shadow);}
+.plan-img{width:100%; max-height:220px; object-fit:cover; display:block;}
+.plan-img-map{position:absolute; bottom:10px; right:10px; background:var(--paper); box-shadow:var(--shadow);}
+/* an icon sitting beside a line of text rather than above a title, so it wants the text's own
+   baseline instead of the bigger align-items:center a card head gets */
+.plan-meta-line{display:flex; align-items:flex-start; gap:7px;}
+.plan-meta-line .sec-emoji{margin-top:1px; flex-shrink:0;}
 .plan-auto{margin-bottom:20px;}
 .plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--brand-dark);}
 .plan-auto-tag .icon{font-size:.95rem;}
@@ -912,8 +926,15 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.81.0';
+const APP_VERSION = '1.82.0';
 const CHANGELOG = [
+  {version:'1.82.0', notes:[
+    'A stop\'s photo: the Maps icon moved to the bottom-right corner of the image, notes and location now carry their own icon, and the leftover gap below the photo is gone.',
+    'Fixed the Maps icon showing the folded-map emoji instead of Google\'s own for a "maps.google.com/?q=…" style link.',
+    'A not-booked-yet travel leg that\'s just a text line (train, bus, drive…) now gets the same dashed box everything else outstanding has, instead of "- not booked yet" tacked onto the end of the line.',
+    'Tasks now reads in day order - hand-typed tasks and the derived Not Booked / Nothing Planned cards are one combined list sorted by date, instead of two separate blocks. Nothing Planned\'s card now puts the date on its own line under "Day N", matching the accommodation-gap card, rather than folding both into one title.',
+    'Nudged icon/emoji vertical alignment across cards - logos (Airbnb, airlines, booking sites) sit a couple of px lower and emoji a touch higher, so both actually line up with the text beside them instead of reading slightly off-centre.'
+  ]},
   {version:'1.81.0', notes:[
     'Desktop/tablet: the sidebar now shows from 768px up instead of 1024px, so a tablet gets it too. The menu no longer leaves a blank gap above it (it was sized for a header this app hasn\'t had in a long time) - it now fills the space and fits more before scrolling.',
     'Itinerary keeps its mobile width even with the sidebar showing, sitting centred with room either side, instead of stretching edge to edge - that margin shrinks on its own as the window narrows. The rest of a trip\'s pages are unchanged. The mobile bottom bar, which had no width check of its own, no longer shows behind the sidebar.',
@@ -4492,13 +4513,13 @@ function undecidedItemsHTML(t, ro){
   const rows = [];
   const rough = hasRoughWhen(t);
   (t.flights||[]).forEach((f,i)=>{ if(f.undecided) rows.push({icon:secEmoji('✈️'), label:'Flight',
-    inner:flightStripHTML(f,i,''), editFn:`App.flightForm(${i})`}); });
+    inner:flightStripHTML(f,i,''), editFn:`App.flightForm(${i})`, sortKey: rough?'':(f.date||'')}); });
   (t.ferries||[]).forEach((f,i)=>{ if(f.undecided) rows.push({icon:secEmoji('⛴️'), label:'Ferry',
-    inner:ferryStripHTML(f,i,''), editFn:`App.ferryForm(${i})`}); });
+    inner:ferryStripHTML(f,i,''), editFn:`App.ferryForm(${i})`, sortKey: rough?'':(f.date||'')}); });
   (t.carHire||[]).forEach((c,i)=>{ if(c.undecided) rows.push({icon:secEmoji('🚗'), label:'Car Hire',
-    inner:carStripHTML(c,i,''), editFn:`App.carForm(${i})`}); });
+    inner:carStripHTML(c,i,''), editFn:`App.carForm(${i})`, sortKey: rough?'':(c.pickupDate||c.dropoffDate||'')}); });
   (t.accommodations||[]).forEach((a,i)=>{ if(a.undecided) rows.push({icon:secEmoji('🏠'), label:'Accommodation',
-    inner:accomCardHTML(a,{}), editFn:`App.accomForm(${i})`}); });
+    inner:accomCardHTML(a,{}), editFn:`App.accomForm(${i})`, sortKey: rough?'':(a.checkin||a.checkout||'')}); });
   (t.itinerary||[]).forEach((s,i)=>{ if(s.kind==='travel' && s.notBooked){
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : mode.label;
@@ -4506,7 +4527,7 @@ function undecidedItemsHTML(t, ro){
     const when = k ? planDayLabel(t, k, rough, true) : '';
     rows.push({icon:secEmoji(mode.emoji), label:'Not Booked Yet',
       inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${place}</h3>${when?`<p class="small muted" style="margin-top:4px">${esc(when)}</p>`:''}</div>`,
-      editFn:`App.travelLegForm(${i})`});
+      editFn:`App.travelLegForm(${i})`, sortKey:k});
   }});
   /* an empty itinerary day counts toward the dashboard's "things to book" tile (tabHome uses
      the same planDayGroups + stayGaps math), so it needs a card here too or the tile's number
@@ -4515,9 +4536,12 @@ function undecidedItemsHTML(t, ro){
   const gapFirstNights = new Set(stayGaps(t).map(g=>g.firstNight));
   dKeys.forEach(k=>{
     if(dGroups[k].length===0 && !gapFirstNights.has(k)){
+      // date sits under the title as its own line, same as every other card here, rather than
+      // folded into one combined "Day N · date" title
+      const {title, sub} = planDayLabelSplit(t, k, rough);
       rows.push({icon:secEmoji('❌'), label:'Nothing Planned',
-        inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${esc(planDayLabel(t, k, rough, true))}</h3></div>`,
-        editFn:`App.planGapForm('${k}', ${rough})`});
+        inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${esc(title)}</h3>${sub?`<p class="small muted" style="margin-top:4px">${esc(sub)}</p>`:''}</div>`,
+        editFn:`App.planGapForm('${k}', ${rough})`, sortKey:k});
     }
   });
   /* a stretch of nights with nowhere booked gets the same tag-above-card treatment as every
@@ -4528,28 +4552,38 @@ function undecidedItemsHTML(t, ro){
     const when = n===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.lastNight);
     rows.push({icon:secEmoji('🛏️'), label:'Not Booked Yet',
       inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${n} Night${n===1?'':'s'}</h3><p class="small muted" style="margin-top:4px">${esc(when)}</p></div>`,
-      editFn:`App.accomGapForm('${g.firstNight}','${g.checkout}')`});
+      editFn:`App.accomGapForm('${g.firstNight}','${g.checkout}')`, sortKey:g.firstNight});
   });
-  const cards = rows.map(r => `
+  /* the whole list reads in day order - a flight/car/accommodation still marked entirely TBC
+     (no date at all yet) has nothing to sort by, so it sinks to the end rather than to some
+     arbitrary spot by category */
+  rows.sort(dayKeyCompare(rough));
+  return rows.map(r => ({sortKey:r.sortKey, html:`
     <div class="plan-auto${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
       <div class="plan-auto-tag">${r.icon}<strong>${r.label}</strong></div>
       ${r.inner}
-    </div>`).join('');
-  return cards;
+    </div>`}));
 }
 function tabTasks(t, ro){
   const items = t.tasks||[];
-  const undecidedHTML = undecidedItemsHTML(t, ro);
-  if(!items.length && !undecidedHTML){
+  const rough = hasRoughWhen(t);
+  const undecidedRows = undecidedItemsHTML(t, ro);
+  if(!items.length && !undecidedRows.length){
     return `<div class="empty">Nothing to book yet.${!ro?'<br><br><button class="btn primary" onclick="App.taskForm(-1)">+ Add Task</button>':''}</div>`;
   }
   const rows = items.map((x,i)=>({x,i}));
   const todo = rows.filter(o=>!o.x.done);
   const done = rows.filter(o=>o.x.done);
+  /* hand-typed tasks join the derived rows in one combined day order, rather than sitting in
+     their own block underneath regardless of when they actually fall */
+  const todoRows = todo.map(o => ({
+    sortKey: rough ? (o.x.day?'d'+o.x.day:'') : (o.x.date||''),
+    html: taskRowHTML(t,o.x,o.i,ro)
+  }));
+  const allRows = undecidedRows.concat(todoRows).sort(dayKeyCompare(rough));
   return `
-    ${undecidedHTML}
-    ${todo.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}
+    ${allRows.map(r=>r.html).join('')}
     ${done.length?`<h3 class="pack-heading">Completed</h3>${done.map(o=>taskRowHTML(t,o.x,o.i,ro)).join('')}`:''}`;
 }
 App.taskForm = i => {
@@ -5274,6 +5308,32 @@ function planDayLabel(t, k, rough, plain){
   const numHTML = num ? `<span class="plan-day-num">Day ${num}</span>` : '';
   return numHTML + `<span class="plan-day-date">${fmtDate(k)}</span>`;
 }
+/* the day and its date as two separate strings rather than one combined line - for a card
+   like the Tasks tab's derived ones, where the date belongs underneath the title as its own
+   line (matching the accommodation-gap card), not folded into the title itself */
+function planDayLabelSplit(t, k, rough){
+  if(!k) return {title:'Anytime', sub:''};
+  if(rough) return {title:'Day '+k.slice(1), sub:''};
+  let num = 0;
+  if(t.startDate){
+    const d = Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1;
+    if(d>0) num = d;
+  }
+  const date = fmtDate(k);
+  return num ? {title:'Day '+num, sub:date} : {title:date, sub:''};
+}
+/* a comparator for planDayGroups-style keys ('YYYY-MM-DD' or 'dN') - blank sorts last, since
+   nothing to sort by is exactly the thing still needing a decision, not something to bury in
+   the middle of the list */
+function dayKeyCompare(rough){
+  return (a,b) => {
+    const ak = a.sortKey||'', bk = b.sortKey||'';
+    if(!ak && !bk) return 0;
+    if(!ak) return 1;
+    if(!bk) return -1;
+    return rough ? (+ak.slice(1)) - (+bk.slice(1)) : ak.localeCompare(bk);
+  };
+}
 function tabPlan(t, ro){
   const {groups, keys, rough, hasAny} = planDayGroups(t);
   const todayKey = todayStr();
@@ -5350,9 +5410,9 @@ function tabPlan(t, ro){
                  : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
                  : way;
-      const meta = [when, duration, s.notBooked?'not booked yet':''].filter(Boolean).join(' · ');
+      const meta = [when, duration].filter(Boolean).join(' · ');
       return `
-      <div class="plan-leg${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
+      <div class="plan-leg${!ro?' plan-click':''}${s.notBooked?' card-undecided':''}" ${clickAttrs(editFn)}>
         <span class="plan-leg-icon">${secEmoji(mode.emoji)}</span>
         <span class="plan-leg-text${s.notBooked?' text-undecided':''}">${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
       </div>`;
@@ -5392,8 +5452,8 @@ function tabPlan(t, ro){
         </div>
       </div>
       ${time?`<p class="small muted" style="margin-bottom:8px">${esc(time)}</p>`:''}
-      ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
-      ${s.location ? `<div class="small accom-addr" style="margin-bottom:10px">${esc(s.location)}</div>` : ''}
+      ${s.notes?`<p class="small plan-meta-line" style="margin-bottom:10px;white-space:pre-wrap">${secEmoji('📝')}<span>${esc(s.notes)}</span></p>`:''}
+      ${s.location ? `<div class="small accom-addr plan-meta-line" style="margin-bottom:10px">${secEmoji('📍')}<span>${esc(s.location)}</span></div>` : ''}
       ${hasImage ? `<div class="plan-img-wrap">
         <img class="plan-img" src="${s.image}" alt="${esc(s.name)}">
         ${mapBtnHTML('plan-img-map')}
@@ -5908,7 +5968,7 @@ function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&que
 /* a Google Maps link gets Google's own icon, the same way a booking link gets the site's;
    anything else (a maps.apple.com or what3words link somebody pasted) keeps the emoji */
 function mapIcon(url){
-  return /(^|\.)google\.[^/]*\/maps|(^|\.)goo\.gl\/maps|(^|\.)maps\.app\.goo\.gl/i.test(url||'')
+  return /(^|\.)maps\.google\.[^/]*(\/|\?|$)|(^|\.)google\.[^/]*\/maps|(^|\.)goo\.gl\/maps|(^|\.)maps\.app\.goo\.gl/i.test(url||'')
     ? faviconFor('https://maps.google.com') : secEmoji('🗺️');
 }
 /* best-effort town/city out of a full address, drop a trailing postcode-looking segment,
