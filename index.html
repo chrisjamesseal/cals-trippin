@@ -257,6 +257,10 @@ a{color:var(--brand-dark);}
    Explicit columns can't drift like that - each side just stacks its own tiles top to bottom. */
 .dash-masonry{display:flex; gap:12px; align-items:flex-start; padding-bottom:24px;}
 .dash-col{flex:1; min-width:0; display:flex; flex-direction:column; gap:12px;}
+/* a column's own gap only spaces its direct children - Games (stat + Currently Playing) and
+   Songs share one slot div so their fetch can repaint just that div, so that div needs the same
+   gap itself or its two tiles render flush against each other with no seam between them */
+.dash-slot{display:flex; flex-direction:column; gap:12px;}
 .dash-widget{display:block; width:100%; margin:0;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:16px; cursor:pointer;
@@ -268,6 +272,11 @@ a{color:var(--brand-dark);}
 .dash-widget-row{display:flex; flex-direction:row; align-items:center; gap:10px;}
 .dash-widget-row .dash-item-flags{font-size:1.4rem; margin-bottom:0; flex-shrink:0;}
 .dash-widget-row .dash-item-title{font-size:.88rem;}
+/* Currently Playing's own row variant: an image instead of an emoji, and a title+caption pair
+   instead of the single "N Label" line the count tiles use */
+.dash-widget-row-text{min-width:0; flex:1;}
+.dash-item-thumb{display:block; width:56px; height:56px; object-fit:cover;
+  border-radius:var(--radius-sm); flex-shrink:0;}
 .dash-stat-num{font-family:var(--font-head); font-weight:800; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
 .dash-stat-label{margin-top:6px; color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
 .dash-item-img{display:block; width:calc(100% + 32px); height:110px; object-fit:cover;
@@ -1014,8 +1023,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 const CHANGELOG = [
+  {version:'2.6.0', notes:[
+    'Home: "Games Played" is now just "Games", and there\'s proper spacing below it. Currently Playing is now a compact row - box art on the left at the same size as the next-gig photo, title and caption on the right - instead of a big square image.'
+  ]},
   {version:'2.5.0', notes:[
     'Fixed the Places/Artists search box drifting away from the keyboard on some phones instead of sitting right above it, by telling the browser to resize around the keyboard properly instead of working around it after the fact.',
     'The bottom tab bar now hides outright while a keyboard is open, instead of sometimes showing up stacked above it.'
@@ -2876,17 +2888,19 @@ function dashGamesStatWidgetHTML(n){
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
       <div class="dash-item-flags" aria-hidden="true">🎮</div>
-      <div class="dash-item-title">${n} Games Played</div>
+      <div class="dash-item-title">${n} Games</div>
     </div>`;
 }
 function dashCurrentlyPlayingWidgetHTML(g){
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      ${g.iconUrl ? `<img class="dash-item-img dash-item-img-square" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+      ${g.iconUrl ? `<img class="dash-item-thumb" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
-      <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
-      <div class="dash-item-sub">Currently Playing</div>
+      <div class="dash-widget-row-text">
+        <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
+        <div class="dash-item-sub">Currently Playing</div>
+      </div>
     </div>`;
 }
 /* PlayStation needs a live fetch, unlike the other widgets which read straight from what's
@@ -2930,7 +2944,7 @@ function renderDashboard(){
     <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
     ${dashGigWidgetHTML()}`;
   const colB = `
-    <div id="dash-games-slot">${dashGamesPlaceholderHTML()}</div>
+    <div id="dash-games-slot" class="dash-slot">${dashGamesPlaceholderHTML()}</div>
     <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
