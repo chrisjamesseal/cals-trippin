@@ -249,6 +249,23 @@ a{color:var(--brand-dark);}
 .wl-actions{margin-top:12px;}
 .wl-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
 
+/* ---------- films (Letterboxd-style diary) - a poster shelf, not a list ---------- */
+#films-grid{padding-bottom:44px;}
+.film-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(100px,1fr)); gap:12px;}
+.film-card{display:block; width:100%; text-align:left; cursor:pointer; border:none; background:none;
+  padding:0; font:inherit; color:inherit;}
+.film-poster{display:block; width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:var(--radius-sm);
+  border:1px solid var(--line); background:var(--paper);}
+.film-poster-fallback{display:flex; align-items:center; justify-content:center; font-size:1.6rem; color:var(--muted);}
+.film-title{margin-top:6px; font-family:var(--font-head); font-weight:700; font-size:.78rem; color:var(--ink);
+  line-height:1.25; overflow-wrap:anywhere;}
+.film-rewatch-badge{color:var(--muted); font-weight:400;}
+.film-meta{margin-top:2px; font-size:.68rem; color:var(--muted);}
+.film-stars{display:block; margin-top:2px; font-size:.72rem; font-weight:700; color:var(--brand-dark);}
+.films-sync-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
+  gap:10px; padding:12px 14px; margin-bottom:16px; border:1px solid var(--line); border-radius:var(--radius);
+  background:var(--paper); box-shadow:var(--shadow);}
+
 /* ---------- home dashboard (masonry widgets) ---------- */
 /* Two explicit column divs (each tile's home decided in JS, see dashColAHTML/dashColBHTML)
    rather than CSS column-count: multi-column's own "balance" heuristic was picking heights
@@ -795,7 +812,7 @@ a.dash-tile{text-decoration:none;}
 /* ---------- bottom bar ---------- */
 .tabbar{display:none;}
 .tabbar.on{
-  display:grid; grid-template-columns:repeat(5,1fr); align-items:center;
+  display:grid; grid-template-columns:repeat(6,1fr); align-items:center;
   position:fixed; left:0; right:0; bottom:0; z-index:60;
   background:var(--paper); border-top:1px solid var(--line);
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
@@ -808,18 +825,19 @@ a.dash-tile{text-decoration:none;}
    body.kb-open) rather than repositioned above it - a second bar stacked on top of the
    keyboard read as broken, not useful, especially with a search box already anchored there */
 body.kb-open .tabbar.on{display:none;}
+/* icon-only: a 6th tab (Films) made room for text labels too tight to read comfortably, and
+   aria-label already carries the name for screen readers regardless */
 .tabbar-item{
-  display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
-  background:none; border:none; padding:6px 2px; cursor:pointer; color:var(--muted);
-  font:inherit; font-size:.62rem; font-weight:700; letter-spacing:.01em;
+  display:flex; align-items:center; justify-content:center; min-width:0;
+  background:none; border:none; padding:10px 2px; cursor:pointer; color:var(--muted);
+  font:inherit;
 }
 /* only while the section menu is open, so the bar never floats over a full-screen form */
 .tabbar.over-menu{z-index:130;}
 .tabbar-item:disabled{opacity:.3; cursor:default;}
 .tabbar-item.active{color:var(--brand-dark);}
-.tabbar-emoji{font-size:1.15rem; line-height:1;
+.tabbar-emoji{font-size:1.5rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.tabbar-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
 /* keep the last of the page clear of the bar (harmless on the PIN gate, where it's hidden),
    set after the narrow-screen rule above so it wins on phones too, where the bar still needs
    the same clearance the wider layouts give it */
@@ -1023,8 +1041,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.7.0';
 const CHANGELOG = [
+  {version:'2.7.0', notes:[
+    'New Films tab: log films you\'ve watched (title, year, date, star rating, rewatch) with a poster-shelf grid, or connect your Letterboxd username to pull in your diary automatically - ratings, rewatches and all. Syncing again just updates what\'s changed rather than duplicating anything.',
+    'The bottom tab bar now shows icons only, no text labels underneath, to make room for the new Films tab.'
+  ]},
   {version:'2.6.0', notes:[
     'Home: "Games Played" is now just "Games", and there\'s proper spacing below it. Currently Playing is now a compact row - box art on the left at the same size as the next-gig photo, title and caption on the right - instead of a big square image.'
   ]},
@@ -1562,10 +1584,11 @@ function load(){
       db.places = (db.places && typeof db.places==='object') ? db.places : {};
       db.placesArchived = Array.isArray(db.placesArchived) ? db.placesArchived : [];
       db.gigs = Array.isArray(db.gigs) ? db.gigs : [];
+      db.films = Array.isArray(db.films) ? db.films : [];
       return db;
     }
   }catch(e){}
-  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[]};
+  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[], films:[]};
 }
 /* persist to localStorage. If storage is full, never lose a trip, drop only the heavy
    in-browser file/photo previews (they still live in the cloud copy when synced) and keep
@@ -4191,6 +4214,214 @@ function delGigImpl(i){
   toast('Gig removed');
 }
 
+/* ================= Films (Letterboxd-style diary) =================
+   Letterboxd's own API is invite-only (see worker.js's fetchLetterboxdDiary for the details),
+   so importing works the same way Design's news feed does: the Worker fetches your account's
+   public diary RSS feed and hands back plain JSON. That only ever covers your diary (recently
+   logged films, capped at roughly the last 50 for a free account) - not your full watched
+   history or watchlist, neither of which are exposed outside the closed API. Logging a film by
+   hand always works regardless, the same way logging a gig doesn't need Spotify connected. */
+const LETTERBOXD_USER_KEY = 'calstrippin_letterboxd_user';
+function letterboxdUsername(){ try{ return localStorage.getItem(LETTERBOXD_USER_KEY) || ''; }catch(e){ return ''; } }
+function saveLetterboxdUsername(u){ try{ localStorage.setItem(LETTERBOXD_USER_KEY, u); }catch(e){} }
+function clearLetterboxdUsername(){ try{ localStorage.removeItem(LETTERBOXD_USER_KEY); }catch(e){} }
+
+function loadFilmsCloud(cb){
+  if(!fbRoot){ cb(DB.films||[]); return; }
+  fbRoot.ref('films').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : (DB.films||[])))
+    .catch(() => cb(DB.films||[]));
+}
+function pushFilms(){
+  if(!fbRoot) return;
+  fbRoot.ref('films').set(DB.films||[])
+    .catch(err => {
+      console.error("My Trips, couldn't save Films:", err);
+      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        noteModal('Films Not Saved', "The database rules don't allow writing Films. Open the Firebase console, Realtime Database, Rules, and add a 'films' rule.");
+      }else{
+        noteModal('Not Saved', 'Check your connection and try again.');
+      }
+    });
+}
+function saveFilms(){ saveLocal(); pushFilms(); }
+
+function filmStarsHTML(rating){
+  if(rating==null) return '';
+  return `<span class="film-stars">★ ${rating.toFixed(1)}</span>`;
+}
+function filmsSorted(){
+  return (DB.films||[]).map((f,i)=>({f,i}))
+    .sort((a,b) => (b.f.watchedDate||'').localeCompare(a.f.watchedDate||'') || (a.f.title||'').localeCompare(b.f.title||''));
+}
+function renderFilms(){
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">Films</span>
+        <button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>
+      </div>
+    </div>
+    <div id="films-connect"></div>
+    <div id="films-grid"></div>`;
+  drawLetterboxdConnect();
+  drawFilmsGrid();
+  loadFilmsCloud(cloud => {
+    DB.films = Array.isArray(cloud) ? cloud : [];
+    saveLocal();
+    drawFilmsGrid();
+  });
+}
+function drawLetterboxdConnect(){
+  const el = $('#films-connect'); if(!el) return;
+  const u = letterboxdUsername();
+  if(!psnConfigured()){
+    el.innerHTML = '';   // manual logging still works with no proxy set up - just skip the sync card
+    return;
+  }
+  if(!u){
+    el.innerHTML = `
+      <div class="card">
+        <h3 style="margin-bottom:8px">Connect Letterboxd</h3>
+        <p class="small muted" style="margin-bottom:14px">
+          Pulls in your diary - recently logged films, ratings and rewatches - from your public
+          Letterboxd profile. Letterboxd's own API is invite-only, so this reads the same public
+          diary feed your profile page does: only your most recent entries (capped at around 50
+          for a free account), not your full watched history or watchlist.
+        </p>
+        <div class="field"><label class="label" for="letterboxd-user-input">Letterboxd username</label>
+          <input type="text" id="letterboxd-user-input" placeholder="e.g. yourname" autocomplete="off"></div>
+        <button class="btn primary" id="letterboxd-connect-btn" style="width:100%" onclick="App.letterboxdConnect()">Connect</button>
+      </div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="films-sync-row">
+      <span class="small muted">Synced with <strong>${esc(u)}</strong> on Letterboxd</span>
+      <div class="btn-row">
+        <button class="btn sm" onclick="App.letterboxdSync()">Sync Again</button>
+        <button class="btn sm ghost" onclick="App.letterboxdDisconnect()">Disconnect</button>
+      </div>
+    </div>`;
+}
+function drawFilmsGrid(){
+  const grid = $('#films-grid'); if(!grid) return;
+  const ordered = filmsSorted();
+  if(!ordered.length){
+    grid.innerHTML = `<div class="empty">No films logged yet.<br>Tap + Log Film, or connect Letterboxd above.</div>`;
+    return;
+  }
+  grid.innerHTML = `<div class="film-grid">${ordered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>`;
+}
+function filmCardHTML(f, i){
+  const meta = [f.year, f.watchedDate?fmtDate(f.watchedDate):''].filter(Boolean).join(' · ');
+  return `
+    <button type="button" class="film-card" onclick="App.filmForm(${i})">
+      ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                 : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
+      <div class="film-title">${esc(f.title||'Untitled')}${f.rewatch?' <span class="film-rewatch-badge" title="Rewatch">↻</span>':''}</div>
+      ${meta?`<div class="film-meta">${esc(meta)}</div>`:''}
+      ${filmStarsHTML(f.rating)}
+    </button>`;
+}
+function filmFormImpl(i){
+  const f = (i>=0 && (DB.films||[])[i]) || {};
+  openModal(`
+    <h2>${i>=0?'Edit Film':'Log a Film'}</h2>
+    <div class="field"><label class="label" for="film-title">Title</label>
+      <input id="film-title" type="text" value="${esc(f.title||'')}" placeholder="Film title"></div>
+    <div class="field"><label class="label" for="film-year">Year</label>
+      <input id="film-year" type="number" inputmode="numeric" min="1888" max="2100" value="${esc(f.year||'')}"></div>
+    <div class="field"><label class="label" for="film-date">Watched</label>
+      <input id="film-date" type="date" value="${esc(f.watchedDate||'')}"></div>
+    <div class="field"><label class="label" for="film-rating">Rating</label>
+      <select id="film-rating">
+        <option value=""${f.rating==null?' selected':''}>No rating</option>
+        ${[0.5,1,1.5,2,2.5,3,3.5,4,4.5,5].map(v=>`<option value="${v}"${f.rating===v?' selected':''}>★ ${v.toFixed(1)}</option>`).join('')}
+      </select></div>
+    <div class="field"><label class="switch-row"><span>↻ Rewatch</span>
+      <span class="switch"><input type="checkbox" id="film-rewatch"${f.rewatch?' checked':''}><span class="knob"></span></span>
+    </label></div>
+    <div class="field"><label class="label" for="film-poster">Poster URL <span class="muted">(optional)</span></label>
+      <input id="film-poster" type="text" value="${esc(f.image||'')}" placeholder="https://…"></div>
+    <div class="btn-row" style="margin-top:6px">
+      <button class="btn primary" style="flex:1" onclick="App.saveFilm(${i>=0?i:-1})">${i>=0?'Save':'Add Film'}</button>
+      ${i>=0?`<button class="btn danger" onclick="App.delFilm(${i})">Delete</button>`:''}
+    </div>`);
+}
+function saveFilmImpl(i){
+  const title = ($('#film-title').value||'').trim();
+  if(!title) return markErr('#film-title','Enter a film title');
+  const existing = (i>=0 && (DB.films||[])[i]) || {};
+  const ratingRaw = $('#film-rating').value;
+  const film = {
+    id: existing.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()),
+    title,
+    year: ($('#film-year').value||'').trim() || null,
+    watchedDate: $('#film-date').value || null,
+    rating: ratingRaw ? parseFloat(ratingRaw) : null,
+    rewatch: $('#film-rewatch').checked,
+    image: ($('#film-poster').value||'').trim(),
+    link: existing.link || '',
+    source: existing.source || 'manual',
+  };
+  DB.films = DB.films||[];
+  if(i>=0 && DB.films[i]) DB.films[i] = film; else DB.films.push(film);
+  saveFilms(); closeModal(); drawFilmsGrid();
+  toast(i>=0?'Film updated':'Film logged');
+}
+function delFilmImpl(i){
+  confirmModal('Remove This Film?', "This removes it from your log. This can't be undone.", 'Remove', ()=>{
+    DB.films = DB.films||[];
+    DB.films.splice(i,1);
+    saveFilms(); closeModal(); drawFilmsGrid();
+    toast('Film removed');
+  });
+}
+async function letterboxdConnectImpl(){
+  const inp = $('#letterboxd-user-input');
+  const u = (inp.value||'').trim().replace(/^@/,'');
+  if(!u) return markErr('#letterboxd-user-input','Enter your Letterboxd username');
+  saveLetterboxdUsername(u);
+  await letterboxdSyncImpl();
+}
+async function letterboxdSyncImpl(){
+  const u = letterboxdUsername(); if(!u) return;
+  const el = $('#films-connect');
+  if(el) el.innerHTML = `<div class="card"><p class="small muted">Syncing with Letterboxd…</p></div>`;
+  try{
+    const data = await fetch(psnUrl('/letterboxd-diary') + '?user=' + encodeURIComponent(u)).then(async r=>{
+      if(!r.ok){ const body = await r.json().catch(()=>({})); throw new Error(body.error || ('status '+r.status)); }
+      return r.json();
+    });
+    const imported = data.films||[];
+    DB.films = DB.films||[];
+    const byId = new Map(DB.films.map((f,idx)=>[f.id, idx]));
+    let added=0, updated=0;
+    imported.forEach(f=>{
+      const entry = {id:f.id, title:f.title, year:f.year, watchedDate:f.watchedDate,
+        rating:f.rating, rewatch:f.rewatch, image:f.image, link:f.link, source:'letterboxd'};
+      if(byId.has(f.id)){ DB.films[byId.get(f.id)] = entry; updated++; }
+      else { DB.films.push(entry); byId.set(f.id, DB.films.length-1); added++; }
+    });
+    saveFilms();
+    drawLetterboxdConnect();
+    drawFilmsGrid();
+    toast(`Synced: ${added} new, ${updated} updated`);
+  }catch(e){
+    const errEl = $('#films-connect'); if(!errEl) return;
+    errEl.innerHTML = `<div class="card"><p class="small" style="color:var(--accent-dark)">Couldn't sync Letterboxd.<br>${esc(e.message||'')}</p>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn sm" onclick="App.letterboxdSync()">Try Again</button>
+        <button class="btn sm ghost" onclick="App.letterboxdDisconnect()">Disconnect</button>
+      </div></div>`;
+  }
+}
+function letterboxdDisconnectImpl(){
+  clearLetterboxdUsername();
+  drawLetterboxdConnect();
+}
+
 function route(){
   closeModal(); closeMenu();
   // #app is reused across routes (innerHTML swapped, not replaced), so a data-tab left over
@@ -4227,6 +4458,10 @@ function route(){
   if(h === '#/gigs'){
     CUR_TRIP_ID = null; stopSub();
     renderGigs(); window.scrollTo(0,0); return;
+  }
+  if(h === '#/films'){
+    CUR_TRIP_ID = null; stopSub();
+    renderFilms(); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/design/')){
     CUR_TRIP_ID = null; stopSub();
@@ -4337,6 +4572,13 @@ App.gigArtistInput = gigArtistInputImpl;
 App.gigArtistPick = gigArtistPickImpl;
 App.saveGig = saveGigImpl;
 App.delGig = delGigImpl;
+App.goFilms = () => { location.hash = '#/films'; };
+App.filmForm = filmFormImpl;
+App.saveFilm = saveFilmImpl;
+App.delFilm = delFilmImpl;
+App.letterboxdConnect = letterboxdConnectImpl;
+App.letterboxdSync = letterboxdSyncImpl;
+App.letterboxdDisconnect = letterboxdDisconnectImpl;
 App.spotifyConnect = () => {
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
   sessionStorage.setItem('spotify_oauth_state', state);
@@ -4990,6 +5232,7 @@ function sidebarGlobalNav(inTrip){
   const onGames  = location.hash.startsWith('#/games');
   const onDesign = location.hash.startsWith('#/design');
   const onGigs   = location.hash.startsWith('#/gigs');
+  const onFilms  = location.hash.startsWith('#/films');
   const item = (label, emoji, fn, active) => `
     <div class="menu-item${active?' active':''}" role="menuitem" tabindex="0" onclick="${fn}"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}">
@@ -4999,7 +5242,8 @@ function sidebarGlobalNav(inTrip){
     + (inTrip ? '' : item('Travel','🌎',"App.goPlaces()", onPlaces))
     + item('Games','🎮',"App.goGames()", onGames)
     + item('Design','🎨',"App.goDesign()", onDesign)
-    + item('Music','🎤',"App.goGigs()", onGigs);
+    + item('Music','🎤',"App.goGigs()", onGigs)
+    + item('Films','🎬',"App.goFilms()", onFilms);
 }
 function renderSidebar(t){
   const root = $('#sidebar-root'); if(!root) return;
@@ -5019,23 +5263,27 @@ function renderTabbar(){
   const onGames  = location.hash.startsWith('#/games');
   const onDesign = location.hash.startsWith('#/design');
   const onGigs   = location.hash.startsWith('#/gigs');
+  const onFilms  = location.hash.startsWith('#/films');
   /* with the menu open the bar rides above it; anything tapped from there dismisses the menu
      on the way through (the menu itself now opens from a button in the trip header, not here) */
   const menuOpen = menuIsOpen();
   bar.classList.toggle('over-menu', menuOpen);
   const go = fn => menuOpen ? 'App.closeMenu();'+fn : fn;
+  /* icon-only: a 6th item (Films) made the text labels too cramped to read, and the label was
+     always redundant with aria-label anyway - screen readers still get the name, sighted users
+     get more breathing room per icon */
   const item = (label, emoji, fn, active, off) => `
     <button class="tabbar-item${active?' active':''}" ${off?'disabled aria-disabled="true"':''}
             ${off?'':`onclick="${fn}"`} aria-label="${esc(label)}">
       <span class="tabbar-emoji" aria-hidden="true">${emoji}</span>
-      <span class="tabbar-label">${esc(label)}</span>
     </button>`;
   bar.innerHTML =
       item('Home','🏠',go("App.goDashboard()"), onHomeDash && !menuOpen, false)
     + item('Travel','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
     + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
     + item('Design','🎨',go("App.goDesign()"), onDesign && !menuOpen, false)
-    + item('Music','🎤',go("App.goGigs()"), onGigs && !menuOpen, false);
+    + item('Music','🎤',go("App.goGigs()"), onGigs && !menuOpen, false)
+    + item('Films','🎬',go("App.goFilms()"), onFilms && !menuOpen, false);
   /* anything that has to sit on top of the bar (the Places search, the hub's height) needs
      its real height, inset and all, not a number that was right on one phone */
   document.documentElement.style.setProperty('--bar-h', bar.offsetHeight+'px');

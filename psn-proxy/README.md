@@ -1,12 +1,13 @@
-# Proxy (for the Games, Design and Music tabs)
+# Proxy (for the Games, Design, Music and Films tabs)
 
 > A handful of endpoints live here, all for the same reason: a browser can't make these calls
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
-> tab's RSS, and `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
+> tab's RSS, `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` `/spotify-top-tracks` group for Music's artist search, Artists
-> checklist and Songs tab. Deploying this once turns all of them on. (Board Games and the Games
-> tab's Wishlist aren't here - see "Connect BoardGameGeek" and "Connect RAWG" below for where
-> those actually live and their own one-time setup.)
+> checklist and Songs tab, and `/letterboxd-diary` for Films' Letterboxd sync. Deploying this
+> once turns all of them on. (Board Games and the Games tab's Wishlist aren't here - see
+> "Connect BoardGameGeek" and "Connect RAWG" below for where those actually live and their own
+> one-time setup.)
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -111,6 +112,23 @@ follow ranked by how much you actually listen to them), and the Songs tab (your 
    (step 1-4) is needed for the plain "add a gig" flow - the Artists checklist and Songs tab
    both need this step too.
 
+## Connect Letterboxd (for Films)
+
+Logging a film works without any of this - title/year/date/rating can always be typed by hand -
+but if you keep a [Letterboxd](https://letterboxd.com/) diary, Films can pull it in instead of
+you re-typing it. Letterboxd's own API is invite-only (you'd have to email them and hope for
+approval), so this reads the same public diary RSS feed your profile page links to
+(`letterboxd.com/<username>/rss/`) - your most recent entries (capped around 50 for a free
+account), not your full watched history or watchlist, neither of which are exposed outside the
+closed API.
+
+This is the one feature on this whole page that needs **no setup at all** - no key, no secret, no
+account, nothing to register. It's a public feed, so `/letterboxd-diary` just fetches and reduces
+it to JSON. If you deployed this worker for Games/Design/Music already, Films' Letterboxd sync is
+already live; if not, deploying it (see "Deploy it" above) turns this on along with everything
+else. In the Films tab, tap **Connect Letterboxd** and enter your username (the one in your
+profile URL, not your display name).
+
 ## If it breaks
 
 Sony hasn't published this API and hasn't promised not to change it. `worker.js`'s
@@ -144,3 +162,11 @@ in the Spotify app's dashboard settings (a trailing slash is enough of a mismatc
 fix whichever one is wrong so they agree, then redeploy the worker if you changed the constant.
 The same login covers the Songs tab too, so a stale `SPOTIFY_REDIRECT_URI` or missing secret
 shows up there the same way.
+
+If Films' Letterboxd sync says it "couldn't sync" with a 404, the username's wrong (it's the one
+in your profile URL - `letterboxd.com/<username>/`, not your display name) or the profile doesn't
+exist. Anything else (a plain "status 500" etc.) means Letterboxd's site is unreachable or
+temporarily erroring - try again in a bit. Since there's no key or secret to expire here, if it
+suddenly stops working the most likely cause is Letterboxd having changed their RSS feed's field
+names - check `worker.js`'s `parseLetterboxdItems` against a fresh `letterboxd.com/<any
+username>/rss/` response if entries start coming through blank or missing ratings.
