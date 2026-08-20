@@ -268,8 +268,12 @@ a{color:var(--brand-dark);}
 .dash-item-avatar{display:block; width:56px; height:56px; object-fit:cover;
   margin:0 0 10px; border-radius:50%;}
 /* sits next to the "Home" crumb via .crumb-titlerow's own space-between, the same slot Music's
-   "+ Add Gig" button uses - top right, not inside any one masonry tile */
-.home-song-range-sel{width:auto; font-size:.78rem; font-weight:700; padding:7px 28px 7px 12px;}
+   "+ Add Gig" button uses - top right, not inside any one masonry tile. The wrapper clips its
+   own rounded corners so nothing (a stray native select shadow on some mobile browsers) can
+   bleed out past the pill shape. */
+.home-song-range-wrap{display:inline-block; border-radius:999px; overflow:hidden; box-shadow:none;}
+.home-song-range-sel{display:block; width:auto; font-size:.78rem; font-weight:700;
+  padding:7px 28px 7px 12px; border-radius:999px; box-shadow:none;}
 .dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
@@ -977,8 +981,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.0';
 const CHANGELOG = [
+  {version:'2.1.0', notes:[
+    "Home: added a Places Been tile. Every tile's caption is now a plain label (Next Trip, Next Gig, Most Played, Next Article) instead of the specific date/location/artist, matching Currently Playing's style. Gigs Been To and Games Played now filter by the same Last 4 Weeks / Last 6 Months / All Time picker as the top song. Fixed a stray shadow under that picker on some phones."
+  ]},
   {version:'2.0.0', notes:[
     'Home: a new tile shows your top song, with the same Last 4 Weeks / Last 6 Months / All Time picker as Songs (top right, next to the page title). The next-gig tile now shows its location too, and Gigs Been To / Games Played dropped their big-number look for the same small emoji-led style as everything else. Trips now shows up to three upcoming trips, shuffled, instead of just the next one, to give the masonry more to work with.'
   ]},
@@ -2666,7 +2673,7 @@ function dashTripItemHTML(t){
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${esc(t.id)}'}">
       <div class="dash-item-flags" aria-hidden="true">${flags||'✈️'}</div>
       <div class="dash-item-title">${esc(t.name)}</div>
-      <div class="dash-item-sub">${esc(daysToGoCount(t.startDate))}</div>
+      <div class="dash-item-sub">Next Trip</div>
     </div>`;
 }
 /* shows a handful of upcoming trips rather than just the very next one, in a shuffled order
@@ -2685,13 +2692,31 @@ function dashTripWidgetsHTML(){
   for(let i=shuffled.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]; }
   return shuffled.slice(0,3).map(dashTripItemHTML).join('');
 }
-function dashGigsBeenCount(){ return (DB.gigs||[]).filter(g=>g.date && g.date<=todayStr()).length; }
+/* Spotify's own three listening windows, reused as an approximate cutoff for gigs/games too -
+   not exact to the day, but close enough to answer "how many lately" for the same picker */
+function dashRangeCutoffStr(range){
+  if(range==='long_term') return null;
+  const d = new Date(); d.setDate(d.getDate() - (range==='short_term' ? 28 : 182));
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dashGigsBeenCount(range){
+  const cutoff = dashRangeCutoffStr(range);
+  return (DB.gigs||[]).filter(g=>g.date && g.date<=todayStr() && (!cutoff || g.date>=cutoff)).length;
+}
 function dashGigsStatWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGigs()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
       <div class="dash-item-flags" aria-hidden="true">🎤</div>
-      <div class="dash-item-title">${dashGigsBeenCount()} Gigs Been To</div>
+      <div class="dash-item-title">${dashGigsBeenCount(CUR_DASH_SONG_RANGE)} Gigs Been To</div>
+    </div>`;
+}
+function dashPlacesBeenWidgetHTML(){
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlaces('been')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('been')}">
+      <div class="dash-item-flags" aria-hidden="true">📍</div>
+      <div class="dash-item-title">${placesCounts().been} Places Been</div>
     </div>`;
 }
 function dashNextGig(){
@@ -2713,7 +2738,7 @@ function dashGigWidgetHTML(){
       ${g.image ? `<img class="dash-item-avatar" src="${esc(g.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
       <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
-      <div class="dash-item-sub">${esc([fmtDate(g.date), g.city].filter(Boolean).join(' · '))}</div>
+      <div class="dash-item-sub">Next Gig</div>
     </div>`;
 }
 /* mirrors Songs' own time-range picker (SONGS_TIME_RANGES / SONGS_CACHE, defined further down
@@ -2743,7 +2768,7 @@ function dashSongWidgetHTML(t){
       ${t.image ? `<img class="dash-item-img-square" src="${esc(t.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
       <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
-      <div class="dash-item-sub">${esc(t.artist||'')}</div>
+      <div class="dash-item-sub">Most Played</div>
     </div>`;
 }
 /* lives in the page header next to the "Home" crumb, not inside the song tile itself - a
@@ -2751,9 +2776,11 @@ function dashSongWidgetHTML(t){
 function dashSongRangeSelectHTML(){
   if(!psnConfigured() || !spotifyTokens()) return '';
   return `
-    <select class="home-song-range-sel" onchange="App.dashSongRange(this.value)">
-      ${SONGS_TIME_RANGES.map(r=>`<option value="${r.k}"${CUR_DASH_SONG_RANGE===r.k?' selected':''}>${esc(r.label)}</option>`).join('')}
-    </select>`;
+    <span class="home-song-range-wrap">
+      <select class="home-song-range-sel" onchange="App.dashSongRange(this.value)">
+        ${SONGS_TIME_RANGES.map(r=>`<option value="${r.k}"${CUR_DASH_SONG_RANGE===r.k?' selected':''}>${esc(r.label)}</option>`).join('')}
+      </select>
+    </span>`;
 }
 function loadDashboardSong(){
   if(!psnConfigured() || !spotifyTokens()) return;   // the placeholder already shows the right prompt
@@ -2782,7 +2809,7 @@ function dashDesignWidgetHTML(){
       ${a.image ? `<img class="dash-item-img" src="${esc(a.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎨</div>`}
       <div class="dash-item-title">${esc(a.title)}</div>
-      <div class="dash-item-sub">${esc(a.source||'')}</div>
+      <div class="dash-item-sub">Next Article</div>
     </div>`;
 }
 function dashGamesStatWidgetHTML(n){
@@ -2816,12 +2843,18 @@ function dashGamesPlaceholderHTML(){
     </div>`;
   return `<div class="dash-widget dash-widget-item"><div class="dash-item-flags" aria-hidden="true">🎮</div><div class="dash-item-title">Loading…</div></div>`;
 }
+let DASH_GAMES_TITLES = null;   // cached from the one /titles fetch, so switching the range dropdown doesn't refetch
+function drawDashGamesSlot(){
+  const slot = $('#dash-games-slot'); if(!slot || !DASH_GAMES_TITLES) return;
+  const cutoff = dashRangeCutoffStr(CUR_DASH_SONG_RANGE);
+  const titles = cutoff ? DASH_GAMES_TITLES.filter(t=>t.lastPlayed && t.lastPlayed.slice(0,10)>=cutoff) : DASH_GAMES_TITLES;
+  slot.innerHTML = dashGamesStatWidgetHTML(titles.length) + (titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : '');
+}
 function loadDashboardGames(){
   if(!psnConfigured() || !psnTokens()) return;   // the placeholder already shows the right prompt
   psnApi('/titles?limit=200').then(data => {
-    const slot = $('#dash-games-slot'); if(!slot) return;
-    const titles = data.titles||[];
-    slot.innerHTML = dashGamesStatWidgetHTML(titles.length) + (titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : '');
+    DASH_GAMES_TITLES = data.titles||[];
+    drawDashGamesSlot();
   }).catch(()=>{
     // fails silently here - Games tab itself surfaces the real error if you go look
     const slot = $('#dash-games-slot'); if(slot) slot.innerHTML = '';
@@ -2833,7 +2866,8 @@ function renderDashboard(){
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     <div class="dash-masonry">
       ${dashTripWidgetsHTML()}
-      ${dashGigsStatWidgetHTML()}
+      ${dashPlacesBeenWidgetHTML()}
+      <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
       ${dashGigWidgetHTML()}
       ${dashDesignWidgetHTML()}
       <div id="dash-games-slot">${dashGamesPlaceholderHTML()}</div>
@@ -4230,7 +4264,12 @@ App.spotifyConnect = () => {
 };
 App.spotifyDisconnect = () => { clearSpotifyTokens(); SPOTIFY_ARTISTS = null; SONGS_CACHE = {}; renderGigs(); };
 App.songsRange = k => { CUR_SONGS_RANGE = k; drawSongsRanges(); loadSongs(k); };
-App.dashSongRange = k => { CUR_DASH_SONG_RANGE = k; loadDashboardSong(); };
+App.dashSongRange = k => {
+  CUR_DASH_SONG_RANGE = k;
+  loadDashboardSong();
+  drawDashGamesSlot();
+  const gigsSlot = $('#dash-gigs-slot'); if(gigsSlot) gigsSlot.innerHTML = dashGigsStatWidgetHTML();
+};
 App.readArticle = i => { location.hash = '#/design/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
