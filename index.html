@@ -267,6 +267,9 @@ a{color:var(--brand-dark);}
    circle inside the card's own padding rather than another full-bleed strip */
 .dash-item-avatar{display:block; width:56px; height:56px; object-fit:cover;
   margin:0 0 10px; border-radius:50%;}
+/* sits next to the "Home" crumb via .crumb-titlerow's own space-between, the same slot Music's
+   "+ Add Gig" button uses - top right, not inside any one masonry tile */
+.home-song-range-sel{width:auto; font-size:.78rem; font-weight:700; padding:7px 28px 7px 12px;}
 .dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
@@ -974,8 +977,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.99.0';
+const APP_VERSION = '2.0.0';
 const CHANGELOG = [
+  {version:'2.0.0', notes:[
+    'Home: a new tile shows your top song, with the same Last 4 Weeks / Last 6 Months / All Time picker as Songs (top right, next to the page title). The next-gig tile now shows its location too, and Gigs Been To / Games Played dropped their big-number look for the same small emoji-led style as everything else. Trips now shows up to three upcoming trips, shuffled, instead of just the next one, to give the masonry more to work with.'
+  ]},
   {version:'1.99.0', notes:[
     'Home: the next gig\'s artist photo is now a circular avatar instead of a banner crop, and Currently Playing\'s box art keeps its own square shape instead of being cropped to the same strip as everything else.'
   ]},
@@ -2646,21 +2652,14 @@ function placesHubCardsHTML(){
    second, newer one: a quick "what's going on" glance across every section, each tile linking
    straight into its own tab rather than duplicating what's there. Deliberately thin - a count
    or a single upcoming/most-recent item per section, image+title+one line at most, not a full
-   preview of the section itself. */
-function dashNextTrip(){
+   preview of the section itself. Trips is the one exception: it shows up to three upcoming
+   trips (shuffled) rather than just the next one, mainly to give the masonry more to work with. */
+function dashUpcomingTrips(){
   const withDates = DB.trips.filter(t=>upcomingStartDate(t));
   withDates.sort((a,b)=>a.startDate.localeCompare(b.startDate));
-  return withDates[0]||null;
+  return withDates;
 }
-function dashTripWidgetHTML(){
-  const t = dashNextTrip();
-  if(!t) return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlaces()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
-      <div class="dash-item-flags" aria-hidden="true">🌍</div>
-      <div class="dash-item-title">No Trips Booked</div>
-      <div class="dash-item-sub">Plan your next one</div>
-    </div>`;
+function dashTripItemHTML(t){
   const flags = tripFlags(t);
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/trip/${esc(t.id)}'"
@@ -2670,13 +2669,29 @@ function dashTripWidgetHTML(){
       <div class="dash-item-sub">${esc(daysToGoCount(t.startDate))}</div>
     </div>`;
 }
+/* shows a handful of upcoming trips rather than just the very next one, in a shuffled order
+   each visit - more tiles to work with for the masonry to balance out, and the dashboard
+   doesn't look identical every time you open it */
+function dashTripWidgetsHTML(){
+  const trips = dashUpcomingTrips();
+  if(!trips.length) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlaces()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
+      <div class="dash-item-flags" aria-hidden="true">🌍</div>
+      <div class="dash-item-title">No Trips Booked</div>
+      <div class="dash-item-sub">Plan your next one</div>
+    </div>`;
+  const shuffled = trips.slice();
+  for(let i=shuffled.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]; }
+  return shuffled.slice(0,3).map(dashTripItemHTML).join('');
+}
 function dashGigsBeenCount(){ return (DB.gigs||[]).filter(g=>g.date && g.date<=todayStr()).length; }
 function dashGigsStatWidgetHTML(){
   return `
-    <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.goGigs()"
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGigs()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
-      <div class="dash-stat-num">${dashGigsBeenCount()}</div>
-      <div class="dash-stat-label">Gigs Been To</div>
+      <div class="dash-item-flags" aria-hidden="true">🎤</div>
+      <div class="dash-item-title">${dashGigsBeenCount()} Gigs Been To</div>
     </div>`;
 }
 function dashNextGig(){
@@ -2698,8 +2713,60 @@ function dashGigWidgetHTML(){
       ${g.image ? `<img class="dash-item-avatar" src="${esc(g.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
       <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
-      <div class="dash-item-sub">${esc(fmtDate(g.date))}</div>
+      <div class="dash-item-sub">${esc([fmtDate(g.date), g.city].filter(Boolean).join(' · '))}</div>
     </div>`;
+}
+/* mirrors Songs' own time-range picker (SONGS_TIME_RANGES / SONGS_CACHE, defined further down
+   with the rest of the Music tab) so switching range here doesn't refetch if Songs already has
+   or later needs the same range cached */
+let CUR_DASH_SONG_RANGE = 'long_term';
+function dashSongPlaceholderHTML(){
+  if(!psnConfigured() || !spotifyTokens()) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goSongs()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goSongs()}">
+      <div class="dash-item-flags" aria-hidden="true">🎵</div>
+      <div class="dash-item-title">Connect Spotify</div>
+      <div class="dash-item-sub">See your top song here</div>
+    </div>`;
+  return `<div class="dash-widget dash-widget-item"><div class="dash-item-flags" aria-hidden="true">🎵</div><div class="dash-item-title">Loading…</div></div>`;
+}
+function dashSongWidgetHTML(t){
+  if(!t) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goSongs()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goSongs()}">
+      <div class="dash-item-flags" aria-hidden="true">🎵</div>
+      <div class="dash-item-title">No Top Song Yet</div>
+    </div>`;
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goSongs()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goSongs()}">
+      ${t.image ? `<img class="dash-item-img-square" src="${esc(t.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
+      <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
+      <div class="dash-item-sub">${esc(t.artist||'')}</div>
+    </div>`;
+}
+/* lives in the page header next to the "Home" crumb, not inside the song tile itself - a
+   dropdown inside one masonry card among many was easy to miss and awkward to hit */
+function dashSongRangeSelectHTML(){
+  if(!psnConfigured() || !spotifyTokens()) return '';
+  return `
+    <select class="home-song-range-sel" onchange="App.dashSongRange(this.value)">
+      ${SONGS_TIME_RANGES.map(r=>`<option value="${r.k}"${CUR_DASH_SONG_RANGE===r.k?' selected':''}>${esc(r.label)}</option>`).join('')}
+    </select>`;
+}
+function loadDashboardSong(){
+  if(!psnConfigured() || !spotifyTokens()) return;   // the placeholder already shows the right prompt
+  const range = CUR_DASH_SONG_RANGE;
+  if(SONGS_CACHE[range]){ const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = dashSongWidgetHTML(SONGS_CACHE[range][0]); return; }
+  spotifyApi('/spotify-top-tracks?time_range='+range).then(data => {
+    SONGS_CACHE[range] = data.tracks||[];
+    if(CUR_DASH_SONG_RANGE!==range) return;   // dropdown changed again while this was in flight
+    const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = dashSongWidgetHTML(SONGS_CACHE[range][0]);
+  }).catch(()=>{
+    // fails silently here - Music's Songs tab surfaces the real error if you go look
+    const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = '';
+  });
 }
 function dashDesignWidgetHTML(){
   const a = designLastRead();
@@ -2720,10 +2787,10 @@ function dashDesignWidgetHTML(){
 }
 function dashGamesStatWidgetHTML(n){
   return `
-    <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.goGames()"
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      <div class="dash-stat-num">${n}</div>
-      <div class="dash-stat-label">Games Played</div>
+      <div class="dash-item-flags" aria-hidden="true">🎮</div>
+      <div class="dash-item-title">${n} Games Played</div>
     </div>`;
 }
 function dashCurrentlyPlayingWidgetHTML(g){
@@ -2747,7 +2814,7 @@ function dashGamesPlaceholderHTML(){
       <div class="dash-item-title">Connect PlayStation</div>
       <div class="dash-item-sub">See your games here</div>
     </div>`;
-  return `<div class="dash-widget dash-widget-stat"><div class="dash-stat-num">…</div><div class="dash-stat-label">Games Played</div></div>`;
+  return `<div class="dash-widget dash-widget-item"><div class="dash-item-flags" aria-hidden="true">🎮</div><div class="dash-item-title">Loading…</div></div>`;
 }
 function loadDashboardGames(){
   if(!psnConfigured() || !psnTokens()) return;   // the placeholder already shows the right prompt
@@ -2763,15 +2830,17 @@ function loadDashboardGames(){
 function renderDashboard(){
   renderSidebar(null);
   $('#app').innerHTML = `
-    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span></div></div>
+    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     <div class="dash-masonry">
-      ${dashTripWidgetHTML()}
+      ${dashTripWidgetsHTML()}
       ${dashGigsStatWidgetHTML()}
       ${dashGigWidgetHTML()}
       ${dashDesignWidgetHTML()}
       <div id="dash-games-slot">${dashGamesPlaceholderHTML()}</div>
+      <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
     </div>`;
   loadDashboardGames();
+  loadDashboardSong();
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
@@ -4139,6 +4208,7 @@ App.goToYourTrips = () => {
 App.goGames = () => { location.hash = '#/games'; };
 App.goDesign = () => { location.hash = '#/design'; };
 App.goGigs = () => { location.hash = '#/gigs'; };
+App.goSongs = () => { CUR_GIGS_TAB = 'songs'; location.hash = '#/gigs'; };
 App.gigsTab = k => { CUR_GIGS_TAB = k; renderGigs(); window.scrollTo(0,0); };
 App.gigForm = gigFormImpl;
 App.gigFormForArtist = id => {
@@ -4160,6 +4230,7 @@ App.spotifyConnect = () => {
 };
 App.spotifyDisconnect = () => { clearSpotifyTokens(); SPOTIFY_ARTISTS = null; SONGS_CACHE = {}; renderGigs(); };
 App.songsRange = k => { CUR_SONGS_RANGE = k; drawSongsRanges(); loadSongs(k); };
+App.dashSongRange = k => { CUR_DASH_SONG_RANGE = k; loadDashboardSong(); };
 App.readArticle = i => { location.hash = '#/design/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
