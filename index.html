@@ -1068,8 +1068,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.9.1';
+const APP_VERSION = '2.10.0';
 const CHANGELOG = [
+  {version:'2.10.0', notes:[
+    "Films' Diary has an Import CSV button now, for Letterboxd's own full-history export (Settings › Data › Export Your Data, diary.csv) - the Connect Letterboxd sync only ever sees your ~50 most recent entries. No setup needed, works entirely on-device, and importing again later just updates entries rather than duplicating them."
+  ]},
   {version:'2.9.1', notes:[
     "Log Film's star rating: each half-star's actual tap area now reaches past the visible star on every side, instead of relying on the star itself being bigger - should make it much easier to land the half you meant.",
     "Log Film's Watched date now defaults to today instead of blank."
@@ -4305,7 +4308,10 @@ function renderFilms(){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        ${CUR_FILMS_TAB==='diary'?'<button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>':''}
+        ${CUR_FILMS_TAB==='diary'?`<div class="btn-row" style="flex-wrap:nowrap">
+          <button class="btn sm ghost" onclick="App.filmsImportCsv()">Import CSV</button>
+          <button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>
+        </div>`:''}
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}</div>
@@ -4565,6 +4571,100 @@ async function letterboxdSyncImpl(){
 function letterboxdDisconnectImpl(){
   clearLetterboxdUsername();
   drawLetterboxdConnect();
+}
+
+/* ================= Films CSV import (full Letterboxd export) =================
+   The RSS sync above only ever sees a free account's most recent ~50 diary entries - fine for
+   staying current, not for a first-time backfill of a longer history. Letterboxd's own Settings
+   -> Data -> Export Your Data has no such cap, so this reads that export's diary.csv directly,
+   entirely client-side (no proxy, no setup, unlike the RSS sync) using the same merge-by-id
+   logic as letterboxdSyncImpl - importing twice, or importing then later syncing, updates
+   existing entries rather than duplicating them. Whatever tool produces the CSV doesn't matter
+   as long as it's shaped like Letterboxd's own export (a Name column at minimum; Year,
+   Letterboxd URI, Rating, Rewatch and Watched Date/Date fill in the rest when present). */
+function parseCsv(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0; i<text.length; i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){ if(text[i+1] === '"'){ field += '"'; i++; } else inQuotes = false; }
+      else field += c;
+    }else{
+      if(c === '"') inQuotes = true;
+      else if(c === ','){ row.push(field); field = ''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+      else if(c === '\r'){ /* skip - \n follows on both \r\n and lone \r line endings */ }
+      else field += c;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(f=>f.trim()!==''));
+}
+function filmsImportCsvImpl(){
+  openModal(`
+    <h2>Import from Letterboxd</h2>
+    <p class="small muted" style="margin-bottom:14px">
+      Connect Letterboxd's sync only ever sees your most recent ~50 diary entries. For your full
+      history instead, get Letterboxd's own export - Settings &rsaquo; Data &rsaquo; Export Your
+      Data on letterboxd.com, unzip the download, then pick <strong>diary.csv</strong> below.
+      Importing again later (or syncing) updates entries already here rather than duplicating
+      them, though an entry logged both ways may occasionally show up twice if the two don't
+      agree on its identifier - safe to just delete the extra.
+    </p>
+    <div class="field"><label class="label" for="films-csv-file">diary.csv</label>
+      <input type="file" id="films-csv-file" accept=".csv,text/csv" onchange="App.filmsImportCsvFile(this.files[0])"></div>
+    <div id="films-csv-status"></div>`);
+}
+function filmsImportCsvFileImpl(file){
+  if(!file) return;
+  const status = $('#films-csv-status');
+  if(status) status.innerHTML = `<p class="small muted" style="margin-top:10px">Reading…</p>`;
+  const reader = new FileReader();
+  reader.onerror = () => { const s = $('#films-csv-status'); if(s) s.innerHTML = `<p class="small" style="color:var(--accent-dark); margin-top:10px">Couldn't read that file.</p>`; };
+  reader.onload = () => {
+    const s = $('#films-csv-status');
+    try{
+      const rows = parseCsv(String(reader.result||''));
+      if(!rows.length) throw new Error('No rows found in that file');
+      const header = rows[0].map(h=>h.trim().toLowerCase());
+      const col = name => header.indexOf(name);
+      const iName = col('name'), iYear = col('year'), iUri = col('letterboxd uri'),
+        iRating = col('rating'), iRewatch = col('rewatch'), iWatched = col('watched date'), iDate = col('date');
+      if(iName<0) throw new Error("That doesn't look like a Letterboxd diary.csv - no Name column found");
+      const imported = rows.slice(1).filter(r=>r[iName]).map(r => {
+        const title = (r[iName]||'').trim();
+        const year = (iYear>=0 ? r[iYear] : '')||'';
+        const link = (iUri>=0 ? r[iUri] : '')||'';
+        const ratingRaw = (iRating>=0 ? r[iRating] : '')||'';
+        const rating = ratingRaw.trim() ? parseFloat(ratingRaw) : NaN;
+        const rewatch = iRewatch>=0 && /^yes$/i.test((r[iRewatch]||'').trim());
+        const watchedDate = ((iWatched>=0 && r[iWatched]) || (iDate>=0 && r[iDate]) || '').trim();
+        return {
+          id: link || [title, year, watchedDate].join('|'),
+          title, year: year.trim() || null, watchedDate: watchedDate || null,
+          rating: isNaN(rating) ? null : rating, rewatch, link, image: '',
+        };
+      }).filter(f=>f.title);
+      if(!imported.length) throw new Error('No films found in that file');
+      DB.films = DB.films||[];
+      const byId = new Map(DB.films.map((f,idx)=>[f.id, idx]));
+      let added=0, updated=0;
+      imported.forEach(f=>{
+        const entry = {id:f.id, title:f.title, year:f.year, watchedDate:f.watchedDate,
+          rating:f.rating, rewatch:f.rewatch, image:f.image, link:f.link, source:'letterboxd'};
+        if(byId.has(f.id)){ DB.films[byId.get(f.id)] = entry; updated++; }
+        else { DB.films.push(entry); byId.set(f.id, DB.films.length-1); added++; }
+      });
+      saveFilms();
+      closeModal();
+      drawFilmsGrid();
+      toast(`Imported: ${added} new, ${updated} updated`);
+    }catch(e){
+      if(s) s.innerHTML = `<p class="small" style="color:var(--accent-dark); margin-top:10px">${esc(e.message||"Couldn't read that file")}</p>`;
+    }
+  };
+  reader.readAsText(file);
 }
 
 /* ================= Films Watchlist =================
@@ -4858,6 +4958,8 @@ App.fwRemove = id => {
   saveFilmsWatchlist();
   drawFwMine();
 };
+App.filmsImportCsv = filmsImportCsvImpl;
+App.filmsImportCsvFile = filmsImportCsvFileImpl;
 App.spotifyConnect = () => {
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
   sessionStorage.setItem('spotify_oauth_state', state);
