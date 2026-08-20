@@ -1086,8 +1086,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.12.1';
+const APP_VERSION = '2.13.0';
 const CHANGELOG = [
+  {version:'2.13.0', notes:[
+    'Home: three new Films tiles, styled the same as everything else there - how many you\'ve watched this year, the last one you logged, and a randomly-picked film from your Watchlist (a fresh pick every visit) to nudge you toward actually watching something on it.'
+  ]},
   {version:'2.12.1', notes:[
     "Stats' By Rating tiles show actual star icons now instead of a plain \"★ 4.5\" line.",
     "Stats' filtered pages (tap a year or rating to see its films) now put the Stats back button on the left, the year/rating centred, and how many films matched on the right, instead of the title and back button swapped."
@@ -3033,6 +3036,56 @@ function loadDashboardGames(){
     const slot = $('#dash-games-slot'); if(slot) slot.innerHTML = '';
   });
 }
+/* Films reads straight from DB.films/DB.filmsWatchlist, already loaded on-device by the time
+   Home renders - no live fetch to wait on, so these render directly rather than going through
+   the placeholder-then-fill slot pattern Games/Songs need for their own API calls. */
+function dashFilmsThisYearWidgetHTML(){
+  const year = todayStr().slice(0,4);
+  const n = (DB.films||[]).filter(f=>f.watchedDate && f.watchedDate.slice(0,4)===year).length;
+  return `
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goFilmsDiary()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
+      <div class="dash-item-flags" aria-hidden="true">🎬</div>
+      <div class="dash-item-title">${n} Films This Year</div>
+    </div>`;
+}
+function dashLastSeenFilmWidgetHTML(){
+  const f = (DB.films||[]).filter(f=>f.watchedDate).sort((a,b)=>b.watchedDate.localeCompare(a.watchedDate))[0];
+  if(!f) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsDiary()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
+      <div class="dash-item-flags" aria-hidden="true">🎬</div>
+      <div class="dash-item-title">No Films Yet</div>
+    </div>`;
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsDiary()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
+      ${f.image ? `<img class="dash-item-img dash-item-img-square" src="${esc(f.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎬</div>`}
+      <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
+      <div class="dash-item-sub">Last Seen</div>
+    </div>`;
+}
+/* re-picked on every Home visit rather than stored anywhere - "what should I watch" is more
+   useful as a fresh nudge each time than a fixed pick that goes stale */
+function dashRandomWatchlistWidgetHTML(){
+  const list = DB.filmsWatchlist||[];
+  if(!list.length) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsWatchlist()}">
+      <div class="dash-item-flags" aria-hidden="true">🔖</div>
+      <div class="dash-item-title">Nothing on Watchlist</div>
+    </div>`;
+  const f = list[Math.floor(Math.random()*list.length)];
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsWatchlist()}">
+      ${f.image ? `<img class="dash-item-img dash-item-img-square" src="${esc(f.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
+      <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
+      <div class="dash-item-sub">From Your Watchlist</div>
+    </div>`;
+}
 /* two explicit columns rather than letting the browser balance them - see .dash-masonry's own
    comment for why. Left leans travel/gigs, right leans games/music; a fixed split like this
    only works because the tile set here is small and known, not arbitrary user content. */
@@ -3042,10 +3095,13 @@ function renderDashboard(){
     ${dashTripWidgetsHTML()}
     ${dashPlacesBeenWidgetHTML()}
     <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
+    ${dashFilmsThisYearWidgetHTML()}
     ${dashGigWidgetHTML()}`;
   const colB = `
     <div id="dash-games-slot" class="dash-slot">${dashGamesPlaceholderHTML()}</div>
-    <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
+    <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
+    ${dashLastSeenFilmWidgetHTML()}
+    ${dashRandomWatchlistWidgetHTML()}`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     ${dashDesignFeatureHTML()}
@@ -5224,6 +5280,8 @@ App.gigArtistPick = gigArtistPickImpl;
 App.saveGig = saveGigImpl;
 App.delGig = delGigImpl;
 App.goFilms = () => { location.hash = '#/films'; };
+App.goFilmsDiary = () => { CUR_FILMS_TAB = 'diary'; location.hash = '#/films'; };
+App.goFilmsWatchlist = () => { CUR_FILMS_TAB = 'watchlist'; location.hash = '#/films'; };
 App.filmForm = filmFormImpl;
 App.saveFilm = saveFilmImpl;
 App.delFilm = delFilmImpl;
