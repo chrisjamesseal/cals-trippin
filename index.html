@@ -245,24 +245,24 @@ a{color:var(--brand-dark);}
 .wl-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
 
 /* ---------- home dashboard (masonry widgets) ---------- */
-/* CSS multi-column rather than a JS masonry lib: content just flows down each column in turn,
-   and break-inside:avoid on every widget keeps a card from splitting across two columns. Widget
-   heights vary on their own (a stat tile is short, an item tile with an image is tall), which
-   is what actually produces the masonry look here, not anything explicit about sizing. */
-.dash-masonry{column-count:2; column-gap:12px; padding-bottom:24px;}
-/* Safari has a long-standing bug where a box-shadow on a break-inside:avoid child of a
-   column-count container can paint outside its own box - usually bleeding upward into whatever
-   sits right above the columns. transform:translateZ(0) forces each card onto its own
-   compositing layer, which is the standard fix. */
-.dash-widget{display:block; width:100%; margin:0 0 12px; break-inside:avoid;
+/* Two explicit column divs (each tile's home decided in JS, see dashColAHTML/dashColBHTML)
+   rather than CSS column-count: multi-column's own "balance" heuristic was picking heights
+   before async images (article thumbnail, game art, gig photo) had loaded, leaving a column
+   starting well below the other's top edge instead of levelling out once everything settled.
+   Explicit columns can't drift like that - each side just stacks its own tiles top to bottom. */
+.dash-masonry{display:flex; gap:12px; align-items:flex-start; padding-bottom:24px;}
+.dash-col{flex:1; min-width:0; display:flex; flex-direction:column; gap:12px;}
+.dash-widget{display:block; width:100%; margin:0;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:16px; cursor:pointer;
-  transition:transform .1s, box-shadow .1s; transform:translateZ(0);}
-.dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px) translateZ(0); box-shadow:var(--shadow-lift); outline:none;}
-/* keeps a count tile and the card it's counting (Games Played + Currently Playing) in the same
-   column, one after the other - plain sibling .dash-widgets have no such guarantee */
-.dash-widget-group{break-inside:avoid;}
+  transition:transform .1s, box-shadow .1s;}
+.dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
 .dash-widget-stat{text-align:center; padding:22px 16px;}
+/* icon left, "N Label" one line - same row layout as the Places hub's own cards, for a tile
+   that's just a count and doesn't need the image-on-top layout every other tile gets */
+.dash-widget-row{display:flex; flex-direction:row; align-items:center; gap:10px;}
+.dash-widget-row .dash-item-flags{font-size:1.4rem; margin-bottom:0; flex-shrink:0;}
+.dash-widget-row .dash-item-title{font-size:.88rem;}
 .dash-stat-num{font-family:var(--font-head); font-weight:800; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
 .dash-stat-label{margin-top:6px; color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
 .dash-item-img{display:block; width:calc(100% + 32px); height:110px; object-fit:cover;
@@ -285,7 +285,6 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
-@media(min-width:760px){ .dash-masonry{column-count:3;} }
 
 /* ---------- design (UX news feed) ---------- */
 .design-list{display:flex; flex-direction:column; gap:10px;}
@@ -305,13 +304,18 @@ a{color:var(--brand-dark);}
    quarter of the card's width (which is itself the screen's width), title and the "Next
    Article" label stacked on the right - the meta line usually goes above the title everywhere
    else in the app, but here the headline is what should catch your eye first. */
-.dash-design-feature{margin-bottom:20px; display:flex; align-items:center; gap:14px;}
+.dash-design-feature{margin-bottom:20px; display:flex; align-items:center; gap:14px; cursor:pointer;
+  transition:transform .1s, box-shadow .1s;}
+.dash-design-feature:hover,.dash-design-feature:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
 .dash-design-feature-img{flex:0 0 25%; width:25%; aspect-ratio:1/1; object-fit:cover;
   border-radius:var(--radius-sm); margin:0;}
 .dash-design-feature .dash-item-flags{flex:0 0 auto; margin:0;}
 .dash-design-feature-text{flex:1; min-width:0;}
-.dash-design-feature .design-title{margin:0;}
-.dash-design-feature .design-meta{margin-top:4px; text-transform:none; letter-spacing:normal;}
+/* same title/caption styling as every other dashboard tile (Currently Playing included),
+   rather than the Design tab's own larger article-list treatment - one card standing out in
+   size read as inconsistent rather than "important" */
+.dash-design-feature .dash-item-title{margin:0;}
+.dash-design-feature .dash-item-sub{margin-top:4px;}
 /* a reading surface rather than a card: a narrower measure and looser lines than the rest of
    the app, because this is the one screen you sit and read instead of scan */
 .article{max-width:38rem;}
@@ -1001,8 +1005,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.4.0';
 const CHANGELOG = [
+  {version:'2.4.0', notes:[
+    'Home: replaced the auto-balancing masonry with two fixed columns, so Games Played and its card can never land with a gap above them again. Places Been and Gigs Seen (renamed from Gigs Been To) are now a compact single-line row - icon left, count and label right - instead of stacked. The article card\'s title and caption now match Currently Playing\'s styling exactly.'
+  ]},
   {version:'2.3.0', notes:[
     'Home is now the app\'s front door (opening with nothing after the address takes you straight there, same as tapping the Home tab) - Places is still there under Travel.',
     'Home: the article card is now a compact row - image on the left, title and "Next Article" (normal case, below the title now) on the right - instead of a tall banner. Games Played and Currently Playing always land in the same column together. A trip\'s flags now sit flush against each other.'
@@ -2735,15 +2742,15 @@ function dashGigsBeenCount(range){
 }
 function dashGigsStatWidgetHTML(){
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGigs()"
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGigs()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
       <div class="dash-item-flags" aria-hidden="true">🎤</div>
-      <div class="dash-item-title">${dashGigsBeenCount(CUR_DASH_SONG_RANGE)} Gigs Been To</div>
+      <div class="dash-item-title">${dashGigsBeenCount(CUR_DASH_SONG_RANGE)} Gigs Seen</div>
     </div>`;
 }
 function dashPlacesBeenWidgetHTML(){
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlaces('been')"
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlaces('been')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('been')}">
       <div class="dash-item-flags" aria-hidden="true">📍</div>
       <div class="dash-item-title">${placesCounts().been} Places Been</div>
@@ -2831,22 +2838,22 @@ function loadDashboardSong(){
 function dashDesignFeatureHTML(){
   const a = designLastRead();
   if(!a) return `
-    <div class="card design-card dash-design-feature" role="button" tabindex="0" onclick="App.goDesign()"
+    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goDesign()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goDesign()}">
       <div class="dash-item-flags" aria-hidden="true">🎨</div>
       <div class="dash-design-feature-text">
-        <h3 class="design-title">Nothing Read Yet</h3>
-        <div class="small muted design-meta">Next Article</div>
+        <div class="dash-item-title">Nothing Read Yet</div>
+        <div class="dash-item-sub">Next Article</div>
       </div>
     </div>`;
   return `
-    <div class="card design-card dash-design-feature" role="button" tabindex="0" onclick="App.goDesign()"
+    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goDesign()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goDesign()}">
       ${a.image ? `<img class="dash-design-feature-img" src="${esc(a.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎨</div>`}
       <div class="dash-design-feature-text">
-        <h3 class="design-title">${esc(a.title)}</h3>
-        <div class="small muted design-meta">Next Article</div>
+        <div class="dash-item-title">${esc(a.title)}</div>
+        <div class="dash-item-sub">Next Article</div>
       </div>
     </div>`;
 }
@@ -2886,10 +2893,7 @@ function drawDashGamesSlot(){
   const slot = $('#dash-games-slot'); if(!slot || !DASH_GAMES_TITLES) return;
   const cutoff = dashRangeCutoffStr(CUR_DASH_SONG_RANGE);
   const titles = cutoff ? DASH_GAMES_TITLES.filter(t=>t.lastPlayed && t.lastPlayed.slice(0,10)>=cutoff) : DASH_GAMES_TITLES;
-  /* wrapped as one break-inside:avoid unit so the masonry can't separate the count from the
-     card it's counting - without this the two could land in different columns, leaving the
-     game card floating with an odd gap above it and the count buried elsewhere */
-  slot.innerHTML = `<div class="dash-widget-group">${dashGamesStatWidgetHTML(titles.length)}${titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : ''}</div>`;
+  slot.innerHTML = dashGamesStatWidgetHTML(titles.length) + (titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : '');
 }
 function loadDashboardGames(){
   if(!psnConfigured() || !psnTokens()) return;   // the placeholder already shows the right prompt
@@ -2901,18 +2905,25 @@ function loadDashboardGames(){
     const slot = $('#dash-games-slot'); if(slot) slot.innerHTML = '';
   });
 }
+/* two explicit columns rather than letting the browser balance them - see .dash-masonry's own
+   comment for why. Left leans travel/gigs, right leans games/music; a fixed split like this
+   only works because the tile set here is small and known, not arbitrary user content. */
 function renderDashboard(){
   renderSidebar(null);
+  const colA = `
+    ${dashTripWidgetsHTML()}
+    ${dashPlacesBeenWidgetHTML()}
+    <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
+    ${dashGigWidgetHTML()}`;
+  const colB = `
+    <div id="dash-games-slot">${dashGamesPlaceholderHTML()}</div>
+    <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     ${dashDesignFeatureHTML()}
     <div class="dash-masonry">
-      ${dashTripWidgetsHTML()}
-      ${dashPlacesBeenWidgetHTML()}
-      <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
-      ${dashGigWidgetHTML()}
-      <div id="dash-games-slot">${dashGamesPlaceholderHTML()}</div>
-      <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
+      <div class="dash-col">${colA}</div>
+      <div class="dash-col">${colB}</div>
     </div>`;
   loadDashboardGames();
   loadDashboardSong();
