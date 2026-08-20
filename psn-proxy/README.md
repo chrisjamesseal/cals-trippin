@@ -2,7 +2,8 @@
 
 > A handful of endpoints live here, all for the same reason: a browser can't make these calls
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
-> tab's RSS, `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
+> tab's RSS, `/film-news` for the Films tab's News subtab, `/music-news` for the Music tab's News
+> subtab, `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` `/spotify-top-tracks` group for Music's artist search, Artists
 > checklist and Songs tab, and `/letterboxd-diary` for Films' Letterboxd sync. Deploying this
 > once turns all of them on. (Board Games and the Games tab's Wishlist aren't here - see
@@ -25,6 +26,12 @@ than a separate deployment - most RSS feeds have the same CORS problem the PSN A
 it's the same fix, so it didn't need its own Cloudflare project. It's public and identical for
 everyone (no login, no per-device state), and cached for 30 minutes so it isn't re-fetching
 five feeds on every page load. Deploying the worker below turns on both tabs at once.
+
+The Films tab's News subtab (`/film-news` - Variety, The Hollywood Reporter) and the Music tab's
+News subtab (`/music-news` - Resident Advisor, DJ Mag, Spotify Newsroom) are the same idea again,
+reusing the exact same fetch/parse/cache machinery as `/design-news` (see `fetchNewsFeeds` in
+`worker.js`). No separate setup - deploying the worker turns these on too. Each feed is fetched
+independently, so one publication's RSS being down doesn't take out the others in that tab.
 
 ## Deploy it
 
@@ -161,7 +168,9 @@ rejected the token request (status 401)" error specifically points at a stale `C
 If Design's feed looks thin, one of the publications in `worker.js`'s `DESIGN_FEEDS` list has
 likely moved or renamed its RSS URL - each feed is fetched independently, so the rest still
 come through, but check the publication's site for its current feed link and update that one
-entry.
+entry. The Films tab's News subtab and the Music tab's News subtab work the same way - their
+sources live in `FILM_FEEDS` and `MUSIC_FEEDS` right next to `DESIGN_FEEDS`, same fix if one
+looks thin.
 
 Board Games lives in `api/board-games.js`, not this Worker (see that file's top comment for why
 it moved). If it says "isn't configured", the Vercel project is missing (or has a stale)

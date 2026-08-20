@@ -1086,8 +1086,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.13.2';
+const APP_VERSION = '2.14.0';
 const CHANGELOG = [
+  {version:'2.14.0', notes:[
+    'Films: a new News subtab (alongside Diary/Watchlist/Stats) with film industry headlines from Variety and The Hollywood Reporter, read right in the app the same way Design articles are.',
+    'Music: a new News subtab (alongside Not Seen/Artists/Songs/All Gigs) with headlines from Resident Advisor, DJ Mag and Spotify Newsroom.',
+  ]},
   {version:'2.13.2', notes:[
     "Home's column balancing now places the biggest tile (usually Currently Playing's own poster) first, instead of wherever it happened to land in reading order - the previous version could still end up noticeably lopsided whenever one tile was much taller than the rest."
   ]},
@@ -4008,6 +4012,113 @@ function renderDesignArticle(i){
     </article>`;
 }
 
+/* ================= Film & Music news (News subtabs in Films/Gigs) =================
+   Same shape of feature as Design's own feed just above - RSS from a handful of publications,
+   merged by the proxy (psn-proxy/worker.js's /film-news and /music-news routes) - so the reading
+   pieces (readable-length check, block renderer, card, full-page reader) are all reused from
+   Design's rather than copied twice more. What's different is where the list lives: a subtab
+   inside Films/Gigs rather than its own top-level tab, so only the list container and the
+   article route are category-specific. */
+const NEWS_FEEDS = {
+  film:  {endpoint:'/film-news',  label:'Films'},
+  music: {endpoint:'/music-news', label:'Music'},
+};
+let NEWS_ARTICLES = {film:[], music:[]};   // last fetch per category, held so opening one doesn't refetch
+function loadNewsFeed(cat){
+  return fetch(DESIGN_NEWS_URL.replace(/\/$/,'') + NEWS_FEEDS[cat].endpoint)
+    .then(async r => {
+      if(!r.ok){
+        const body = await r.json().catch(()=>({}));
+        throw new Error(body.error || ('status '+r.status));
+      }
+      return r.json();
+    })
+    .then(data => {
+      if(!data.articles?.length && data.error) throw new Error(data.error);
+      NEWS_ARTICLES[cat] = data.articles||[];
+      return NEWS_ARTICLES[cat];
+    });
+}
+function newsCardHTML(cat, a, i){
+  const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
+  return `
+    <div class="card design-card" role="button" tabindex="0" onclick="App.readNews('${cat}',${i})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readNews('${cat}',${i})}">
+      ${a.image?`<img class="design-card-img" src="${esc(a.image)}" alt="" loading="lazy">`:''}
+      <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
+      <h3 class="design-title">${esc(a.title)}</h3>
+      ${a.summary?`<p class="small design-summary">${esc(a.summary)}</p>`:''}
+    </div>`;
+}
+function renderNewsList(cat, containerId){
+  const body = $('#'+containerId); if(!body) return;
+  const articles = NEWS_ARTICLES[cat];
+  if(!articles.length){ body.innerHTML = `<div class="empty">Nothing to show right now, try again shortly.</div>`; return; }
+  body.innerHTML = `<div class="design-list">${articles.map((a,i)=>newsCardHTML(cat,a,i)).join('')}</div>`;
+}
+function renderNewsFeed(cat, containerId, retryFn){
+  const body = $('#'+containerId); if(!body) return;
+  if(!DESIGN_NEWS_URL){
+    body.innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
+      <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
+      <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
+    return;
+  }
+  if(NEWS_ARTICLES[cat].length){ renderNewsList(cat, containerId); return; }   // coming back from a read
+  body.innerHTML = `<div class="empty">Loading ${esc(NEWS_FEEDS[cat].label.toLowerCase())} news…</div>`;
+  loadNewsFeed(cat)
+    .then(articles => { if($('#'+containerId)) renderNewsList(cat, containerId); })
+    .catch(e => {
+      if(!$('#'+containerId)) return;
+      $('#'+containerId).innerHTML = `<div class="empty">Couldn't load news.<br>${esc(e.message||'')}
+        <div class="btn-row" style="justify-content:center; margin-top:14px">
+          <button class="btn sm" onclick="${retryFn}">Try Again</button>
+        </div></div>`;
+    });
+}
+/* the article reader itself, shared by both categories. Deep-linking straight here (a reload, a
+   shared URL) finds NEWS_ARTICLES[cat] empty, so it fetches the list first, same as Design's. */
+function newsArticleBackHash(cat){ return cat==='film' ? '#/films' : '#/gigs'; }
+function renderNewsArticle(cat, i){
+  const hash = newsArticleBackHash(cat)+'/news/'+i;
+  if(!NEWS_ARTICLES[cat].length){
+    $('#app').innerHTML = `
+      <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">
+        <button class="crumb-backbtn" onclick="location.hash='${newsArticleBackHash(cat)}'" aria-label="Back">${ICONS.back}</button>
+        Reading</span></div></div>
+      <div class="empty">Loading…</div>`;
+    loadNewsFeed(cat)
+      .then(()=>{ if(location.hash===hash) renderNewsArticle(cat, i); })
+      .catch(()=>{ location.hash = newsArticleBackHash(cat); });
+    return;
+  }
+  const a = NEWS_ARTICLES[cat][i];
+  if(!a){ location.hash = newsArticleBackHash(cat); return; }
+  const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
+  const readable = articleIsReadable(a);
+  const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener"
+      onclick="return App.openExternal(event, '${esc(a.link)}')">${ICONS.ext}Read on ${esc(a.source)}</a>`;
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="location.hash='${newsArticleBackHash(cat)}'" aria-label="Back">${ICONS.back}</button>
+          Reading</span>
+      </div>
+    </div>
+    <article class="article">
+      ${a.image?`<img class="article-hero" src="${esc(a.image)}" alt="">`:''}
+      <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
+      <h1 class="article-title">${esc(a.title)}</h1>
+      ${readable
+        ? (a.body||[]).map(articleBlockHTML).join('')
+        : `<p class="article-p">${esc(a.summary||'')}</p>
+           <p class="small muted article-note">${esc(a.source)} only publishes a preview to its feed,
+             so there's nothing more to show here - the rest is on their site.</p>`}
+      <div class="btn-row article-actions">${openBtn}</div>
+    </article>`;
+}
+
 /* ================= Gigs (live music you've been to) =================
    Its own top-level section rather than folded into a trip: a gig is a moment, not something
    with the trip-shaped start/end dates the rest of the app is built around, and plenty happen
@@ -4080,17 +4191,23 @@ function renderGigs(){
         <button class="btn sm primary" onclick="App.gigForm(-1)">+ Add Gig</button>
       </div>
     </div>
-    <div class="subtabs">${tab('notseen','⭐ Not Seen')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}${tab('log','☑ All Gigs')}</div>
+    <div class="subtabs">${tab('notseen','⭐ Not Seen')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}${tab('news','📰 News')}${tab('log','☑ All Gigs')}</div>
     <div id="gigs-body"></div>`;
   if(CUR_GIGS_TAB==='log') drawGigsList();
   else if(CUR_GIGS_TAB==='songs') renderSongs();
+  else if(CUR_GIGS_TAB==='news') renderGigsNews();
   else renderGigsArtists();
   loadGigsCloud(cloud => {
     DB.gigs = Array.isArray(cloud) ? cloud : [];
     saveLocal();
     if(CUR_GIGS_TAB==='log') drawGigsList();
-    else if(CUR_GIGS_TAB!=='songs' && $('#gigs-body') && SPOTIFY_ARTISTS) drawGigArtistsGrid();
+    else if(CUR_GIGS_TAB!=='songs' && CUR_GIGS_TAB!=='news' && $('#gigs-body') && SPOTIFY_ARTISTS) drawGigArtistsGrid();
   });
+}
+function renderGigsNews(){
+  const body = $('#gigs-body'); if(!body) return;
+  body.innerHTML = `<div id="gigs-news-body"></div>`;
+  renderNewsFeed('music', 'gigs-news-body', "App.gigsTab('news')");
 }
 function renderGigsArtists(){
   const body = $('#gigs-body'); if(!body) return;
@@ -4487,11 +4604,17 @@ function renderFilms(){
         ${CUR_FILMS_TAB==='watchlist'?'<button class="btn sm ghost" onclick="App.fwImportCsv()">Import CSV</button>':''}
       </div>
     </div>
-    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}${tab('stats','📊 Stats')}</div>
+    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}${tab('stats','📊 Stats')}${tab('news','📰 News')}</div>
     <div id="films-body"></div>`;
   if(CUR_FILMS_TAB==='watchlist'){ renderFilmsWatchlist(); return; }
   if(CUR_FILMS_TAB==='stats'){ renderFilmsStats(); return; }
+  if(CUR_FILMS_TAB==='news'){ renderFilmsNews(); return; }
   renderFilmsDiary();
+}
+function renderFilmsNews(){
+  const body = $('#films-body'); if(!body) return;
+  body.innerHTML = `<div id="films-news-body"></div>`;
+  renderNewsFeed('film', 'films-news-body', "App.filmsTab('news')");
 }
 function renderFilmsDiary(){
   const body = $('#films-body'); if(!body) return;
@@ -5202,6 +5325,14 @@ function route(){
     renderFilmsStatsFiltered('rating', decodeURIComponent(h.slice('#/films/stats/rating/'.length)));
     window.scrollTo(0,0); return;
   }
+  if(h.startsWith('#/films/news/')){
+    CUR_TRIP_ID = null; stopSub();
+    renderNewsArticle('film', +h.slice('#/films/news/'.length)); window.scrollTo(0,0); return;
+  }
+  if(h.startsWith('#/gigs/news/')){
+    CUR_TRIP_ID = null; stopSub();
+    renderNewsArticle('music', +h.slice('#/gigs/news/'.length)); window.scrollTo(0,0); return;
+  }
   if(h.startsWith('#/design/')){
     CUR_TRIP_ID = null; stopSub();
     renderDesignArticle(+h.split('/')[2]); window.scrollTo(0,0); return;
@@ -5373,6 +5504,7 @@ App.dashSongRange = k => {
   balanceDashboardColumns();
 };
 App.readArticle = i => { location.hash = '#/design/'+i; };
+App.readNews = (cat, i) => { location.hash = (cat==='film'?'#/films':'#/gigs')+'/news/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
