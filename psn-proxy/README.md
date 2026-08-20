@@ -1,12 +1,12 @@
-# Proxy (for the Games, Design and Gigs tabs)
+# Proxy (for the Games, Design and Music tabs)
 
 > A handful of endpoints live here, all for the same reason: a browser can't make these calls
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
 > tab's RSS, and `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
-> `/spotify-refresh` `/spotify-me` group for Gigs' artist search and Artists checklist.
-> Deploying this once turns all of them on. (Board Games and the Games tab's Wishlist aren't
-> here - see "Connect BoardGameGeek" and "Connect RAWG" below for where those actually live and
-> their own one-time setup.)
+> `/spotify-refresh` `/spotify-me` `/spotify-top-tracks` group for Music's artist search, Artists
+> checklist and Songs tab. Deploying this once turns all of them on. (Board Games and the Games
+> tab's Wishlist aren't here - see "Connect BoardGameGeek" and "Connect RAWG" below for where
+> those actually live and their own one-time setup.)
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -84,13 +84,13 @@ RAWG's free tier just needs a key, no OAuth dance:
 The Wishlist itself (which games you've saved) stays on-device in `localStorage`, the same way
 Board Games' Want to Play/Played marks do - no account, nothing synced.
 
-## Connect Spotify (for Gigs)
+## Connect Spotify (for Music)
 
-Gigs works without any of this - artist name/venue/date/notes can always be typed by hand - but
-Spotify gives you two things on top of that: a live artist search with a photo (public catalogue,
-no login needed), and the Artists checklist, every artist you follow ranked by how much you
-actually listen to them, which needs you to log in and approve it since that's your personal
-library data, not the public catalogue.
+Logging a gig works without any of this - artist name/venue/date/notes can always be typed by
+hand - but Spotify gives you three things on top of that, all needing you to log in and approve
+access since it's your personal library data, not the public catalogue: a live artist search
+with a photo (this one part is public, no login needed), the Artists checklist (every artist you
+follow ranked by how much you actually listen to them), and the Songs tab (your top tracks).
 
 1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).
 2. Add a **Redirect URI** in that app's settings, byte-for-byte the same as `SPOTIFY_REDIRECT_URI`
@@ -107,8 +107,9 @@ library data, not the public catalogue.
    wrangler secret put SPOTIFY_CLIENT_SECRET
    ```
    (or the Cloudflare dashboard: your worker → Settings → Variables and Secrets)
-5. In Gigs' Artists tab, tap **Connect Spotify** and approve access. Only the artist search
-   (step 1-4) is needed for the plain "add a gig" flow - the checklist needs this step too.
+5. In Music's Artists tab, tap **Connect Spotify** and approve access. Only the artist search
+   (step 1-4) is needed for the plain "add a gig" flow - the Artists checklist and Songs tab
+   both need this step too.
 
 ## If it breaks
 
@@ -135,9 +136,11 @@ The Wishlist lives in `api/game-search.js`, same setup as Board Games: if it say
 configured", the Vercel project is missing (or has a stale) `RAWG_API_KEY` environment variable
 - see "Connect RAWG" above.
 
-If Gigs' artist search says "Spotify isn't connected yet", the worker is missing (or has a
+If Music's artist search says "Spotify isn't connected yet", the worker is missing (or has a
 stale) `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` secret - see "Connect Spotify" above. If
 tapping **Connect Spotify** in the Artists tab sends you to Spotify and it complains the redirect
 URI is invalid, `SPOTIFY_REDIRECT_URI` in `worker.js` doesn't byte-for-byte match a Redirect URI
 in the Spotify app's dashboard settings (a trailing slash is enough of a mismatch to fail) -
 fix whichever one is wrong so they agree, then redeploy the worker if you changed the constant.
+The same login covers the Songs tab too, so a stale `SPOTIFY_REDIRECT_URI` or missing secret
+shows up there the same way.
