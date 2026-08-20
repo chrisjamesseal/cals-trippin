@@ -280,16 +280,21 @@ a{color:var(--brand-dark);}
    swapping glyphs, so a half star reads as "left half solid" without a separate half-star glyph
    needing its own font support */
 .star-rating-row{display:flex; align-items:center; gap:10px;}
-.star-rating{display:inline-flex; gap:4px;}
-/* sized well past the emoji-sized stars elsewhere in the app (.film-stars) specifically so each
-   half - the actual tap target - is still a comfortable width on its own, not just the star */
-.star-slot{position:relative; display:inline-block; width:40px; height:40px; font-size:36px; line-height:40px;}
+/* the gap has to be wide enough for each star's own hit target to bleed into it (below) without
+   overlapping its neighbour's */
+.star-rating{display:inline-flex; gap:14px;}
+.star-slot{position:relative; display:inline-block; width:36px; height:36px; font-size:32px; line-height:36px;}
 .star-bg,.star-fill{position:absolute; top:0; left:0; overflow:hidden; white-space:nowrap; pointer-events:none;}
 .star-bg{color:var(--line); width:100%;}
 .star-fill{color:var(--brand-dark);}
-.star-hit{position:absolute; top:0; bottom:0; width:50%; padding:0; margin:0; border:none;
-  background:transparent; cursor:pointer; box-shadow:none;}
-.star-hit-l{left:0;} .star-hit-r{right:0;}
+/* the actual tap target is bigger than the glyph it sits on - splitting a star in half for
+   half-star granularity halves an already-small target, so each half bleeds past the visible
+   star on every edge (into the row's padding, and into the gap toward its neighbour) rather
+   than relying on making the star itself bigger, which stops helping once the glyph is bigger
+   than a fingertip needs while the half-target is still thin */
+.star-hit{position:absolute; top:-9px; bottom:-9px; width:calc(50% + 6px); padding:0; margin:0;
+  border:none; background:transparent; cursor:pointer; box-shadow:none;}
+.star-hit-l{left:-6px;} .star-hit-r{right:-6px;}
 .star-clear{background:none; border:none; box-shadow:none; padding:0; font-size:.78rem;
   color:var(--muted); text-decoration:underline; cursor:pointer;}
 
@@ -1063,8 +1068,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.9.1';
 const CHANGELOG = [
+  {version:'2.9.1', notes:[
+    "Log Film's star rating: each half-star's actual tap area now reaches past the visible star on every side, instead of relying on the star itself being bigger - should make it much easier to land the half you meant.",
+    "Log Film's Watched date now defaults to today instead of blank."
+  ]},
   {version:'2.9.0', notes:[
     'Films now has a Watchlist sub-tab - search and save films you mean to watch, then tap Watched when you actually do to log it properly (date, rating, rewatch) and drop it off the list. Syncs for everyone the same as the Diary.',
     "Log Film's star rating is bigger, so each half-star is an easier tap."
@@ -4408,7 +4417,7 @@ function filmFormImpl(i, prefill){
     <div class="field"><label class="label" for="film-year">Year</label>
       <input id="film-year" type="number" inputmode="numeric" min="1888" max="2100" value="${esc(f.year||'')}"></div>
     <div class="field"><label class="label" for="film-date">Watched</label>
-      <input id="film-date" type="date" value="${esc(f.watchedDate||'')}"></div>
+      <input id="film-date" type="date" value="${esc(f.watchedDate || (i<0 ? todayStr() : ''))}"></div>
     ${filmRatingFieldHTML(f.rating)}
     <div class="field"><label class="switch-row"><span>↻ Rewatch</span>
       <span class="switch"><input type="checkbox" id="film-rewatch"${f.rewatch?' checked':''}><span class="knob"></span></span>
