@@ -292,6 +292,10 @@ a{color:var(--brand-dark);}
    featured image sits in most article-list designs, rather than boxed in like the text below */
 .design-card-img{display:block; width:calc(100% + 36px); height:160px; object-fit:cover;
   margin:-18px -18px 12px; border-radius:var(--radius) var(--radius) 0 0;}
+/* sits above Home's masonry, full width rather than squeezed into one grid tile - a taller
+   image earns that extra width instead of just stretching the same 160px banner sideways */
+.dash-design-feature{margin-bottom:20px;}
+.dash-design-feature .design-card-img{height:200px;}
 /* a reading surface rather than a card: a narrower measure and looser lines than the rest of
    the app, because this is the one screen you sit and read instead of scan */
 .article{max-width:38rem;}
@@ -981,8 +985,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.2.0';
 const CHANGELOG = [
+  {version:'2.2.0', notes:[
+    'Home: the latest article is now a full-width card at the very top of the page, instead of squeezed into one masonry tile - that\'s the one piece of Home that changes on its own schedule, so it gets more room to notice at a glance.'
+  ]},
   {version:'2.1.0', notes:[
     "Home: added a Places Been tile. Every tile's caption is now a plain label (Next Trip, Next Gig, Most Played, Next Article) instead of the specific date/location/artist, matching Currently Playing's style. Gigs Been To and Games Played now filter by the same Last 4 Weeks / Last 6 Months / All Time picker as the top song. Fixed a stray shadow under that picker on some phones."
   ]},
@@ -2795,21 +2802,23 @@ function loadDashboardSong(){
     const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = '';
   });
 }
-function dashDesignWidgetHTML(){
+/* full-width, above the masonry rather than one tile among many - articles change on their own
+   schedule (a new one lands whenever the feed does), so this is the one piece of Home worth
+   giving more room to notice at a glance */
+function dashDesignFeatureHTML(){
   const a = designLastRead();
   if(!a) return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goDesign()"
+    <div class="card design-card dash-design-feature" role="button" tabindex="0" onclick="App.goDesign()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goDesign()}">
-      <div class="dash-item-flags" aria-hidden="true">🎨</div>
-      <div class="dash-item-title">Nothing Read Yet</div>
+      <div class="small muted design-meta">Next Article</div>
+      <h3 class="design-title">Nothing Read Yet</h3>
     </div>`;
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goDesign()"
+    <div class="card design-card dash-design-feature" role="button" tabindex="0" onclick="App.goDesign()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goDesign()}">
-      ${a.image ? `<img class="dash-item-img" src="${esc(a.image)}" alt="" loading="lazy">`
-                 : `<div class="dash-item-flags" aria-hidden="true">🎨</div>`}
-      <div class="dash-item-title">${esc(a.title)}</div>
-      <div class="dash-item-sub">Next Article</div>
+      ${a.image ? `<img class="design-card-img" src="${esc(a.image)}" alt="" loading="lazy">` : ''}
+      <div class="small muted design-meta">Next Article</div>
+      <h3 class="design-title">${esc(a.title)}</h3>
     </div>`;
 }
 function dashGamesStatWidgetHTML(n){
@@ -2864,12 +2873,12 @@ function renderDashboard(){
   renderSidebar(null);
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
+    ${dashDesignFeatureHTML()}
     <div class="dash-masonry">
       ${dashTripWidgetsHTML()}
       ${dashPlacesBeenWidgetHTML()}
       <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
       ${dashGigWidgetHTML()}
-      ${dashDesignWidgetHTML()}
       <div id="dash-games-slot">${dashGamesPlaceholderHTML()}</div>
       <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
     </div>`;
