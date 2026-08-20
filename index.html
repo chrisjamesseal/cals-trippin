@@ -265,6 +265,12 @@ a{color:var(--brand-dark);}
 .films-sync-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
   gap:10px; padding:12px 14px; margin-bottom:16px; border:1px solid var(--line); border-radius:var(--radius);
   background:var(--paper); box-shadow:var(--shadow);}
+/* the Watchlist's own cards reuse the poster-shelf look above rather than Games' Wishlist list
+   cards - Films is already a grid of posters everywhere else, so a second visual language just
+   for "not watched yet" would read as a different feature bolted on rather than the same one */
+.fw-actions{margin-top:8px; flex-wrap:nowrap;}
+.fw-actions .btn{flex:1; min-width:0;}
+.fw-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
 /* the title field's own search dropdown - poster-shaped thumb rather than the round artist
    photo Gigs' identical dropdown uses, everything else (positioning, item layout) shared as-is */
 .film-search-thumb{width:32px; height:46px; border-radius:3px; object-fit:cover; flex-shrink:0;
@@ -274,8 +280,10 @@ a{color:var(--brand-dark);}
    swapping glyphs, so a half star reads as "left half solid" without a separate half-star glyph
    needing its own font support */
 .star-rating-row{display:flex; align-items:center; gap:10px;}
-.star-rating{display:inline-flex; gap:2px;}
-.star-slot{position:relative; display:inline-block; width:26px; height:26px; font-size:24px; line-height:26px;}
+.star-rating{display:inline-flex; gap:4px;}
+/* sized well past the emoji-sized stars elsewhere in the app (.film-stars) specifically so each
+   half - the actual tap target - is still a comfortable width on its own, not just the star */
+.star-slot{position:relative; display:inline-block; width:40px; height:40px; font-size:36px; line-height:40px;}
 .star-bg,.star-fill{position:absolute; top:0; left:0; overflow:hidden; white-space:nowrap; pointer-events:none;}
 .star-bg{color:var(--line); width:100%;}
 .star-fill{color:var(--brand-dark);}
@@ -1055,8 +1063,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 const CHANGELOG = [
+  {version:'2.9.0', notes:[
+    'Films now has a Watchlist sub-tab - search and save films you mean to watch, then tap Watched when you actually do to log it properly (date, rating, rewatch) and drop it off the list. Syncs for everyone the same as the Diary.',
+    "Log Film's star rating is bigger, so each half-star is an easier tap."
+  ]},
   {version:'2.8.0', notes:[
     "Log Film's Title field now searches a real film catalogue as you type - pick a result and its year and poster fill in too - instead of typing everything by hand (needs a one-time TMDb key on the proxy, see psn-proxy/README.md; plain typing still always works).",
     'Log Film\'s Rating is now a row of tappable stars, half-stars included, instead of a dropdown.',
@@ -1607,10 +1619,11 @@ function load(){
       db.placesArchived = Array.isArray(db.placesArchived) ? db.placesArchived : [];
       db.gigs = Array.isArray(db.gigs) ? db.gigs : [];
       db.films = Array.isArray(db.films) ? db.films : [];
+      db.filmsWatchlist = Array.isArray(db.filmsWatchlist) ? db.filmsWatchlist : [];
       return db;
     }
   }catch(e){}
-  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[], films:[]};
+  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[], films:[], filmsWatchlist:[]};
 }
 /* persist to localStorage. If storage is full, never lose a trip, drop only the heavy
    in-browser file/photo previews (they still live in the cloud copy when synced) and keep
@@ -4274,22 +4287,32 @@ function filmsSorted(){
   return (DB.films||[]).map((f,i)=>({f,i}))
     .sort((a,b) => (b.f.watchedDate||'').localeCompare(a.f.watchedDate||'') || (a.f.title||'').localeCompare(b.f.title||''));
 }
+/* Films holds two unrelated things - what you've actually watched, and what you mean to - so it
+   splits into sub-tabs the same way Games does for PlayStation/Board Games/Wishlist. */
+let CUR_FILMS_TAB = 'diary';
 function renderFilms(){
+  const tab = (k, label) => `<button class="subtab${CUR_FILMS_TAB===k?' on':''}" onclick="App.filmsTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        <button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>
+        ${CUR_FILMS_TAB==='diary'?'<button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>':''}
       </div>
     </div>
-    <div id="films-connect"></div>
-    <div id="films-grid"></div>`;
+    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}</div>
+    <div id="films-body"></div>`;
+  if(CUR_FILMS_TAB==='watchlist'){ renderFilmsWatchlist(); return; }
+  renderFilmsDiary();
+}
+function renderFilmsDiary(){
+  const body = $('#films-body'); if(!body) return;
+  body.innerHTML = `<div id="films-connect"></div><div id="films-grid"></div>`;
   drawLetterboxdConnect();
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
     DB.films = Array.isArray(cloud) ? cloud : [];
     saveLocal();
-    drawFilmsGrid();
+    if(CUR_FILMS_TAB==='diary') drawFilmsGrid();
   });
 }
 function drawLetterboxdConnect(){
@@ -4375,9 +4398,10 @@ function filmRatingFieldHTML(value){
     <input type="hidden" id="film-rating" value="${value==null?'':value}">
   </div>`;
 }
-function filmFormImpl(i){
-  const f = (i>=0 && (DB.films||[])[i]) || {};
+function filmFormImpl(i, prefill){
+  const f = (i>=0 && (DB.films||[])[i]) || (prefill ? {title:prefill.title, year:prefill.year, image:prefill.image} : {});
   FILM_SEARCH_RESULTS = [];
+  FILM_WATCHLIST_REMOVE_ID = (prefill && prefill.watchlistId) || null;
   openModal(`
     <h2>${i>=0?'Edit Film':'Log a Film'}</h2>
     ${filmTitleFieldHTML(f)}
@@ -4406,6 +4430,7 @@ function filmRatingPickImpl(v){
    firing, same as Gigs' artist search and Board Games' own search */
 let FILM_SEARCH_TIMER = null;
 let FILM_SEARCH_RESULTS = [];
+let FILM_WATCHLIST_REMOVE_ID = null;   // set when Log Film opened via the Watchlist's "Watched" button
 function filmTitleInputImpl(){
   clearTimeout(FILM_SEARCH_TIMER);
   const q = ($('#film-title').value||'').trim();
@@ -4463,7 +4488,15 @@ function saveFilmImpl(i){
   };
   DB.films = DB.films||[];
   if(i>=0 && DB.films[i]) DB.films[i] = film; else DB.films.push(film);
-  saveFilms(); closeModal(); drawFilmsGrid();
+  saveFilms();
+  if(FILM_WATCHLIST_REMOVE_ID){
+    // logged from the Watchlist's "Watched" button - it's served its purpose, drop it from there
+    DB.filmsWatchlist = (DB.filmsWatchlist||[]).filter(w=>w.id!==FILM_WATCHLIST_REMOVE_ID);
+    saveFilmsWatchlist();
+    FILM_WATCHLIST_REMOVE_ID = null;
+    drawFwMine();
+  }
+  closeModal(); drawFilmsGrid();
   toast(i>=0?'Film updated':'Film logged');
 }
 function delFilmImpl(i){
@@ -4523,6 +4556,114 @@ async function letterboxdSyncImpl(){
 function letterboxdDisconnectImpl(){
   clearLetterboxdUsername();
   drawLetterboxdConnect();
+}
+
+/* ================= Films Watchlist =================
+   Films worth watching, saved before you've actually seen them - its own Firebase node
+   (DB.filmsWatchlist) rather than folded into the Diary (DB.films), so "meant to watch" and
+   "actually watched" stay two different lists instead of one conflating a rating/date that
+   doesn't exist yet. Search reuses the Log Film form's own TMDb-backed api/film-search.js -
+   nothing new needed there. Marking one Watched hands off to the ordinary Log Film form
+   (pre-filled), so the actual watched date/rating/rewatch still get entered same as any other
+   diary entry - this list only ever remembers "want to", never "did". */
+function loadFilmsWatchlistCloud(cb){
+  if(!fbRoot){ cb(DB.filmsWatchlist||[]); return; }
+  fbRoot.ref('filmsWatchlist').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : (DB.filmsWatchlist||[])))
+    .catch(() => cb(DB.filmsWatchlist||[]));
+}
+function pushFilmsWatchlist(){
+  if(!fbRoot) return;
+  fbRoot.ref('filmsWatchlist').set(DB.filmsWatchlist||[])
+    .catch(err => {
+      console.error("My Trips, couldn't save the Watchlist:", err);
+      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        noteModal('Watchlist Not Saved', "The database rules don't allow writing filmsWatchlist. Open the Firebase console, Realtime Database, Rules, and add a 'filmsWatchlist' rule.");
+      }else{
+        noteModal('Not Saved', 'Check your connection and try again.');
+      }
+    });
+}
+function saveFilmsWatchlist(){ saveLocal(); pushFilmsWatchlist(); }
+function isOnFilmsWatchlist(id){ return (DB.filmsWatchlist||[]).some(f=>f.id===id); }
+
+let FW_SEARCH_TIMER = null;
+let FW_LAST_RESULTS = [];
+function renderFilmsWatchlist(){
+  const body = $('#films-body'); if(!body) return;
+  body.innerHTML = `
+    <div id="fw-my"></div>
+    <div class="field"><input type="text" id="fw-search" placeholder="Search for a film to add…"
+      autocomplete="off" oninput="App.fwSearchInput()"></div>
+    <div id="fw-results"></div>`;
+  drawFwMine();
+  loadFilmsWatchlistCloud(cloud => {
+    DB.filmsWatchlist = Array.isArray(cloud) ? cloud : [];
+    saveLocal();
+    if(CUR_FILMS_TAB==='watchlist') drawFwMine();
+  });
+}
+function drawFwMine(){
+  const el = $('#fw-my'); if(!el) return;
+  const mine = DB.filmsWatchlist||[];
+  if(!mine.length){ el.innerHTML = `<div class="empty">Nothing on your watchlist yet - search below to add one.</div>`; return; }
+  el.innerHTML = `<div class="film-grid" style="margin-bottom:20px">${mine.map(f=>fwMineCardHTML(f)).join('')}</div>`;
+}
+function fwMineCardHTML(f){
+  return `
+    <div class="film-card">
+      ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                 : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
+      <div class="film-title">${esc(f.title||'Untitled')}</div>
+      ${f.year?`<div class="film-meta">${esc(f.year)}</div>`:''}
+      <div class="btn-row fw-actions">
+        <button type="button" class="btn sm" onclick="App.fwMarkWatched('${esc(f.id)}')">Watched</button>
+        <button type="button" class="iconbtn del" aria-label="Remove from watchlist" title="Remove" onclick="App.fwRemove('${esc(f.id)}')">${ICONS.trash}</button>
+      </div>
+    </div>`;
+}
+function fwResultCardHTML(f){
+  const on = isOnFilmsWatchlist(f.id);
+  return `
+    <div class="film-card">
+      ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                 : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
+      <div class="film-title">${esc(f.title)}</div>
+      ${f.year?`<div class="film-meta">${esc(f.year)}</div>`:''}
+      <button type="button" class="btn sm fw-mark${on?' on':''}" style="width:100%; margin-top:8px"
+        onclick="App.fwToggle('${esc(f.id)}')" aria-pressed="${on}">${on?'✓ On Watchlist':'+ Add'}</button>
+    </div>`;
+}
+/* each search is a real TMDb call (via the same api/film-search.js the Log Film form uses), so
+   wait for a pause in typing rather than firing per key, same as everywhere else this app
+   searches a live catalogue */
+function fwSearchInputImpl(){
+  clearTimeout(FW_SEARCH_TIMER);
+  const q = ($('#fw-search').value||'').trim();
+  const results = $('#fw-results'); if(results) results.innerHTML = '';
+  if(!q) return;
+  FW_SEARCH_TIMER = setTimeout(()=>fwSearch(q), 400);
+}
+function fwSearch(q){
+  const results = $('#fw-results'); if(!results) return;
+  results.innerHTML = `<div class="empty">Searching…</div>`;
+  fetch('/api/film-search?q=' + encodeURIComponent(q))
+    .then(async r => {
+      if(r.status===503) throw new Error("Film search isn't set up - add TMDB_API_KEY as a Vercel environment variable (see psn-proxy/README.md).");
+      if(!r.ok){ const body = await r.json().catch(()=>({})); throw new Error(body.error || ('status '+r.status)); }
+      return r.json();
+    })
+    .then(data => {
+      const cur = $('#fw-results'); if(!cur) return;
+      FW_LAST_RESULTS = data.films||[];
+      cur.innerHTML = FW_LAST_RESULTS.length
+        ? `<div class="film-grid">${FW_LAST_RESULTS.map(f=>fwResultCardHTML(f)).join('')}</div>`
+        : `<div class="empty">No films match "${esc(q)}"</div>`;
+    })
+    .catch(e => {
+      const cur = $('#fw-results'); if(!cur) return;
+      cur.innerHTML = `<div class="empty">Couldn't search.<br>${esc(e.message||'')}</div>`;
+    });
 }
 
 function route(){
@@ -4685,6 +4826,29 @@ App.letterboxdDisconnect = letterboxdDisconnectImpl;
 App.filmTitleInput = filmTitleInputImpl;
 App.filmTitlePick = filmTitlePickImpl;
 App.filmRatingPick = filmRatingPickImpl;
+App.filmsTab = k => { CUR_FILMS_TAB = k; renderFilms(); window.scrollTo(0,0); };
+App.fwSearchInput = fwSearchInputImpl;
+App.fwToggle = id => {
+  if(isOnFilmsWatchlist(id)){
+    DB.filmsWatchlist = (DB.filmsWatchlist||[]).filter(f=>f.id!==id);
+  }else{
+    const f = FW_LAST_RESULTS.find(x=>x.id===id);
+    if(f){ DB.filmsWatchlist = DB.filmsWatchlist||[]; DB.filmsWatchlist.unshift(f); }
+  }
+  saveFilmsWatchlist();
+  drawFwMine();
+  const results = $('#fw-results');
+  if(results && FW_LAST_RESULTS.length) results.innerHTML = `<div class="film-grid">${FW_LAST_RESULTS.map(f=>fwResultCardHTML(f)).join('')}</div>`;
+};
+App.fwMarkWatched = id => {
+  const f = (DB.filmsWatchlist||[]).find(x=>x.id===id); if(!f) return;
+  filmFormImpl(-1, {title:f.title, year:f.year, image:f.image, watchlistId:f.id});
+};
+App.fwRemove = id => {
+  DB.filmsWatchlist = (DB.filmsWatchlist||[]).filter(f=>f.id!==id);
+  saveFilmsWatchlist();
+  drawFwMine();
+};
 App.spotifyConnect = () => {
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
   sessionStorage.setItem('spotify_oauth_state', state);
