@@ -88,8 +88,10 @@ Board Games' Want to Play/Played marks do - no account, nothing synced.
 ## Connect TMDb (for film search)
 
 Logging a film works without any of this - title/year/date/rating can always be typed by hand -
-but the Log Film form's title field can search a real catalogue (with posters) instead, so you
-don't have to remember exact spelling or release years. It talks to
+but the Log Film and Watchlist forms' title fields can search a real catalogue (with posters)
+instead, so you don't have to remember exact spelling or release years. The same endpoint also
+backfills posters after a Letterboxd CSV import (that export has no poster field at all) and
+after a Letterboxd sync that comes back missing one. It talks to
 [TMDb](https://www.themoviedb.org/documentation/api) through `api/film-search.js`, another
 Vercel Edge Function alongside `api/board-games.js` and `api/game-search.js` (same repo, same
 `git push`, no separate deploy). TMDb's free tier just needs a key, no OAuth dance:
@@ -192,7 +194,9 @@ suddenly stops working the most likely cause is Letterboxd having changed their 
 names - check `worker.js`'s `parseLetterboxdItems` against a fresh `letterboxd.com/<any
 username>/rss/` response if entries start coming through blank or missing ratings.
 
-Film search in the Log Film form lives in `api/film-search.js`, same setup as Board Games and
-the Wishlist: if it says "isn't set up" (the title field still works as a plain text box either
-way), the Vercel project is missing (or has a stale) `TMDB_API_KEY` environment variable - see
-"Connect TMDb" above.
+Film search in the Log Film and Watchlist forms lives in `api/film-search.js`, same setup as
+Board Games and the Wishlist: if it says "isn't set up" (the title field still works as a plain
+text box either way), the Vercel project is missing (or has a stale) `TMDB_API_KEY` environment
+variable - see "Connect TMDb" above. The same missing key is why a CSV import's "finding
+posters…" step silently finds none - nothing breaks, the films just stay posterless the way they
+came in from the CSV.

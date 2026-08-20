@@ -295,6 +295,19 @@ a{color:var(--brand-dark);}
 .star-hit{position:absolute; top:-9px; bottom:-9px; width:calc(50% + 6px); padding:0; margin:0;
   border:none; background:transparent; cursor:pointer; box-shadow:none;}
 .star-hit-l{left:-6px;} .star-hit-r{right:-6px;}
+/* Films Stats: the 3 headline numbers reuse the Home dashboard's own stat-tile look
+   (.dash-widget.dash-widget-stat), the By Year/By Rating rows are their own thing - a plain
+   clickable row with a count pill (Gigs' own .gig-seen-pill, reused as-is) that drills into a
+   poster grid filtered to just that year/rating. */
+.stat-overview-row{display:flex; gap:10px; margin-bottom:20px;}
+.stat-overview-row .dash-widget{flex:1;}
+.stats-list{display:flex; flex-direction:column; gap:8px; margin-bottom:22px;}
+.stats-row{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
+  text-align:left; font:inherit; color:inherit; cursor:pointer; padding:12px 14px;
+  border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--paper);
+  box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s;}
+.stats-row:hover,.stats-row:focus-visible{transform:translateY(-1px); box-shadow:var(--shadow-lift); outline:none;}
+.stats-row-label{font-family:var(--font-head); font-weight:700; font-size:.9rem; color:var(--ink);}
 .star-clear{background:none; border:none; box-shadow:none; padding:0; font-size:.78rem;
   color:var(--muted); text-decoration:underline; cursor:pointer;}
 
@@ -1068,8 +1081,14 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.10.0';
+const APP_VERSION = '2.11.0';
 const CHANGELOG = [
+  {version:'2.11.0', notes:[
+    "New Stats sub-tab on Films: how many you've watched each year, and a breakdown by star rating (half-stars included) - tap either to see the actual films behind the number.",
+    "Films' Watchlist can now import Letterboxd's watchlist.csv export too, the same as the Diary's Import CSV.",
+    "Importing a Letterboxd CSV now fetches a poster for every film that came in without one (Letterboxd's export doesn't include posters at all) - a few at a time in the background, right after the import finishes.",
+    "Fixed CSV imports and Letterboxd syncs occasionally blanking out a film's poster it already had, when the new data didn't have one of its own."
+  ]},
   {version:'2.10.0', notes:[
     "Films' Diary has an Import CSV button now, for Letterboxd's own full-history export (Settings › Data › Export Your Data, diary.csv) - the Connect Letterboxd sync only ever sees your ~50 most recent entries. No setup needed, works entirely on-device, and importing again later just updates entries rather than duplicating them."
   ]},
@@ -4291,6 +4310,34 @@ function pushFilms(){
 }
 function saveFilms(){ saveLocal(); pushFilms(); }
 
+/* Letterboxd's CSV exports (diary.csv, watchlist.csv) carry no poster at all - unlike the RSS
+   sync, which at least sometimes finds one in the feed entry's own HTML - so a CSV import always
+   leaves every entry posterless. This fills those in afterwards with a TMDb search per missing
+   title (via the same api/film-search.js the search-select fields use), a handful at a time so a
+   big import doesn't fire hundreds of requests at once or take forever doing them one by one.
+   Best-effort: a request that fails or a title TMDb doesn't recognise just stays posterless. */
+async function backfillPosters(list, saveFn){
+  const missing = (list||[]).filter(f => !f.image && f.title);
+  if(!missing.length) return 0;
+  let filled = 0, idx = 0;
+  async function worker(){
+    while(idx < missing.length){
+      const f = missing[idx++];
+      try{
+        const r = await fetch('/api/film-search?q='+encodeURIComponent(f.title));
+        if(!r.ok) continue;
+        const data = await r.json();
+        const results = data.films||[];
+        const match = results.find(m=>f.year && m.year===f.year) || results[0];
+        if(match && match.image){ f.image = match.image; filled++; }
+      }catch(e){}
+    }
+  }
+  await Promise.all(Array.from({length:4}, worker));
+  if(filled) saveFn();
+  return filled;
+}
+
 function filmStarsHTML(rating){
   if(rating==null) return '';
   return `<span class="film-stars">★ ${rating.toFixed(1)}</span>`;
@@ -4312,11 +4359,13 @@ function renderFilms(){
           <button class="btn sm ghost" onclick="App.filmsImportCsv()">Import CSV</button>
           <button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>
         </div>`:''}
+        ${CUR_FILMS_TAB==='watchlist'?'<button class="btn sm ghost" onclick="App.fwImportCsv()">Import CSV</button>':''}
       </div>
     </div>
-    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}</div>
+    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}${tab('stats','📊 Stats')}</div>
     <div id="films-body"></div>`;
   if(CUR_FILMS_TAB==='watchlist'){ renderFilmsWatchlist(); return; }
+  if(CUR_FILMS_TAB==='stats'){ renderFilmsStats(); return; }
   renderFilmsDiary();
 }
 function renderFilmsDiary(){
@@ -4550,15 +4599,20 @@ async function letterboxdSyncImpl(){
     const byId = new Map(DB.films.map((f,idx)=>[f.id, idx]));
     let added=0, updated=0;
     imported.forEach(f=>{
+      const existingIdx = byId.get(f.id);
+      // the feed doesn't always have a poster for an entry - don't let a blank overwrite one
+      // this film already has (from an earlier sync, a CSV import, or the backfill below)
+      const existingImage = existingIdx!=null ? DB.films[existingIdx].image : '';
       const entry = {id:f.id, title:f.title, year:f.year, watchedDate:f.watchedDate,
-        rating:f.rating, rewatch:f.rewatch, image:f.image, link:f.link, source:'letterboxd'};
-      if(byId.has(f.id)){ DB.films[byId.get(f.id)] = entry; updated++; }
+        rating:f.rating, rewatch:f.rewatch, image:f.image||existingImage, link:f.link, source:'letterboxd'};
+      if(existingIdx!=null){ DB.films[existingIdx] = entry; updated++; }
       else { DB.films.push(entry); byId.set(f.id, DB.films.length-1); added++; }
     });
     saveFilms();
     drawLetterboxdConnect();
     drawFilmsGrid();
     toast(`Synced: ${added} new, ${updated} updated`);
+    backfillPosters(DB.films, saveFilms).then(n => { if(n){ drawFilmsGrid(); toast(`Added ${n} poster${n===1?'':'s'}`); } });
   }catch(e){
     const errEl = $('#films-connect'); if(!errEl) return;
     errEl.innerHTML = `<div class="card"><p class="small" style="color:var(--accent-dark)">Couldn't sync Letterboxd.<br>${esc(e.message||'')}</p>
@@ -4651,15 +4705,20 @@ function filmsImportCsvFileImpl(file){
       const byId = new Map(DB.films.map((f,idx)=>[f.id, idx]));
       let added=0, updated=0;
       imported.forEach(f=>{
+        const existingIdx = byId.get(f.id);
+        // diary.csv carries no poster at all - never let that blank out an image this film
+        // already has (backfillPosters below fills the rest in from scratch)
+        const existingImage = existingIdx!=null ? DB.films[existingIdx].image : '';
         const entry = {id:f.id, title:f.title, year:f.year, watchedDate:f.watchedDate,
-          rating:f.rating, rewatch:f.rewatch, image:f.image, link:f.link, source:'letterboxd'};
-        if(byId.has(f.id)){ DB.films[byId.get(f.id)] = entry; updated++; }
+          rating:f.rating, rewatch:f.rewatch, image:existingImage||f.image, link:f.link, source:'letterboxd'};
+        if(existingIdx!=null){ DB.films[existingIdx] = entry; updated++; }
         else { DB.films.push(entry); byId.set(f.id, DB.films.length-1); added++; }
       });
       saveFilms();
       closeModal();
       drawFilmsGrid();
-      toast(`Imported: ${added} new, ${updated} updated`);
+      toast(`Imported: ${added} new, ${updated} updated - finding posters…`);
+      backfillPosters(DB.films, saveFilms).then(n => { drawFilmsGrid(); toast(n?`Added ${n} poster${n===1?'':'s'}`:'No posters found'); });
     }catch(e){
       if(s) s.innerHTML = `<p class="small" style="color:var(--accent-dark); margin-top:10px">${esc(e.message||"Couldn't read that file")}</p>`;
     }
@@ -4774,6 +4833,162 @@ function fwSearch(q){
       cur.innerHTML = `<div class="empty">Couldn't search.<br>${esc(e.message||'')}</div>`;
     });
 }
+/* watchlist.csv is Letterboxd's export for the watchlist itself, a separate file from
+   diary.csv - same shape minus Rating/Rewatch/Watched Date, which a watchlist entry doesn't
+   have yet by definition. Reuses the same parseCsv() and the same posterless-until-backfilled
+   situation as the Diary's CSV import (see backfillPosters). */
+function filmsWatchlistImportCsvImpl(){
+  openModal(`
+    <h2>Import Watchlist from Letterboxd</h2>
+    <p class="small muted" style="margin-bottom:14px">
+      Get this from Letterboxd's own export - Settings &rsaquo; Data &rsaquo; Export Your Data on
+      letterboxd.com, unzip the download, then pick <strong>watchlist.csv</strong> below (a
+      separate file from diary.csv). Importing again later just updates entries already here
+      rather than duplicating them.
+    </p>
+    <div class="field"><label class="label" for="fw-csv-file">watchlist.csv</label>
+      <input type="file" id="fw-csv-file" accept=".csv,text/csv" onchange="App.fwImportCsvFile(this.files[0])"></div>
+    <div id="fw-csv-status"></div>`);
+}
+function filmsWatchlistImportCsvFileImpl(file){
+  if(!file) return;
+  const status = $('#fw-csv-status');
+  if(status) status.innerHTML = `<p class="small muted" style="margin-top:10px">Reading…</p>`;
+  const reader = new FileReader();
+  reader.onerror = () => { const s = $('#fw-csv-status'); if(s) s.innerHTML = `<p class="small" style="color:var(--accent-dark); margin-top:10px">Couldn't read that file.</p>`; };
+  reader.onload = () => {
+    const s = $('#fw-csv-status');
+    try{
+      const rows = parseCsv(String(reader.result||''));
+      if(!rows.length) throw new Error('No rows found in that file');
+      const header = rows[0].map(h=>h.trim().toLowerCase());
+      const col = name => header.indexOf(name);
+      const iName = col('name'), iYear = col('year'), iUri = col('letterboxd uri');
+      if(iName<0) throw new Error("That doesn't look like a Letterboxd watchlist.csv - no Name column found");
+      const imported = rows.slice(1).filter(r=>r[iName]).map(r => {
+        const title = (r[iName]||'').trim();
+        const year = ((iYear>=0 ? r[iYear] : '')||'').trim();
+        const link = ((iUri>=0 ? r[iUri] : '')||'').trim();
+        return { id: link || [title, year].join('|'), title, year: year || null, link, image: '' };
+      }).filter(f=>f.title);
+      if(!imported.length) throw new Error('No films found in that file');
+      DB.filmsWatchlist = DB.filmsWatchlist||[];
+      const byId = new Map(DB.filmsWatchlist.map((f,idx)=>[f.id, idx]));
+      let added=0, updated=0;
+      imported.forEach(f=>{
+        const existingIdx = byId.get(f.id);
+        const existingImage = existingIdx!=null ? DB.filmsWatchlist[existingIdx].image : '';
+        const entry = {id:f.id, title:f.title, year:f.year, link:f.link, image:existingImage||f.image};
+        if(existingIdx!=null){ DB.filmsWatchlist[existingIdx] = entry; updated++; }
+        else { DB.filmsWatchlist.push(entry); byId.set(f.id, DB.filmsWatchlist.length-1); added++; }
+      });
+      saveFilmsWatchlist();
+      closeModal();
+      drawFwMine();
+      toast(`Imported: ${added} new, ${updated} updated - finding posters…`);
+      backfillPosters(DB.filmsWatchlist, saveFilmsWatchlist).then(n => { drawFwMine(); toast(n?`Added ${n} poster${n===1?'':'s'}`:'No posters found'); });
+    }catch(e){
+      if(s) s.innerHTML = `<p class="small" style="color:var(--accent-dark); margin-top:10px">${esc(e.message||"Couldn't read that file")}</p>`;
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ================= Films Stats =================
+   Two breakdowns of the Diary - watched by year, and by rating - each row a live count that
+   drills into its own filtered poster grid (App.filmsStatsYear/Rating -> a real #/films/stats/…
+   route, the same way Design's articles get their own #/design/<i> rather than living purely in
+   memory, so the back button and a bookmark both land where you'd expect). Ratings are grouped
+   by their exact value (half-stars included) rather than rounded to a whole star, since the
+   data already carries that precision and rounding would just throw it away. */
+function filmsStatsByYear(){
+  const counts = new Map();
+  (DB.films||[]).forEach(f=>{
+    const key = f.watchedDate ? f.watchedDate.slice(0,4) : 'nodate';
+    counts.set(key, (counts.get(key)||0)+1);
+  });
+  return counts;
+}
+function filmsStatsByRating(){
+  const counts = new Map();
+  (DB.films||[]).forEach(f=>{
+    const key = f.rating==null ? 'none' : String(f.rating);
+    counts.set(key, (counts.get(key)||0)+1);
+  });
+  return counts;
+}
+function statsRowHTML(onclick, label, count){
+  return `<button type="button" class="stats-row" onclick="${onclick}">
+    <span class="stats-row-label">${esc(String(label))}</span>
+    <span class="gig-seen-pill">${count}</span>
+  </button>`;
+}
+const FILM_RATING_VALUES = [5,4.5,4,3.5,3,2.5,2,1.5,1,0.5];
+function renderFilmsStats(){
+  const body = $('#films-body'); if(!body) return;
+  drawFilmsStats();
+  loadFilmsCloud(cloud => {
+    DB.films = Array.isArray(cloud) ? cloud : [];
+    saveLocal();
+    if(CUR_FILMS_TAB==='stats') drawFilmsStats();
+  });
+}
+function drawFilmsStats(){
+  const body = $('#films-body'); if(!body) return;
+  const films = DB.films||[];
+  if(!films.length){ body.innerHTML = `<div class="empty">Log some films to see stats here.</div>`; return; }
+  const rewatches = films.filter(f=>f.rewatch).length;
+  const rated = films.filter(f=>f.rating!=null);
+  const avgRating = rated.length ? (rated.reduce((s,f)=>s+f.rating,0)/rated.length) : null;
+
+  const byYear = filmsStatsByYear();
+  const years = [...byYear.keys()].filter(k=>k!=='nodate').sort((a,b)=>b.localeCompare(a));
+  const noDateCount = byYear.get('nodate')||0;
+
+  const byRating = filmsStatsByRating();
+  const noRatingCount = byRating.get('none')||0;
+
+  body.innerHTML = `
+    <div class="stat-overview-row">
+      <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${films.length}</div><div class="dash-stat-label">Logged</div></div>
+      <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${rewatches}</div><div class="dash-stat-label">Rewatches</div></div>
+      <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${avgRating!=null?avgRating.toFixed(1):'—'}</div><div class="dash-stat-label">Avg Rating</div></div>
+    </div>
+    <h3 style="margin:20px 0 10px">By Year</h3>
+    <div class="stats-list">
+      ${years.map(y=>statsRowHTML(`App.filmsStatsYear('${y}')`, y, byYear.get(y))).join('')}
+      ${noDateCount?statsRowHTML(`App.filmsStatsYear('nodate')`, 'No Date', noDateCount):''}
+    </div>
+    <h3 style="margin:20px 0 10px">By Rating</h3>
+    <div class="stats-list">
+      ${FILM_RATING_VALUES.filter(v=>byRating.get(String(v))).map(v=>statsRowHTML(`App.filmsStatsRating('${v}')`, `★ ${v.toFixed(1)}`, byRating.get(String(v)))).join('')}
+      ${noRatingCount?statsRowHTML(`App.filmsStatsRating('none')`, 'Not Rated', noRatingCount):''}
+    </div>`;
+}
+function renderFilmsStatsFiltered(type, valueStr){
+  const films = DB.films||[];
+  let matched, title;
+  if(type==='year'){
+    if(valueStr==='nodate'){ matched = films.filter(f=>!f.watchedDate); title = 'No Date'; }
+    else { matched = films.filter(f=>f.watchedDate && f.watchedDate.slice(0,4)===valueStr); title = valueStr; }
+  }else{
+    if(valueStr==='none'){ matched = films.filter(f=>f.rating==null); title = 'Not Rated'; }
+    else { const v = parseFloat(valueStr); matched = films.filter(f=>f.rating===v); title = `★ ${v.toFixed(1)}`; }
+  }
+  const ordered = matched.slice()
+    .sort((a,b) => (b.watchedDate||'').localeCompare(a.watchedDate||'') || (a.title||'').localeCompare(b.title||''))
+    .map(f => ({f, i: films.indexOf(f)}));
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">${esc(title)}</span>
+        <button class="btn sm ghost" onclick="App.goFilmsStats()">${ICONS.back}Stats</button>
+      </div>
+    </div>
+    <div id="films-grid">${ordered.length
+      ? `<div class="film-grid">${ordered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>`
+      : `<div class="empty">No films here.</div>`}</div>`;
+}
 
 function route(){
   closeModal(); closeMenu();
@@ -4815,6 +5030,16 @@ function route(){
   if(h === '#/films'){
     CUR_TRIP_ID = null; stopSub();
     renderFilms(); window.scrollTo(0,0); return;
+  }
+  if(h.startsWith('#/films/stats/year/')){
+    CUR_TRIP_ID = null; stopSub();
+    renderFilmsStatsFiltered('year', decodeURIComponent(h.slice('#/films/stats/year/'.length)));
+    window.scrollTo(0,0); return;
+  }
+  if(h.startsWith('#/films/stats/rating/')){
+    CUR_TRIP_ID = null; stopSub();
+    renderFilmsStatsFiltered('rating', decodeURIComponent(h.slice('#/films/stats/rating/'.length)));
+    window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/design/')){
     CUR_TRIP_ID = null; stopSub();
@@ -4960,6 +5185,11 @@ App.fwRemove = id => {
 };
 App.filmsImportCsv = filmsImportCsvImpl;
 App.filmsImportCsvFile = filmsImportCsvFileImpl;
+App.filmsStatsYear = y => { location.hash = '#/films/stats/year/'+encodeURIComponent(y); };
+App.filmsStatsRating = v => { location.hash = '#/films/stats/rating/'+encodeURIComponent(v); };
+App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
+App.fwImportCsv = filmsWatchlistImportCsvImpl;
+App.fwImportCsvFile = filmsWatchlistImportCsvFileImpl;
 App.spotifyConnect = () => {
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
   sessionStorage.setItem('spotify_oauth_state', state);
