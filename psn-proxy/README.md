@@ -85,6 +85,23 @@ RAWG's free tier just needs a key, no OAuth dance:
 The Wishlist itself (which games you've saved) stays on-device in `localStorage`, the same way
 Board Games' Want to Play/Played marks do - no account, nothing synced.
 
+## Connect TMDb (for film search)
+
+Logging a film works without any of this - title/year/date/rating can always be typed by hand -
+but the Log Film form's title field can search a real catalogue (with posters) instead, so you
+don't have to remember exact spelling or release years. It talks to
+[TMDb](https://www.themoviedb.org/documentation/api) through `api/film-search.js`, another
+Vercel Edge Function alongside `api/board-games.js` and `api/game-search.js` (same repo, same
+`git push`, no separate deploy). TMDb's free tier just needs a key, no OAuth dance:
+
+1. Sign up at [themoviedb.org](https://www.themoviedb.org/signup) and request a free API key at
+   [Settings → API](https://www.themoviedb.org/settings/api) (the "API Key (v3 auth)" one, not
+   the longer read-access token).
+2. Set it as an environment variable on the Vercel project (**not** in `api/film-search.js` or
+   anywhere else in this repo, tied to your own TMDb account the same as the other keys here):
+   Vercel dashboard → your project → Settings → Environment Variables → add `TMDB_API_KEY` with
+   the key as its value → redeploy (or just push again) for it to take effect.
+
 ## Connect Spotify (for Music)
 
 Logging a gig works without any of this - artist name/venue/date/notes can always be typed by
@@ -163,10 +180,19 @@ fix whichever one is wrong so they agree, then redeploy the worker if you change
 The same login covers the Songs tab too, so a stale `SPOTIFY_REDIRECT_URI` or missing secret
 shows up there the same way.
 
-If Films' Letterboxd sync says it "couldn't sync" with a 404, the username's wrong (it's the one
-in your profile URL - `letterboxd.com/<username>/`, not your display name) or the profile doesn't
+If Films' Letterboxd sync says it "couldn't sync" and specifically mentions "running an older
+version", the deployed worker predates this route - redeploy it (`wrangler deploy` from this
+folder, see "Deploy it" above); this is a genuinely separate step from the code merging into
+`main`, easy to miss since every *other* change to the app ships automatically on `git push`. A
+plain 404 that instead names the username means the username itself is wrong (it's the one in
+your profile URL - `letterboxd.com/<username>/`, not your display name) or the profile doesn't
 exist. Anything else (a plain "status 500" etc.) means Letterboxd's site is unreachable or
 temporarily erroring - try again in a bit. Since there's no key or secret to expire here, if it
 suddenly stops working the most likely cause is Letterboxd having changed their RSS feed's field
 names - check `worker.js`'s `parseLetterboxdItems` against a fresh `letterboxd.com/<any
 username>/rss/` response if entries start coming through blank or missing ratings.
+
+Film search in the Log Film form lives in `api/film-search.js`, same setup as Board Games and
+the Wishlist: if it says "isn't set up" (the title field still works as a plain text box either
+way), the Vercel project is missing (or has a stale) `TMDB_API_KEY` environment variable - see
+"Connect TMDb" above.

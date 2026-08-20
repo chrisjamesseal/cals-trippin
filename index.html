@@ -265,6 +265,25 @@ a{color:var(--brand-dark);}
 .films-sync-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
   gap:10px; padding:12px 14px; margin-bottom:16px; border:1px solid var(--line); border-radius:var(--radius);
   background:var(--paper); box-shadow:var(--shadow);}
+/* the title field's own search dropdown - poster-shaped thumb rather than the round artist
+   photo Gigs' identical dropdown uses, everything else (positioning, item layout) shared as-is */
+.film-search-thumb{width:32px; height:46px; border-radius:3px; object-fit:cover; flex-shrink:0;
+  background:var(--bg); border:1px solid var(--line);}
+/* a row of five stars, each its own click target split left/right for half-star granularity -
+   an outline star sits underneath a filled one clipped to 0/50/100% width per star rather than
+   swapping glyphs, so a half star reads as "left half solid" without a separate half-star glyph
+   needing its own font support */
+.star-rating-row{display:flex; align-items:center; gap:10px;}
+.star-rating{display:inline-flex; gap:2px;}
+.star-slot{position:relative; display:inline-block; width:26px; height:26px; font-size:24px; line-height:26px;}
+.star-bg,.star-fill{position:absolute; top:0; left:0; overflow:hidden; white-space:nowrap; pointer-events:none;}
+.star-bg{color:var(--line); width:100%;}
+.star-fill{color:var(--brand-dark);}
+.star-hit{position:absolute; top:0; bottom:0; width:50%; padding:0; margin:0; border:none;
+  background:transparent; cursor:pointer; box-shadow:none;}
+.star-hit-l{left:0;} .star-hit-r{right:0;}
+.star-clear{background:none; border:none; box-shadow:none; padding:0; font-size:.78rem;
+  color:var(--muted); text-decoration:underline; cursor:pointer;}
 
 /* ---------- home dashboard (masonry widgets) ---------- */
 /* Two explicit column divs (each tile's home decided in JS, see dashColAHTML/dashColBHTML)
@@ -1036,8 +1055,13 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.7.1';
+const APP_VERSION = '2.8.0';
 const CHANGELOG = [
+  {version:'2.8.0', notes:[
+    "Log Film's Title field now searches a real film catalogue as you type - pick a result and its year and poster fill in too - instead of typing everything by hand (needs a one-time TMDb key on the proxy, see psn-proxy/README.md; plain typing still always works).",
+    'Log Film\'s Rating is now a row of tappable stars, half-stars included, instead of a dropdown.',
+    "Fixed a confusing error when Films' Letterboxd sync hits a proxy that hasn't been redeployed since Films shipped - it now says so directly instead of a bare \"not found\"."
+  ]},
   {version:'2.7.1', notes:[
     'Home: Currently Playing\'s box art is back above the title instead of beside it, matching the top song tile.'
   ]},
@@ -4320,21 +4344,48 @@ function filmCardHTML(f, i){
       ${filmStarsHTML(f.rating)}
     </button>`;
 }
+/* the title field: a live search against TMDb (via api/film-search.js) when it's configured, a
+   plain text box otherwise - logging a film never has to wait on that being set up, and picking
+   a result is just a starting point, not a lock (whatever ends up in the field is what saves) */
+function filmTitleFieldHTML(f){
+  return `<div class="field film-search-wrap"><label class="label" for="film-title">Title</label>
+    <input id="film-title" type="text" value="${esc(f.title||'')}" placeholder="Search for a film…"
+      autocomplete="off" oninput="App.filmTitleInput()">
+    <div id="film-search-results"></div>
+  </div>`;
+}
+function filmRatingStarsInnerHTML(v){
+  return [1,2,3,4,5].map(n=>{
+    const fillPct = Math.max(0, Math.min(1, (v==null?0:v) - (n-1))) * 100;
+    return `<span class="star-slot" data-n="${n}">
+      <span class="star-bg" aria-hidden="true">★</span>
+      <span class="star-fill" aria-hidden="true" style="width:${fillPct}%">★</span>
+      <button type="button" class="star-hit star-hit-l" aria-label="Rate ${n-0.5} stars" onclick="App.filmRatingPick(${n-0.5})"></button>
+      <button type="button" class="star-hit star-hit-r" aria-label="Rate ${n} stars" onclick="App.filmRatingPick(${n})"></button>
+    </span>`;
+  }).join('');
+}
+function filmRatingFieldHTML(value){
+  return `<div class="field">
+    <label class="label">Rating</label>
+    <div class="star-rating-row">
+      <div class="star-rating" id="film-rating-stars">${filmRatingStarsInnerHTML(value)}</div>
+      <button type="button" class="star-clear" id="film-rating-clear" onclick="App.filmRatingPick(null)"${value==null?' style="visibility:hidden"':''}>Clear</button>
+    </div>
+    <input type="hidden" id="film-rating" value="${value==null?'':value}">
+  </div>`;
+}
 function filmFormImpl(i){
   const f = (i>=0 && (DB.films||[])[i]) || {};
+  FILM_SEARCH_RESULTS = [];
   openModal(`
     <h2>${i>=0?'Edit Film':'Log a Film'}</h2>
-    <div class="field"><label class="label" for="film-title">Title</label>
-      <input id="film-title" type="text" value="${esc(f.title||'')}" placeholder="Film title"></div>
+    ${filmTitleFieldHTML(f)}
     <div class="field"><label class="label" for="film-year">Year</label>
       <input id="film-year" type="number" inputmode="numeric" min="1888" max="2100" value="${esc(f.year||'')}"></div>
     <div class="field"><label class="label" for="film-date">Watched</label>
       <input id="film-date" type="date" value="${esc(f.watchedDate||'')}"></div>
-    <div class="field"><label class="label" for="film-rating">Rating</label>
-      <select id="film-rating">
-        <option value=""${f.rating==null?' selected':''}>No rating</option>
-        ${[0.5,1,1.5,2,2.5,3,3.5,4,4.5,5].map(v=>`<option value="${v}"${f.rating===v?' selected':''}>★ ${v.toFixed(1)}</option>`).join('')}
-      </select></div>
+    ${filmRatingFieldHTML(f.rating)}
     <div class="field"><label class="switch-row"><span>↻ Rewatch</span>
       <span class="switch"><input type="checkbox" id="film-rewatch"${f.rewatch?' checked':''}><span class="knob"></span></span>
     </label></div>
@@ -4344,6 +4395,55 @@ function filmFormImpl(i){
       <button class="btn primary" style="flex:1" onclick="App.saveFilm(${i>=0?i:-1})">${i>=0?'Save':'Add Film'}</button>
       ${i>=0?`<button class="btn danger" onclick="App.delFilm(${i})">Delete</button>`:''}
     </div>`);
+}
+function filmRatingPickImpl(v){
+  const inp = $('#film-rating'); if(!inp) return;
+  inp.value = v==null ? '' : v;
+  const stars = $('#film-rating-stars'); if(stars) stars.innerHTML = filmRatingStarsInnerHTML(v);
+  const clearBtn = $('#film-rating-clear'); if(clearBtn) clearBtn.style.visibility = v==null ? 'hidden' : 'visible';
+}
+/* each keystroke would hammer TMDb on every letter, so this waits for a pause in typing before
+   firing, same as Gigs' artist search and Board Games' own search */
+let FILM_SEARCH_TIMER = null;
+let FILM_SEARCH_RESULTS = [];
+function filmTitleInputImpl(){
+  clearTimeout(FILM_SEARCH_TIMER);
+  const q = ($('#film-title').value||'').trim();
+  const results = $('#film-search-results'); if(results) results.innerHTML = '';
+  if(!q) return;
+  FILM_SEARCH_TIMER = setTimeout(()=>filmTitleSearch(q), 400);
+}
+function filmTitleSearch(q){
+  const results = $('#film-search-results'); if(!results) return;
+  results.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">Searching…</div></div>`;
+  fetch('/api/film-search?q=' + encodeURIComponent(q))
+    .then(r => {
+      if(r.status===503) throw new Error("Film search isn't set up - add TMDB_API_KEY as a Vercel environment variable (see psn-proxy/README.md). You can still type a title by hand.");
+      if(!r.ok) throw new Error('status '+r.status);
+      return r.json();
+    })
+    .then(data => {
+      const cur = $('#film-search-results'); if(!cur) return;
+      FILM_SEARCH_RESULTS = data.films||[];
+      if(!FILM_SEARCH_RESULTS.length){ cur.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">No films found - you can still save this title as typed</div></div>`; return; }
+      cur.innerHTML = `<div class="gig-search-results">${FILM_SEARCH_RESULTS.map((m,n)=>`
+        <div class="gig-search-item" role="button" tabindex="0" onclick="App.filmTitlePick(${n})"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmTitlePick(${n})}">
+          ${m.image ? `<img class="film-search-thumb" src="${esc(m.image)}" alt="">` : `<span class="film-search-thumb gig-cover-fallback">${fa('film')}</span>`}
+          <span>${esc(m.title)}${m.year?` <span class="muted">(${esc(m.year)})</span>`:''}</span>
+        </div>`).join('')}</div>`;
+    })
+    .catch(e => {
+      const cur = $('#film-search-results'); if(!cur) return;
+      cur.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">${esc(e.message||"Couldn't search")}</div></div>`;
+    });
+}
+function filmTitlePickImpl(n){
+  const m = FILM_SEARCH_RESULTS[n]; if(!m) return;
+  const titleInp = $('#film-title'); if(titleInp) titleInp.value = m.title;
+  const yearInp = $('#film-year'); if(yearInp) yearInp.value = m.year || '';
+  const posterInp = $('#film-poster'); if(posterInp) posterInp.value = m.image || '';
+  const results = $('#film-search-results'); if(results) results.innerHTML = '';
 }
 function saveFilmImpl(i){
   const title = ($('#film-title').value||'').trim();
@@ -4387,7 +4487,14 @@ async function letterboxdSyncImpl(){
   if(el) el.innerHTML = `<div class="card"><p class="small muted">Syncing with Letterboxd…</p></div>`;
   try{
     const data = await fetch(psnUrl('/letterboxd-diary') + '?user=' + encodeURIComponent(u)).then(async r=>{
-      if(!r.ok){ const body = await r.json().catch(()=>({})); throw new Error(body.error || ('status '+r.status)); }
+      if(!r.ok){
+        const body = await r.json().catch(()=>({}));
+        // the worker's own catch-all for a route it doesn't recognise returns this exact body -
+        // a stale/not-yet-redeployed worker is a far more likely cause of a 404 here than an
+        // actual bad username (which gets its own, more specific message from the route itself)
+        if(r.status===404 && body.error==='not found') throw new Error("Your proxy is running an older version that doesn't have Letterboxd sync yet. Redeploy the worker in psn-proxy/ and this'll fill in.");
+        throw new Error(body.error || ('status '+r.status));
+      }
       return r.json();
     });
     const imported = data.films||[];
@@ -4575,6 +4682,9 @@ App.delFilm = delFilmImpl;
 App.letterboxdConnect = letterboxdConnectImpl;
 App.letterboxdSync = letterboxdSyncImpl;
 App.letterboxdDisconnect = letterboxdDisconnectImpl;
+App.filmTitleInput = filmTitleInputImpl;
+App.filmTitlePick = filmTitlePickImpl;
+App.filmRatingPick = filmRatingPickImpl;
 App.spotifyConnect = () => {
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
   sessionStorage.setItem('spotify_oauth_state', state);
