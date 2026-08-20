@@ -11,6 +11,17 @@ export const config = { runtime: 'edge' };
 const TMDB_SEARCH = 'https://api.themoviedb.org/3/search/movie';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w342';
 
+/* TMDb's own movie genre list (themoviedb.org/talk/5daf6eb0ae36680011d7e6ee) - a small, stable
+   set that's been unchanged for years, so this is hardcoded rather than fetched from TMDb's own
+   /genre/movie/list endpoint on every search (that'd be a second round-trip for something that
+   never changes). A search result's genre_ids maps through this straight to names. */
+const TMDB_GENRES = {
+  28:'Action', 12:'Adventure', 16:'Animation', 35:'Comedy', 80:'Crime', 99:'Documentary',
+  18:'Drama', 10751:'Family', 14:'Fantasy', 36:'History', 27:'Horror', 10402:'Music',
+  9648:'Mystery', 10749:'Romance', 878:'Science Fiction', 10770:'TV Movie', 53:'Thriller',
+  10752:'War', 37:'Western',
+};
+
 function apiKey(){
   const key = process.env.TMDB_API_KEY;
   if(!key) throw Object.assign(new Error("Film search isn't configured - add TMDB_API_KEY as a Vercel environment variable"), {status:503});
@@ -27,6 +38,7 @@ function simplify(m){
     title: m.title || m.original_title || '',
     year: (m.release_date||'').slice(0,4) || null,
     image: m.poster_path ? TMDB_IMG + m.poster_path : '',
+    genres: (m.genre_ids||[]).map(id=>TMDB_GENRES[id]).filter(Boolean),
   };
 }
 

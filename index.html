@@ -301,9 +301,9 @@ a{color:var(--brand-dark);}
    poster grid filtered to just that year/rating. */
 .stat-overview-row{display:flex; gap:10px; margin-bottom:20px;}
 .stat-overview-row .dash-widget{flex:1;}
-.stats-list{display:flex; flex-direction:column; gap:8px; margin-bottom:22px;}
-.stats-row{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
-  text-align:left; font:inherit; color:inherit; cursor:pointer; padding:12px 14px;
+.stats-list{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:22px;}
+.stats-row{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; width:100%;
+  text-align:center; font:inherit; color:inherit; cursor:pointer; padding:12px 6px;
   border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--paper);
   box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s;}
 .stats-row:hover,.stats-row:focus-visible{transform:translateY(-1px); box-shadow:var(--shadow-lift); outline:none;}
@@ -1081,8 +1081,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.11.0';
+const APP_VERSION = '2.12.0';
 const CHANGELOG = [
+  {version:'2.12.0', notes:[
+    "Diary and Watchlist both have a category dropdown now (Action, Comedy, Drama…) to filter down to just one genre - genres come from TMDb, so a film needs to have been picked from search (or backfilled after a CSV import/Letterboxd sync) to be categorised.",
+    'Stats\' By Year and By Rating are now a 3-column grid instead of one column, so more of the breakdown fits on screen at once.'
+  ]},
   {version:'2.11.0', notes:[
     "New Stats sub-tab on Films: how many you've watched each year, and a breakdown by star rating (half-stars included) - tap either to see the actual films behind the number.",
     "Films' Watchlist can now import Letterboxd's watchlist.csv export too, the same as the Diary's Import CSV.",
@@ -4310,14 +4314,15 @@ function pushFilms(){
 }
 function saveFilms(){ saveLocal(); pushFilms(); }
 
-/* Letterboxd's CSV exports (diary.csv, watchlist.csv) carry no poster at all - unlike the RSS
-   sync, which at least sometimes finds one in the feed entry's own HTML - so a CSV import always
-   leaves every entry posterless. This fills those in afterwards with a TMDb search per missing
-   title (via the same api/film-search.js the search-select fields use), a handful at a time so a
-   big import doesn't fire hundreds of requests at once or take forever doing them one by one.
-   Best-effort: a request that fails or a title TMDb doesn't recognise just stays posterless. */
+/* Letterboxd's CSV exports (diary.csv, watchlist.csv) carry no poster or genre at all - unlike
+   the RSS sync, which at least sometimes finds a poster in the feed entry's own HTML - so a CSV
+   import always leaves every entry without either. This fills both in afterwards with a TMDb
+   search per title still missing one or the other (via the same api/film-search.js the
+   search-select fields use), a handful at a time so a big import doesn't fire hundreds of
+   requests at once or take forever doing them one by one. Best-effort: a request that fails or a
+   title TMDb doesn't recognise just stays as it came in. */
 async function backfillPosters(list, saveFn){
-  const missing = (list||[]).filter(f => !f.image && f.title);
+  const missing = (list||[]).filter(f => f.title && (!f.image || !(f.genres&&f.genres.length)));
   if(!missing.length) return 0;
   let filled = 0, idx = 0;
   async function worker(){
@@ -4329,7 +4334,11 @@ async function backfillPosters(list, saveFn){
         const data = await r.json();
         const results = data.films||[];
         const match = results.find(m=>f.year && m.year===f.year) || results[0];
-        if(match && match.image){ f.image = match.image; filled++; }
+        if(!match) continue;
+        let changed = false;
+        if(!f.image && match.image){ f.image = match.image; changed = true; }
+        if(!(f.genres&&f.genres.length) && match.genres && match.genres.length){ f.genres = match.genres; changed = true; }
+        if(changed) filled++;
       }catch(e){}
     }
   }
@@ -4345,6 +4354,25 @@ function filmStarsHTML(rating){
 function filmsSorted(){
   return (DB.films||[]).map((f,i)=>({f,i}))
     .sort((a,b) => (b.f.watchedDate||'').localeCompare(a.f.watchedDate||'') || (a.f.title||'').localeCompare(b.f.title||''));
+}
+/* the category dropdown on both the Diary and the Watchlist - genres come from TMDb (search
+   results, or the backfill pass for CSV-imported/synced entries above), not something typed by
+   hand, so the option list is just whatever genres actually show up in that list right now
+   rather than a fixed catalogue that could offer categories with nothing in them. */
+let CUR_FILMS_GENRE = '';
+let CUR_FW_GENRE = '';
+function filmsGenresIn(list){
+  const set = new Set();
+  (list||[]).forEach(f => (f.genres||[]).forEach(g=>set.add(g)));
+  return [...set].sort();
+}
+function filmsGenreSelectHTML(id, list, current, onchange){
+  const genres = filmsGenresIn(list);
+  if(!genres.length) return '';
+  return `<div class="field films-genre-field"><select id="${id}" onchange="${onchange}(this.value)">
+    <option value=""${current?'':' selected'}>All Categories</option>
+    ${genres.map(g=>`<option value="${esc(g)}"${current===g?' selected':''}>${esc(g)}</option>`).join('')}
+  </select></div>`;
 }
 /* Films holds two unrelated things - what you've actually watched, and what you mean to - so it
    splits into sub-tabs the same way Games does for PlayStation/Board Games/Wishlist. */
@@ -4418,7 +4446,9 @@ function drawFilmsGrid(){
     grid.innerHTML = `<div class="empty">No films logged yet.<br>Tap + Log Film, or connect Letterboxd above.</div>`;
     return;
   }
-  grid.innerHTML = `<div class="film-grid">${ordered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>`;
+  const filtered = CUR_FILMS_GENRE ? ordered.filter(o=>(o.f.genres||[]).includes(CUR_FILMS_GENRE)) : ordered;
+  grid.innerHTML = filmsGenreSelectHTML('films-genre-select', DB.films, CUR_FILMS_GENRE, 'App.filmsGenreFilter')
+    + (filtered.length ? `<div class="film-grid">${filtered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>` : `<div class="empty">No films in that category.</div>`);
 }
 function filmCardHTML(f, i){
   const meta = [f.year, f.watchedDate?fmtDate(f.watchedDate):''].filter(Boolean).join(' · ');
@@ -4466,6 +4496,10 @@ function filmFormImpl(i, prefill){
   const f = (i>=0 && (DB.films||[])[i]) || (prefill ? {title:prefill.title, year:prefill.year, image:prefill.image} : {});
   FILM_SEARCH_RESULTS = [];
   FILM_WATCHLIST_REMOVE_ID = (prefill && prefill.watchlistId) || null;
+  // carries a picked search result's genres through to save (see filmTitlePickImpl) - prefilled
+  // from the Watchlist item itself when opened via its "Watched" button, so a genre already
+  // known there doesn't need re-discovering
+  FILM_PICKED = (i<0 && f.title) ? {title:f.title, genres:(prefill&&prefill.genres)||[]} : null;
   openModal(`
     <h2>${i>=0?'Edit Film':'Log a Film'}</h2>
     ${filmTitleFieldHTML(f)}
@@ -4495,7 +4529,9 @@ function filmRatingPickImpl(v){
 let FILM_SEARCH_TIMER = null;
 let FILM_SEARCH_RESULTS = [];
 let FILM_WATCHLIST_REMOVE_ID = null;   // set when Log Film opened via the Watchlist's "Watched" button
+let FILM_PICKED = null;   // {title, genres} - the last search result actually picked, so saveFilmImpl can carry its genres through; cleared whenever the title's typed further so a stale pick can't attach to a since-changed title
 function filmTitleInputImpl(){
+  FILM_PICKED = null;
   clearTimeout(FILM_SEARCH_TIMER);
   const q = ($('#film-title').value||'').trim();
   const results = $('#film-search-results'); if(results) results.innerHTML = '';
@@ -4532,6 +4568,7 @@ function filmTitlePickImpl(n){
   const titleInp = $('#film-title'); if(titleInp) titleInp.value = m.title;
   const yearInp = $('#film-year'); if(yearInp) yearInp.value = m.year || '';
   const posterInp = $('#film-poster'); if(posterInp) posterInp.value = m.image || '';
+  FILM_PICKED = {title: m.title, genres: m.genres||[]};
   const results = $('#film-search-results'); if(results) results.innerHTML = '';
 }
 function saveFilmImpl(i){
@@ -4539,6 +4576,9 @@ function saveFilmImpl(i){
   if(!title) return markErr('#film-title','Enter a film title');
   const existing = (i>=0 && (DB.films||[])[i]) || {};
   const ratingRaw = $('#film-rating').value;
+  // only use a picked result's genres if the title still matches what was picked - otherwise
+  // keep whatever this entry already had (editing) or leave it unset (typed by hand, no pick)
+  const genres = (FILM_PICKED && FILM_PICKED.title===title) ? FILM_PICKED.genres : (existing.genres||[]);
   const film = {
     id: existing.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()),
     title,
@@ -4547,6 +4587,7 @@ function saveFilmImpl(i){
     rating: ratingRaw ? parseFloat(ratingRaw) : null,
     rewatch: $('#film-rewatch').checked,
     image: ($('#film-poster').value||'').trim(),
+    genres,
     link: existing.link || '',
     source: existing.source || 'manual',
   };
@@ -4612,7 +4653,7 @@ async function letterboxdSyncImpl(){
     drawLetterboxdConnect();
     drawFilmsGrid();
     toast(`Synced: ${added} new, ${updated} updated`);
-    backfillPosters(DB.films, saveFilms).then(n => { if(n){ drawFilmsGrid(); toast(`Added ${n} poster${n===1?'':'s'}`); } });
+    backfillPosters(DB.films, saveFilms).then(n => { if(n){ drawFilmsGrid(); toast(`Filled in details for ${n} film${n===1?'':'s'}`); } });
   }catch(e){
     const errEl = $('#films-connect'); if(!errEl) return;
     errEl.innerHTML = `<div class="card"><p class="small" style="color:var(--accent-dark)">Couldn't sync Letterboxd.<br>${esc(e.message||'')}</p>
@@ -4717,8 +4758,8 @@ function filmsImportCsvFileImpl(file){
       saveFilms();
       closeModal();
       drawFilmsGrid();
-      toast(`Imported: ${added} new, ${updated} updated - finding posters…`);
-      backfillPosters(DB.films, saveFilms).then(n => { drawFilmsGrid(); toast(n?`Added ${n} poster${n===1?'':'s'}`:'No posters found'); });
+      toast(`Imported: ${added} new, ${updated} updated - filling in details…`);
+      backfillPosters(DB.films, saveFilms).then(n => { drawFilmsGrid(); toast(n?`Filled in details for ${n} film${n===1?'':'s'}`:'Nothing more found'); });
     }catch(e){
       if(s) s.innerHTML = `<p class="small" style="color:var(--accent-dark); margin-top:10px">${esc(e.message||"Couldn't read that file")}</p>`;
     }
@@ -4775,7 +4816,11 @@ function drawFwMine(){
   const el = $('#fw-my'); if(!el) return;
   const mine = DB.filmsWatchlist||[];
   if(!mine.length){ el.innerHTML = `<div class="empty">Nothing on your watchlist yet - search below to add one.</div>`; return; }
-  el.innerHTML = `<div class="film-grid" style="margin-bottom:20px">${mine.map(f=>fwMineCardHTML(f)).join('')}</div>`;
+  const filtered = CUR_FW_GENRE ? mine.filter(f=>(f.genres||[]).includes(CUR_FW_GENRE)) : mine;
+  el.innerHTML = filmsGenreSelectHTML('fw-genre-select', mine, CUR_FW_GENRE, 'App.fwGenreFilter')
+    + (filtered.length
+      ? `<div class="film-grid" style="margin-bottom:20px">${filtered.map(f=>fwMineCardHTML(f)).join('')}</div>`
+      : `<div class="empty" style="margin-bottom:20px">No films in that category.</div>`);
 }
 function fwMineCardHTML(f){
   return `
@@ -4885,8 +4930,8 @@ function filmsWatchlistImportCsvFileImpl(file){
       saveFilmsWatchlist();
       closeModal();
       drawFwMine();
-      toast(`Imported: ${added} new, ${updated} updated - finding posters…`);
-      backfillPosters(DB.filmsWatchlist, saveFilmsWatchlist).then(n => { drawFwMine(); toast(n?`Added ${n} poster${n===1?'':'s'}`:'No posters found'); });
+      toast(`Imported: ${added} new, ${updated} updated - filling in details…`);
+      backfillPosters(DB.filmsWatchlist, saveFilmsWatchlist).then(n => { drawFwMine(); toast(n?`Filled in details for ${n} film${n===1?'':'s'}`:'Nothing more found'); });
     }catch(e){
       if(s) s.innerHTML = `<p class="small" style="color:var(--accent-dark); margin-top:10px">${esc(e.message||"Couldn't read that file")}</p>`;
     }
@@ -5176,7 +5221,7 @@ App.fwToggle = id => {
 };
 App.fwMarkWatched = id => {
   const f = (DB.filmsWatchlist||[]).find(x=>x.id===id); if(!f) return;
-  filmFormImpl(-1, {title:f.title, year:f.year, image:f.image, watchlistId:f.id});
+  filmFormImpl(-1, {title:f.title, year:f.year, image:f.image, genres:f.genres, watchlistId:f.id});
 };
 App.fwRemove = id => {
   DB.filmsWatchlist = (DB.filmsWatchlist||[]).filter(f=>f.id!==id);
@@ -5190,6 +5235,8 @@ App.filmsStatsRating = v => { location.hash = '#/films/stats/rating/'+encodeURIC
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
 App.fwImportCsv = filmsWatchlistImportCsvImpl;
 App.fwImportCsvFile = filmsWatchlistImportCsvFileImpl;
+App.filmsGenreFilter = v => { CUR_FILMS_GENRE = v; drawFilmsGrid(); };
+App.fwGenreFilter = v => { CUR_FW_GENRE = v; drawFwMine(); };
 App.spotifyConnect = () => {
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
   sessionStorage.setItem('spotify_oauth_state', state);
