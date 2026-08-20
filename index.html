@@ -178,11 +178,13 @@ a{color:var(--brand-dark);}
 .game-hide-btn{flex-shrink:0; align-self:center;}
 
 /* ---------- sub-tabs (Games: PlayStation / Board Games) ---------- */
-.subtabs{display:flex; gap:8px; margin-bottom:18px;}
+/* wraps onto a second row rather than squeezing every label down to fit - four subtabs (Music)
+   was crushing "Not Seen" into an unreadable ellipsis when every tab had to share equal width */
+.subtabs{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;}
 .subtab{
-  flex:1; font:inherit; font-weight:700; font-size:.82rem; padding:9px 10px; cursor:pointer;
+  flex:0 0 auto; font:inherit; font-weight:700; font-size:.82rem; padding:9px 14px; cursor:pointer;
   border:1px solid var(--line-strong); border-radius:999px; background:var(--paper); color:var(--muted);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap;
 }
 .subtab.on{background:var(--brand); border-color:var(--brand); color:#fff;}
 
@@ -200,6 +202,7 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .bg-selects{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:18px;}
 .bg-sel{display:block; min-width:0;}
+.songs-range-sel{width:100%; font-size:.82rem; font-weight:700; padding:9px 32px 9px 12px; margin-bottom:18px;}
 .bg-sel .label{margin-bottom:3px;}
 .bg-sel select{width:100%; font-size:.82rem; padding:8px 6px;}
 .bg-list{display:flex; flex-direction:column; gap:12px;}
@@ -964,8 +967,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.97.0';
+const APP_VERSION = '1.98.0';
 const CHANGELOG = [
+  {version:'1.98.0', notes:[
+    'Music: the Songs time filter is now a dropdown instead of three buttons, and the Not Seen / Artists / Songs / All Gigs subtabs wrap onto a second row instead of squeezing every label down to an unreadable ellipsis.'
+  ]},
   {version:'1.97.0', notes:[
     'Gigs is now Music, and gained a Songs tab: your top tracks from Spotify, with a Last 4 Weeks / Last 6 Months / All Time filter (Spotify\'s own three listening windows - there\'s no real calendar week/month/year to pull from).'
   ]},
@@ -3751,15 +3757,17 @@ function renderSongs(){
   }
   if(!spotifyTokens()){ renderSpotifyConnect(body); return; }
   body.innerHTML = `
-    <div class="bg-chips" id="songs-ranges"></div>
+    <div id="songs-ranges"></div>
     <div id="songs-grid"><div class="empty">Loading your top songs…</div></div>`;
   drawSongsRanges();
   loadSongs(CUR_SONGS_RANGE);
 }
 function drawSongsRanges(){
   const el = $('#songs-ranges'); if(!el) return;
-  el.innerHTML = SONGS_TIME_RANGES.map(r=>`
-    <button class="bg-chip${CUR_SONGS_RANGE===r.k?' on':''}" onclick="App.songsRange('${r.k}')">${esc(r.label)}</button>`).join('');
+  el.innerHTML = `
+    <select class="songs-range-sel" onchange="App.songsRange(this.value)">
+      ${SONGS_TIME_RANGES.map(r=>`<option value="${r.k}"${CUR_SONGS_RANGE===r.k?' selected':''}>${esc(r.label)}</option>`).join('')}
+    </select>`;
 }
 function loadSongs(timeRange){
   const grid = $('#songs-grid'); if(!grid) return;
