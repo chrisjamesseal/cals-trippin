@@ -499,6 +499,27 @@ async function fetchSpotifyArtistChecklist(accessToken){
   });
   return {artists};
 }
+/* the Songs tab's ranked top-tracks list. Spotify only computes three fixed windows - there's
+   no real "this week"/"this month"/"this year" (nothing calendar-aligned), so the UI's filter
+   chips are labelled honestly as what these actually are rather than approximated to match. */
+const SPOTIFY_TIME_RANGES = ['short_term', 'medium_term', 'long_term'];
+async function fetchSpotifyTopTracks(accessToken, timeRange){
+  const tr = SPOTIFY_TIME_RANGES.includes(timeRange) ? timeRange : 'long_term';
+  const res = await fetch('https://api.spotify.com/v1/me/top/tracks?time_range='+tr+'&limit=50',
+    {headers: {Authorization: 'Bearer ' + accessToken}});
+  if(res.status === 401) throw Object.assign(new Error('expired'), {status: 401});
+  if(!res.ok) throw Object.assign(new Error('Spotify returned status ' + res.status), {status: res.status});
+  const data = await res.json();
+  const tracks = (data.items||[]).map(t => ({
+    id: t.id,
+    name: t.name,
+    artist: (t.artists||[]).map(a=>a.name).join(', '),
+    // the smallest of Spotify's three album art sizes is plenty for a 50-row list
+    image: (t.album && t.album.images && t.album.images.length) ? t.album.images[t.album.images.length-1].url : '',
+    spotifyUrl: (t.external_urls && t.external_urls.spotify) || '',
+  }));
+  return {tracks};
+}
 
 /* Board Games moved to api/board-games.js, a Vercel serverless function alongside index.html
    rather than a route on this Worker - see that file for why (BoardGameGeek's API 401s every
@@ -566,6 +587,11 @@ export default {
         const token = bearerFrom(request);
         if(!token) return json({error:'missing bearer token'}, 401, env);
         return json(await fetchSpotifyArtistChecklist(token), 200, env);
+      }
+      if(request.method === 'GET' && url.pathname === '/spotify-top-tracks'){
+        const token = bearerFrom(request);
+        if(!token) return json({error:'missing bearer token'}, 401, env);
+        return json(await fetchSpotifyTopTracks(token, url.searchParams.get('time_range')), 200, env);
       }
       return json({error:'not found'}, 404, env);
     }catch(e){
