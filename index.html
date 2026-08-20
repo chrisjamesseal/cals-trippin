@@ -308,6 +308,11 @@ a{color:var(--brand-dark);}
   box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s;}
 .stats-row:hover,.stats-row:focus-visible{transform:translateY(-1px); box-shadow:var(--shadow-lift); outline:none;}
 .stats-row-label{font-family:var(--font-head); font-weight:700; font-size:.9rem; color:var(--ink);}
+/* the By Rating tiles' stars - the same .star-rating/.star-slot markup the Log Film form's
+   input uses, just shrunk down and non-interactive (no .star-hit buttons) for a compact label
+   rather than a control */
+.stats-stars{gap:1px;}
+.stats-stars .star-slot{width:14px; height:14px; font-size:13px; line-height:14px;}
 .star-clear{background:none; border:none; box-shadow:none; padding:0; font-size:.78rem;
   color:var(--muted); text-decoration:underline; cursor:pointer;}
 
@@ -1081,8 +1086,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.12.0';
+const APP_VERSION = '2.12.1';
 const CHANGELOG = [
+  {version:'2.12.1', notes:[
+    "Stats' By Rating tiles show actual star icons now instead of a plain \"★ 4.5\" line.",
+    "Stats' filtered pages (tap a year or rating to see its films) now put the Stats back button on the left, the year/rating centred, and how many films matched on the right, instead of the title and back button swapped."
+  ]},
   {version:'2.12.0', notes:[
     "Diary and Watchlist both have a category dropdown now (Action, Comedy, Drama…) to filter down to just one genre - genres come from TMDb, so a film needs to have been picked from search (or backfilled after a CSV import/Letterboxd sync) to be categorised.",
     'Stats\' By Year and By Rating are now a 3-column grid instead of one column, so more of the breakdown fits on screen at once.'
@@ -4968,6 +4977,24 @@ function statsRowHTML(onclick, label, count){
     <span class="gig-seen-pill">${count}</span>
   </button>`;
 }
+/* a non-interactive version of the Log Film form's own star widget (filmRatingStarsInnerHTML) -
+   same half-star-via-clipped-fill technique, just without the click targets since this is a
+   label, not an input */
+function filmStaticStarsHTML(v){
+  return [1,2,3,4,5].map(n=>{
+    const fillPct = Math.max(0, Math.min(1, v - (n-1))) * 100;
+    return `<span class="star-slot" aria-hidden="true">
+      <span class="star-bg">★</span>
+      <span class="star-fill" style="width:${fillPct}%">★</span>
+    </span>`;
+  }).join('');
+}
+function statsRatingRowHTML(onclick, v, count){
+  return `<button type="button" class="stats-row" onclick="${onclick}">
+    <span class="star-rating stats-stars" aria-label="${v.toFixed(1)} stars">${filmStaticStarsHTML(v)}</span>
+    <span class="gig-seen-pill">${count}</span>
+  </button>`;
+}
 const FILM_RATING_VALUES = [5,4.5,4,3.5,3,2.5,2,1.5,1,0.5];
 function renderFilmsStats(){
   const body = $('#films-body'); if(!body) return;
@@ -5006,7 +5033,7 @@ function drawFilmsStats(){
     </div>
     <h3 style="margin:20px 0 10px">By Rating</h3>
     <div class="stats-list">
-      ${FILM_RATING_VALUES.filter(v=>byRating.get(String(v))).map(v=>statsRowHTML(`App.filmsStatsRating('${v}')`, `★ ${v.toFixed(1)}`, byRating.get(String(v)))).join('')}
+      ${FILM_RATING_VALUES.filter(v=>byRating.get(String(v))).map(v=>statsRatingRowHTML(`App.filmsStatsRating('${v}')`, v, byRating.get(String(v)))).join('')}
       ${noRatingCount?statsRowHTML(`App.filmsStatsRating('none')`, 'Not Rated', noRatingCount):''}
     </div>`;
 }
@@ -5026,8 +5053,9 @@ function renderFilmsStatsFiltered(type, valueStr){
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
-        <span class="crumb-here">${esc(title)}</span>
         <button class="btn sm ghost" onclick="App.goFilmsStats()">${ICONS.back}Stats</button>
+        <span class="crumb-here" style="flex:1; text-align:center">${esc(title)}</span>
+        <span class="gig-seen-pill">${ordered.length}</span>
       </div>
     </div>
     <div id="films-grid">${ordered.length
