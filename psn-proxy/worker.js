@@ -340,6 +340,72 @@ async function fetchDesignNews(){
   return {articles: articles.slice(0, 40), error: allFailed ? failures[0].reason : undefined};
 }
 
+/* ================= Letterboxd (Films diary import) =================
+   Letterboxd's real API is invite-only (email api@letterboxd.com and hope for approval) - not
+   something a personal project can get self-serve access to the way Spotify/BGG/RAWG's own
+   dashboards allow. Every account does have a free, public, no-auth diary RSS feed though
+   (letterboxd.com/<username>/rss/), the same shape of problem Design's feeds above solve, so it
+   gets the same fix: fetched and reduced to plain JSON here. Diary-only - your most recently
+   logged films (Letterboxd caps a free account's own feed at ~50 entries), not your full
+   watched history or watchlist, neither of which are exposed outside the closed API. */
+function extractLetterboxdImage(block){
+  // the feed doesn't carry a dedicated poster field - the closest thing is an <img> Letterboxd
+  // itself embeds in the entry's own description HTML, when there's a poster to show at all
+  const desc = stripCdata(extractTag(block, 'description') || '');
+  const m = /<img\b[^>]*\bsrc=["']([^"']+)["']/i.exec(desc);
+  return (m && /^https:\/\/[^"'\s<>]+$/i.test(m[1])) ? m[1] : '';
+}
+function parseLetterboxdItems(xml){
+  const blocks = [];
+  const itemRe = /<item\b[^>]*>([\s\S]*?)<\/item>/gi;
+  let m;
+  while((m = itemRe.exec(xml))) blocks.push(m[1]);
+  return blocks.map(block => {
+    let title = decodeEntities(stripHtml(stripCdata(extractTag(block, 'letterboxd:filmTitle')))).trim();
+    let year = decodeEntities(stripHtml(stripCdata(extractTag(block, 'letterboxd:filmYear')))).trim();
+    if(!title){
+      // fallback for anything the namespaced tags didn't cover: the plain <title> reads
+      // "Film Name, YYYY - ★★★★" (or without the year/rating for an unrated log)
+      const raw = decodeEntities(stripHtml(stripCdata(extractTag(block, 'title')))).trim();
+      const parts = /^(.*?),\s*(\d{4})/.exec(raw);
+      title = parts ? parts[1].trim() : raw;
+      year = year || (parts ? parts[2] : '');
+    }
+    const ratingRaw = decodeEntities(stripHtml(stripCdata(extractTag(block, 'letterboxd:memberRating')))).trim();
+    const rating = ratingRaw ? parseFloat(ratingRaw) : NaN;
+    const rewatchRaw = decodeEntities(stripHtml(stripCdata(extractTag(block, 'letterboxd:rewatch')))).trim();
+    const watchedDate = decodeEntities(stripHtml(stripCdata(extractTag(block, 'letterboxd:watchedDate')))).trim();
+    const link = decodeEntities(stripHtml(stripCdata(extractTag(block, 'link')))).trim();
+    const guid = decodeEntities(stripHtml(stripCdata(extractTag(block, 'guid')))).trim();
+    const pubRaw = extractTag(block, 'pubDate');
+    const pubDate = pubRaw ? new Date(pubRaw) : null;
+    return {
+      id: guid || link,
+      title,
+      year: year || null,
+      watchedDate: watchedDate || ((pubDate && !isNaN(pubDate)) ? pubDate.toISOString().slice(0,10) : null),
+      rating: isNaN(rating) ? null : rating,
+      rewatch: /^yes$/i.test(rewatchRaw),
+      link,
+      image: extractLetterboxdImage(block),
+    };
+  }).filter(f => f.title);
+}
+async function fetchLetterboxdDiary(username){
+  const u = String(username||'').trim().replace(/^@/, '');
+  if(!u || !/^[a-zA-Z0-9_]+$/.test(u)){
+    throw Object.assign(new Error('Enter a valid Letterboxd username'), {status:400});
+  }
+  const res = await fetch(`https://letterboxd.com/${encodeURIComponent(u)}/rss/`, {
+    headers: {'User-Agent': 'Mozilla/5.0 (compatible; MyTripsFilmsFeed/1.0)'},
+  });
+  if(res.status === 404){
+    throw Object.assign(new Error("No Letterboxd account found for that username"), {status:404});
+  }
+  if(!res.ok) throw new Error('Letterboxd returned status ' + res.status);
+  return {films: parseLetterboxdItems(await res.text())};
+}
+
 /* ================= Spotify (artist lookup for Gigs) =================
    Just the public catalogue - artist name, photo, genres - so the Client Credentials flow is
    enough: an app-level token, no user login. The token is cached in memory between requests
@@ -555,6 +621,18 @@ export default {
         if(cached) return cached;
         const res = json(await fetchDesignNews(), 200, env);
         res.headers.set('Cache-Control', 'public, max-age=1800');
+        ctx.waitUntil(cache.put(cacheKey, res.clone()));
+        return res;
+      }
+      if(request.method === 'GET' && url.pathname === '/letterboxd-diary'){
+        // public and identical for the same username on every request, so it's cached the same
+        // way as /design-news rather than re-fetching and re-parsing on every page load
+        const cache = caches.default;
+        const cacheKey = new Request(url.toString(), request);
+        const cached = await cache.match(cacheKey);
+        if(cached) return cached;
+        const res = json(await fetchLetterboxdDiary(url.searchParams.get('user')), 200, env);
+        res.headers.set('Cache-Control', 'public, max-age=600');
         ctx.waitUntil(cache.put(cacheKey, res.clone()));
         return res;
       }
