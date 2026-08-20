@@ -1086,8 +1086,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.13.0';
+const APP_VERSION = '2.13.1';
 const CHANGELOG = [
+  {version:'2.13.1', notes:[
+    "Home: the two columns now balance themselves by actual height instead of a fixed left/right split, so one side no longer ends up visibly taller than the other."
+  ]},
   {version:'2.13.0', notes:[
     'Home: three new Films tiles, styled the same as everything else there - how many you\'ve watched this year, the last one you logged, and a randomly-picked film from your Watchlist (a fresh pick every visit) to nudge you toward actually watching something on it.'
   ]},
@@ -2953,14 +2956,16 @@ function dashSongRangeSelectHTML(){
 function loadDashboardSong(){
   if(!psnConfigured() || !spotifyTokens()) return;   // the placeholder already shows the right prompt
   const range = CUR_DASH_SONG_RANGE;
-  if(SONGS_CACHE[range]){ const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = dashSongWidgetHTML(SONGS_CACHE[range][0]); return; }
+  if(SONGS_CACHE[range]){ const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = dashSongWidgetHTML(SONGS_CACHE[range][0]); balanceDashboardColumns(); return; }
   spotifyApi('/spotify-top-tracks?time_range='+range).then(data => {
     SONGS_CACHE[range] = data.tracks||[];
     if(CUR_DASH_SONG_RANGE!==range) return;   // dropdown changed again while this was in flight
     const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = dashSongWidgetHTML(SONGS_CACHE[range][0]);
+    balanceDashboardColumns();
   }).catch(()=>{
     // fails silently here - Music's Songs tab surfaces the real error if you go look
     const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = '';
+    balanceDashboardColumns();
   });
 }
 /* full-width, above the masonry rather than one tile among many - articles change on their own
@@ -3025,6 +3030,7 @@ function drawDashGamesSlot(){
   const cutoff = dashRangeCutoffStr(CUR_DASH_SONG_RANGE);
   const titles = cutoff ? DASH_GAMES_TITLES.filter(t=>t.lastPlayed && t.lastPlayed.slice(0,10)>=cutoff) : DASH_GAMES_TITLES;
   slot.innerHTML = dashGamesStatWidgetHTML(titles.length) + (titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : '');
+  balanceDashboardColumns();
 }
 function loadDashboardGames(){
   if(!psnConfigured() || !psnTokens()) return;   // the placeholder already shows the right prompt
@@ -3086,18 +3092,35 @@ function dashRandomWatchlistWidgetHTML(){
       <div class="dash-item-sub">From Your Watchlist</div>
     </div>`;
 }
-/* two explicit columns rather than letting the browser balance them - see .dash-masonry's own
-   comment for why. Left leans travel/gigs, right leans games/music; a fixed split like this
-   only works because the tile set here is small and known, not arbitrary user content. */
+/* two explicit column divs rather than CSS column-count - see .dash-masonry's own comment for
+   why - but which tile lands in which column is now decided by measured height (balanceDash
+   ColumnsHTML below), not a fixed hand-picked split: with Films' three tiles added on top of
+   Trips/Places/Gigs/Games/Songs, a static split routinely left one side visibly taller than the
+   other, which is exactly the outcome explicit columns were meant to avoid in the first place.
+   All tiles render into the first column, then get greedily redistributed onto whichever column
+   is currently shorter, in the order they appear - a normal balanced-columns approach, just done
+   after layout with real measured heights instead of before it (CSS column-count's own approach,
+   which is what broke on this page originally when images hadn't loaded yet - aspect-ratio now
+   reserves that space upfront, so a plain height measurement here doesn't hit the same problem). */
+function balanceDashboardColumns(){
+  const colA = $('#dash-col-a'), colB = $('#dash-col-b');
+  if(!colA || !colB) return;
+  const nodes = [...colA.children, ...colB.children];
+  let ha = 0, hb = 0;
+  nodes.forEach(n => {
+    const h = n.getBoundingClientRect().height;
+    if(ha <= hb){ colA.appendChild(n); ha += h; }
+    else { colB.appendChild(n); hb += h; }
+  });
+}
 function renderDashboard(){
   renderSidebar(null);
-  const colA = `
+  const widgets = `
     ${dashTripWidgetsHTML()}
     ${dashPlacesBeenWidgetHTML()}
     <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
     ${dashFilmsThisYearWidgetHTML()}
-    ${dashGigWidgetHTML()}`;
-  const colB = `
+    ${dashGigWidgetHTML()}
     <div id="dash-games-slot" class="dash-slot">${dashGamesPlaceholderHTML()}</div>
     <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
     ${dashLastSeenFilmWidgetHTML()}
@@ -3106,9 +3129,10 @@ function renderDashboard(){
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     ${dashDesignFeatureHTML()}
     <div class="dash-masonry">
-      <div class="dash-col">${colA}</div>
-      <div class="dash-col">${colB}</div>
+      <div class="dash-col" id="dash-col-a">${widgets}</div>
+      <div class="dash-col" id="dash-col-b"></div>
     </div>`;
+  balanceDashboardColumns();
   loadDashboardGames();
   loadDashboardSong();
 }
@@ -5338,6 +5362,7 @@ App.dashSongRange = k => {
   loadDashboardSong();
   drawDashGamesSlot();
   const gigsSlot = $('#dash-gigs-slot'); if(gigsSlot) gigsSlot.innerHTML = dashGigsStatWidgetHTML();
+  balanceDashboardColumns();
 };
 App.readArticle = i => { location.hash = '#/design/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
