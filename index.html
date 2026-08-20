@@ -1086,8 +1086,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.13.1';
+const APP_VERSION = '2.13.2';
 const CHANGELOG = [
+  {version:'2.13.2', notes:[
+    "Home's column balancing now places the biggest tile (usually Currently Playing's own poster) first, instead of wherever it happened to land in reading order - the previous version could still end up noticeably lopsided whenever one tile was much taller than the rest."
+  ]},
   {version:'2.13.1', notes:[
     "Home: the two columns now balance themselves by actual height instead of a fixed left/right split, so one side no longer ends up visibly taller than the other."
   ]},
@@ -3094,21 +3097,26 @@ function dashRandomWatchlistWidgetHTML(){
 }
 /* two explicit column divs rather than CSS column-count - see .dash-masonry's own comment for
    why - but which tile lands in which column is now decided by measured height (balanceDash
-   ColumnsHTML below), not a fixed hand-picked split: with Films' three tiles added on top of
+   boardColumns below), not a fixed hand-picked split: with Films' three tiles added on top of
    Trips/Places/Gigs/Games/Songs, a static split routinely left one side visibly taller than the
    other, which is exactly the outcome explicit columns were meant to avoid in the first place.
-   All tiles render into the first column, then get greedily redistributed onto whichever column
-   is currently shorter, in the order they appear - a normal balanced-columns approach, just done
-   after layout with real measured heights instead of before it (CSS column-count's own approach,
-   which is what broke on this page originally when images hadn't loaded yet - aspect-ratio now
-   reserves that space upfront, so a plain height measurement here doesn't hit the same problem). */
+   Tiles are placed largest-first (not in on-page order) onto whichever column is currently
+   shorter: Currently Playing's own poster is tall enough on its own that placing it in
+   read/insertion order let it land wherever a column happened to be marginally shorter right
+   before it, which could tip the whole layout lopsided regardless of what came after. Largest-
+   first is the standard fix for exactly that failure mode (longest-processing-time scheduling)
+   and settles on a much closer balance - measured after real layout, not before it, so this
+   doesn't hit the original bug that made column-count unusable here (images loading in late and
+   changing height after the browser had already balanced things; aspect-ratio now reserves that
+   space upfront, so a height measurement at this point is already final). */
 function balanceDashboardColumns(){
   const colA = $('#dash-col-a'), colB = $('#dash-col-b');
   if(!colA || !colB) return;
-  const nodes = [...colA.children, ...colB.children];
+  const nodes = [...colA.children, ...colB.children]
+    .map(n => ({n, h: n.getBoundingClientRect().height}))
+    .sort((x,y) => y.h - x.h);
   let ha = 0, hb = 0;
-  nodes.forEach(n => {
-    const h = n.getBoundingClientRect().height;
+  nodes.forEach(({n,h}) => {
     if(ha <= hb){ colA.appendChild(n); ha += h; }
     else { colB.appendChild(n); hb += h; }
   });
