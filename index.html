@@ -250,11 +250,15 @@ a{color:var(--brand-dark);}
    heights vary on their own (a stat tile is short, an item tile with an image is tall), which
    is what actually produces the masonry look here, not anything explicit about sizing. */
 .dash-masonry{column-count:2; column-gap:12px; padding-bottom:24px;}
+/* Safari has a long-standing bug where a box-shadow on a break-inside:avoid child of a
+   column-count container can paint outside its own box - usually bleeding upward into whatever
+   sits right above the columns. transform:translateZ(0) forces each card onto its own
+   compositing layer, which is the standard fix. */
 .dash-widget{display:block; width:100%; margin:0 0 12px; break-inside:avoid;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:16px; cursor:pointer;
-  transition:transform .1s, box-shadow .1s;}
-.dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
+  transition:transform .1s, box-shadow .1s; transform:translateZ(0);}
+.dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px) translateZ(0); box-shadow:var(--shadow-lift); outline:none;}
 .dash-widget-stat{text-align:center; padding:22px 16px;}
 .dash-stat-num{font-family:var(--font-head); font-weight:800; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
 .dash-stat-label{margin-top:6px; color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
@@ -985,8 +989,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.2.1';
 const CHANGELOG = [
+  {version:'2.2.1', notes:[
+    "Home: attempted fix for a stray shadow rendering above the masonry grid on some phones (a known Safari bug where a card's box-shadow can bleed into whatever sits just above a multi-column layout)."
+  ]},
   {version:'2.2.0', notes:[
     'Home: the latest article is now a full-width card at the very top of the page, instead of squeezed into one masonry tile - that\'s the one piece of Home that changes on its own schedule, so it gets more room to notice at a glance.'
   ]},
