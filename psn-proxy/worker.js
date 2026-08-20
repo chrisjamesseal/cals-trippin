@@ -141,6 +141,19 @@ const DESIGN_FEEDS = [
   {name:'A List Apart', url:'https://alistapart.com/main/feed/'},
   {name:'UX Planet', url:'https://uxplanet.org/feed'},
 ];
+/* Film and Music news below are the same shape of problem as Design's own feed above - a
+   handful of well-known publications, merged - so they reuse every piece of it (parseFeedItems,
+   htmlToBlocks, the caching route pattern) via the generic fetchNewsFeeds() a few lines down,
+   rather than three near-identical copies of the same fetch/parse/merge logic. */
+const FILM_FEEDS = [
+  {name:'Variety', url:'https://variety.com/feed/'},
+  {name:'The Hollywood Reporter', url:'https://www.hollywoodreporter.com/feed/'},
+];
+const MUSIC_FEEDS = [
+  {name:'Resident Advisor', url:'https://ra.co/xml/rss.xml'},
+  {name:'DJ Mag', url:'https://djmag.com/feed'},
+  {name:'Spotify Newsroom', url:'https://newsroom.spotify.com/feed/'},
+];
 const SUMMARY_MAX = 220;
 /* the reader shows the article inside the app, so the body rides along with the list rather
    than costing a second request per article. Capped because five feeds' worth of full text
@@ -318,9 +331,9 @@ function parseFeedItems(xml, sourceName){
     return {title, link, source: sourceName, date: (date && !isNaN(date)) ? date.toISOString() : null, summary, image, body};
   }).filter(a => a.title && a.link);
 }
-async function fetchDesignNews(){
-  const results = await Promise.allSettled(DESIGN_FEEDS.map(async f => {
-    const res = await fetch(f.url, {headers: {'User-Agent': 'Mozilla/5.0 (compatible; MyTripsDesignFeed/1.0)'}});
+async function fetchNewsFeeds(feeds, logLabel){
+  const results = await Promise.allSettled(feeds.map(async f => {
+    const res = await fetch(f.url, {headers: {'User-Agent': 'Mozilla/5.0 (compatible; MyTripsNewsFeed/1.0)'}});
     if(!res.ok) throw new Error('status ' + res.status);
     return parseFeedItems(await res.text(), f.name);
   }));
@@ -328,17 +341,20 @@ async function fetchDesignNews(){
   const failures = [];
   results.forEach((r, i) => {
     if(r.status === 'fulfilled') articles = articles.concat(r.value);
-    else failures.push({name: DESIGN_FEEDS[i].name, reason: (r.reason && (r.reason.message || r.reason)) || 'unknown error'});
+    else failures.push({name: feeds[i].name, reason: (r.reason && (r.reason.message || r.reason)) || 'unknown error'});
   });
   // a feed failing isn't fatal to the page (the others still show), but silently swallowing
-  // every failure meant "all five down" looked identical to "nothing published today" - logged
-  // here for the Cloudflare dashboard's Logs tab, and (only when EVERY feed failed) passed back
-  // to the app so it can say so instead of implying a quiet news day
-  failures.forEach(f => console.error('design-news feed failed:', f.name, f.reason));
+  // every failure meant "all of them down" looked identical to "nothing published today" -
+  // logged here for the Cloudflare dashboard's Logs tab, and (only when EVERY feed failed)
+  // passed back to the app so it can say so instead of implying a quiet news day
+  failures.forEach(f => console.error(logLabel+' feed failed:', f.name, f.reason));
   articles.sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0));
-  const allFailed = failures.length === DESIGN_FEEDS.length;
+  const allFailed = failures.length === feeds.length;
   return {articles: articles.slice(0, 40), error: allFailed ? failures[0].reason : undefined};
 }
+const fetchDesignNews = () => fetchNewsFeeds(DESIGN_FEEDS, 'design-news');
+const fetchFilmNews = () => fetchNewsFeeds(FILM_FEEDS, 'film-news');
+const fetchMusicNews = () => fetchNewsFeeds(MUSIC_FEEDS, 'music-news');
 
 /* ================= Letterboxd (Films diary import) =================
    Letterboxd's real API is invite-only (email api@letterboxd.com and hope for approval) - not
@@ -620,6 +636,26 @@ export default {
         const cached = await cache.match(cacheKey);
         if(cached) return cached;
         const res = json(await fetchDesignNews(), 200, env);
+        res.headers.set('Cache-Control', 'public, max-age=1800');
+        ctx.waitUntil(cache.put(cacheKey, res.clone()));
+        return res;
+      }
+      if(request.method === 'GET' && url.pathname === '/film-news'){
+        const cache = caches.default;
+        const cacheKey = new Request(url.toString(), request);
+        const cached = await cache.match(cacheKey);
+        if(cached) return cached;
+        const res = json(await fetchFilmNews(), 200, env);
+        res.headers.set('Cache-Control', 'public, max-age=1800');
+        ctx.waitUntil(cache.put(cacheKey, res.clone()));
+        return res;
+      }
+      if(request.method === 'GET' && url.pathname === '/music-news'){
+        const cache = caches.default;
+        const cacheKey = new Request(url.toString(), request);
+        const cached = await cache.match(cacheKey);
+        if(cached) return cached;
+        const res = json(await fetchMusicNews(), 200, env);
         res.headers.set('Cache-Control', 'public, max-age=1800');
         ctx.waitUntil(cache.put(cacheKey, res.clone()));
         return res;
