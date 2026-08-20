@@ -260,6 +260,13 @@ a{color:var(--brand-dark);}
 .dash-stat-label{margin-top:6px; color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
 .dash-item-img{display:block; width:calc(100% + 32px); height:110px; object-fit:cover;
   margin:-16px -16px 12px; border-radius:var(--radius) var(--radius) 0 0;}
+/* Currently Playing's box art is already a square, so cropping it to the same 110px banner
+   strip as everything else was chopping the top and bottom off - let it keep its own shape */
+.dash-item-img-square{height:auto; aspect-ratio:1/1;}
+/* an artist has one photo, not a background banner, so it reads as a face/avatar - a small
+   circle inside the card's own padding rather than another full-bleed strip */
+.dash-item-avatar{display:block; width:56px; height:56px; object-fit:cover;
+  margin:0 0 10px; border-radius:50%;}
 .dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
@@ -967,8 +974,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '1.98.0';
+const APP_VERSION = '1.99.0';
 const CHANGELOG = [
+  {version:'1.99.0', notes:[
+    'Home: the next gig\'s artist photo is now a circular avatar instead of a banner crop, and Currently Playing\'s box art keeps its own square shape instead of being cropped to the same strip as everything else.'
+  ]},
   {version:'1.98.0', notes:[
     'Music: the Songs time filter is now a dropdown instead of three buttons, and the Not Seen / Artists / Songs / All Gigs subtabs wrap onto a second row instead of squeezing every label down to an unreadable ellipsis.'
   ]},
@@ -2685,7 +2695,7 @@ function dashGigWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGigs()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
-      ${g.image ? `<img class="dash-item-img" src="${esc(g.image)}" alt="" loading="lazy">`
+      ${g.image ? `<img class="dash-item-avatar" src="${esc(g.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
       <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
       <div class="dash-item-sub">${esc(fmtDate(g.date))}</div>
@@ -2720,7 +2730,7 @@ function dashCurrentlyPlayingWidgetHTML(g){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      ${g.iconUrl ? `<img class="dash-item-img" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+      ${g.iconUrl ? `<img class="dash-item-img dash-item-img-square" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
       <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
       <div class="dash-item-sub">Currently Playing</div>
