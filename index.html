@@ -289,11 +289,6 @@ a{color:var(--brand-dark);}
 .dash-widget-row{display:flex; flex-direction:row; align-items:center; gap:10px;}
 .dash-widget-row .dash-item-flags{font-size:1.4rem; margin-bottom:0; flex-shrink:0;}
 .dash-widget-row .dash-item-title{font-size:.88rem;}
-/* Currently Playing's own row variant: an image instead of an emoji, and a title+caption pair
-   instead of the single "N Label" line the count tiles use */
-.dash-widget-row-text{min-width:0; flex:1;}
-.dash-item-thumb{display:block; width:56px; height:56px; object-fit:cover;
-  border-radius:var(--radius-sm); flex-shrink:0;}
 .dash-stat-num{font-family:var(--font-head); font-weight:800; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
 .dash-stat-label{margin-top:6px; color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
 .dash-item-img{display:block; width:calc(100% + 32px); height:110px; object-fit:cover;
@@ -1041,8 +1036,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.7.0';
+const APP_VERSION = '2.7.1';
 const CHANGELOG = [
+  {version:'2.7.1', notes:[
+    'Home: Currently Playing\'s box art is back above the title instead of beside it, matching the top song tile.'
+  ]},
   {version:'2.7.0', notes:[
     'New Films tab: log films you\'ve watched (title, year, date, star rating, rewatch) with a poster-shelf grid, or connect your Letterboxd username to pull in your diary automatically - ratings, rewatches and all. Syncing again just updates what\'s changed rather than duplicating anything.',
     'The bottom tab bar now shows icons only, no text labels underneath, to make room for the new Films tab.'
@@ -2916,14 +2914,12 @@ function dashGamesStatWidgetHTML(n){
 }
 function dashCurrentlyPlayingWidgetHTML(g){
   return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGames()"
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      ${g.iconUrl ? `<img class="dash-item-thumb" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+      ${g.iconUrl ? `<img class="dash-item-img dash-item-img-square" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
-      <div class="dash-widget-row-text">
-        <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
-        <div class="dash-item-sub">Currently Playing</div>
-      </div>
+      <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
+      <div class="dash-item-sub">Currently Playing</div>
     </div>`;
 }
 /* PlayStation needs a live fetch, unlike the other widgets which read straight from what's
