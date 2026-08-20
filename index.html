@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- interactive-widget=resizes-content (Safari 16.4+/modern Chrome) shrinks the actual layout
+     viewport when the on-screen keyboard opens, so position:fixed elements (the tabbar, the
+     Places/Games search bar) land right above the keyboard on their own instead of sliding
+     underneath it or drifting to wherever the old resizes-visual default left them; ignored
+     harmlessly on older browsers, which fall back to the --kb-inset compensation below. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>My Trips</title>
 <meta name="description" content="One place for your group trip: flights, money, plans and photos.">
 <meta name="theme-color" content="#9C3D22">
@@ -790,6 +795,10 @@ a.dash-tile{text-decoration:none;}
      during momentum scroll instead of lagging a frame behind and looking "unstuck" */
   transform:translateZ(0); will-change:transform;
 }
+/* hidden outright while a keyboard is up (see the focusin/focusout listeners toggling
+   body.kb-open) rather than repositioned above it - a second bar stacked on top of the
+   keyboard read as broken, not useful, especially with a search box already anchored there */
+body.kb-open .tabbar.on{display:none;}
 .tabbar-item{
   display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
   background:none; border:none; padding:6px 2px; cursor:pointer; color:var(--muted);
@@ -1005,8 +1014,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.5.0';
 const CHANGELOG = [
+  {version:'2.5.0', notes:[
+    'Fixed the Places/Artists search box drifting away from the keyboard on some phones instead of sitting right above it, by telling the browser to resize around the keyboard properly instead of working around it after the fact.',
+    'The bottom tab bar now hides outright while a keyboard is open, instead of sometimes showing up stacked above it.'
+  ]},
   {version:'2.4.0', notes:[
     'Home: replaced the auto-balancing masonry with two fixed columns, so Games Played and its card can never land with a gap above them again. Places Been and Gigs Seen (renamed from Gigs Been To) are now a compact single-line row - icon left, count and label right - instead of stacked. The article card\'s title and caption now match Currently Playing\'s styling exactly.'
   ]},
@@ -2626,11 +2639,12 @@ function renderPinGate(){
    floor. Delegated on document so it covers inputs that don't exist yet at load time. */
 document.addEventListener('focusin', e => { if(e.target.matches('input,textarea')) document.body.classList.add('kb-open'); });
 document.addEventListener('focusout', e => { if(e.target.matches('input,textarea')) document.body.classList.remove('kb-open'); });
-/* the Places/Games search box sits fixed just above the tabbar (--bar-h) - on a phone
-   keyboard, some mobile browsers don't shrink the layout viewport, so a plain bottom-anchored
-   fixed element renders underneath the keyboard instead of above it. visualViewport reports
-   the real usable height, so --kb-inset lifts the search box (and only the search box) clear
-   of the keyboard while it's up. */
+/* the Places/Games search box sits fixed just above the tabbar (--bar-h) - the viewport meta's
+   interactive-widget=resizes-content handles the keyboard correctly on its own now, but that's
+   a newer browser feature (Safari 16.4+/modern Chrome); this is the fallback for anything
+   older, where the layout viewport doesn't shrink and a plain bottom-anchored fixed element
+   would render underneath the keyboard instead of above it. visualViewport reports the real
+   usable height there, so --kb-inset lifts the search box clear of the keyboard while it's up. */
 if(window.visualViewport){
   const vv = window.visualViewport;
   const updateKbInset = () => {
