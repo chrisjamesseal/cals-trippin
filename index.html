@@ -410,12 +410,14 @@ a{color:var(--brand-dark);}
 .plant-emoji.plant-icon-img{width:32px; height:32px; object-fit:cover; border-radius:8px;}
 .plant-name{font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--ink); overflow-wrap:anywhere;}
 .plant-stage-label{color:var(--muted); font-size:.7rem;}
-/* each dot is a real button (bigger tap target than the visible dot itself, via ::after) so a
-   stage is a single tap on the card - no need to open the edit form just to move something on */
-.plant-dots{display:flex; gap:2px; margin:3px 0;}
-.plant-dot{width:16px; height:16px; padding:0; border:none; background:none; cursor:pointer;
-  display:flex; align-items:center; justify-content:center;}
-.plant-dot::after{content:''; width:6px; height:6px; border-radius:50%; background:var(--line-strong);}
+/* each dot is its own bordered circle button (not just a plain coloured dot) so it actually
+   reads as tappable, not decorative - a stage is a single tap on the card, no need to open the
+   edit form just to move something on */
+.plant-dots{display:flex; gap:6px; margin:6px 0;}
+.plant-dot{width:22px; height:22px; padding:0; border:1px solid var(--line-strong); border-radius:50%;
+  background:var(--paper); cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.plant-dot::after{content:''; width:8px; height:8px; border-radius:50%; background:var(--line-strong);}
+.plant-dot.on{border-color:var(--brand); background:var(--brand-tint);}
 .plant-dot.on::after{background:var(--brand);}
 .plant-water-label{display:block; color:var(--muted); font-size:.72rem; margin-top:6px; width:100%;}
 /* the full Plants page card's own button - a name plus the water drop underneath it, rather
@@ -424,8 +426,8 @@ a{color:var(--brand-dark);}
    line - red when overdue, tinted green once done today, plain otherwise. Always tappable
    regardless of state: watering twice in a day is normal (a hot day, a top-up), not something
    to block. */
-.plant-water-action-btn{display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:3px; width:100%; margin-top:8px; border:1px solid var(--line-strong); border-radius:var(--radius-sm);
+.plant-water-action-btn{display:flex; flex-direction:row; align-items:center; justify-content:center;
+  gap:8px; width:100%; margin-top:8px; border:1px solid var(--line-strong); border-radius:var(--radius-sm);
   background:var(--paper); cursor:pointer; padding:9px 6px; font:inherit; font-weight:700;
   font-size:.78rem; color:var(--ink);}
 .plant-water-btn-emoji{font-size:1.05rem; line-height:1;
@@ -1153,8 +1155,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.25.0';
+const APP_VERSION = '2.25.1';
 const CHANGELOG = [
+  {version:'2.25.1', notes:[
+    "Plants: the stage dots on a vegetable's page are properly bordered circles now, so they actually read as tappable buttons instead of plain dots. \"Mark as Watered\" is a single row now too - the label on the left, the water drop on the right - instead of stacked.",
+  ]},
   {version:'2.25.0', notes:[
     "Plants: tapping a vegetable now opens its own page instead of the edit form - icon, stage, and a Timeline of everything that's happened to it (every watering and every stage change, newest first), each with its own delete button for a mis-tap. Deleting the latest stage entry reverts the plant's current stage to whatever's now the most recent. Editing its name, icon, planted date or watering frequency moved to a dedicated Edit button on this page.",
   ]},
