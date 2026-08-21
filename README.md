@@ -58,12 +58,13 @@ The app works out of the box **on a single device** with no setup. To get everyo
        "places": { ".read": true, ".write": true },
        "gigs": { ".read": true, ".write": true },
        "films": { ".read": true, ".write": true },
-       "filmsWatchlist": { ".read": true, ".write": true }
+       "filmsWatchlist": { ".read": true, ".write": true },
+       "plants": { ".read": true, ".write": true }
      }
    }
    ```
 
-   Note the `trips` node needs its own top-level `.read: true`, Realtime Database rules don't cascade upward from `trips/$id` to `trips`, and the app needs to read the *whole* `trips` node at once to list every trip on the "Your Trips" page. Without it, the app silently falls back to only showing trips this particular browser already knows about (looks like "no trips saved"). The same non-cascading rule applies to `places` (the shared Places I've Been checklist), `gigs` (the Gigs log), `films` (the Films log) and `filmsWatchlist` (the Films tab's Watchlist): without their own rule, anything ticked or logged stays stuck on the device that did it instead of syncing to the group - and the app will show a "Not Saved" error on write until the rule's added.
+   Note the `trips` node needs its own top-level `.read: true`, Realtime Database rules don't cascade upward from `trips/$id` to `trips`, and the app needs to read the *whole* `trips` node at once to list every trip on the "Your Trips" page. Without it, the app silently falls back to only showing trips this particular browser already knows about (looks like "no trips saved"). The same non-cascading rule applies to `places` (the shared Places I've Been checklist), `gigs` (the Gigs log), `films` (the Films log), `filmsWatchlist` (the Films tab's Watchlist) and `plants` (the Plants tracker): without their own rule, anything ticked, logged or added stays stuck on the device that did it instead of syncing to the group - and the app will show a "Not Saved" error on write until the rule's added.
 
 That's it, the app now shows every trip that exists (not just ones this browser made), and share buttons hand out `…/#/trip/<id>` links that stay the same forever and sync everyone's edits. Without a config, the app quietly falls back to single-device mode, a fixed local PIN, and the Share button produces a portable snapshot link instead.
 
