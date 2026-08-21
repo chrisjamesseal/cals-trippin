@@ -275,35 +275,23 @@ a{color:var(--brand-dark);}
    photo Gigs' identical dropdown uses, everything else (positioning, item layout) shared as-is */
 .film-search-thumb{width:32px; height:46px; border-radius:3px; object-fit:cover; flex-shrink:0;
   background:var(--bg); border:1px solid var(--line);}
-/* a row of five stars, rendered read-only (Films Stats' By Rating rows, and film cards' own
-   rating badge) - an outline star sits underneath a filled one clipped to 0/50/100% width per
-   star rather than swapping glyphs, so a half star reads as "left half solid" without a separate
-   half-star glyph needing its own font support. The Log Film form's own rating input used to be
-   an interactive version of this same markup, but individual stars were too fiddly to hit
-   precisely on a phone - it's a plain <select> now (see filmRatingFieldHTML), so this stays
-   display-only. */
-.star-rating{display:inline-flex; gap:14px;}
-.star-slot{position:relative; display:inline-block; width:36px; height:36px; font-size:32px; line-height:36px;}
-.star-bg,.star-fill{position:absolute; top:0; left:0; overflow:hidden; white-space:nowrap; pointer-events:none;}
-.star-bg{color:var(--line); width:100%;}
-.star-fill{color:var(--brand-dark);}
 /* Films Stats: the 3 headline numbers reuse the Home dashboard's own stat-tile look
-   (.dash-widget.dash-widget-stat), the By Year/By Rating rows are their own thing - a plain
-   clickable row with a count pill (Gigs' own .gig-seen-pill, reused as-is) that drills into a
-   poster grid filtered to just that year/rating. */
+   (.dash-widget.dash-widget-stat) - Logged/Rewatches are clickable (App.goFilmsDiary/
+   filmsStatsRewatches), Avg Rating stays a plain number, nothing to drill into. By Year/By
+   Rating are bar charts (see statsBarChartHTML) rather than a list of rows - the shape of the
+   data (a count per year, a count per rating) is exactly what a bar chart is for, and it's the
+   same click-to-filter destination either way. */
 .stat-overview-row{display:flex; gap:10px; margin-bottom:20px;}
 .stat-overview-row .dash-widget{flex:1;}
-.stats-list{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:22px;}
-.stats-row{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; width:100%;
-  text-align:center; font:inherit; color:inherit; cursor:pointer; padding:12px 6px;
-  border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--paper);
-  box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s;}
-.stats-row:hover,.stats-row:focus-visible{transform:translateY(-1px); box-shadow:var(--shadow-lift); outline:none;}
-.stats-row-label{font-family:var(--font-head); font-weight:700; font-size:.9rem; color:var(--ink);}
-/* the By Rating tiles' stars - the same .star-rating/.star-slot markup above, just shrunk down
-   for a compact label */
-.stats-stars{gap:1px;}
-.stats-stars .star-slot{width:14px; height:14px; font-size:13px; line-height:14px;}
+.stats-chart{display:flex; align-items:flex-end; gap:5px; margin-bottom:22px; overflow-x:auto; padding-bottom:2px;}
+.stats-bar{flex:1; min-width:24px; display:flex; flex-direction:column; align-items:center;
+  font:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer;}
+.stats-bar-track{display:flex; flex-direction:column; justify-content:flex-end; align-items:center;
+  width:100%; height:100px;}
+.stats-bar-count{font-size:.68rem; font-weight:700; color:var(--ink); margin-bottom:4px; white-space:nowrap;}
+.stats-bar-fill{width:100%; max-width:30px; background:var(--brand); border-radius:4px 4px 0 0; transition:background .12s;}
+.stats-bar:hover .stats-bar-fill,.stats-bar:focus-visible .stats-bar-fill{background:var(--brand-dark);}
+.stats-bar-label{font-size:.66rem; color:var(--muted); margin-top:6px; white-space:nowrap;}
 
 /* ---------- home dashboard (masonry widgets) ---------- */
 /* Two explicit column divs (each tile's home decided in JS, see dashColAHTML/dashColBHTML)
@@ -335,6 +323,11 @@ a{color:var(--brand-dark);}
 /* Currently Playing's box art is already a square, so cropping it to the same 110px banner
    strip as everything else was chopping the top and bottom off - let it keep its own shape */
 .dash-item-img-square{height:auto; aspect-ratio:1/1;}
+/* Most Played, Currently Playing and Last Seen all share this instead of the full-bleed banner
+   above - a half-width square sitting inside the card's own padding (no negative-margin bleed
+   needed), title/caption below spanning the full width */
+.dash-item-img-half{display:block; width:50%; aspect-ratio:1/1; object-fit:cover;
+  margin:0 auto 10px; border-radius:var(--radius-sm);}
 /* an artist has one photo, not a background banner, so it reads as a face/avatar - a small
    circle inside the card's own padding rather than another full-bleed strip */
 .dash-item-avatar{display:block; width:56px; height:56px; object-fit:cover;
@@ -372,10 +365,10 @@ a{color:var(--brand-dark);}
 .news-vote-btn{background:none; border:none; font-size:1.05rem; line-height:1; padding:6px 10px;
   border-radius:8px; cursor:pointer;}
 .news-vote-btn:hover{background:var(--bg);}
-/* thumbs down fades the card in place for immediate feedback - the article itself is gone for
-   good (its link goes on the dismissed list, see App.newsVote) the next time News loads, this is
-   just what happens right now while you're looking at it */
-.news-card-dismissed{opacity:0; transition:opacity .3s ease-out; pointer-events:none;}
+/* thumbs down dims the card in place rather than yanking it away mid-scroll - it's gone for good
+   (its link goes on the dismissed list, see App.newsVote) the next time this list is drawn,
+   which is what actually removes it; this is just the marked-down look for the rest of now */
+.news-card-dismissed{opacity:.7; transition:opacity .3s ease-out;}
 /* sits above Home's masonry, full width rather than squeezed into one grid tile - but low and
    wide rather than the Design tab's tall banner, so it reads as a quick pointer rather than a
    second hero image competing with the actual masonry below it. Image on the left at roughly a
@@ -1076,8 +1069,16 @@ const NEWS_PROXY_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.15.0';
+const APP_VERSION = '2.16.0';
 const CHANGELOG = [
+  {version:'2.16.0', notes:[
+    "News: fixed the filter chips not showing which category you'd picked, fixed a thumbed-down article coming back when you navigated away and back, and turned the fade on a dismissed article into a permanent 70% dim instead of it vanishing outright.",
+    "News: articles that aren't in English or aren't about London are filtered out now, missing images (DJ Mag's lazy-loaded ones, among others) are found properly, and articles are sorted newest-first using whichever date field a feed actually provides.",
+    'Films Stats: films watched by year and by rating are bar charts now instead of plain lists - tap a bar to see just that year or rating, and Logged/Rewatches are tappable too, opening the Diary or a rewatches-only view.',
+    "Watchlist films now get their posters (and genres, enabling the genre filter) backfilled automatically the same way the Diary already does - a CSV import leaves both blank, and nothing ever retried it before.",
+    'Letterboxd sync moved into Settings alongside the CSV imports, out of the Diary header where it was competing for attention.',
+    'Small tidy-ups: dropped the "(optional)" label next to Poster URL, shortened Games\' PlayStation subtab to "PS5/PS4" and Gigs\' "All Gigs" to "Gigs" so they fit their row, and Home\'s Currently Playing/Last Seen widgets now match Most Played\'s half-width image layout.',
+  ]},
   {version:'2.15.0', notes:[
     "Design, and the Films and Music tabs' own News subtabs, are now one unified News tab (📰, in Design's old spot) - every article merged into a single dated feed with All/Design/Films/Music filter chips, instead of three separate places to remember to check.",
     "News articles have thumbs up/down now. Thumbs down fades an article out and it's gone for good from then on, and nudges its whole publication down the list; thumbs up nudges a publication up - the closest thing to \"shows more of what you like\" this app can honestly do without a real backend to learn from.",
@@ -2956,7 +2957,7 @@ function dashSongWidgetHTML(t){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goSongs()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goSongs()}">
-      ${t.image ? `<img class="dash-item-img-square" src="${esc(t.image)}" alt="" loading="lazy">`
+      ${t.image ? `<img class="dash-item-img-half" src="${esc(t.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
       <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
       <div class="dash-item-sub">Most Played</div>
@@ -3025,7 +3026,7 @@ function dashCurrentlyPlayingWidgetHTML(g){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      ${g.iconUrl ? `<img class="dash-item-img dash-item-img-square" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+      ${g.iconUrl ? `<img class="dash-item-img-half" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
       <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
       <div class="dash-item-sub">Currently Playing</div>
@@ -3072,7 +3073,7 @@ function dashFilmsThisYearWidgetHTML(){
     <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goFilmsDiary()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
       <div class="dash-item-flags" aria-hidden="true">🎬</div>
-      <div class="dash-item-title">${n} Films This Year</div>
+      <div class="dash-item-title">${n} This Year</div>
     </div>`;
 }
 function dashLastSeenFilmWidgetHTML(){
@@ -3086,7 +3087,7 @@ function dashLastSeenFilmWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsDiary()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
-      ${f.image ? `<img class="dash-item-img dash-item-img-square" src="${esc(f.image)}" alt="" loading="lazy">`
+      ${f.image ? `<img class="dash-item-img-half" src="${esc(f.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎬</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">Last Seen</div>
@@ -3509,7 +3510,7 @@ function renderGames(){
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
-    <div class="subtabs">${tab('psn','🎮 PlayStation')}${tab('board','🎲 Board Games')}${tab('wishlist','🕹️ Wishlist')}</div>
+    <div class="subtabs">${tab('psn','🎮 PS5/PS4')}${tab('board','🎲 Board Games')}${tab('wishlist','🕹️ Wishlist')}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
   if(CUR_GAMES_TAB==='wishlist'){ renderWishlist(); return; }
@@ -3983,11 +3984,14 @@ function loadAllNews(){
   });
 }
 let CUR_NEWS_FILTER = '';   // '' = All, or a NEWS_CATEGORIES key
-function renderNews(){
+function newsFilterChipsHTML(){
   const chip = (k, label) => `<button class="subtab${CUR_NEWS_FILTER===k?' on':''}" onclick="App.newsFilter('${k}')">${label}</button>`;
+  return chip('','All')+Object.keys(NEWS_CATEGORIES).map(k=>chip(k, NEWS_CATEGORIES[k].emoji+' '+NEWS_CATEGORIES[k].label)).join('');
+}
+function renderNews(){
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">News</span></div></div>
-    <div class="subtabs">${chip('','All')}${Object.keys(NEWS_CATEGORIES).map(k=>chip(k, NEWS_CATEGORIES[k].emoji+' '+NEWS_CATEGORIES[k].label)).join('')}</div>
+    <div class="subtabs" id="news-filters">${newsFilterChipsHTML()}</div>
     <div id="news-body"></div>`;
   if(!NEWS_PROXY_URL){
     $('#news-body').innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
@@ -4009,7 +4013,13 @@ function renderNews(){
 }
 function drawNewsList(){
   const body = $('#news-body'); if(!body) return;
-  const filtered = CUR_NEWS_FILTER ? ALL_NEWS_ARTICLES.filter(a=>a.category===CUR_NEWS_FILTER) : ALL_NEWS_ARTICLES;
+  // re-checked against the dismissed list on every draw, not just at fetch time - otherwise
+  // coming back to News within the same visit (NEWS_LOADED already true, no refetch) would show
+  // an article thumbed down moments ago right where it was, since it's still sitting in
+  // ALL_NEWS_ARTICLES until the next real fetch
+  const dismissed = newsVotes().dismissed;
+  const visible = ALL_NEWS_ARTICLES.filter(a => !dismissed.includes(a.link));
+  const filtered = CUR_NEWS_FILTER ? visible.filter(a=>a.category===CUR_NEWS_FILTER) : visible;
   if(!filtered.length){ body.innerHTML = `<div class="empty">Nothing to show right now, try again shortly.</div>`; return; }
   body.innerHTML = `<div class="design-list">${filtered.map(newsCardHTML).join('')}</div>`;
 }
@@ -4146,7 +4156,7 @@ function renderGigs(){
         <button class="btn sm primary" onclick="App.gigForm(-1)">+ Add Gig</button>
       </div>
     </div>
-    <div class="subtabs">${tab('notseen','⭐ Not Seen')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}${tab('log','☑ All Gigs')}</div>
+    <div class="subtabs">${tab('notseen','⭐ Not Seen')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}${tab('log','☑ Gigs')}</div>
     <div id="gigs-body"></div>`;
   if(CUR_GIGS_TAB==='log') drawGigsList();
   else if(CUR_GIGS_TAB==='songs') renderSongs();
@@ -4540,7 +4550,9 @@ function filmsGenreSelectHTML(id, list, current, onchange){
 /* ================= Settings =================
    A small, deliberately out-of-the-way page for the handful of things that are genuinely in-app,
    per-device actions to manage - reachable only from a link at the foot of Home, not the main
-   nav, since it's an occasional-use page rather than a destination. Real secrets (TMDb/Spotify/
+   nav, since it's an occasional-use page rather than a destination. Connect Letterboxd (and its
+   CSV imports) live here rather than on the Diary tab itself, so that page stays about the films
+   rather than opening with an account-management card every time. Real secrets (TMDb/Spotify/
    RAWG/BGG API keys) can't live here: this is a static site with no backend and only a light PIN
    gate ("Security is deliberately light" - see the README), so anything typed into an in-app
    settings screen would sit in plain, readable localStorage. Those stay as Vercel/Cloudflare
@@ -4556,16 +4568,18 @@ function renderSettings(){
       </div>
     </div>
     <h3 style="margin-bottom:10px">Films</h3>
+    <div id="settings-letterboxd" style="margin-bottom:14px"></div>
     <div class="card" style="margin-bottom:20px">
       <p class="small muted" style="margin-bottom:14px">
         Bring in your full Letterboxd history from its own export - Connect Letterboxd's sync
-        (on the Diary tab) only ever sees your most recent ~50 entries.
+        above only ever sees your most recent ~50 entries.
       </p>
       <div class="btn-row">
         <button class="btn sm" onclick="App.filmsImportCsv()">Import Diary CSV</button>
         <button class="btn sm" onclick="App.fwImportCsv()">Import Watchlist CSV</button>
       </div>
     </div>`;
+  drawLetterboxdConnect();
 }
 
 /* Films holds two unrelated things - what you've actually watched, and what you mean to - so it
@@ -4588,8 +4602,7 @@ function renderFilms(){
 }
 function renderFilmsDiary(){
   const body = $('#films-body'); if(!body) return;
-  body.innerHTML = `<div id="films-connect"></div><div id="films-grid"></div>`;
-  drawLetterboxdConnect();
+  body.innerHTML = `<div id="films-grid"></div>`;
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
     DB.films = Array.isArray(cloud) ? cloud : [];
@@ -4607,7 +4620,7 @@ function renderFilmsDiary(){
   });
 }
 function drawLetterboxdConnect(){
-  const el = $('#films-connect'); if(!el) return;
+  const el = $('#settings-letterboxd'); if(!el) return;
   const u = letterboxdUsername();
   if(!psnConfigured()){
     el.innerHTML = '';   // manual logging still works with no proxy set up - just skip the sync card
@@ -4710,7 +4723,7 @@ function filmFormImpl(i, prefill){
     <div class="field"><label class="switch-row"><span>↻ Rewatch</span>
       <span class="switch"><input type="checkbox" id="film-rewatch"${f.rewatch?' checked':''}><span class="knob"></span></span>
     </label></div>
-    <div class="field"><label class="label" for="film-poster">Poster URL <span class="muted">(optional)</span></label>
+    <div class="field"><label class="label" for="film-poster">Poster URL</label>
       <input id="film-poster" type="text" value="${esc(f.image||'')}" placeholder="https://…"></div>
     <div class="btn-row" style="margin-top:6px">
       <button class="btn primary" style="flex:1" onclick="App.saveFilm(${i>=0?i:-1})">${i>=0?'Save':'Add Film'}</button>
@@ -4864,7 +4877,7 @@ async function letterboxdConnectImpl(){
 }
 async function letterboxdSyncImpl(){
   const u = letterboxdUsername(); if(!u) return;
-  const el = $('#films-connect');
+  const el = $('#settings-letterboxd');
   if(el) el.innerHTML = `<div class="card"><p class="small muted">Syncing with Letterboxd…</p></div>`;
   try{
     const data = await fetch(psnUrl('/letterboxd-diary') + '?user=' + encodeURIComponent(u)).then(async r=>{
@@ -4900,7 +4913,7 @@ async function letterboxdSyncImpl(){
     toast(`Synced: ${added} new, ${updated} updated`);
     backfillPosters(DB.films, saveFilms).then(n => { if(n){ drawFilmsGrid(); toast(`Filled in details for ${n} film${n===1?'':'s'}`); } });
   }catch(e){
-    const errEl = $('#films-connect'); if(!errEl) return;
+    const errEl = $('#settings-letterboxd'); if(!errEl) return;
     errEl.innerHTML = `<div class="card"><p class="small" style="color:var(--accent-dark)">Couldn't sync Letterboxd.<br>${esc(e.message||'')}</p>
       <div class="btn-row" style="margin-top:10px">
         <button class="btn sm" onclick="App.letterboxdSync()">Try Again</button>
@@ -5057,6 +5070,11 @@ function renderFilmsWatchlist(){
     DB.filmsWatchlist = Array.isArray(cloud) ? cloud : [];
     saveLocal();
     if(CUR_FILMS_TAB==='watchlist') drawFwMine();
+    // same self-healing backfill the Diary got - a CSV import leaves every entry posterless and
+    // genre-less (that export has neither field at all), and until now nothing ever retried it
+    backfillPosters(DB.filmsWatchlist, saveFilmsWatchlist).then(n => {
+      if(n && CUR_FILMS_TAB==='watchlist') drawFwMine();
+    });
   });
 }
 function drawFwMine(){
@@ -5209,29 +5227,23 @@ function filmsStatsByRating(){
   });
   return counts;
 }
-function statsRowHTML(onclick, label, count){
-  return `<button type="button" class="stats-row" onclick="${onclick}">
-    <span class="stats-row-label">${esc(String(label))}</span>
-    <span class="gig-seen-pill">${count}</span>
-  </button>`;
-}
-/* same half-star-via-clipped-fill technique .star-rating/.star-slot use everywhere, as a plain
-   read-only label rather than a control (the Log Film form's own rating field is a <select> -
-   see filmRatingFieldHTML) */
-function filmStaticStarsHTML(v){
-  return [1,2,3,4,5].map(n=>{
-    const fillPct = Math.max(0, Math.min(1, v - (n-1))) * 100;
-    return `<span class="star-slot" aria-hidden="true">
-      <span class="star-bg">★</span>
-      <span class="star-fill" style="width:${fillPct}%">★</span>
-    </span>`;
-  }).join('');
-}
-function statsRatingRowHTML(onclick, v, count){
-  return `<button type="button" class="stats-row" onclick="${onclick}">
-    <span class="star-rating stats-stars" aria-label="${v.toFixed(1)} stars">${filmStaticStarsHTML(v)}</span>
-    <span class="gig-seen-pill">${count}</span>
-  </button>`;
+/* a bar per entry, height proportional to its count relative to the tallest bar - the count
+   sits above the bar itself rather than needing a hover/tap to read it, and the whole bar is the
+   click target (same filtered poster grid every row-style stat already drilled into). Height is
+   a percentage of .stats-bar-track's own fixed pixel height, not the button's, so the count
+   label sitting above it doesn't eat into that percentage's basis. */
+function statsBarChartHTML(entries, onclickFn){
+  const max = Math.max(1, ...entries.map(e=>e.count));
+  return `<div class="stats-chart">
+    ${entries.map(e => `
+      <button type="button" class="stats-bar" onclick="${onclickFn(e.key)}" aria-label="${esc(String(e.label))}: ${e.count} film${e.count===1?'':'s'}">
+        <span class="stats-bar-track">
+          <span class="stats-bar-count">${e.count}</span>
+          <span class="stats-bar-fill" style="height:${Math.round(Math.max(6, (e.count/max)*100))}%"></span>
+        </span>
+        <span class="stats-bar-label">${esc(String(e.label))}</span>
+      </button>`).join('')}
+  </div>`;
 }
 const FILM_RATING_VALUES = [5,4.5,4,3.5,3,2.5,2,1.5,1,0.5];
 function renderFilmsStats(){
@@ -5252,28 +5264,34 @@ function drawFilmsStats(){
   const avgRating = rated.length ? (rated.reduce((s,f)=>s+f.rating,0)/rated.length) : null;
 
   const byYear = filmsStatsByYear();
-  const years = [...byYear.keys()].filter(k=>k!=='nodate').sort((a,b)=>b.localeCompare(a));
+  // ascending, oldest first - a chart reads left to right as a timeline, unlike the old list
+  // (newest first, easier to scan as a plain list) it replaces
+  const years = [...byYear.keys()].filter(k=>k!=='nodate').sort((a,b)=>a.localeCompare(b));
   const noDateCount = byYear.get('nodate')||0;
+  const yearEntries = years.map(y=>({key:y, label:y, count:byYear.get(y)}));
+  if(noDateCount) yearEntries.push({key:'nodate', label:'No Date', count:noDateCount});
 
   const byRating = filmsStatsByRating();
   const noRatingCount = byRating.get('none')||0;
+  const ratingEntries = FILM_RATING_VALUES.slice().reverse()
+    .filter(v=>byRating.get(String(v)))
+    .map(v=>({key:v, label:v.toFixed(1), count:byRating.get(String(v))}));
+  if(noRatingCount) ratingEntries.push({key:'none', label:'N/A', count:noRatingCount});
 
   body.innerHTML = `
     <div class="stat-overview-row">
-      <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${films.length}</div><div class="dash-stat-label">Logged</div></div>
-      <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${rewatches}</div><div class="dash-stat-label">Rewatches</div></div>
+      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.goFilmsDiary()"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
+        <div class="dash-stat-num">${films.length}</div><div class="dash-stat-label">Logged</div></div>
+      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.filmsStatsRewatches()"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmsStatsRewatches()}">
+        <div class="dash-stat-num">${rewatches}</div><div class="dash-stat-label">Rewatches</div></div>
       <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${avgRating!=null?avgRating.toFixed(1):'—'}</div><div class="dash-stat-label">Avg Rating</div></div>
     </div>
     <h3 style="margin:20px 0 10px">By Year</h3>
-    <div class="stats-list">
-      ${years.map(y=>statsRowHTML(`App.filmsStatsYear('${y}')`, y, byYear.get(y))).join('')}
-      ${noDateCount?statsRowHTML(`App.filmsStatsYear('nodate')`, 'No Date', noDateCount):''}
-    </div>
+    ${statsBarChartHTML(yearEntries, key => `App.filmsStatsYear('${key}')`)}
     <h3 style="margin:20px 0 10px">By Rating</h3>
-    <div class="stats-list">
-      ${FILM_RATING_VALUES.filter(v=>byRating.get(String(v))).map(v=>statsRatingRowHTML(`App.filmsStatsRating('${v}')`, v, byRating.get(String(v)))).join('')}
-      ${noRatingCount?statsRowHTML(`App.filmsStatsRating('none')`, 'Not Rated', noRatingCount):''}
-    </div>`;
+    ${statsBarChartHTML(ratingEntries, key => `App.filmsStatsRating('${key}')`)}`;
 }
 function renderFilmsStatsFiltered(type, valueStr){
   const films = DB.films||[];
@@ -5281,9 +5299,11 @@ function renderFilmsStatsFiltered(type, valueStr){
   if(type==='year'){
     if(valueStr==='nodate'){ matched = films.filter(f=>!f.watchedDate); title = 'No Date'; }
     else { matched = films.filter(f=>f.watchedDate && f.watchedDate.slice(0,4)===valueStr); title = valueStr; }
-  }else{
+  }else if(type==='rating'){
     if(valueStr==='none'){ matched = films.filter(f=>f.rating==null); title = 'Not Rated'; }
     else { const v = parseFloat(valueStr); matched = films.filter(f=>f.rating===v); title = `★ ${v.toFixed(1)}`; }
+  }else{
+    matched = films.filter(f=>f.rewatch); title = 'Rewatches';
   }
   const ordered = matched.slice()
     .sort((a,b) => (b.watchedDate||'').localeCompare(a.watchedDate||'') || (a.title||'').localeCompare(b.title||''))
@@ -5355,6 +5375,10 @@ function route(){
     CUR_TRIP_ID = null; stopSub();
     renderFilmsStatsFiltered('rating', decodeURIComponent(h.slice('#/films/stats/rating/'.length)));
     window.scrollTo(0,0); return;
+  }
+  if(h === '#/films/stats/rewatches'){
+    CUR_TRIP_ID = null; stopSub();
+    renderFilmsStatsFiltered('rewatch', ''); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/news/')){
     CUR_TRIP_ID = null; stopSub();
@@ -5453,7 +5477,11 @@ App.goToYourTrips = () => {
 App.goGames = () => { location.hash = '#/games'; };
 App.goSettings = () => { location.hash = '#/settings'; };
 App.goNews = () => { location.hash = '#/news'; };
-App.newsFilter = k => { CUR_NEWS_FILTER = k; drawNewsList(); };
+App.newsFilter = k => {
+  CUR_NEWS_FILTER = k;
+  const chips = $('#news-filters'); if(chips) chips.innerHTML = newsFilterChipsHTML();
+  drawNewsList();
+};
 App.newsVote = (i, dir) => {
   const a = ALL_NEWS_ARTICLES[i]; if(!a) return;
   const votes = newsVotes();
@@ -5516,6 +5544,7 @@ App.filmsImportCsv = filmsImportCsvImpl;
 App.filmsImportCsvFile = filmsImportCsvFileImpl;
 App.filmsStatsYear = y => { location.hash = '#/films/stats/year/'+encodeURIComponent(y); };
 App.filmsStatsRating = v => { location.hash = '#/films/stats/rating/'+encodeURIComponent(v); };
+App.filmsStatsRewatches = () => { location.hash = '#/films/stats/rewatches'; };
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
 App.fwImportCsv = filmsWatchlistImportCsvImpl;
 App.fwImportCsvFile = filmsWatchlistImportCsvFileImpl;
