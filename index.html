@@ -249,16 +249,30 @@ a{color:var(--brand-dark);}
 .wl-actions{margin-top:12px;}
 .wl-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
 
+/* Settings ends right where .wrap's own bottom padding starts, no closing section below it the
+   way Home's foot bar gives every other page - a little extra room of its own so the last card
+   doesn't read as flush against the screen edge. */
+#settings-body{padding-bottom:40px;}
+
 /* ---------- films (Letterboxd-style diary) - a poster shelf, not a list ---------- */
 #films-grid{padding-bottom:44px;}
-.film-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(100px,1fr)); gap:12px;}
+.film-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(100px,1fr)); gap:12px; align-items:start;}
 .film-card{display:block; width:100%; text-align:left; cursor:pointer; border:none; background:none;
   padding:0; font:inherit; color:inherit;}
+/* Watchlist's own cards are a plain div, not the button Diary's are - the poster+title portion
+   is a real link out to Letterboxd instead of App.filmForm, so it needs its own anchor rather
+   than the whole card's click being spoken for */
+.film-card a{display:block; text-decoration:none; color:inherit;}
 .film-poster{display:block; width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:var(--radius-sm);
   border:1px solid var(--line); background:var(--paper);}
 .film-poster-fallback{display:flex; align-items:center; justify-content:center; font-size:1.6rem; color:var(--muted);}
+/* clamped to exactly 2 lines (min AND max) so every card's title takes up the same amount of
+   room whether it's "Alien" or "The Grand Budapest Hotel" - without this, a row of shorter
+   titles sits shorter than its neighbours and the posters below it in the next row creep up to
+   meet them, breaking the strict poster-grid look one flexible-height title would give it */
 .film-title{margin-top:6px; font-family:var(--font-head); font-weight:700; font-size:.78rem; color:var(--ink);
-  line-height:1.25; overflow-wrap:anywhere;}
+  line-height:1.25; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical;
+  -webkit-line-clamp:2; overflow:hidden; height:2.5em;}
 .film-rewatch-badge{color:var(--muted); font-weight:400;}
 .film-meta{margin-top:2px; font-size:.68rem; color:var(--muted);}
 .film-stars{display:block; margin-top:2px; font-size:.72rem; font-weight:700; color:var(--brand-dark);}
@@ -276,8 +290,11 @@ a{color:var(--brand-dark);}
 .film-search-thumb{width:32px; height:46px; border-radius:3px; object-fit:cover; flex-shrink:0;
   background:var(--bg); border:1px solid var(--line);}
 /* Films Stats: the 3 headline numbers reuse the Home dashboard's own stat-tile look
-   (.dash-widget.dash-widget-stat) - Logged/Rewatches are clickable (App.goFilmsDiary/
-   filmsStatsRewatches), Avg Rating stays a plain number, nothing to drill into. By Year/By
+   (.dash-widget.dash-widget-stat) - Logged/Rewatches are clickable (App.filmsTab('diary')/
+   filmsStatsRewatches - Logged switches tab in place rather than going through
+   App.goFilmsDiary's hash-based route, since the hash is already #/films while on Stats and
+   wouldn't fire a hashchange to re-render), Avg Rating stays a plain number, nothing to drill
+   into. By Year/By
    Rating are bar charts (see statsBarChartHTML) rather than a list of rows - the shape of the
    data (a count per year, a count per rating) is exactly what a bar chart is for, and it's the
    same click-to-filter destination either way. */
@@ -318,16 +335,18 @@ a{color:var(--brand-dark);}
 .dash-widget-row .dash-item-title{font-size:.88rem;}
 .dash-stat-num{font-family:var(--font-head); font-weight:800; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
 .dash-stat-label{margin-top:6px; color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
-.dash-item-img{display:block; width:calc(100% + 32px); height:110px; object-fit:cover;
-  margin:-16px -16px 12px; border-radius:var(--radius) var(--radius) 0 0;}
-/* Currently Playing's box art is already a square, so cropping it to the same 110px banner
-   strip as everything else was chopping the top and bottom off - let it keep its own shape */
-.dash-item-img-square{height:auto; aspect-ratio:1/1;}
-/* Most Played, Currently Playing and Last Seen all share this instead of the full-bleed banner
-   above - a half-width square sitting inside the card's own padding (no negative-margin bleed
-   needed), title/caption below spanning the full width */
+/* Places Been / Gigs Seen / This Year / Games - four counts up top, fixed to two columns
+   regardless of height (unlike the masonry below, which balances by measured height) so they
+   read as one glanceable block rather than being scattered wherever the balancer lands them */
+.dash-stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
+/* Most Played, Currently Playing and Last Seen share this - a half-width image sitting inside
+   the card's own padding (no negative-margin bleed needed), left-aligned rather than centred so
+   it lines up with the title/caption below it instead of floating in the middle of the card */
 .dash-item-img-half{display:block; width:50%; aspect-ratio:1/1; object-fit:cover;
-  margin:0 auto 10px; border-radius:var(--radius-sm);}
+  margin:0 0 10px; border-radius:var(--radius-sm);}
+/* Watchlist's pick is a poster, not box art - same half-width/left-aligned treatment but its own
+   2:3 shape instead of a square, so it doesn't crop the poster's actual proportions */
+.dash-item-img-half-poster{aspect-ratio:2/3;}
 /* an artist has one photo, not a background banner, so it reads as a face/avatar - a small
    circle inside the card's own padding rather than another full-bleed strip */
 .dash-item-avatar{display:block; width:56px; height:56px; object-fit:cover;
@@ -1069,8 +1088,18 @@ const NEWS_PROXY_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.16.0';
+const APP_VERSION = '2.17.0';
 const CHANGELOG = [
+  {version:'2.17.0', notes:[
+    "Home: Places Been, Gigs Seen, Films Seen and Games now sit together in a fixed two-column row up top, above Currently Playing/Most Played/Last Seen - and Places Been and Films Seen now filter by the same All Time/Last Six Months/Last Four Weeks picker Gigs Seen and Games already did.",
+    "Home: Most Played, Currently Playing, Last Seen and the Watchlist pick's images are left-aligned now instead of centred, and the Watchlist pick keeps its poster's actual 2:3 shape instead of being cropped to a square.",
+    'Settings gets a little breathing room below its last card instead of ending flush with the screen.',
+    'Films: fixed the Stats page\'s "Logged" tile not actually opening the Diary (it was changing the hash to where it already was, which does nothing) - it switches tab directly now, the same way Rewatches and the bar charts already did.',
+    "Films: the year/rating/Rewatches page's title is genuinely centred now, not just centred within lopsided leftover space next to the back button and count pill.",
+    'Films: watched dates are a short 19/4/26 now instead of the spelled-out 19 April 2026, so they sit comfortably next to the year and rating on a small poster card.',
+    "Films: poster grids are strictly top-aligned now - a title clamps to exactly two lines, so a row of short titles no longer sits shorter than its neighbours and pulling the next row's posters out of alignment.",
+    'Watchlist: tapping a poster now opens that film on Letterboxd (its exact page for anything imported from a Letterboxd CSV, a Letterboxd search for anything added via search) instead of doing nothing.',
+  ]},
   {version:'2.16.0', notes:[
     "News: fixed the filter chips not showing which category you'd picked, fixed a thumbed-down article coming back when you navigated away and back, and turned the fade on a dismissed article into a permanent 70% dim instead of it vanishing outright.",
     "News: articles that aren't in English or aren't about London are filtered out now, missing images (DJ Mag's lazy-loaded ones, among others) are found properly, and articles are sorted newest-first using whichever date field a feed actually provides.",
@@ -1881,6 +1910,14 @@ function fmtDate(d){
 function fmtDateNoYear(d){
   if(!d) return '';
   return new Date(d + 'T00:00:00').toLocaleDateString(undefined, {day:'numeric', month:'long'});
+}
+/* Films' one date format, its own short d/m/yy rather than fmtDate's spelled-out month - a
+   watched date sits next to a year and a star rating on a small poster card, where "19 April
+   2026" crowds the other two out; "19/4/26" reads just as unambiguously in that little a space. */
+function fmtFilmDate(d){
+  if(!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+String(dt.getFullYear()).slice(-2);
 }
 function todayStr(){
   const d = new Date();
@@ -2903,12 +2940,34 @@ function dashGigsStatWidgetHTML(){
       <div class="dash-item-title">${dashGigsBeenCount(CUR_DASH_SONG_RANGE)} Gigs Seen</div>
     </div>`;
 }
+/* a country only carries a status ('been'/'want'/'going'), never a date - the closest thing to
+   "when" is the most recent finished trip that visited it, so that's what the range picker
+   filters on. A country marked Been by hand (no trip behind it at all) has no date to check, so
+   it can only ever count under All Time - there's nothing here to say it was recent. */
+function placesLastVisitedDate(code){
+  let latest = null;
+  (DB.trips||[]).forEach(t=>{
+    if(!t.endDate || t.endDate >= todayStr()) return;
+    if((t.countries||[]).includes(code) && (!latest || t.endDate > latest)) latest = t.endDate;
+  });
+  return latest;
+}
+function dashPlacesBeenCount(range){
+  const cutoff = dashRangeCutoffStr(range);
+  if(!cutoff) return placesCounts().been;
+  const trips = placesTripMap();
+  return COUNTRY_CODES.filter(c => {
+    if(placesStatusOf(c, trips[c]) !== 'been') return false;
+    const last = placesLastVisitedDate(c);
+    return last && last >= cutoff;
+  }).length;
+}
 function dashPlacesBeenWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlaces('been')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('been')}">
       <div class="dash-item-flags" aria-hidden="true">📍</div>
-      <div class="dash-item-title">${placesCounts().been} Places Been</div>
+      <div class="dash-item-title">${dashPlacesBeenCount(CUR_DASH_SONG_RANGE)} Places Been</div>
     </div>`;
 }
 function dashNextGig(){
@@ -3016,7 +3075,7 @@ function dashNewsFeatureHTML(){
 }
 function dashGamesStatWidgetHTML(n){
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
       <div class="dash-item-flags" aria-hidden="true">🎮</div>
       <div class="dash-item-title">${n} Games</div>
@@ -3032,48 +3091,62 @@ function dashCurrentlyPlayingWidgetHTML(g){
       <div class="dash-item-sub">Currently Playing</div>
     </div>`;
 }
-/* PlayStation needs a live fetch, unlike the other widgets which read straight from what's
-   already stored on-device - so this slot starts as a "connect" prompt (if not set up) or a
-   loading stat, then fills in once (if) the fetch comes back */
-function dashGamesPlaceholderHTML(){
+/* PlayStation needs a live fetch, unlike the other three stat tiles which read straight from
+   what's already stored on-device - so this one starts as a "connect" prompt (if not set up) or
+   a loading row, then fills in with the real count once (if) the fetch comes back. Row-style
+   like its three neighbours in the stat grid, not the bigger item-style Currently Playing gets
+   below - that one still needs the "connect"/loading placeholder Games itself always did, this
+   is just the count half of what used to be one combined tile. */
+function dashGamesStatPlaceholderHTML(){
   if(!psnConfigured() || !psnTokens()) return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
       <div class="dash-item-flags" aria-hidden="true">🎮</div>
       <div class="dash-item-title">Connect PlayStation</div>
-      <div class="dash-item-sub">See your games here</div>
     </div>`;
-  return `<div class="dash-widget dash-widget-item"><div class="dash-item-flags" aria-hidden="true">🎮</div><div class="dash-item-title">Loading…</div></div>`;
+  return `
+    <div class="dash-widget dash-widget-row">
+      <div class="dash-item-flags" aria-hidden="true">🎮</div>
+      <div class="dash-item-title">Loading…</div>
+    </div>`;
 }
 let DASH_GAMES_TITLES = null;   // cached from the one /titles fetch, so switching the range dropdown doesn't refetch
+/* the count (top stat grid) and Currently Playing (masonry below) are two separate slots now,
+   not one combined tile - same underlying fetch and range filter, just drawn into two different
+   spots on the page, so both get refreshed off this one function */
 function drawDashGamesSlot(){
-  const slot = $('#dash-games-slot'); if(!slot || !DASH_GAMES_TITLES) return;
+  const statSlot = $('#dash-games-stat-slot'), curSlot = $('#dash-games-current-slot');
+  if(!DASH_GAMES_TITLES) return;
   const cutoff = dashRangeCutoffStr(CUR_DASH_SONG_RANGE);
   const titles = cutoff ? DASH_GAMES_TITLES.filter(t=>t.lastPlayed && t.lastPlayed.slice(0,10)>=cutoff) : DASH_GAMES_TITLES;
-  slot.innerHTML = dashGamesStatWidgetHTML(titles.length) + (titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : '');
+  if(statSlot) statSlot.innerHTML = dashGamesStatWidgetHTML(titles.length);
+  if(curSlot) curSlot.innerHTML = titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : '';
   balanceDashboardColumns();
 }
 function loadDashboardGames(){
-  if(!psnConfigured() || !psnTokens()) return;   // the placeholder already shows the right prompt
+  if(!psnConfigured() || !psnTokens()) return;   // the stat slot placeholder already shows the right prompt
   psnApi('/titles?limit=200').then(data => {
     DASH_GAMES_TITLES = data.titles||[];
     drawDashGamesSlot();
   }).catch(()=>{
     // fails silently here - Games tab itself surfaces the real error if you go look
-    const slot = $('#dash-games-slot'); if(slot) slot.innerHTML = '';
+    const statSlot = $('#dash-games-stat-slot'); if(statSlot) statSlot.innerHTML = '';
+    const curSlot = $('#dash-games-current-slot'); if(curSlot) curSlot.innerHTML = '';
   });
 }
 /* Films reads straight from DB.films/DB.filmsWatchlist, already loaded on-device by the time
    Home renders - no live fetch to wait on, so these render directly rather than going through
    the placeholder-then-fill slot pattern Games/Songs need for their own API calls. */
-function dashFilmsThisYearWidgetHTML(){
-  const year = todayStr().slice(0,4);
-  const n = (DB.films||[]).filter(f=>f.watchedDate && f.watchedDate.slice(0,4)===year).length;
+function dashFilmsSeenCount(range){
+  const cutoff = dashRangeCutoffStr(range);
+  return (DB.films||[]).filter(f=>f.watchedDate && f.watchedDate<=todayStr() && (!cutoff || f.watchedDate>=cutoff)).length;
+}
+function dashFilmsSeenWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goFilmsDiary()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
       <div class="dash-item-flags" aria-hidden="true">🎬</div>
-      <div class="dash-item-title">${n} This Year</div>
+      <div class="dash-item-title">${dashFilmsSeenCount(CUR_DASH_SONG_RANGE)} Films Seen</div>
     </div>`;
 }
 function dashLastSeenFilmWidgetHTML(){
@@ -3107,7 +3180,7 @@ function dashRandomWatchlistWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsWatchlist()}">
-      ${f.image ? `<img class="dash-item-img dash-item-img-square" src="${esc(f.image)}" alt="" loading="lazy">`
+      ${f.image ? `<img class="dash-item-img-half dash-item-img-half-poster" src="${esc(f.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">From Your Watchlist</div>
@@ -3143,17 +3216,20 @@ function renderDashboard(){
   renderSidebar(null);
   const widgets = `
     ${dashTripWidgetsHTML()}
-    ${dashPlacesBeenWidgetHTML()}
-    <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
-    ${dashFilmsThisYearWidgetHTML()}
     ${dashGigWidgetHTML()}
-    <div id="dash-games-slot" class="dash-slot">${dashGamesPlaceholderHTML()}</div>
+    <div id="dash-games-current-slot" class="dash-slot"></div>
     <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
     ${dashLastSeenFilmWidgetHTML()}
     ${dashRandomWatchlistWidgetHTML()}`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     ${dashNewsFeatureHTML()}
+    <div class="dash-stat-grid">
+      <div id="dash-places-slot">${dashPlacesBeenWidgetHTML()}</div>
+      <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
+      <div id="dash-films-slot">${dashFilmsSeenWidgetHTML()}</div>
+      <div id="dash-games-stat-slot">${dashGamesStatPlaceholderHTML()}</div>
+    </div>
     <div class="dash-masonry">
       <div class="dash-col" id="dash-col-a">${widgets}</div>
       <div class="dash-col" id="dash-col-b"></div>
@@ -4567,16 +4643,18 @@ function renderSettings(){
           Settings</span>
       </div>
     </div>
-    <h3 style="margin-bottom:10px">Films</h3>
-    <div id="settings-letterboxd" style="margin-bottom:14px"></div>
-    <div class="card" style="margin-bottom:20px">
-      <p class="small muted" style="margin-bottom:14px">
-        Bring in your full Letterboxd history from its own export - Connect Letterboxd's sync
-        above only ever sees your most recent ~50 entries.
-      </p>
-      <div class="btn-row">
-        <button class="btn sm" onclick="App.filmsImportCsv()">Import Diary CSV</button>
-        <button class="btn sm" onclick="App.fwImportCsv()">Import Watchlist CSV</button>
+    <div id="settings-body">
+      <h3 style="margin-bottom:10px">Films</h3>
+      <div id="settings-letterboxd" style="margin-bottom:14px"></div>
+      <div class="card" style="margin-bottom:20px">
+        <p class="small muted" style="margin-bottom:14px">
+          Bring in your full Letterboxd history from its own export - Connect Letterboxd's sync
+          above only ever sees your most recent ~50 entries.
+        </p>
+        <div class="btn-row">
+          <button class="btn sm" onclick="App.filmsImportCsv()">Import Diary CSV</button>
+          <button class="btn sm" onclick="App.fwImportCsv()">Import Watchlist CSV</button>
+        </div>
       </div>
     </div>`;
   drawLetterboxdConnect();
@@ -4663,7 +4741,7 @@ function drawFilmsGrid(){
     + (filtered.length ? `<div class="film-grid">${filtered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>` : `<div class="empty">No films in that category.</div>`);
 }
 function filmCardHTML(f, i){
-  const meta = [f.year, f.watchedDate?fmtDate(f.watchedDate):''].filter(Boolean).join(' · ');
+  const meta = [f.year, f.watchedDate?fmtFilmDate(f.watchedDate):''].filter(Boolean).join(' · ');
   return `
     <button type="button" class="film-card" onclick="App.filmForm(${i})">
       ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
@@ -5087,12 +5165,21 @@ function drawFwMine(){
       ? `<div class="film-grid" style="margin-bottom:20px">${filtered.map(f=>fwMineCardHTML(f)).join('')}</div>`
       : `<div class="empty" style="margin-bottom:20px">No films in that category.</div>`);
 }
+/* a CSV-imported entry carries the exact Letterboxd URI for that film (Letterboxd's own export
+   column); one added via TMDb search never has one, so the closest honest fallback is a
+   Letterboxd search for its title - not the exact film page, but still one tap from it, and the
+   best this app can do without its own Letterboxd film-id lookup */
+function fwLetterboxdUrl(f){
+  return f.link || ('https://letterboxd.com/search/films/'+encodeURIComponent(f.title||'')+'/');
+}
 function fwMineCardHTML(f){
   return `
     <div class="film-card">
-      ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
-                 : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
-      <div class="film-title">${esc(f.title||'Untitled')}</div>
+      <a href="${esc(fwLetterboxdUrl(f))}" target="_blank" rel="noopener" aria-label="${esc(f.title||'Film')} on Letterboxd">
+        ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                   : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
+        <div class="film-title">${esc(f.title||'Untitled')}</div>
+      </a>
       ${f.year?`<div class="film-meta">${esc(f.year)}</div>`:''}
       <div class="btn-row fw-actions">
         <button type="button" class="btn sm" onclick="App.fwMarkWatched('${esc(f.id)}')">Watched</button>
@@ -5280,8 +5367,8 @@ function drawFilmsStats(){
 
   body.innerHTML = `
     <div class="stat-overview-row">
-      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.goFilmsDiary()"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
+      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.filmsTab('diary')"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmsTab('diary')}">
         <div class="dash-stat-num">${films.length}</div><div class="dash-stat-label">Logged</div></div>
       <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.filmsStatsRewatches()"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmsStatsRewatches()}">
@@ -5310,10 +5397,10 @@ function renderFilmsStatsFiltered(type, valueStr){
     .map(f => ({f, i: films.indexOf(f)}));
   $('#app').innerHTML = `
     <div class="crumb">
-      <div class="crumb-titlerow">
-        <button class="btn sm ghost" onclick="App.goFilmsStats()">${ICONS.back}Stats</button>
-        <span class="crumb-here" style="flex:1; text-align:center">${esc(title)}</span>
-        <span class="gig-seen-pill">${ordered.length}</span>
+      <div class="crumb-titlerow" style="display:grid; grid-template-columns:1fr auto 1fr">
+        <button class="btn sm ghost" style="justify-self:start" onclick="App.goFilmsStats()">${ICONS.back}Stats</button>
+        <span class="crumb-here" style="text-align:center">${esc(title)}</span>
+        <span class="gig-seen-pill" style="justify-self:end">${ordered.length}</span>
       </div>
     </div>
     <div id="films-grid">${ordered.length
@@ -5565,6 +5652,8 @@ App.dashSongRange = k => {
   loadDashboardSong();
   drawDashGamesSlot();
   const gigsSlot = $('#dash-gigs-slot'); if(gigsSlot) gigsSlot.innerHTML = dashGigsStatWidgetHTML();
+  const placesSlot = $('#dash-places-slot'); if(placesSlot) placesSlot.innerHTML = dashPlacesBeenWidgetHTML();
+  const filmsSlot = $('#dash-films-slot'); if(filmsSlot) filmsSlot.innerHTML = dashFilmsSeenWidgetHTML();
   balanceDashboardColumns();
 };
 App.readNews = i => { location.hash = '#/news/'+i; };
