@@ -1158,8 +1158,11 @@ const NEWS_PROXY_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.21.0';
+const APP_VERSION = '2.21.1';
 const CHANGELOG = [
+  {version:'2.21.1', notes:[
+    "Plants: the auto-picked emoji now covers a lot more vegetables - radish, turnip, beetroot, avocado, olive, beans, herbs (basil, mint, coriander…), courgette, cauliflower, cabbage and more all get a sensible icon now instead of falling back to the plain seedling.",
+  ]},
   {version:'2.21.0', notes:[
     'New Plants tab: track vegetables through six growth stages (Seed Sown to Harvested), log watering with a per-vegetable frequency so overdue ones get flagged, and see a tip for what each one needs next. Cards pick an emoji automatically from the name (tomato, carrot, pepper…), or pick your own from the grid.',
     'Home now shows the vegetable that needs the most attention, and the tabbar/menu are reordered to Home, Travel, Films, Music, Games, Plants - News moved off the tabbar onto a small icon next to Home\'s range dropdown.',
@@ -5777,17 +5780,24 @@ const PLANT_STAGES = [
   {k:'ready', label:'Ready to Harvest'},
   {k:'harvested', label:'Harvested'},
 ];
-const PLANT_EMOJIS = ['🍅','🥕','🥬','🥦','🌽','🥒','🫑','🧄','🧅','🥔','🍆','🫛','🌶️','🍓','🫐','🍇','🎃','🍉','🌱'];
+const PLANT_EMOJIS = ['🍅','🥕','🥬','🥦','🌽','🥒','🫑','🌶️','🧄','🧅','🥔','🍆','🫛','🫘','🫜','🥑','🫒','🌿','🍓','🫐','🍇','🎃','🍈','🍉','🌱'];
 /* a handful of common name -> emoji matches so a fresh vegetable often gets the right icon
    picked automatically as soon as its name is typed - plantNameInputImpl only applies this
    while the emoji hasn't been touched by hand (PLANT_FORM_EMOJI_MANUAL), so picking one
-   yourself always wins over the guess */
+   yourself always wins over the guess. Every emoji used here also has to be in PLANT_EMOJIS
+   above - the guess only actually shows as "picked" if it's one of the grid's own buttons.
+   No dedicated emoji exists for radish, turnip, beetroot, parsnip or swede, so they share
+   Unicode 15's generic "root vegetable" glyph rather than falling through to the plain 🌱. */
 const PLANT_EMOJI_GUESS = [
-  [/tomato/,'🍅'], [/carrot/,'🥕'], [/lettuce|spinach|kale|chard|leaf/,'🥬'], [/broccoli/,'🥦'],
-  [/corn|maize/,'🌽'], [/cucumber/,'🥒'], [/pepper/,'🫑'], [/chilli|chili/,'🌶️'],
-  [/garlic/,'🧄'], [/onion|leek|shallot/,'🧅'], [/potato/,'🥔'], [/aubergine|eggplant/,'🍆'],
-  [/pea/,'🫛'], [/strawberr/,'🍓'], [/blueberr/,'🫐'], [/grape/,'🍇'],
-  [/pumpkin|squash|courgette|zucchini/,'🎃'], [/melon/,'🍉'],
+  [/tomato/,'🍅'], [/carrot/,'🥕'],
+  [/lettuce|spinach|kale|chard|salad|rocket|arugula|cabbage|cauliflower|bok choy|pak choi|leaf/,'🥬'],
+  [/broccoli/,'🥦'], [/corn|maize|sweetcorn/,'🌽'], [/cucumber|courgette|zucchini/,'🥒'],
+  [/pepper|capsicum/,'🫑'], [/chilli|chili|jalapeno/,'🌶️'], [/garlic/,'🧄'], [/onion|leek|shallot/,'🧅'],
+  [/potato/,'🥔'], [/aubergine|eggplant/,'🍆'], [/pea/,'🫛'], [/bean/,'🫘'],
+  [/radish|turnip|beet|parsnip|swede|rutabaga/,'🫜'], [/avocado/,'🥑'], [/olive/,'🫒'],
+  [/basil|mint|coriander|cilantro|parsley|thyme|rosemary|sage|chive|dill|herb/,'🌿'],
+  [/strawberr/,'🍓'], [/blueberr/,'🫐'], [/grape/,'🍇'], [/pumpkin|squash|butternut/,'🎃'],
+  [/watermelon/,'🍉'], [/melon/,'🍈'],
 ];
 function guessPlantEmoji(name){
   const n = (name||'').trim().toLowerCase();
