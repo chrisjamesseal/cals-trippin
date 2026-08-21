@@ -368,6 +368,14 @@ a{color:var(--brand-dark);}
 .home-song-range-wrap{display:inline-block; border-radius:999px; overflow:hidden; box-shadow:none;}
 .home-song-range-sel{display:block; width:auto; font-size:.78rem; font-weight:700;
   padding:7px 28px 7px 12px; border-radius:999px; box-shadow:none;}
+/* News lost its tabbar/menu slot to Plants, this button is its one remaining way in - grouped
+   with the range dropdown in one wrapper so the pair reads as one control cluster, not two
+   separate things fighting .crumb-titlerow's own space-between for the right-hand slot */
+.dash-home-controls{display:inline-flex; align-items:center; gap:8px;}
+.dash-news-btn{display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px;
+  border:none; border-radius:50%; background:var(--paper); box-shadow:var(--shadow); cursor:pointer;
+  padding:0; font-size:1.1rem; line-height:1; flex-shrink:0;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 /* Next Trip has no image the way Most Played/Currently Playing do, just this flag - sized bigger
@@ -375,10 +383,36 @@ a{color:var(--brand-dark);}
    exactly, since it didn't occupy the same box those widgets' images do. This gives it the exact
    same width:50%/aspect-ratio:1/1 box .dash-item-img-half's image sits in, centring the flag
    inside it instead - same box, same height, whatever the column width happens to be. */
-.dash-item-flags-boxed{display:flex; align-items:center; justify-content:center;
-  width:50%; aspect-ratio:1/1; margin:0 0 10px; font-size:2.6rem;}
+.dash-item-flags-boxed{display:flex; align-items:stretch; justify-content:center;
+  width:50%; aspect-ratio:1/1; margin:0 0 10px;}
+.dash-item-flags-boxed .flag-cell{container-type:inline-size; flex:1 1 0; min-width:0;
+  display:flex; align-items:center; justify-content:center;}
+.dash-item-flags-boxed .flag-cell span{font-size:80cqw; line-height:1;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
+
+/* ---------- plants (vegetable growing tracker) ---------- */
+.plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px;}
+.plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px;
+  padding:18px 12px; cursor:pointer;}
+.plant-emoji{font-size:2.4rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-name{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
+.plant-stage-label{color:var(--muted); font-size:.78rem;}
+.plant-dots{display:flex; gap:4px; margin:2px 0;}
+.plant-dot{width:7px; height:7px; border-radius:50%; background:var(--line-strong);}
+.plant-dot.on{background:var(--brand);}
+.plant-tip{font-size:.78rem; font-weight:700; margin-top:2px;}
+.plant-tip-warn{color:#C0392B;}
+.plant-tip-good{color:var(--brand-dark);}
+.plant-tip-info{color:var(--muted);}
+.plant-water-row{display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:8px; width:100%;}
+.plant-water-label{color:var(--muted); font-size:.76rem;}
+.plant-emoji-picker{display:flex; flex-wrap:wrap; gap:6px;}
+.plant-emoji-opt{font-size:1.3rem; line-height:1; padding:6px 9px; border:1px solid var(--line-strong);
+  border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-emoji-opt.on{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand);}
 
 /* ---------- design (UX news feed) ---------- */
 .design-list{display:flex; flex-direction:column; gap:10px;}
@@ -1124,8 +1158,15 @@ const NEWS_PROXY_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.20.0';
+const APP_VERSION = '2.21.0';
 const CHANGELOG = [
+  {version:'2.21.0', notes:[
+    'New Plants tab: track vegetables through six growth stages (Seed Sown to Harvested), log watering with a per-vegetable frequency so overdue ones get flagged, and see a tip for what each one needs next. Cards pick an emoji automatically from the name (tomato, carrot, pepper…), or pick your own from the grid.',
+    'Home now shows the vegetable that needs the most attention, and the tabbar/menu are reordered to Home, Travel, Films, Music, Games, Plants - News moved off the tabbar onto a small icon next to Home\'s range dropdown.',
+    'Films/Watchlist search placeholder shortened to "Search for a film…".',
+    "Home's top news article no longer shows a newspaper emoji placeholder when it has no image - just the headline.",
+    "Next Trip: multiple flags now sit on one line and fill the width between them evenly instead of a single fixed size (one flag still fills the whole space).",
+  ]},
   {version:'2.20.0', notes:[
     "Simplified external links (Letterboxd, Spotify, TikTok, Songkick, News' Read on X, maps, booking links, shared albums, TikTok/Instagram mood board thumbnails) - dropped a Safari-handoff trick that was opening two windows instead of one and making it a hassle to get back to the app. Flight tracking keeps it, since it's the one link that genuinely needs Safari's own saved login.",
     'Fixed News articles occasionally showing literal HTML like &lt;p&gt; as visible text - some feeds entity-escape their own markup, which slipped past the tag-stripping step.',
@@ -1781,10 +1822,11 @@ function load(){
       db.gigs = Array.isArray(db.gigs) ? db.gigs : [];
       db.films = Array.isArray(db.films) ? db.films : [];
       db.filmsWatchlist = Array.isArray(db.filmsWatchlist) ? db.filmsWatchlist : [];
+      db.plants = Array.isArray(db.plants) ? db.plants : [];
       return db;
     }
   }catch(e){}
-  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[], films:[], filmsWatchlist:[]};
+  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[], films:[], filmsWatchlist:[], plants:[]};
 }
 /* persist to localStorage. If storage is full, never lose a trip, drop only the heavy
    in-browser file/photo previews (they still live in the cloud copy when synced) and keep
@@ -2291,8 +2333,11 @@ function countryPills(codes, removable, fnName){
     return `<span class="chip country"><span class="flag">${co.flag}</span>${esc(co.name)}${removable?`<button aria-label="Remove ${esc(co.name)}" onclick="${fnName}(${i})">${fa('xmark')}</button>`:''}</span>`;
   }).join('');
 }
+function tripFlagsArr(t){
+  return (t.countries||[]).map(c=>{ const co=countryByCode(c); return co?co.flag:''; }).filter(Boolean);
+}
 function tripFlags(t){
-  return (t.countries||[]).map(c=>{ const co=countryByCode(c); return co?co.flag:''; }).filter(Boolean).join('');
+  return tripFlagsArr(t).join('');
 }
 
 /* ================= places I've been ================= */
@@ -2956,12 +3001,20 @@ function dashUpcomingTrips(){
   withDates.sort((a,b)=>a.startDate.localeCompare(b.startDate));
   return withDates;
 }
+/* each flag gets its own equal-width cell (rather than one run of text at a fixed size) so
+   they always sit on one line and scale to fill the box between them - one flag fills the
+   whole box, two share it evenly, and so on. Cell font-size is in cqw (container-query width,
+   set via container-type on the cell itself), which is what makes that scaling automatic
+   instead of needing per-count sizing logic. */
+function flagCellsHTML(arr){
+  return arr.map(f=>`<span class="flag-cell"><span>${f}</span></span>`).join('');
+}
 function dashTripItemHTML(t){
-  const flags = tripFlags(t);
+  const flags = tripFlagsArr(t);
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/trip/${esc(t.id)}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${esc(t.id)}'}">
-      <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">${flags||'✈️'}</div>
+      <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">${flagCellsHTML(flags.length?flags:['✈️'])}</div>
       <div class="dash-item-title">${esc(t.name)}</div>
       <div class="dash-item-sub">Next Trip</div>
     </div>`;
@@ -2974,7 +3027,7 @@ function dashTripWidgetsHTML(){
   if(!trips.length) return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlaces()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
-      <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">🌍</div>
+      <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">${flagCellsHTML(['🌍'])}</div>
       <div class="dash-item-title">No Trips Booked</div>
       <div class="dash-item-sub">Plan your next one</div>
     </div>`;
@@ -3110,6 +3163,11 @@ function dashSongRangeSelectHTML(){
       </select>
     </span>`;
 }
+/* News dropped off the tabbar/menu when Plants took its slot there - this is its one remaining
+   way in, grouped with the range dropdown since both live in the same header row */
+function dashHomeControlsHTML(){
+  return `<span class="dash-home-controls">${dashSongRangeSelectHTML()}<button class="dash-news-btn" onclick="App.goNews()" aria-label="News">📰</button></span>`;
+}
 function loadDashboardSong(){
   if(!psnConfigured() || !spotifyTokens()) return;   // the placeholder already shows the right prompt
   const range = CUR_DASH_SONG_RANGE;
@@ -3150,8 +3208,7 @@ function dashNewsFeatureHTML(picked){
   return `
     <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.readNews(${i})"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readNews(${i})}">
-      ${a.image ? `<img class="dash-design-feature-img" src="${esc(a.image)}" alt="" loading="lazy">`
-                 : `<div class="dash-item-flags" aria-hidden="true">📰</div>`}
+      ${a.image ? `<img class="dash-design-feature-img" src="${esc(a.image)}" alt="" loading="lazy">` : ''}
       <div class="dash-design-feature-text">
         <div class="dash-item-title">${esc(a.title)}</div>
         <div class="dash-item-sub">Article</div>
@@ -3319,9 +3376,10 @@ function renderDashboard(){
     <div id="dash-games-current-slot" class="dash-slot"></div>
     <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
     ${dashLastSeenFilmWidgetHTML()}
-    ${dashRandomWatchlistWidgetHTML()}`;
+    ${dashRandomWatchlistWidgetHTML()}
+    <div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   $('#app').innerHTML = `
-    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
+    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashHomeControlsHTML()}</div></div>
     <div id="dash-news-slot">${dashNewsFeatureHTML(dashPickRandomArticle())}</div>
     <div class="dash-stat-grid">
       <div id="dash-places-slot">${dashPlacesBeenWidgetHTML()}</div>
@@ -4653,6 +4711,26 @@ function pushFilms(){
 }
 function saveFilms(){ saveLocal(); pushFilms(); }
 
+function loadPlantsCloud(cb){
+  if(!fbRoot){ cb(DB.plants||[]); return; }
+  fbRoot.ref('plants').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : (DB.plants||[])))
+    .catch(() => cb(DB.plants||[]));
+}
+function pushPlants(){
+  if(!fbRoot) return;
+  fbRoot.ref('plants').set(DB.plants||[])
+    .catch(err => {
+      console.error("My Trips, couldn't save Plants:", err);
+      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        noteModal('Plants Not Saved', "The database rules don't allow writing Plants. Open the Firebase console, Realtime Database, Rules, and add a 'plants' rule.");
+      }else{
+        noteModal('Not Saved', 'Check your connection and try again.');
+      }
+    });
+}
+function savePlants(){ saveLocal(); pushPlants(); }
+
 /* Letterboxd's CSV exports (diary.csv, watchlist.csv) carry no poster or genre at all - unlike
    the RSS sync, which at least sometimes finds a poster in the feed entry's own HTML - so a CSV
    import always leaves every entry without either. This fills both in afterwards with a TMDb
@@ -4773,7 +4851,7 @@ function renderFilmsDiary(){
   const body = $('#films-body'); if(!body) return;
   body.innerHTML = `
     <div class="films-search">
-      <input type="text" id="films-home-search" placeholder="Search for a film to log or add to your Watchlist…"
+      <input type="text" id="films-home-search" placeholder="Search for a film…"
         autocomplete="off" oninput="App.filmsHomeSearchInput()">
       <div id="films-home-search-results"></div>
     </div>
@@ -5361,7 +5439,7 @@ function fwResultCardHTML(f){
 function fwAddFilmImpl(){
   openModal(`
     <h2>Add to Watchlist</h2>
-    <div class="field"><input type="text" id="fw-search" placeholder="Search for a film to add…"
+    <div class="field"><input type="text" id="fw-search" placeholder="Search for a film…"
       autocomplete="off" oninput="App.fwSearchInput()"></div>
     <div id="fw-results"></div>`);
 }
@@ -5616,6 +5694,10 @@ function route(){
     CUR_TRIP_ID = null; stopSub();
     renderFilms(); window.scrollTo(0,0); return;
   }
+  if(h === '#/plants'){
+    CUR_TRIP_ID = null; stopSub();
+    renderPlants(); window.scrollTo(0,0); return;
+  }
   if(h.startsWith('#/films/stats/year/')){
     CUR_TRIP_ID = null; stopSub();
     renderFilmsStatsFiltered('year', decodeURIComponent(h.slice('#/films/stats/year/'.length)));
@@ -5684,6 +5766,211 @@ function openTrip(id){
   } else {
       $('#app').innerHTML = `<div class="empty" style="margin-top:40px">This trip isn't saved on this device.<br>Shared trips need the app's cloud config set up first.</div>`;
   }
+}
+
+/* ================= plants (vegetable growing tracker) ================= */
+const PLANT_STAGES = [
+  {k:'seed', label:'Seed Sown'},
+  {k:'sprout', label:'Sprouted'},
+  {k:'growing', label:'Growing'},
+  {k:'flowering', label:'Flowering / Fruiting'},
+  {k:'ready', label:'Ready to Harvest'},
+  {k:'harvested', label:'Harvested'},
+];
+const PLANT_EMOJIS = ['🍅','🥕','🥬','🥦','🌽','🥒','🫑','🧄','🧅','🥔','🍆','🫛','🌶️','🍓','🫐','🍇','🎃','🍉','🌱'];
+/* a handful of common name -> emoji matches so a fresh vegetable often gets the right icon
+   picked automatically as soon as its name is typed - plantNameInputImpl only applies this
+   while the emoji hasn't been touched by hand (PLANT_FORM_EMOJI_MANUAL), so picking one
+   yourself always wins over the guess */
+const PLANT_EMOJI_GUESS = [
+  [/tomato/,'🍅'], [/carrot/,'🥕'], [/lettuce|spinach|kale|chard|leaf/,'🥬'], [/broccoli/,'🥦'],
+  [/corn|maize/,'🌽'], [/cucumber/,'🥒'], [/pepper/,'🫑'], [/chilli|chili/,'🌶️'],
+  [/garlic/,'🧄'], [/onion|leek|shallot/,'🧅'], [/potato/,'🥔'], [/aubergine|eggplant/,'🍆'],
+  [/pea/,'🫛'], [/strawberr/,'🍓'], [/blueberr/,'🫐'], [/grape/,'🍇'],
+  [/pumpkin|squash|courgette|zucchini/,'🎃'], [/melon/,'🍉'],
+];
+function guessPlantEmoji(name){
+  const n = (name||'').trim().toLowerCase();
+  if(!n) return '';
+  const hit = PLANT_EMOJI_GUESS.find(([re])=>re.test(n));
+  return hit ? hit[1] : '';
+}
+function daysSinceStr(dateStr){
+  if(!dateStr) return null;
+  return Math.round((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00')) / 86400000);
+}
+function plantOverdue(p){
+  const since = daysSinceStr(p.lastWatered);
+  return since===null || since>=(p.wateringFrequencyDays||3);
+}
+/* the single most useful thing to say about a plant right now: overdue watering trumps
+   everything else (letting it dry out undoes any other progress), then how close it is to
+   harvest, otherwise just a steady "looking good" - each card only ever shows the one tip
+   that matters most, not a wall of every fact it has */
+function plantTip(p){
+  if(plantOverdue(p)) return {text:'💧 Needs watering', cls:'plant-tip-warn'};
+  if(p.stage==='ready') return {text:'🌟 Ready to harvest!', cls:'plant-tip-good'};
+  if(p.stage==='flowering') return {text:'👀 Getting close - check daily', cls:'plant-tip-info'};
+  if(p.stage==='harvested') return {text:'✅ All harvested', cls:'plant-tip-good'};
+  return {text:'✅ Looking good', cls:'plant-tip-good'};
+}
+function plantStageIdx(k){ const i = PLANT_STAGES.findIndex(s=>s.k===k); return i<0 ? 0 : i; }
+function plantStageDotsHTML(k){
+  const cur = plantStageIdx(k);
+  return PLANT_STAGES.map((s,i)=>`<span class="plant-dot${i<=cur?' on':''}"></span>`).join('');
+}
+/* overdue-watering plants float to the top (the thing most worth noticing at a glance),
+   harvested ones sink to the bottom (done, least worth the eye), everything else by name */
+function plantsSorted(){
+  return [...(DB.plants||[])].sort((a,b)=>{
+    if((a.stage==='harvested') !== (b.stage==='harvested')) return a.stage==='harvested' ? 1 : -1;
+    const oa = plantOverdue(a), ob = plantOverdue(b);
+    if(oa !== ob) return oa ? -1 : 1;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+}
+function plantCardHTML(p){
+  const tip = plantTip(p);
+  const since = daysSinceStr(p.lastWatered);
+  const waterLabel = since===null ? 'Never watered' : since===0 ? 'Watered today' : `Watered ${since} day${since===1?'':'s'} ago`;
+  return `
+    <div class="card plant-card" role="button" tabindex="0" onclick="App.plantForm('${esc(p.id)}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantForm('${esc(p.id)}')}">
+      <div class="plant-emoji" aria-hidden="true">${p.emoji||'🌱'}</div>
+      <div class="plant-name">${esc(p.name||'Untitled')}</div>
+      <div class="plant-stage-label">${esc((PLANT_STAGES[plantStageIdx(p.stage)]||{}).label||'')}</div>
+      <div class="plant-dots" aria-hidden="true">${plantStageDotsHTML(p.stage)}</div>
+      <div class="plant-tip ${tip.cls}">${tip.text}</div>
+      <div class="plant-water-row">
+        <span class="plant-water-label">${waterLabel}</span>
+        <button class="btn sm" onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">💧 Watered Today</button>
+      </div>
+    </div>`;
+}
+function drawPlantsGrid(){
+  const grid = $('#plants-grid'); if(!grid) return;
+  const list = plantsSorted();
+  grid.innerHTML = list.length
+    ? `<div class="plants-grid">${list.map(plantCardHTML).join('')}</div>`
+    : `<div class="empty" style="margin-top:40px">No Vegetables Yet<br><span class="muted small">Add one to start tracking its growth and watering.</span></div>`;
+}
+function renderPlants(){
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">Plants</span>
+        <button class="btn sm primary" onclick="App.plantForm()">+ Add Vegetable</button>
+      </div>
+    </div>
+    <div id="plants-grid"></div>`;
+  drawPlantsGrid();
+  loadPlantsCloud(cloud => {
+    DB.plants = Array.isArray(cloud) ? cloud : [];
+    saveLocal();
+    drawPlantsGrid();
+  });
+}
+function plantWaterImpl(id){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  p.lastWatered = todayStr();
+  savePlants();
+  drawPlantsGrid();
+  drawDashPlantsSlot();
+  toast('Watered');
+}
+let PLANT_FORM_EMOJI = '';
+let PLANT_FORM_EMOJI_MANUAL = false;
+function plantEmojiPickerHTML(sel){
+  return PLANT_EMOJIS.map(e=>`
+    <button type="button" class="plant-emoji-opt${e===sel?' on':''}" onclick="App.plantPickEmoji('${e}')" aria-label="${e}">${e}</button>`).join('');
+}
+function plantPickEmojiImpl(e){
+  PLANT_FORM_EMOJI = e; PLANT_FORM_EMOJI_MANUAL = true;
+  const wrap = $('#plant-emoji-picker'); if(wrap) wrap.innerHTML = plantEmojiPickerHTML(e);
+}
+function plantNameInputImpl(){
+  if(PLANT_FORM_EMOJI_MANUAL) return;
+  const guess = guessPlantEmoji($('#plant-name').value);
+  if(!guess || guess===PLANT_FORM_EMOJI) return;
+  PLANT_FORM_EMOJI = guess;
+  const wrap = $('#plant-emoji-picker'); if(wrap) wrap.innerHTML = plantEmojiPickerHTML(guess);
+}
+function plantFormImpl(id){
+  const p = id ? (DB.plants||[]).find(x=>x.id===id) : null;
+  PLANT_FORM_EMOJI = (p && p.emoji) || '';
+  PLANT_FORM_EMOJI_MANUAL = !!(p && p.emoji);
+  openModal(`
+    <h2>${p?'Edit Vegetable':'Add Vegetable'}</h2>
+    <div class="field"><label class="label" for="plant-name">Name</label>
+      <input id="plant-name" type="text" value="${esc(p?p.name:'')}" placeholder="e.g. Tomatoes" oninput="App.plantNameInput()"></div>
+    <div class="field"><label class="label">Emoji</label>
+      <div class="plant-emoji-picker" id="plant-emoji-picker">${plantEmojiPickerHTML(PLANT_FORM_EMOJI)}</div>
+    </div>
+    <div class="field"><label class="label" for="plant-stage">Stage</label>
+      <select id="plant-stage">${PLANT_STAGES.map(s=>`<option value="${s.k}"${(p?p.stage:'seed')===s.k?' selected':''}>${esc(s.label)}</option>`).join('')}</select></div>
+    <div class="field"><label class="label" for="plant-planted">Planted</label>
+      <input id="plant-planted" type="date" value="${esc((p&&p.plantedDate)||todayStr())}"></div>
+    <div class="field"><label class="label" for="plant-freq">Water Every (Days)</label>
+      <input id="plant-freq" type="number" inputmode="numeric" min="1" max="30" value="${esc((p&&p.wateringFrequencyDays)||3)}"></div>
+    <div class="field"><label class="label" for="plant-lastwatered">Last Watered</label>
+      <input id="plant-lastwatered" type="date" value="${esc((p&&p.lastWatered)||'')}"></div>
+    <div class="btn-row" style="margin-top:6px">
+      <button class="btn primary" style="flex:1" onclick="App.savePlant(${p?`'${esc(p.id)}'`:'null'})">${p?'Save':'Add Vegetable'}</button>
+      ${p?`<button class="btn danger" onclick="App.delPlant('${esc(p.id)}')">Delete</button>`:''}
+    </div>`);
+}
+function savePlantImpl(id){
+  const name = ($('#plant-name').value||'').trim();
+  if(!name) return markErr('#plant-name','Enter a name');
+  const existing = id ? (DB.plants||[]).find(x=>x.id===id) : null;
+  const plant = {
+    id: (existing&&existing.id) || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()),
+    name,
+    emoji: PLANT_FORM_EMOJI || guessPlantEmoji(name) || '🌱',
+    stage: $('#plant-stage').value,
+    plantedDate: $('#plant-planted').value || null,
+    wateringFrequencyDays: parseInt($('#plant-freq').value,10) || 3,
+    lastWatered: $('#plant-lastwatered').value || null,
+  };
+  DB.plants = DB.plants||[];
+  if(existing){ DB.plants[DB.plants.findIndex(x=>x.id===id)] = plant; } else DB.plants.push(plant);
+  savePlants();
+  closeModal(); drawPlantsGrid(); drawDashPlantsSlot();
+  toast(existing?'Vegetable updated':'Vegetable added');
+}
+function delPlantImpl(id){
+  confirmModal('Remove This Vegetable?', "This removes it from your tracker. This can't be undone.", 'Remove', ()=>{
+    DB.plants = (DB.plants||[]).filter(x=>x.id!==id);
+    savePlants(); closeModal(); drawPlantsGrid(); drawDashPlantsSlot();
+    toast('Vegetable removed');
+  });
+}
+/* Home shows just the single most urgent vegetable (plantsSorted already puts overdue
+   watering first) rather than every one of them - same "one tile, one thing to notice" shape
+   as the rest of the dashboard's masonry. Reads DB.plants directly like Films' own Home tiles
+   do, no live fetch to wait on since plants are already loaded on-device by the time Home
+   renders (the fuller cloud sync happens if/when the Plants tab itself is opened). */
+function dashPlantsWidgetHTML(){
+  const list = DB.plants||[];
+  if(!list.length) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlants()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
+      <div class="dash-item-flags" aria-hidden="true">🥕</div>
+      <div class="dash-item-title">No Vegetables Yet</div>
+      <div class="dash-item-sub">Start Growing</div>
+    </div>`;
+  const p = plantsSorted()[0];
+  const tip = plantTip(p);
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlants()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
+      <div class="dash-item-flags" aria-hidden="true">${p.emoji||'🌱'}</div>
+      <div class="dash-item-title">${esc(p.name||'Untitled')}</div>
+      <div class="dash-item-sub">${esc(tip.text)}</div>
+    </div>`;
+}
+function drawDashPlantsSlot(){
+  const slot = $('#dash-plants-slot'); if(slot) slot.innerHTML = dashPlantsWidgetHTML();
 }
 
 const App = {};
@@ -5764,6 +6051,13 @@ App.filmForm = filmFormImpl;
 App.saveFilm = saveFilmImpl;
 App.delFilm = delFilmImpl;
 App.letterboxdConnect = letterboxdConnectImpl;
+App.goPlants = () => { location.hash = '#/plants'; };
+App.plantForm = plantFormImpl;
+App.savePlant = savePlantImpl;
+App.delPlant = delPlantImpl;
+App.plantWater = plantWaterImpl;
+App.plantPickEmoji = plantPickEmojiImpl;
+App.plantNameInput = plantNameInputImpl;
 App.letterboxdSync = letterboxdSyncImpl;
 App.letterboxdDisconnect = letterboxdDisconnectImpl;
 App.filmTitleInput = filmTitleInputImpl;
@@ -6454,9 +6748,9 @@ function sidebarGlobalNav(inTrip){
   const onHomeDash = location.hash==='#/home';
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips';
   const onGames  = location.hash.startsWith('#/games');
-  const onNews   = location.hash.startsWith('#/news');
   const onGigs   = location.hash.startsWith('#/gigs');
   const onFilms  = location.hash.startsWith('#/films');
+  const onPlants = location.hash.startsWith('#/plants');
   const item = (label, emoji, fn, active) => `
     <div class="menu-item${active?' active':''}" role="menuitem" tabindex="0" onclick="${fn}"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}">
@@ -6464,10 +6758,10 @@ function sidebarGlobalNav(inTrip){
     </div>`;
   return (inTrip ? '' : item('Home','🏠',"App.goDashboard()", onHomeDash))
     + (inTrip ? '' : item('Travel','🌎',"App.goPlaces()", onPlaces))
-    + item('Games','🎮',"App.goGames()", onGames)
-    + item('News','📰',"App.goNews()", onNews)
+    + item('Films','🎬',"App.goFilms()", onFilms)
     + item('Music','🎤',"App.goGigs()", onGigs)
-    + item('Films','🎬',"App.goFilms()", onFilms);
+    + item('Games','🎮',"App.goGames()", onGames)
+    + item('Plants','🥕',"App.goPlants()", onPlants);
 }
 function renderSidebar(t){
   const root = $('#sidebar-root'); if(!root) return;
@@ -6485,9 +6779,9 @@ function renderTabbar(){
   const onHomeDash = location.hash==='#/home';
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips';
   const onGames  = location.hash.startsWith('#/games');
-  const onNews   = location.hash.startsWith('#/news');
   const onGigs   = location.hash.startsWith('#/gigs');
   const onFilms  = location.hash.startsWith('#/films');
+  const onPlants = location.hash.startsWith('#/plants');
   /* with the menu open the bar rides above it; anything tapped from there dismisses the menu
      on the way through (the menu itself now opens from a button in the trip header, not here) */
   const menuOpen = menuIsOpen();
@@ -6504,10 +6798,10 @@ function renderTabbar(){
   bar.innerHTML =
       item('Home','🏠',go("App.goDashboard()"), onHomeDash && !menuOpen, false)
     + item('Travel','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
-    + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
-    + item('News','📰',go("App.goNews()"), onNews && !menuOpen, false)
+    + item('Films','🎬',go("App.goFilms()"), onFilms && !menuOpen, false)
     + item('Music','🎤',go("App.goGigs()"), onGigs && !menuOpen, false)
-    + item('Films','🎬',go("App.goFilms()"), onFilms && !menuOpen, false);
+    + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
+    + item('Plants','🥕',go("App.goPlants()"), onPlants && !menuOpen, false);
   /* anything that has to sit on top of the bar (the Places search, the hub's height) needs
      its real height, inset and all, not a number that was right on one phone */
   document.documentElement.style.setProperty('--bar-h', bar.offsetHeight+'px');
