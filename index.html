@@ -1062,8 +1062,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.14.5';
+const APP_VERSION = '2.14.6';
 const CHANGELOG = [
+  {version:'2.14.6', notes:[
+    "New Settings page (⚙️ Settings, at the foot of Home) - Import Diary CSV and Import Watchlist CSV moved there from the Films header, since they were competing for attention with Log Film and Letterboxd's own sync status for something you only really use once.",
+  ]},
   {version:'2.14.5', notes:[
     "Fixed posters staying blank for films logged beyond Letterboxd's own ~50-entry sync limit - finding posters/genres only ever ran right after a CSV import or sync, so anything that failed to match a title at that moment (a hiccup, a title TMDb didn't recognise yet) stayed blank until you re-imported the whole file. It now retries automatically every time the Diary loads.",
   ]},
@@ -3135,6 +3138,9 @@ function renderDashboard(){
     <div class="dash-masonry">
       <div class="dash-col" id="dash-col-a">${widgets}</div>
       <div class="dash-col" id="dash-col-b"></div>
+    </div>
+    <div class="home-foot">
+      <button class="version-tag" onclick="App.goSettings()">⚙️ Settings</button>
     </div>`;
   balanceDashboardColumns();
   loadDashboardGames();
@@ -4580,6 +4586,37 @@ function filmsGenreSelectHTML(id, list, current, onchange){
     ${genres.map(g=>`<option value="${esc(g)}"${current===g?' selected':''}>${esc(g)}</option>`).join('')}
   </select></div>`;
 }
+/* ================= Settings =================
+   A small, deliberately out-of-the-way page for the handful of things that are genuinely in-app,
+   per-device actions to manage - reachable only from a link at the foot of Home, not the main
+   nav, since it's an occasional-use page rather than a destination. Real secrets (TMDb/Spotify/
+   RAWG/BGG API keys) can't live here: this is a static site with no backend and only a light PIN
+   gate ("Security is deliberately light" - see the README), so anything typed into an in-app
+   settings screen would sit in plain, readable localStorage. Those stay as Vercel/Cloudflare
+   environment variables set outside the app, same as always. */
+function renderSettings(){
+  renderSidebar(null);
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="App.goDashboard()" aria-label="Back to Home">${ICONS.back}</button>
+          Settings</span>
+      </div>
+    </div>
+    <h3 style="margin-bottom:10px">Films</h3>
+    <div class="card" style="margin-bottom:20px">
+      <p class="small muted" style="margin-bottom:14px">
+        Bring in your full Letterboxd history from its own export - Connect Letterboxd's sync
+        (on the Diary tab) only ever sees your most recent ~50 entries.
+      </p>
+      <div class="btn-row">
+        <button class="btn sm" onclick="App.filmsImportCsv()">Import Diary CSV</button>
+        <button class="btn sm" onclick="App.fwImportCsv()">Import Watchlist CSV</button>
+      </div>
+    </div>`;
+}
+
 /* Films holds two unrelated things - what you've actually watched, and what you mean to - so it
    splits into sub-tabs the same way Games does for PlayStation/Board Games/Wishlist. */
 let CUR_FILMS_TAB = 'diary';
@@ -4589,11 +4626,7 @@ function renderFilms(){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        ${CUR_FILMS_TAB==='diary'?`<div class="btn-row" style="flex-wrap:nowrap">
-          <button class="btn sm ghost" onclick="App.filmsImportCsv()">Import CSV</button>
-          <button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>
-        </div>`:''}
-        ${CUR_FILMS_TAB==='watchlist'?'<button class="btn sm ghost" onclick="App.fwImportCsv()">Import CSV</button>':''}
+        ${CUR_FILMS_TAB==='diary'?`<button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>`:''}
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}${tab('stats','📊 Stats')}${tab('news','📰 News')}</div>
@@ -5356,6 +5389,10 @@ function route(){
     CUR_TRIP_ID = null; stopSub();
     renderGames(); window.scrollTo(0,0); return;
   }
+  if(h === '#/settings'){
+    CUR_TRIP_ID = null; stopSub();
+    renderSettings(); window.scrollTo(0,0); return;
+  }
   if(h === '#/gigs'){
     CUR_TRIP_ID = null; stopSub();
     renderGigs(); window.scrollTo(0,0); return;
@@ -5477,6 +5514,7 @@ App.goToYourTrips = () => {
   const el = $('#trips-heading'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
 };
 App.goGames = () => { location.hash = '#/games'; };
+App.goSettings = () => { location.hash = '#/settings'; };
 App.goDesign = () => { location.hash = '#/design'; };
 App.goGigs = () => { location.hash = '#/gigs'; };
 App.goSongs = () => { CUR_GIGS_TAB = 'songs'; location.hash = '#/gigs'; };
