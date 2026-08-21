@@ -1062,8 +1062,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.14.3';
+const APP_VERSION = '2.14.4';
 const CHANGELOG = [
+  {version:'2.14.4', notes:[
+    "Films' News subtab drops Variety and The Hollywood Reporter's all-topics feeds (mostly industry deal news) for their Film/Movies-specific ones, and adds IndieWire for cinema culture and criticism and What's on Netflix for new streaming releases.",
+  ]},
   {version:'2.14.3', notes:[
     "Fixed the Log Film search results not actually showing up (a missing style meant the dropdown could render off in the wrong spot) - and while in there, picking a result now shows its poster and year right in the form instead of just quietly filling in a URL field.",
     'Rating is a dropdown now instead of a row of stars - individual stars, even the bigger tap targets from an earlier fix, were still fiddly to hit precisely on a phone.',

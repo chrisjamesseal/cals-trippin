@@ -145,9 +145,16 @@ const DESIGN_FEEDS = [
    handful of well-known publications, merged - so they reuse every piece of it (parseFeedItems,
    htmlToBlocks, the caching route pattern) via the generic fetchNewsFeeds() a few lines down,
    rather than three near-identical copies of the same fetch/parse/merge logic. */
+/* Variety and THR are trimmed to their Film/Movies verticals rather than their all-topics feeds
+   (TV, music, general business) - the original all-topics feeds were mostly industry-deal news
+   with no film-watching interest to it. IndieWire covers cinema culture and criticism rather
+   than trade news, and What's on Netflix covers new/upcoming streaming releases - neither
+   overlaps with what the trade papers already publish. */
 const FILM_FEEDS = [
-  {name:'Variety', url:'https://variety.com/feed/'},
-  {name:'The Hollywood Reporter', url:'https://www.hollywoodreporter.com/feed/'},
+  {name:'Variety', url:'https://variety.com/v/film/feed/'},
+  {name:'The Hollywood Reporter', url:'https://www.hollywoodreporter.com/topic/movies/feed/'},
+  {name:'IndieWire', url:'https://www.indiewire.com/feed/'},
+  {name:"What's on Netflix", url:'https://www.whats-on-netflix.com/feed/'},
 ];
 const MUSIC_FEEDS = [
   {name:'Resident Advisor', url:'https://ra.co/xml/rss.xml'},
