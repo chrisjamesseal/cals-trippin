@@ -407,7 +407,8 @@ a{color:var(--brand-dark);}
   padding:22px 10px 12px; cursor:pointer;}
 .plant-emoji{font-size:2rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-name{font-family:var(--font-head); font-weight:700; font-size:.88rem; color:var(--ink); overflow-wrap:anywhere;}
+.plant-emoji.plant-icon-img{width:32px; height:32px; object-fit:cover; border-radius:8px;}
+.plant-name{font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--ink); overflow-wrap:anywhere;}
 .plant-stage-label{color:var(--muted); font-size:.7rem;}
 /* each dot is a real button (bigger tap target than the visible dot itself, via ::after) so a
    stage is a single tap on the card - no need to open the edit form just to move something on */
@@ -416,33 +417,51 @@ a{color:var(--brand-dark);}
   display:flex; align-items:center; justify-content:center;}
 .plant-dot::after{content:''; width:6px; height:6px; border-radius:50%; background:var(--line-strong);}
 .plant-dot.on::after{background:var(--brand);}
-.plant-water-row{display:flex; align-items:center; justify-content:space-between; gap:6px;
-  margin-top:4px; width:100%;}
-.plant-water-label{color:var(--muted); font-size:.68rem; text-align:left; min-width:0;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-/* colour carries the urgency that used to be a separate "Needs watering" text line - red when
-   overdue, tinted green once it's been done today, plain otherwise - so the card stays glanceable
-   with a lot of these on screen at once. Always tappable regardless of state: watering twice in
-   a day is normal (a hot day, a top-up), not something to block. */
+.plant-water-label{display:block; color:var(--muted); font-size:.72rem; margin-top:6px; width:100%;}
+/* the full Plants page card's own button - a name plus the water drop underneath it, rather
+   than an icon-only circle, since there's room here and it reads more clearly than an emoji
+   alone. Colour still carries the urgency that used to be a separate "Needs watering" text
+   line - red when overdue, tinted green once done today, plain otherwise. Always tappable
+   regardless of state: watering twice in a day is normal (a hot day, a top-up), not something
+   to block. */
+.plant-water-action-btn{display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; width:100%; margin-top:8px; border:1px solid var(--line-strong); border-radius:var(--radius-sm);
+  background:var(--paper); cursor:pointer; padding:9px 6px; font:inherit; font-weight:700;
+  font-size:.78rem; color:var(--ink);}
+.plant-water-btn-emoji{font-size:1.05rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-water-action-btn.overdue{border-color:#C0392B; background:#FCEBE9;}
+.plant-water-action-btn.done{border-color:var(--brand); background:var(--brand-tint);}
+/* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
+   solid border so it doesn't read as just another status colour like overdue/done do */
+.plant-water-action-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
+/* Home's chips (dashPlantsWidgetHTML) use this small icon-only circle instead - six-plus of
+   them sit side by side there, so a full labelled button per chip wouldn't fit */
 .plant-water-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
   width:30px; height:30px; border:1px solid var(--line-strong); border-radius:50%;
   background:var(--paper); cursor:pointer; padding:0; font-size:1rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-water-btn.overdue{border-color:#C0392B; background:#FCEBE9;}
-.plant-water-btn.done{border-color:var(--brand); background:var(--brand-tint);}
-/* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
-   solid border so it doesn't read as just another status colour like overdue/done do */
 .plant-water-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
-/* Home's chips are small and six-plus of them sit side by side, so the overdue/done colour
-   circles that work on the full-size button (see above) just read as clutter at this size -
-   the emoji and timestamp already carry the same information there without it */
 .plant-water-btn.sm{width:22px; height:22px; font-size:.8rem;}
-.plant-water-btn.sm.overdue,.plant-water-btn.sm.done{border-color:var(--line-strong); background:var(--paper);}
 .plant-emoji-picker{display:flex; flex-wrap:wrap; gap:6px;}
 .plant-emoji-opt{font-size:1.3rem; line-height:1; padding:6px 9px; border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji-opt.on{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand);}
+/* ---------- plant detail page (watering + stage-change timeline) ---------- */
+.plant-timeline-heading{font-family:var(--font-head); font-size:1rem; margin:0 0 10px;}
+.plant-timeline{display:flex; flex-direction:column;}
+.plant-timeline-item{display:flex; gap:12px; position:relative; padding-bottom:18px;}
+.plant-timeline-item:not(:last-child)::before{content:''; position:absolute; left:11px; top:26px; bottom:0; width:2px; background:var(--line);}
+.plant-timeline-dot{flex-shrink:0; width:24px; height:24px; border-radius:50%; z-index:1;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem; line-height:1;
+  background:var(--paper); border:1px solid var(--line-strong);
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-timeline-body{flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between;
+  gap:8px; padding-top:3px;}
+.plant-timeline-text{font-size:.82rem; overflow-wrap:anywhere;}
+.plant-timeline-text strong{display:block; font-weight:700; color:var(--ink);}
+.plant-timeline-text span{color:var(--muted); font-size:.74rem;}
 /* Home shows every vegetable as its own small chip - emoji, its own water button (see
    plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
    one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
@@ -453,6 +472,7 @@ a{color:var(--brand-dark);}
 .plant-home-chip{display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;}
 .plant-home-emoji{font-size:1.5rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-home-emoji.plant-icon-img{width:24px; height:24px; object-fit:cover; border-radius:6px;}
 .plant-home-ts{font-size:.62rem; color:var(--muted); white-space:nowrap;}
 
 /* ---------- gigs (live music) ---------- */
@@ -1133,8 +1153,15 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.23.1';
+const APP_VERSION = '2.25.0';
 const CHANGELOG = [
+  {version:'2.25.0', notes:[
+    "Plants: tapping a vegetable now opens its own page instead of the edit form - icon, stage, and a Timeline of everything that's happened to it (every watering and every stage change, newest first), each with its own delete button for a mis-tap. Deleting the latest stage entry reverts the plant's current stage to whatever's now the most recent. Editing its name, icon, planted date or watering frequency moved to a dedicated Edit button on this page.",
+  ]},
+  {version:'2.24.0', notes:[
+    'Plants: names are 30% bigger on the Plants page. The water row now reads "Last Watered: 18:00" (24-hour clock), and the button is a proper "Mark as Watered" button with the water drop underneath it instead of an icon-only circle - "Undo Watering" in the brief post-tap undo window. Home\'s small chip buttons are unchanged.',
+    "Plants: vegetables with no matching emoji can use a custom uploaded image instead - a Genmoji/Apple Emoji Maker sticker works well, or any small image. It takes over as that vegetable's icon everywhere (Plants grid, Home's chips) until removed.",
+  ]},
   {version:'2.23.1', notes:[
     "Home's Plants widget: dropped the \"Plants\" header (redundant with the tabbar), removed the red/green circle around each vegetable's water button (the emoji and timestamp already say enough at that size), and the grid is a fixed 3 columns now so six vegetables sit neatly as two rows, growing downward rather than shrinking as more are added.",
   ]},
@@ -5504,6 +5531,10 @@ function route(){
     CUR_TRIP_ID = null; stopSub();
     renderPlants(); window.scrollTo(0,0); return;
   }
+  if(h.startsWith('#/plant/')){
+    CUR_TRIP_ID = null; stopSub();
+    renderPlantDetail(decodeURIComponent(h.slice('#/plant/'.length))); window.scrollTo(0,0); return;
+  }
   if(h.startsWith('#/films/stats/year/')){
     CUR_TRIP_ID = null; stopSub();
     renderFilmsStatsFiltered('year', decodeURIComponent(h.slice('#/films/stats/year/'.length)));
@@ -5623,13 +5654,19 @@ function plantOverdue(p){
   const days = daysSinceTs(plantLastWateredTs(p));
   return days===null || days>=(p.wateringFrequencyDays||3);
 }
+/* 24-hour HH:MM rather than toLocaleTimeString's 12-hour "6:00 PM" - shorter, and reads
+   unambiguously at the small size this sits at on the card */
+function hhmm(ts){
+  const d = new Date(ts);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
 function plantWaterLabel(p){
   const ts = plantLastWateredTs(p);
-  if(!ts) return 'Never watered';
+  if(!ts) return 'Last Watered: Never';
   const days = daysSinceTs(ts);
-  if(days===0) return 'Watered today, '+new Date(ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
-  if(days===1) return 'Watered yesterday';
-  return `Watered ${days} days ago`;
+  if(days===0) return 'Last Watered: '+hhmm(ts);
+  if(days===1) return 'Last Watered: Yesterday';
+  return `Last Watered: ${days} days ago`;
 }
 /* same idea as plantWaterLabel but cut down to fit Home's much narrower per-vegetable chips -
    just the clock time if it was today (the useful part when it's the same day), otherwise a
@@ -5641,6 +5678,14 @@ function plantWaterShortLabel(p){
   if(days===0) return new Date(ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
   if(days===1) return 'Yesterday';
   return `${days}d ago`;
+}
+/* a custom uploaded image (see plantIconStatusHTML) takes over from the emoji wherever a
+   vegetable's icon shows, sharing the same class the emoji span would use so its own CSS
+   (.plant-icon-img) just layers sizing on top rather than needing a whole separate layout */
+function plantIconHTML(p, cls){
+  return p.customIcon
+    ? `<img class="${cls} plant-icon-img" src="${esc(p.customIcon)}" alt="">`
+    : `<span class="${cls}" aria-hidden="true">${p.emoji||'🌱'}</span>`;
 }
 function plantStageIdx(k){ const i = PLANT_STAGES.findIndex(s=>s.k===k); return i<0 ? 0 : i; }
 /* each dot is its own tap target (App.plantSetStage), not just a progress readout - moving a
@@ -5669,29 +5714,38 @@ function plantsSorted(){
    Home widget's smaller chips (see dashPlantsWidgetHTML) - same behaviour, smaller button. */
 let PLANT_UNDO_TIMERS = {};
 const PLANT_UNDO_MS = 5000;
+/* Home's chips (sm) keep the small icon-only circular button (.plant-water-btn); the full
+   Plants page card gets a bigger labelled button instead - "Mark as Watered" with the emoji
+   sat below it, its own class (.plant-water-action-btn) since it's a different shape
+   entirely, not just a bigger version of the same button. */
 function plantWaterButtonHTML(p, sm){
   const showUndo = !!PLANT_UNDO_TIMERS[p.id];
-  const cls = (sm?' sm':'') + (showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : plantWateredToday(p) ? ' done' : '');
+  if(sm){
+    // no overdue/done colour here - see .plant-water-btn.sm's own comment for why
+    return showUndo
+      ? `<button type="button" class="plant-water-btn sm undo" aria-label="Undo watering"
+          onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`
+      : `<button type="button" class="plant-water-btn sm" aria-label="Log watering"
+          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">💧</button>`;
+  }
+  const state = showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : plantWateredToday(p) ? ' done' : '';
   return showUndo
-    ? `<button type="button" class="plant-water-btn${cls}" aria-label="Undo watering"
-        onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`
-    : `<button type="button" class="plant-water-btn${cls}" aria-label="Log watering"
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">💧</button>`;
+    ? `<button type="button" class="plant-water-action-btn${state}"
+        onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">Undo Watering<span class="plant-water-btn-emoji" aria-hidden="true">↩</span></button>`
+    : `<button type="button" class="plant-water-action-btn${state}"
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Mark as Watered<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
 }
-/* no separate "Needs watering" text line - the water button's own colour (see .plant-water-btn)
-   carries that, so a card with a lot of these on screen at once stays compact and scannable */
 function plantCardHTML(p){
+  const href = '#/plant/'+encodeURIComponent(p.id);
   return `
-    <div class="card plant-card" role="button" tabindex="0" onclick="App.plantForm('${esc(p.id)}')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantForm('${esc(p.id)}')}">
-      <div class="plant-emoji" aria-hidden="true">${p.emoji||'🌱'}</div>
+    <div class="card plant-card" role="button" tabindex="0" onclick="location.hash='${href}'"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
+      ${plantIconHTML(p, 'plant-emoji')}
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
       <div class="plant-stage-label">${esc((PLANT_STAGES[plantStageIdx(p.stage)]||{}).label||'')}</div>
       <div class="plant-dots">${plantStageDotsHTML(p)}</div>
-      <div class="plant-water-row">
-        <span class="plant-water-label">${esc(plantWaterLabel(p))}</span>
-        ${plantWaterButtonHTML(p)}
-      </div>
+      <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
+      ${plantWaterButtonHTML(p)}
     </div>`;
 }
 function drawPlantsGrid(){
@@ -5717,6 +5771,89 @@ function renderPlants(){
     drawPlantsGrid();
   });
 }
+/* everything a vegetable's had happen to it, newest first - watering and stage changes merged
+   into one chronological run rather than two separate lists, since "what happened when" is the
+   point of a timeline, not which kind of thing it was. Each entry can be deleted on its own
+   (see plantDeleteLogEntryImpl) for a mis-tap on either the water button or a stage dot. */
+function plantTimelineHTML(p){
+  const waterings = (Array.isArray(p.waterings)?p.waterings:[]).map(ts=>({type:'water', ts}));
+  const stages = (Array.isArray(p.stageChanges)?p.stageChanges:[]).map(e=>({type:'stage', ts:e.ts, stage:e.stage}));
+  const events = [...waterings, ...stages].sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+  if(!events.length) return `<p class="small muted">Nothing logged yet.</p>`;
+  return `<div class="plant-timeline">${events.map(ev=>{
+    const label = ev.type==='water' ? 'Watered' : 'Set to '+esc((PLANT_STAGES[plantStageIdx(ev.stage)]||{}).label||ev.stage);
+    const emoji = ev.type==='water' ? '💧' : '🌱';
+    return `
+      <div class="plant-timeline-item">
+        <span class="plant-timeline-dot" aria-hidden="true">${emoji}</span>
+        <div class="plant-timeline-body">
+          <span class="plant-timeline-text"><strong>${label}</strong><span>${esc(fmtDate(ev.ts.slice(0,10)))} &middot; ${esc(hhmm(ev.ts))}</span></span>
+          <button type="button" class="iconbtn del" aria-label="Delete this entry" title="Delete"
+            onclick="App.plantDeleteLogEntry('${esc(p.id)}','${ev.type}','${esc(ev.ts)}')">${ICONS.trash}</button>
+        </div>
+      </div>`;
+  }).join('')}</div>`;
+}
+function plantDetailStageHTML(p){
+  return `
+    <div class="plant-stage-label">${esc((PLANT_STAGES[plantStageIdx(p.stage)]||{}).label||'')}</div>
+    <div class="plant-dots">${plantStageDotsHTML(p)}</div>`;
+}
+function plantDetailWaterHTML(p){
+  return `
+    <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
+    ${plantWaterButtonHTML(p)}`;
+}
+function renderPlantDetail(id){
+  const p = (DB.plants||[]).find(x=>x.id===id);
+  if(!p){ location.hash = '#/plants'; return; }
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="App.goPlants()" aria-label="Back to Plants">${ICONS.back}</button>
+          ${esc(p.name||'Vegetable')}</span>
+        <button class="btn sm ghost" onclick="App.plantForm('${esc(p.id)}')">Edit</button>
+      </div>
+    </div>
+    <div class="card plant-card" style="cursor:default; margin-bottom:22px">
+      ${plantIconHTML(p, 'plant-emoji')}
+      <div class="plant-name">${esc(p.name||'Untitled')}</div>
+      <div id="plant-detail-stage">${plantDetailStageHTML(p)}</div>
+      <div id="plant-detail-water">${plantDetailWaterHTML(p)}</div>
+    </div>
+    <h3 class="plant-timeline-heading">Timeline</h3>
+    <div id="plant-timeline">${plantTimelineHTML(p)}</div>`;
+}
+/* refreshes just the live bits of the detail page in place (water status, stage, timeline)
+   rather than a full re-render - a no-op if some other page is actually showing right now,
+   same guard-on-the-DOM-node pattern drawPlantsGrid/drawDashPlantsSlot already use */
+function drawPlantDetail(id){
+  const waterRoot = $('#plant-detail-water'); if(!waterRoot) return;
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  waterRoot.innerHTML = plantDetailWaterHTML(p);
+  const stageRoot = $('#plant-detail-stage'); if(stageRoot) stageRoot.innerHTML = plantDetailStageHTML(p);
+  const timelineRoot = $('#plant-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantTimelineHTML(p);
+}
+function plantDeleteLogEntryImpl(id, type, ts){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  if(type==='water'){
+    const idx = (p.waterings||[]).indexOf(ts);
+    if(idx>-1) p.waterings.splice(idx,1);
+  } else {
+    p.stageChanges = Array.isArray(p.stageChanges) ? p.stageChanges : [];
+    const idx = p.stageChanges.findIndex(e=>e.ts===ts);
+    if(idx>-1) p.stageChanges.splice(idx,1);
+    // the plant's actual current stage always tracks whichever entry is now the most recent,
+    // so removing one - especially the latest - can't leave the two disagreeing about "now"
+    const latest = [...p.stageChanges].sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];
+    p.stage = latest ? latest.stage : 'seed';
+  }
+  savePlants();
+  drawPlantsGrid();
+  drawDashPlantsSlot();
+  drawPlantDetail(id);
+}
 /* appends rather than overwrites - watering twice in one day (a hot spell, a top-up after
    forgetting the morning one) is a normal thing to want, not an edge case to guard against, so
    there's no "already watered today" check here blocking a second tap */
@@ -5730,9 +5867,11 @@ function plantWaterImpl(id){
     delete PLANT_UNDO_TIMERS[id];
     drawPlantsGrid();
     drawDashPlantsSlot();
+    drawPlantDetail(id);
   }, PLANT_UNDO_MS);
   drawPlantsGrid();
   drawDashPlantsSlot();
+  drawPlantDetail(id);
   toast('Watered');
 }
 function plantUndoWaterImpl(id){
@@ -5743,24 +5882,38 @@ function plantUndoWaterImpl(id){
   savePlants();
   drawPlantsGrid();
   drawDashPlantsSlot();
+  drawPlantDetail(id);
+}
+/* p.stageChanges - {ts,stage} entries, appended whenever the stage actually changes (here and
+   in savePlantImpl, the edit form's own path to changing it) - lets the Timeline show a real
+   history of what happened and when, not just what the plant is right now. */
+function plantLogStageChange(p, stage){
+  p.stageChanges = Array.isArray(p.stageChanges) ? p.stageChanges : [];
+  p.stageChanges.push({ts:new Date().toISOString(), stage});
 }
 function plantSetStageImpl(id, stageKey){
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  if(!PLANT_STAGES.some(s=>s.k===stageKey)) return;
+  if(!PLANT_STAGES.some(s=>s.k===stageKey) || p.stage===stageKey) return;
   p.stage = stageKey;
+  plantLogStageChange(p, stageKey);
   savePlants();
   drawPlantsGrid();
   drawDashPlantsSlot();
+  drawPlantDetail(id);
 }
 let PLANT_FORM_EMOJI = '';
 let PLANT_FORM_EMOJI_MANUAL = false;
+let PLANT_FORM_CUSTOM_ICON = null;   // a data: URL, or null while a plain emoji is in use
 function plantEmojiPickerHTML(sel){
   return PLANT_EMOJIS.map(e=>`
     <button type="button" class="plant-emoji-opt${e===sel?' on':''}" onclick="App.plantPickEmoji('${e}')" aria-label="${e}">${e}</button>`).join('');
 }
+/* picking a plain emoji only matters if it's actually going to be used - clears whatever
+   custom image was set so the one just tapped takes over, rather than silently doing nothing */
 function plantPickEmojiImpl(e){
-  PLANT_FORM_EMOJI = e; PLANT_FORM_EMOJI_MANUAL = true;
+  PLANT_FORM_EMOJI = e; PLANT_FORM_EMOJI_MANUAL = true; PLANT_FORM_CUSTOM_ICON = null;
   const wrap = $('#plant-emoji-picker'); if(wrap) wrap.innerHTML = plantEmojiPickerHTML(e);
+  const status = $('#plant-icon-status'); if(status) status.innerHTML = plantIconStatusHTML();
 }
 function plantNameInputImpl(){
   if(PLANT_FORM_EMOJI_MANUAL) return;
@@ -5769,15 +5922,45 @@ function plantNameInputImpl(){
   PLANT_FORM_EMOJI = guess;
   const wrap = $('#plant-emoji-picker'); if(wrap) wrap.innerHTML = plantEmojiPickerHTML(guess);
 }
+/* for a vegetable none of PLANT_EMOJIS actually looks like - a custom sticker (Apple's Emoji
+   Maker/Genmoji works well, since it exports a small transparent-background image) or any
+   other small image, downscaled and kept as a PNG (see downscaleToDataURLPng) rather than the
+   app's usual JPEG so a transparent background stays transparent. Takes over from the emoji
+   wherever this vegetable's icon is shown (see plantIconHTML) whenever it's set. */
+function plantIconStatusHTML(){
+  if(!PLANT_FORM_CUSTOM_ICON) return `
+    <label class="btn sm" style="cursor:pointer; margin-bottom:6px">${ICONS.upload} Use a Custom Image
+      <input type="file" accept="image/*" style="display:none" onchange="App.plantAttachIcon(this)"></label>
+    <p class="small muted" style="margin:0 0 8px">No emoji looks right for this one? Upload a small image instead.</p>`;
+  return `
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px">
+      <img src="${esc(PLANT_FORM_CUSTOM_ICON)}" alt="" style="width:40px; height:40px; border-radius:8px; object-fit:cover; border:1px solid var(--line); background:var(--bg)">
+      <button type="button" class="btn sm ghost" onclick="App.plantClearIcon()">Remove, Use Emoji Instead</button>
+    </div>`;
+}
+function plantAttachIconImpl(input){
+  const file = input.files[0]; input.value=''; if(!file) return;
+  downscaleToDataURLPng(file, 160, dataUrl => {
+    if(!dataUrl) return;
+    PLANT_FORM_CUSTOM_ICON = dataUrl;
+    const status = $('#plant-icon-status'); if(status) status.innerHTML = plantIconStatusHTML();
+  });
+}
+function plantClearIconImpl(){
+  PLANT_FORM_CUSTOM_ICON = null;
+  const status = $('#plant-icon-status'); if(status) status.innerHTML = plantIconStatusHTML();
+}
 function plantFormImpl(id){
   const p = id ? (DB.plants||[]).find(x=>x.id===id) : null;
   PLANT_FORM_EMOJI = (p && p.emoji) || '';
   PLANT_FORM_EMOJI_MANUAL = !!(p && p.emoji);
+  PLANT_FORM_CUSTOM_ICON = (p && p.customIcon) || null;
   openModal(`
     <h2>${p?'Edit Vegetable':'Add Vegetable'}</h2>
     <div class="field"><label class="label" for="plant-name">Name</label>
       <input id="plant-name" type="text" value="${esc(p?p.name:'')}" placeholder="e.g. Tomatoes" oninput="App.plantNameInput()"></div>
-    <div class="field"><label class="label">Emoji</label>
+    <div class="field"><label class="label">Icon</label>
+      <div id="plant-icon-status">${plantIconStatusHTML()}</div>
       <div class="plant-emoji-picker" id="plant-emoji-picker">${plantEmojiPickerHTML(PLANT_FORM_EMOJI)}</div>
     </div>
     <div class="field"><label class="label" for="plant-stage">Stage</label>
@@ -5799,11 +5982,19 @@ function savePlantImpl(id){
   // date, no p.waterings yet) into the log here, so its history survives being edited
   const waterings = (existing && Array.isArray(existing.waterings) && existing.waterings.length) ? existing.waterings
     : (existing && existing.lastWatered) ? [existing.lastWatered+'T12:00:00'] : [];
+  const stage = $('#plant-stage').value;
+  const stageChanges = (existing && Array.isArray(existing.stageChanges)) ? existing.stageChanges.slice() : [];
+  // logs a stage-change entry here too, same as the quick tap-to-set dots do, so the Timeline
+  // catches a stage set from the edit form as well - and gives a brand-new plant its first
+  // entry, marking when it was actually added
+  if(!existing || existing.stage !== stage) stageChanges.push({ts:new Date().toISOString(), stage});
   const plant = {
     id: (existing&&existing.id) || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()),
     name,
     emoji: PLANT_FORM_EMOJI || guessPlantEmoji(name) || '🌱',
-    stage: $('#plant-stage').value,
+    customIcon: PLANT_FORM_CUSTOM_ICON || null,
+    stage,
+    stageChanges,
     plantedDate: $('#plant-planted').value || null,
     wateringFrequencyDays: parseInt($('#plant-freq').value,10) || 3,
     waterings,
@@ -5812,12 +6003,17 @@ function savePlantImpl(id){
   if(existing){ DB.plants[DB.plants.findIndex(x=>x.id===id)] = plant; } else DB.plants.push(plant);
   savePlants();
   closeModal(); drawPlantsGrid(); drawDashPlantsSlot();
+  if(existing) drawPlantDetail(existing.id);
   toast(existing?'Vegetable updated':'Vegetable added');
 }
 function delPlantImpl(id){
   confirmModal('Remove This Vegetable?', "This removes it from your tracker. This can't be undone.", 'Remove', ()=>{
     DB.plants = (DB.plants||[]).filter(x=>x.id!==id);
-    savePlants(); closeModal(); drawPlantsGrid(); drawDashPlantsSlot();
+    savePlants(); closeModal(); drawDashPlantsSlot();
+    // deleting from its own detail page leaves nothing there to show - back out to the list
+    // rather than the edit modal just closing over a now-dead page
+    if(location.hash === '#/plant/'+encodeURIComponent(id)) location.hash = '#/plants';
+    else drawPlantsGrid();
     toast('Vegetable removed');
   });
 }
@@ -5827,10 +6023,11 @@ function delPlantImpl(id){
    live fetch to wait on since plants are already loaded on-device by the time Home renders (the
    fuller cloud sync happens if/when the Plants tab itself is opened). */
 function plantHomeChipHTML(p){
+  const href = '#/plant/'+encodeURIComponent(p.id);
   return `
-    <div class="plant-home-chip" role="button" tabindex="0" onclick="App.plantForm('${esc(p.id)}')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantForm('${esc(p.id)}')}">
-      <span class="plant-home-emoji" aria-hidden="true">${p.emoji||'🌱'}</span>
+    <div class="plant-home-chip" role="button" tabindex="0" onclick="location.hash='${href}'"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
+      ${plantIconHTML(p, 'plant-home-emoji')}
       ${plantWaterButtonHTML(p, true)}
       <span class="plant-home-ts">${esc(plantWaterShortLabel(p))}</span>
     </div>`;
@@ -5920,7 +6117,10 @@ App.delPlant = delPlantImpl;
 App.plantWater = plantWaterImpl;
 App.plantUndoWater = plantUndoWaterImpl;
 App.plantSetStage = plantSetStageImpl;
+App.plantDeleteLogEntry = plantDeleteLogEntryImpl;
 App.plantPickEmoji = plantPickEmojiImpl;
+App.plantAttachIcon = plantAttachIconImpl;
+App.plantClearIcon = plantClearIconImpl;
 App.plantNameInput = plantNameInputImpl;
 App.letterboxdSync = letterboxdSyncImpl;
 App.letterboxdDisconnect = letterboxdDisconnectImpl;
@@ -9172,6 +9372,24 @@ function downscaleToDataURL(file, max, quality, cb){
     c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
     c.getContext('2d').drawImage(img,0,0,c.width,c.height);
     cb(c.toDataURL('image/jpeg', quality));
+    URL.revokeObjectURL(img.src);
+  };
+  img.onerror = () => cb(null);
+  img.src = URL.createObjectURL(file);
+}
+/* PNG rather than downscaleToDataURL's JPEG - a custom vegetable icon (a Genmoji/Apple Emoji
+   Maker sticker, say) is usually exported with a transparent background, and JPEG has no alpha
+   channel, so it'd flatten that to a solid white square. These are icon-sized (max defaults to
+   something small), so the bigger file PNG produces for the same image doesn't matter here the
+   way it would for a full photo. */
+function downscaleToDataURLPng(file, max, cb){
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    const scale = Math.min(1, max/Math.max(img.width,img.height));
+    c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    cb(c.toDataURL('image/png'));
     URL.revokeObjectURL(img.src);
   };
   img.onerror = () => cb(null);
