@@ -363,6 +363,19 @@ a{color:var(--brand-dark);}
    featured image sits in most article-list designs, rather than boxed in like the text below */
 .design-card-img{display:block; width:calc(100% + 36px); height:160px; object-fit:cover;
   margin:-18px -18px 12px; border-radius:var(--radius) var(--radius) 0 0;}
+/* News' own per-article vote row - pulled the same past-the-padding width as the card's own
+   image, flush against the card's bottom edge, so it reads as the card's footer rather than a
+   fourth block of content. stopPropagation on the row itself keeps a vote tap from also
+   triggering the card's own onclick (which opens the article). */
+.news-vote-row{display:flex; justify-content:flex-end; gap:4px;
+  margin:12px -18px -18px; padding:8px 14px; border-top:1px solid var(--line);}
+.news-vote-btn{background:none; border:none; font-size:1.05rem; line-height:1; padding:6px 10px;
+  border-radius:8px; cursor:pointer;}
+.news-vote-btn:hover{background:var(--bg);}
+/* thumbs down fades the card in place for immediate feedback - the article itself is gone for
+   good (its link goes on the dismissed list, see App.newsVote) the next time News loads, this is
+   just what happens right now while you're looking at it */
+.news-card-dismissed{opacity:0; transition:opacity .3s ease-out; pointer-events:none;}
 /* sits above Home's masonry, full width rather than squeezed into one grid tile - but low and
    wide rather than the Design tab's tall banner, so it reads as a quick pointer rather than a
    second hero image competing with the actual masonry below it. Image on the left at roughly a
@@ -1050,10 +1063,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
    an address, safe to commit; your PSN login itself is entered on-device later and stays in
    this browser's localStorage, never here. Leave blank and Games shows setup instructions. */
 const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
-/* Design news reuses the same deployed proxy as Games (see psn-proxy/worker.js's /design-news
-   endpoint) rather than needing a second one deployed - it's just a public RSS aggregator,
-   nothing PSN-specific about it, the worker just happens to live in that folder already. */
-const DESIGN_NEWS_URL = PSN_PROXY_URL;
+/* News (Design/Films/Music) reuses the same deployed proxy as Games (see psn-proxy/worker.js's
+   /design-news, /film-news and /music-news endpoints) rather than needing a second one deployed
+   - it's just a public RSS aggregator, nothing PSN-specific about it, the worker just happens to
+   live in that folder already. */
+const NEWS_PROXY_URL = PSN_PROXY_URL;
 /* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
@@ -1062,8 +1076,12 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.14.6';
+const APP_VERSION = '2.15.0';
 const CHANGELOG = [
+  {version:'2.15.0', notes:[
+    "Design, and the Films and Music tabs' own News subtabs, are now one unified News tab (📰, in Design's old spot) - every article merged into a single dated feed with All/Design/Films/Music filter chips, instead of three separate places to remember to check.",
+    "News articles have thumbs up/down now. Thumbs down fades an article out and it's gone for good from then on, and nudges its whole publication down the list; thumbs up nudges a publication up - the closest thing to \"shows more of what you like\" this app can honestly do without a real backend to learn from.",
+  ]},
   {version:'2.14.6', notes:[
     "New Settings page (⚙️ Settings, at the foot of Home) - Import Diary CSV and Import Watchlist CSV moved there from the Films header, since they were competing for attention with Log Film and Letterboxd's own sync status for something you only really use once.",
   ]},
@@ -2973,22 +2991,22 @@ function loadDashboardSong(){
 /* full-width, above the masonry rather than one tile among many - articles change on their own
    schedule (a new one lands whenever the feed does), so this is the one piece of Home worth
    giving more room to notice at a glance */
-function dashDesignFeatureHTML(){
-  const a = designLastRead();
+function dashNewsFeatureHTML(){
+  const a = newsLastRead();
   if(!a) return `
-    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goDesign()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goDesign()}">
-      <div class="dash-item-flags" aria-hidden="true">🎨</div>
+    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goNews()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goNews()}">
+      <div class="dash-item-flags" aria-hidden="true">📰</div>
       <div class="dash-design-feature-text">
         <div class="dash-item-title">Nothing Read Yet</div>
         <div class="dash-item-sub">Next Article</div>
       </div>
     </div>`;
   return `
-    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goDesign()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goDesign()}">
+    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goNews()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goNews()}">
       ${a.image ? `<img class="dash-design-feature-img" src="${esc(a.image)}" alt="" loading="lazy">`
-                 : `<div class="dash-item-flags" aria-hidden="true">🎨</div>`}
+                 : `<div class="dash-item-flags" aria-hidden="true">📰</div>`}
       <div class="dash-design-feature-text">
         <div class="dash-item-title">${esc(a.title)}</div>
         <div class="dash-item-sub">Next Article</div>
@@ -3134,7 +3152,7 @@ function renderDashboard(){
     ${dashRandomWatchlistWidgetHTML()}`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
-    ${dashDesignFeatureHTML()}
+    ${dashNewsFeatureHTML()}
     <div class="dash-masonry">
       <div class="dash-col" id="dash-col-a">${widgets}</div>
       <div class="dash-col" id="dash-col-b"></div>
@@ -3856,19 +3874,38 @@ function wlCardHTML(g){
     </div>`;
 }
 
-/* ================= Design (UX news feed) =================
-   A handful of well-known UX/design publications' RSS feeds, fetched and trimmed to short
-   summaries by the same proxy Games uses (see psn-proxy/worker.js's /design-news endpoint -
-   most feeds don't send the CORS headers a browser needs to read them directly, so this goes
-   through the worker the same reason Games does). No login, nothing device-specific: just a
-   GET, so there's no connect step here, straight to the list. */
-let DESIGN_ARTICLES = [];   // the last fetch, held so opening one doesn't refetch the lot
-/* the one article the Home dashboard's Design widget shows - just enough to render the card
+/* ================= News (unified Design/Films/Music feed) =================
+   One merged, dated feed across three publication categories rather than three separate
+   destinations to remember to check - each fetched independently from the proxy's own
+   /design-news, /film-news, /music-news routes (worker.js's fetchNewsFeeds, one call per
+   category, so one category being down doesn't take out the others), tagged with which category
+   it came from, and merged client-side. Thumbs down hides an article for good (its link goes on
+   a dismissed list - the same article would otherwise keep resurfacing every refetch, since the
+   underlying feed still carries it) and nudges its whole publication down the list from then on;
+   thumbs up nudges that publication up - the closest thing to "learns what you like" buildable
+   here, since real topic/content learning would need infrastructure this static site doesn't
+   have (see the Settings page's own note on why API keys don't live in-app either). */
+const NEWS_CATEGORIES = {
+  design: {endpoint:'/design-news', label:'Design', emoji:'🎨'},
+  film:   {endpoint:'/film-news',   label:'Films',  emoji:'🎬'},
+  music:  {endpoint:'/music-news',  label:'Music',  emoji:'🎤'},
+};
+let ALL_NEWS_ARTICLES = [];   // last merged fetch, tagged with .category, held so opening one doesn't refetch
+let NEWS_LOADED = false;
+const NEWS_VOTES_KEY = 'calstrippin_news_votes';
+function newsVotes(){
+  try{
+    const v = JSON.parse(localStorage.getItem(NEWS_VOTES_KEY)||'null');
+    return (v && typeof v==='object') ? {sources:v.sources||{}, dismissed:v.dismissed||[]} : {sources:{}, dismissed:[]};
+  }catch(e){ return {sources:{}, dismissed:[]}; }
+}
+function saveNewsVotes(v){ try{ localStorage.setItem(NEWS_VOTES_KEY, JSON.stringify(v)); }catch(e){} }
+/* the one article the Home dashboard's News widget shows - just enough to render the card
    without re-fetching the whole feed */
-const DESIGN_LAST_READ_KEY = 'calstrippin_design_last_read';
-function designLastRead(){ try{ return JSON.parse(localStorage.getItem(DESIGN_LAST_READ_KEY)||'null'); }catch(e){ return null; } }
-function saveDesignLastRead(a){
-  try{ localStorage.setItem(DESIGN_LAST_READ_KEY, JSON.stringify({
+const NEWS_LAST_READ_KEY = 'calstrippin_news_last_read';
+function newsLastRead(){ try{ return JSON.parse(localStorage.getItem(NEWS_LAST_READ_KEY)||'null'); }catch(e){ return null; } }
+function saveNewsLastRead(a){
+  try{ localStorage.setItem(NEWS_LAST_READ_KEY, JSON.stringify({
     title:a.title, image:a.image||'', source:a.source, link:a.link, date:a.date||''
   })); }catch(e){}
 }
@@ -3911,187 +3948,107 @@ function articleBlockHTML(b){
   if(b.t === 'q')  return `<blockquote class="article-q">${inner}</blockquote>`;
   return `<p class="article-p">${inner}</p>`;
 }
-
-function designShell(inner){
-  return `
-    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Design</span></div></div>
-    ${inner}`;
+function loadAllNews(){
+  return Promise.allSettled(Object.keys(NEWS_CATEGORIES).map(cat =>
+    fetch(NEWS_PROXY_URL.replace(/\/$/,'') + NEWS_CATEGORIES[cat].endpoint)
+      .then(async r => {
+        if(!r.ok){ const body = await r.json().catch(()=>({})); throw new Error(body.error || ('status '+r.status)); }
+        return r.json();
+      })
+      .then(data => {
+        // every feed failing comes back as a 200 with no articles and an error string attached
+        // (see fetchNewsFeeds in worker.js) - surfaced as a real per-category failure, not
+        // silently rendered as that category having nothing published today
+        if(!data.articles?.length && data.error) throw new Error(data.error);
+        return (data.articles||[]).map(a => ({...a, category:cat}));
+      })
+  )).then(results => {
+    let articles = [], anyOk = false, firstErr = null;
+    results.forEach(r => {
+      if(r.status==='fulfilled'){ anyOk = true; articles = articles.concat(r.value); }
+      else if(!firstErr) firstErr = r.reason;
+    });
+    if(!anyOk) throw (firstErr instanceof Error ? firstErr : new Error('Nothing loaded'));
+    const votes = newsVotes();
+    articles = articles.filter(a => !votes.dismissed.includes(a.link));
+    // a liked publication's pieces float up, a disliked one sinks - no explicit hide threshold,
+    // the score itself does the sorting; publish date breaks ties within the same score
+    articles.sort((a,b) => {
+      const sa = votes.sources[a.source]||0, sb = votes.sources[b.source]||0;
+      return sa!==sb ? sb-sa : new Date(b.date||0) - new Date(a.date||0);
+    });
+    ALL_NEWS_ARTICLES = articles;
+    NEWS_LOADED = true;
+    return articles;
+  });
 }
-function renderDesign(){
-  $('#app').innerHTML = designShell(`<div id="design-body"></div>`);
-  const body = $('#design-body');
-  if(!DESIGN_NEWS_URL){
-    body.innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
+let CUR_NEWS_FILTER = '';   // '' = All, or a NEWS_CATEGORIES key
+function renderNews(){
+  const chip = (k, label) => `<button class="subtab${CUR_NEWS_FILTER===k?' on':''}" onclick="App.newsFilter('${k}')">${label}</button>`;
+  $('#app').innerHTML = `
+    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">News</span></div></div>
+    <div class="subtabs">${chip('','All')}${Object.keys(NEWS_CATEGORIES).map(k=>chip(k, NEWS_CATEGORIES[k].emoji+' '+NEWS_CATEGORIES[k].label)).join('')}</div>
+    <div id="news-body"></div>`;
+  if(!NEWS_PROXY_URL){
+    $('#news-body').innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
       <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
       <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
     return;
   }
-  if(DESIGN_ARTICLES.length){ renderDesignList(DESIGN_ARTICLES); return; }   // coming back from a read
-  body.innerHTML = `<div class="empty">Loading design news…</div>`;
-  loadDesignNews()
-    .then(articles => { if($('#design-body')) renderDesignList(articles); })
+  if(NEWS_LOADED){ drawNewsList(); return; }   // coming back from a read
+  $('#news-body').innerHTML = `<div class="empty">Loading news…</div>`;
+  loadAllNews()
+    .then(()=>{ if($('#news-body')) drawNewsList(); })
     .catch(e => {
-      if(!$('#design-body')) return;
-      $('#design-body').innerHTML = `<div class="empty">Couldn't load design news.<br>${esc(e.message||'')}
+      if(!$('#news-body')) return;
+      $('#news-body').innerHTML = `<div class="empty">Couldn't load news.<br>${esc(e.message||'')}
         <div class="btn-row" style="justify-content:center; margin-top:14px">
-          <button class="btn sm" onclick="App.goDesign()">Try Again</button>
+          <button class="btn sm" onclick="App.goNews()">Try Again</button>
         </div></div>`;
     });
 }
-function loadDesignNews(){
-  return fetch(DESIGN_NEWS_URL.replace(/\/$/,'') + '/design-news')
-    .then(async r => {
-      if(!r.ok){
-        const body = await r.json().catch(()=>({}));
-        throw new Error(body.error || ('status '+r.status));
-      }
-      return r.json();
-    })
-    .then(data => {
-      // every feed failing comes back as a 200 with no articles and an error string attached
-      // (see fetchDesignNews in worker.js) - surfaced as a real failure rather than rendered
-      // as an empty "nothing published today" list
-      if(!data.articles?.length && data.error) throw new Error(data.error);
-      DESIGN_ARTICLES = data.articles||[];
-      return DESIGN_ARTICLES;
-    });
+function drawNewsList(){
+  const body = $('#news-body'); if(!body) return;
+  const filtered = CUR_NEWS_FILTER ? ALL_NEWS_ARTICLES.filter(a=>a.category===CUR_NEWS_FILTER) : ALL_NEWS_ARTICLES;
+  if(!filtered.length){ body.innerHTML = `<div class="empty">Nothing to show right now, try again shortly.</div>`; return; }
+  body.innerHTML = `<div class="design-list">${filtered.map(newsCardHTML).join('')}</div>`;
 }
-function renderDesignList(articles){
-  const body = $('#design-body'); if(!body) return;
-  if(!articles.length){ body.innerHTML = `<div class="empty">Nothing to show right now, try again shortly.</div>`; return; }
-  body.innerHTML = `<div class="design-list">${articles.map(designCardHTML).join('')}</div>`;
-}
-function designCardHTML(a, i){
+function newsCardHTML(a){
+  // the real index into ALL_NEWS_ARTICLES, not the filtered list's - App.readNews/newsVote both
+  // need to find the same article regardless of which category chip is active
+  const i = ALL_NEWS_ARTICLES.indexOf(a);
   const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
+  const cat = NEWS_CATEGORIES[a.category];
   return `
-    <div class="card design-card" role="button" tabindex="0" onclick="App.readArticle(${i})"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readArticle(${i})}">
+    <div class="card design-card" id="news-card-${i}" role="button" tabindex="0" onclick="App.readNews(${i})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readNews(${i})}">
       ${a.image?`<img class="design-card-img" src="${esc(a.image)}" alt="" loading="lazy">`:''}
-      <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
+      <div class="small muted design-meta">${esc(a.source)}${cat?' &middot; '+esc(cat.label):''}${dateStr?' &middot; '+esc(dateStr):''}</div>
       <h3 class="design-title">${esc(a.title)}</h3>
       ${a.summary?`<p class="small design-summary">${esc(a.summary)}</p>`:''}
+      <div class="news-vote-row" onclick="event.stopPropagation()">
+        <button type="button" class="news-vote-btn" aria-label="More like this" onclick="App.newsVote(${i},1)">👍</button>
+        <button type="button" class="news-vote-btn" aria-label="Less like this" onclick="App.newsVote(${i},-1)">👎</button>
+      </div>
     </div>`;
 }
 /* the article itself, read in the app. Deep-linking straight here (a reload, a shared URL)
-   finds DESIGN_ARTICLES empty, so it fetches the list first and then shows the one asked for. */
-function renderDesignArticle(i){
-  if(!DESIGN_ARTICLES.length){
-    $('#app').innerHTML = designShell(`<div class="empty">Loading…</div>`);
-    loadDesignNews()
-      .then(()=>{ if(location.hash==='#/design/'+i) renderDesignArticle(i); })
-      .catch(()=>{ location.hash = '#/design'; });
-    return;
-  }
-  const a = DESIGN_ARTICLES[i];
-  if(!a){ location.hash = '#/design'; return; }
-  saveDesignLastRead(a);
-  const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
-  const readable = articleIsReadable(a);
-  const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(a.link)}')">${ICONS.ext}Read on ${esc(a.source)}</a>`;
-  $('#app').innerHTML = `
-    <div class="crumb">
-      <div class="crumb-titlerow">
-        <span class="crumb-here">
-          <button class="crumb-backbtn" onclick="App.goDesign()" aria-label="Back to Design">${ICONS.back}</button>
-          Reading</span>
-      </div>
-    </div>
-    <article class="article">
-      ${a.image?`<img class="article-hero" src="${esc(a.image)}" alt="">`:''}
-      <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
-      <h1 class="article-title">${esc(a.title)}</h1>
-      ${readable
-        ? (a.body||[]).map(articleBlockHTML).join('')
-        : `<p class="article-p">${esc(a.summary||'')}</p>
-           <p class="small muted article-note">${esc(a.source)} only publishes a preview to its feed,
-             so there's nothing more to show here - the rest is on their site.</p>`}
-      <div class="btn-row article-actions">${openBtn}</div>
-    </article>`;
-}
-
-/* ================= Film & Music news (News subtabs in Films/Gigs) =================
-   Same shape of feature as Design's own feed just above - RSS from a handful of publications,
-   merged by the proxy (psn-proxy/worker.js's /film-news and /music-news routes) - so the reading
-   pieces (readable-length check, block renderer, card, full-page reader) are all reused from
-   Design's rather than copied twice more. What's different is where the list lives: a subtab
-   inside Films/Gigs rather than its own top-level tab, so only the list container and the
-   article route are category-specific. */
-const NEWS_FEEDS = {
-  film:  {endpoint:'/film-news',  label:'Films'},
-  music: {endpoint:'/music-news', label:'Music'},
-};
-let NEWS_ARTICLES = {film:[], music:[]};   // last fetch per category, held so opening one doesn't refetch
-function loadNewsFeed(cat){
-  return fetch(DESIGN_NEWS_URL.replace(/\/$/,'') + NEWS_FEEDS[cat].endpoint)
-    .then(async r => {
-      if(!r.ok){
-        const body = await r.json().catch(()=>({}));
-        throw new Error(body.error || ('status '+r.status));
-      }
-      return r.json();
-    })
-    .then(data => {
-      if(!data.articles?.length && data.error) throw new Error(data.error);
-      NEWS_ARTICLES[cat] = data.articles||[];
-      return NEWS_ARTICLES[cat];
-    });
-}
-function newsCardHTML(cat, a, i){
-  const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
-  return `
-    <div class="card design-card" role="button" tabindex="0" onclick="App.readNews('${cat}',${i})"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readNews('${cat}',${i})}">
-      ${a.image?`<img class="design-card-img" src="${esc(a.image)}" alt="" loading="lazy">`:''}
-      <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
-      <h3 class="design-title">${esc(a.title)}</h3>
-      ${a.summary?`<p class="small design-summary">${esc(a.summary)}</p>`:''}
-    </div>`;
-}
-function renderNewsList(cat, containerId){
-  const body = $('#'+containerId); if(!body) return;
-  const articles = NEWS_ARTICLES[cat];
-  if(!articles.length){ body.innerHTML = `<div class="empty">Nothing to show right now, try again shortly.</div>`; return; }
-  body.innerHTML = `<div class="design-list">${articles.map((a,i)=>newsCardHTML(cat,a,i)).join('')}</div>`;
-}
-function renderNewsFeed(cat, containerId, retryFn){
-  const body = $('#'+containerId); if(!body) return;
-  if(!DESIGN_NEWS_URL){
-    body.innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
-      <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
-      <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
-    return;
-  }
-  if(NEWS_ARTICLES[cat].length){ renderNewsList(cat, containerId); return; }   // coming back from a read
-  body.innerHTML = `<div class="empty">Loading ${esc(NEWS_FEEDS[cat].label.toLowerCase())} news…</div>`;
-  loadNewsFeed(cat)
-    .then(articles => { if($('#'+containerId)) renderNewsList(cat, containerId); })
-    .catch(e => {
-      if(!$('#'+containerId)) return;
-      $('#'+containerId).innerHTML = `<div class="empty">Couldn't load news.<br>${esc(e.message||'')}
-        <div class="btn-row" style="justify-content:center; margin-top:14px">
-          <button class="btn sm" onclick="${retryFn}">Try Again</button>
-        </div></div>`;
-    });
-}
-/* the article reader itself, shared by both categories. Deep-linking straight here (a reload, a
-   shared URL) finds NEWS_ARTICLES[cat] empty, so it fetches the list first, same as Design's. */
-function newsArticleBackHash(cat){ return cat==='film' ? '#/films' : '#/gigs'; }
-function renderNewsArticle(cat, i){
-  const hash = newsArticleBackHash(cat)+'/news/'+i;
-  if(!NEWS_ARTICLES[cat].length){
+   finds ALL_NEWS_ARTICLES empty, so it fetches everything first and then shows the one asked for. */
+function renderNewsArticle(i){
+  if(!ALL_NEWS_ARTICLES.length){
     $('#app').innerHTML = `
       <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">
-        <button class="crumb-backbtn" onclick="location.hash='${newsArticleBackHash(cat)}'" aria-label="Back">${ICONS.back}</button>
+        <button class="crumb-backbtn" onclick="App.goNews()" aria-label="Back to News">${ICONS.back}</button>
         Reading</span></div></div>
       <div class="empty">Loading…</div>`;
-    loadNewsFeed(cat)
-      .then(()=>{ if(location.hash===hash) renderNewsArticle(cat, i); })
-      .catch(()=>{ location.hash = newsArticleBackHash(cat); });
+    loadAllNews()
+      .then(()=>{ if(location.hash==='#/news/'+i) renderNewsArticle(i); })
+      .catch(()=>{ location.hash = '#/news'; });
     return;
   }
-  const a = NEWS_ARTICLES[cat][i];
-  if(!a){ location.hash = newsArticleBackHash(cat); return; }
+  const a = ALL_NEWS_ARTICLES[i];
+  if(!a){ location.hash = '#/news'; return; }
+  saveNewsLastRead(a);
   const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
   const readable = articleIsReadable(a);
   const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener"
@@ -4100,7 +4057,7 @@ function renderNewsArticle(cat, i){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">
-          <button class="crumb-backbtn" onclick="location.hash='${newsArticleBackHash(cat)}'" aria-label="Back">${ICONS.back}</button>
+          <button class="crumb-backbtn" onclick="App.goNews()" aria-label="Back to News">${ICONS.back}</button>
           Reading</span>
       </div>
     </div>
@@ -4189,23 +4146,17 @@ function renderGigs(){
         <button class="btn sm primary" onclick="App.gigForm(-1)">+ Add Gig</button>
       </div>
     </div>
-    <div class="subtabs">${tab('notseen','⭐ Not Seen')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}${tab('news','📰 News')}${tab('log','☑ All Gigs')}</div>
+    <div class="subtabs">${tab('notseen','⭐ Not Seen')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}${tab('log','☑ All Gigs')}</div>
     <div id="gigs-body"></div>`;
   if(CUR_GIGS_TAB==='log') drawGigsList();
   else if(CUR_GIGS_TAB==='songs') renderSongs();
-  else if(CUR_GIGS_TAB==='news') renderGigsNews();
   else renderGigsArtists();
   loadGigsCloud(cloud => {
     DB.gigs = Array.isArray(cloud) ? cloud : [];
     saveLocal();
     if(CUR_GIGS_TAB==='log') drawGigsList();
-    else if(CUR_GIGS_TAB!=='songs' && CUR_GIGS_TAB!=='news' && $('#gigs-body') && SPOTIFY_ARTISTS) drawGigArtistsGrid();
+    else if(CUR_GIGS_TAB!=='songs' && $('#gigs-body') && SPOTIFY_ARTISTS) drawGigArtistsGrid();
   });
-}
-function renderGigsNews(){
-  const body = $('#gigs-body'); if(!body) return;
-  body.innerHTML = `<div id="gigs-news-body"></div>`;
-  renderNewsFeed('music', 'gigs-news-body', "App.gigsTab('news')");
 }
 function renderGigsArtists(){
   const body = $('#gigs-body'); if(!body) return;
@@ -4629,17 +4580,11 @@ function renderFilms(){
         ${CUR_FILMS_TAB==='diary'?`<button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>`:''}
       </div>
     </div>
-    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}${tab('stats','📊 Stats')}${tab('news','📰 News')}</div>
+    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}${tab('stats','📊 Stats')}</div>
     <div id="films-body"></div>`;
   if(CUR_FILMS_TAB==='watchlist'){ renderFilmsWatchlist(); return; }
   if(CUR_FILMS_TAB==='stats'){ renderFilmsStats(); return; }
-  if(CUR_FILMS_TAB==='news'){ renderFilmsNews(); return; }
   renderFilmsDiary();
-}
-function renderFilmsNews(){
-  const body = $('#films-body'); if(!body) return;
-  body.innerHTML = `<div id="films-news-body"></div>`;
-  renderNewsFeed('film', 'films-news-body', "App.filmsTab('news')");
 }
 function renderFilmsDiary(){
   const body = $('#films-body'); if(!body) return;
@@ -5244,7 +5189,7 @@ function filmsWatchlistImportCsvFileImpl(file){
 /* ================= Films Stats =================
    Two breakdowns of the Diary - watched by year, and by rating - each row a live count that
    drills into its own filtered poster grid (App.filmsStatsYear/Rating -> a real #/films/stats/…
-   route, the same way Design's articles get their own #/design/<i> rather than living purely in
+   route, the same way News' own articles get their own #/news/<i> rather than living purely in
    memory, so the back button and a bookmark both land where you'd expect). Ratings are grouped
    by their exact value (half-stars included) rather than rounded to a whole star, since the
    data already carries that precision and rounding would just throw it away. */
@@ -5411,21 +5356,13 @@ function route(){
     renderFilmsStatsFiltered('rating', decodeURIComponent(h.slice('#/films/stats/rating/'.length)));
     window.scrollTo(0,0); return;
   }
-  if(h.startsWith('#/films/news/')){
+  if(h.startsWith('#/news/')){
     CUR_TRIP_ID = null; stopSub();
-    renderNewsArticle('film', +h.slice('#/films/news/'.length)); window.scrollTo(0,0); return;
+    renderNewsArticle(+h.slice('#/news/'.length)); window.scrollTo(0,0); return;
   }
-  if(h.startsWith('#/gigs/news/')){
+  if(h === '#/news'){
     CUR_TRIP_ID = null; stopSub();
-    renderNewsArticle('music', +h.slice('#/gigs/news/'.length)); window.scrollTo(0,0); return;
-  }
-  if(h.startsWith('#/design/')){
-    CUR_TRIP_ID = null; stopSub();
-    renderDesignArticle(+h.split('/')[2]); window.scrollTo(0,0); return;
-  }
-  if(h === '#/design'){
-    CUR_TRIP_ID = null; stopSub();
-    renderDesign(); window.scrollTo(0,0); return;
+    renderNews(); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
@@ -5515,7 +5452,19 @@ App.goToYourTrips = () => {
 };
 App.goGames = () => { location.hash = '#/games'; };
 App.goSettings = () => { location.hash = '#/settings'; };
-App.goDesign = () => { location.hash = '#/design'; };
+App.goNews = () => { location.hash = '#/news'; };
+App.newsFilter = k => { CUR_NEWS_FILTER = k; drawNewsList(); };
+App.newsVote = (i, dir) => {
+  const a = ALL_NEWS_ARTICLES[i]; if(!a) return;
+  const votes = newsVotes();
+  votes.sources[a.source] = (votes.sources[a.source]||0) + dir;
+  if(dir < 0){
+    if(!votes.dismissed.includes(a.link)) votes.dismissed.push(a.link);
+    const card = $('#news-card-'+i);
+    if(card) card.classList.add('news-card-dismissed');
+  }
+  saveNewsVotes(votes);
+};
 App.goGigs = () => { location.hash = '#/gigs'; };
 App.goSongs = () => { CUR_GIGS_TAB = 'songs'; location.hash = '#/gigs'; };
 App.gigsTab = k => { CUR_GIGS_TAB = k; renderGigs(); window.scrollTo(0,0); };
@@ -5589,8 +5538,7 @@ App.dashSongRange = k => {
   const gigsSlot = $('#dash-gigs-slot'); if(gigsSlot) gigsSlot.innerHTML = dashGigsStatWidgetHTML();
   balanceDashboardColumns();
 };
-App.readArticle = i => { location.hash = '#/design/'+i; };
-App.readNews = (cat, i) => { location.hash = (cat==='film'?'#/films':'#/gigs')+'/news/'+i; };
+App.readNews = i => { location.hash = '#/news/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
@@ -6220,7 +6168,7 @@ function sidebarGlobalNav(inTrip){
   const onHomeDash = location.hash==='#/home';
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips';
   const onGames  = location.hash.startsWith('#/games');
-  const onDesign = location.hash.startsWith('#/design');
+  const onNews   = location.hash.startsWith('#/news');
   const onGigs   = location.hash.startsWith('#/gigs');
   const onFilms  = location.hash.startsWith('#/films');
   const item = (label, emoji, fn, active) => `
@@ -6231,7 +6179,7 @@ function sidebarGlobalNav(inTrip){
   return (inTrip ? '' : item('Home','🏠',"App.goDashboard()", onHomeDash))
     + (inTrip ? '' : item('Travel','🌎',"App.goPlaces()", onPlaces))
     + item('Games','🎮',"App.goGames()", onGames)
-    + item('Design','🎨',"App.goDesign()", onDesign)
+    + item('News','📰',"App.goNews()", onNews)
     + item('Music','🎤',"App.goGigs()", onGigs)
     + item('Films','🎬',"App.goFilms()", onFilms);
 }
@@ -6251,7 +6199,7 @@ function renderTabbar(){
   const onHomeDash = location.hash==='#/home';
   const onPlaces = location.hash.startsWith('#/places') || location.hash==='#/trips';
   const onGames  = location.hash.startsWith('#/games');
-  const onDesign = location.hash.startsWith('#/design');
+  const onNews   = location.hash.startsWith('#/news');
   const onGigs   = location.hash.startsWith('#/gigs');
   const onFilms  = location.hash.startsWith('#/films');
   /* with the menu open the bar rides above it; anything tapped from there dismisses the menu
@@ -6271,7 +6219,7 @@ function renderTabbar(){
       item('Home','🏠',go("App.goDashboard()"), onHomeDash && !menuOpen, false)
     + item('Travel','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
     + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
-    + item('Design','🎨',go("App.goDesign()"), onDesign && !menuOpen, false)
+    + item('News','📰',go("App.goNews()"), onNews && !menuOpen, false)
     + item('Music','🎤',go("App.goGigs()"), onGigs && !menuOpen, false)
     + item('Films','🎬',go("App.goFilms()"), onFilms && !menuOpen, false);
   /* anything that has to sit on top of the bar (the Places search, the hub's height) needs

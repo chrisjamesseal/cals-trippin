@@ -1,9 +1,9 @@
-# Proxy (for the Games, Design, Music and Films tabs)
+# Proxy (for the Games, News, Music and Films tabs)
 
 > A handful of endpoints live here, all for the same reason: a browser can't make these calls
-> itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` for the Design
-> tab's RSS, `/film-news` for the Films tab's News subtab, `/music-news` for the Music tab's News
-> subtab, `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
+> itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` `/film-news`
+> `/music-news` for the News tab's RSS (three categories, merged into one feed client-side),
+> `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` `/spotify-top-tracks` group for Music's artist search, Artists
 > checklist and Songs tab, and `/letterboxd-diary` for Films' Letterboxd sync. Deploying this
 > once turns all of them on. (Board Games and the Games tab's Wishlist aren't here - see
@@ -21,19 +21,18 @@ It's a stateless relay: your NPSSO code and the tokens it becomes pass through i
 stored by it. Your login token itself only ever lives in your own browser's `localStorage`,
 never committed anywhere.
 
-The Design tab's `/design-news` endpoint lives in this same worker (see `worker.js`) rather
-than a separate deployment - most RSS feeds have the same CORS problem the PSN API does, and
-it's the same fix, so it didn't need its own Cloudflare project. It's public and identical for
-everyone (no login, no per-device state), and cached for 30 minutes so it isn't re-fetching
-five feeds on every page load. Deploying the worker below turns on both tabs at once.
-
-The Films tab's News subtab (`/film-news` - Variety and The Hollywood Reporter's Film/Movies
-verticals, IndieWire for cinema culture and criticism, What's on Netflix for new streaming
-releases) and the Music tab's News subtab (`/music-news` - Resident Advisor, DJ Mag, Spotify
-Newsroom) are the same idea again,
-reusing the exact same fetch/parse/cache machinery as `/design-news` (see `fetchNewsFeeds` in
-`worker.js`). No separate setup - deploying the worker turns these on too. Each feed is fetched
-independently, so one publication's RSS being down doesn't take out the others in that tab.
+The News tab's three endpoints live in this same worker (see `worker.js`) rather than a separate
+deployment - most RSS feeds have the same CORS problem the PSN API does, and it's the same fix,
+so they didn't need their own Cloudflare project. `/design-news` covers a handful of UX/design
+publications, `/film-news` covers Variety and The Hollywood Reporter's Film/Movies verticals plus
+IndieWire (cinema culture and criticism) and What's on Netflix (new streaming releases), and
+`/music-news` covers Resident Advisor, DJ Mag and Spotify Newsroom - all three share the exact
+same fetch/parse/cache machinery (`fetchNewsFeeds` in `worker.js`), fetched and merged into one
+feed client-side rather than three separate tabs. They're public and identical for everyone (no
+login, no per-device state - your own thumbs up/down preferences stay local to your device), and
+each cached for 30 minutes so a visit isn't re-fetching eight feeds every time. Deploying the
+worker below turns all three on at once. Every feed is fetched independently, so one publication's
+RSS (or one whole category) being down doesn't take out the rest of the merged feed.
 
 ## Deploy it
 
@@ -167,12 +166,11 @@ project's `src/authenticate/exchangeAccessCodeForAuthTokens.ts` (the hardcoded B
 header, base64-decoded) for current values before assuming your NPSSO code is bad. A "PlayStation
 rejected the token request (status 401)" error specifically points at a stale `CLIENT_SECRET`.
 
-If Design's feed looks thin, one of the publications in `worker.js`'s `DESIGN_FEEDS` list has
-likely moved or renamed its RSS URL - each feed is fetched independently, so the rest still
-come through, but check the publication's site for its current feed link and update that one
-entry. The Films tab's News subtab and the Music tab's News subtab work the same way - their
-sources live in `FILM_FEEDS` and `MUSIC_FEEDS` right next to `DESIGN_FEEDS`, same fix if one
-looks thin.
+If the News tab's Design category looks thin, one of the publications in `worker.js`'s
+`DESIGN_FEEDS` list has likely moved or renamed its RSS URL - each feed is fetched independently,
+so the rest still come through, but check the publication's site for its current feed link and
+update that one entry. Films and Music work the same way - their sources live in `FILM_FEEDS` and
+`MUSIC_FEEDS` right next to `DESIGN_FEEDS`, same fix if one looks thin.
 
 Board Games lives in `api/board-games.js`, not this Worker (see that file's top comment for why
 it moved). If it says "isn't configured", the Vercel project is missing (or has a stale)
