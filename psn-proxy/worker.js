@@ -299,8 +299,21 @@ function extractFeedImage(block){
   const media = /<media:(?:thumbnail|content)\b[^>]*\burl=["']([^"']+)["']/i.exec(block);
   const enclosure = /<enclosure\b[^>]*\burl=["']([^"']+)["'][^>]*\btype=["']image\/[^"']*["']/i.exec(block)
                   || /<enclosure\b[^>]*\btype=["']image\/[^"']*["'][^>]*\burl=["']([^"']+)["']/i.exec(block);
-  const inline = /<img\b[^>]*\bsrc=["']([^"']+)["']/i.exec(block);
-  const src = (media && media[1]) || (enclosure && enclosure[1]) || (inline && inline[1]) || '';
+  /* most feeds wrap description/content in CDATA, where an <img> tag is literal HTML the regex
+     below can see directly - a few entity-escape it instead (&lt;img src="..."&gt;), invisible
+     to that same regex until decoded first */
+  const searchIn = /&lt;img\b/i.test(block) ? decodeEntities(block) : block;
+  /* a lazy-loading theme (common on WordPress sites like DJ Mag) ships <img src="1x1.gif"
+     data-src="the-real-image.jpg" loading="lazy">, so a plain src= grab finds a real-looking but
+     blank placeholder - data-src/data-original/srcset (its first candidate) are checked first,
+     the actual src= last, whichever of them turns up a real https URL first wins */
+  const inlineImg = /<img\b[^>]*>/i.exec(searchIn);
+  const inlineTag = inlineImg ? inlineImg[0] : '';
+  const dataSrc = /\bdata-(?:src|original)=["']([^"']+)["']/i.exec(inlineTag);
+  const srcset = /\bsrcset=["']([^"',\s]+)/i.exec(inlineTag);
+  const plainSrc = /\bsrc=["']([^"']+)["']/i.exec(inlineTag);
+  const src = (media && media[1]) || (enclosure && enclosure[1])
+    || (dataSrc && dataSrc[1]) || (srcset && srcset[1]) || (plainSrc && plainSrc[1]) || '';
   return /^https:\/\/[^"'\s<>]+$/i.test(src) ? src : '';
 }
 function parseFeedItems(xml, sourceName){
@@ -322,7 +335,9 @@ function parseFeedItems(xml, sourceName){
       const anyM = /<link\b[^>]*\bhref=["']([^"']+)["']/i.exec(block);
       link = (altM && altM[1]) || (anyM && anyM[1]) || '';
     }
-    const pubRaw = extractTag(block,'pubDate') || extractTag(block,'updated') || extractTag(block,'published');
+    // dc:date last - Dublin Core's date tag, some feeds' only date field when they skip the
+    // standard RSS/Atom ones entirely
+    const pubRaw = extractTag(block,'pubDate') || extractTag(block,'updated') || extractTag(block,'published') || extractTag(block,'dc:date');
     const date = pubRaw ? new Date(pubRaw) : null;
     let summary = decodeEntities(stripHtml(stripCdata(
       extractTag(block,'description') || extractTag(block,'summary') || extractTag(block,'content:encoded') || ''
@@ -337,6 +352,30 @@ function parseFeedItems(xml, sourceName){
     const image = extractFeedImage(block);
     return {title, link, source: sourceName, date: (date && !isNaN(date)) ? date.toISOString() : null, summary, image, body};
   }).filter(a => a.title && a.link);
+}
+/* a rough, honest-about-its-limits language filter: no real language detection library runs in
+   a Worker, so this catches what's reliably catchable without one - non-Latin scripts (Cyrillic,
+   CJK, Arabic...), which show up as a high proportion of non-ASCII characters. It will not catch
+   a French or German piece written in the same Latin alphabet as English; that would need real
+   language detection, not a character-ratio guess. */
+function looksNonEnglish(title, summary){
+  const text = ((title||'') + (summary||'')).replace(/\s+/g,'');
+  if(text.length < 12) return false;
+  let nonAscii = 0;
+  for(const ch of text) if(ch.codePointAt(0) > 127) nonAscii++;
+  return (nonAscii / text.length) > 0.2;
+}
+/* same honesty caveat as above - a fixed list of other major cities, matched by name in the
+   title/summary. An article that never names a city at all (most Design and Film pieces) always
+   passes through untouched; only ones that explicitly name somewhere else, without also naming
+   London, get dropped. It won't catch a piece about a place not on this list, and it can't tell
+   "the London borough of Hackney" from "Hackney, Georgia" - a keyword match, not real geocoding. */
+const OTHER_CITY_NAMES = ['new york','los angeles','san francisco','chicago','miami','las vegas',
+  'detroit','brooklyn','berlin','paris','amsterdam','ibiza','barcelona','tokyo','toronto','sydney'];
+function looksOffLocation(title, summary){
+  const text = ((title||'') + ' ' + (summary||'')).toLowerCase();
+  if(/\blondon\b/.test(text)) return false;
+  return OTHER_CITY_NAMES.some(city => new RegExp('\\b'+city+'\\b').test(text));
 }
 async function fetchNewsFeeds(feeds, logLabel){
   const results = await Promise.allSettled(feeds.map(async f => {
@@ -355,6 +394,7 @@ async function fetchNewsFeeds(feeds, logLabel){
   // logged here for the Cloudflare dashboard's Logs tab, and (only when EVERY feed failed)
   // passed back to the app so it can say so instead of implying a quiet news day
   failures.forEach(f => console.error(logLabel+' feed failed:', f.name, f.reason));
+  articles = articles.filter(a => !looksNonEnglish(a.title, a.summary) && !looksOffLocation(a.title, a.summary));
   articles.sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0));
   const allFailed = failures.length === feeds.length;
   return {articles: articles.slice(0, 40), error: allFailed ? failures[0].reason : undefined};
