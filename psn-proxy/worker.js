@@ -117,10 +117,21 @@ async function fetchTitles(accessToken, search){
     platform: t.trophyTitlePlatform,
     progress: t.progress || 0,
     lastPlayed: t.lastUpdatedDateTime,
+    // Sony's own response already breaks both of these down by tier - kept here rather than
+    // collapsed to a bare total, so a per-game page can show "3 Platinum, 12 Gold…" rather than
+    // just a trophy count with no sense of how hard any of them were to get
     earnedTrophies: {
+      bronze: (t.earnedTrophies && t.earnedTrophies.bronze) || 0,
+      silver: (t.earnedTrophies && t.earnedTrophies.silver) || 0,
+      gold: (t.earnedTrophies && t.earnedTrophies.gold) || 0,
+      platinum: (t.earnedTrophies && t.earnedTrophies.platinum) || 0,
       total: (t.earnedTrophies && (t.earnedTrophies.bronze + t.earnedTrophies.silver + t.earnedTrophies.gold + t.earnedTrophies.platinum)) || 0,
     },
     definedTrophies: {
+      bronze: (t.definedTrophies && t.definedTrophies.bronze) || 0,
+      silver: (t.definedTrophies && t.definedTrophies.silver) || 0,
+      gold: (t.definedTrophies && t.definedTrophies.gold) || 0,
+      platinum: (t.definedTrophies && t.definedTrophies.platinum) || 0,
       total: (t.definedTrophies && (t.definedTrophies.bronze + t.definedTrophies.silver + t.definedTrophies.gold + t.definedTrophies.platinum)) || 0,
     },
   }));
