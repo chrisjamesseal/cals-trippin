@@ -195,6 +195,13 @@ ever applies to Design, so it can't be the cause for Film or Music). An article 
 English but keeps getting filtered is a language-filter false positive; a real gap in the
 heuristic is a `worker.js` edit, not a config problem.
 
+If an article's text shows literal HTML like `<p>` instead of being rendered as a paragraph
+break, that feed is entity-escaping its own markup (`&lt;p&gt;` instead of a real `<p>` tag) -
+`inlineRuns` in `worker.js` strips tags again after decoding entities specifically to catch this,
+so if it's still happening the feed is doing something `inlineRuns`' second pass doesn't
+recognise (an unusual tag name, or a genuinely malformed encoding) - check that article's raw feed
+XML against what the function expects.
+
 Board Games lives in `api/board-games.js`, not this Worker (see that file's top comment for why
 it moved). If it says "isn't configured", the Vercel project is missing (or has a stale)
 `BGG_API_TOKEN` environment variable - see "Connect BoardGameGeek" above. A raw "BoardGameGeek

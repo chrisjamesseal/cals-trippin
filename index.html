@@ -62,7 +62,7 @@ body{
    Aligned to the top, not centred: the button is taller than the heading, and centring both
    would push "Your Trips" a few pixels down from where every other page's title starts. */
 .home-title{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
-.trips-heading{margin-top:26px;}
+.trips-heading{margin-top:26px; margin-bottom:2px;}
 .home-title button{align-self:center;}
 
 /* the wordmark is only on the PIN gate now that the top bar is gone */
@@ -71,7 +71,7 @@ body{
 
 /* the version now lives quietly at the foot of Your Trips instead of a top bar */
 .home-foot{display:flex; justify-content:center; border-top:1px solid var(--line); margin-top:14px; padding:14px 0;}
-.version-tag{background:none; border:none; padding:6px; margin:0; color:var(--muted); font-size:.75rem; font-weight:600;
+.version-tag{background:none; border:none; padding:6px; margin:0; color:var(--muted); font-size:.8rem; font-weight:400;
   cursor:pointer; text-decoration:underline; text-decoration-color:transparent; transition:text-decoration-color .15s;}
 .version-tag:hover{text-decoration-color:currentColor; color:var(--brand-dark);}
 
@@ -129,7 +129,7 @@ a{color:var(--brand-dark);}
 
 
 /* ---------- trip list ---------- */
-.trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:10px;}
+.trip-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:2px;}
 .trip-card{
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:18px; cursor:pointer; position:relative;
@@ -370,11 +370,13 @@ a{color:var(--brand-dark);}
   padding:7px 28px 7px 12px; border-radius:999px; box-shadow:none;}
 .dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-/* Next Trip has no image the way its masonry neighbours do, just this flag - at the shared
-   1.8rem size the whole card read noticeably shorter than an image-led one next to it. A bigger
-   flag alone (not the title/sub, which stay the shared size) closes most of that gap without
-   turning the tile into something visually different from the rest of the grid. */
-.dash-item-flags-lg{font-size:2.6rem;}
+/* Next Trip has no image the way Most Played/Currently Playing do, just this flag - sized bigger
+   alone (not the title/sub, which stay the shared size) wasn't enough to match their height
+   exactly, since it didn't occupy the same box those widgets' images do. This gives it the exact
+   same width:50%/aspect-ratio:1/1 box .dash-item-img-half's image sits in, centring the flag
+   inside it instead - same box, same height, whatever the column width happens to be. */
+.dash-item-flags-boxed{display:flex; align-items:center; justify-content:center;
+  width:50%; aspect-ratio:1/1; margin:0 0 10px; font-size:2.6rem;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
 
@@ -864,7 +866,6 @@ details .d-body{padding:14px 16px;}
 
 /* ---------- trip dashboard ---------- */
 .dash-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:6px;}
-.dash-grid.region-grid{grid-template-columns:1fr;}
 .dash-tile{
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
   padding:16px; cursor:pointer; position:relative; min-width:0;
@@ -883,10 +884,9 @@ details .d-body{padding:14px 16px;}
 .dash-tile .dash-sum.unfilled{color:#C0392B; font-weight:600;}
 .dash-tile.wide{grid-column:span 2;}
 a.dash-tile{text-decoration:none;}
-/* the Countries/Want to Go region tiles: icon and name side by side on one line rather than
-   stacked, so the tile can be shorter - no progress count underneath, still two columns */
-.dash-tile.region-tile{flex-direction:row; align-items:center; gap:10px; padding:14px;}
-.dash-tile.region-tile .dash-text{width:auto;}
+/* the Countries/Want to Go region tiles use the same icon-above-label column layout as every
+   other dashboard tile - the one override still needed is letting the label wrap, since a
+   two-word continent name ("North America") would otherwise truncate in a two-column tile */
 .dash-tile.region-tile .dash-label{white-space:normal;}
 
 /* ---------- backup / restore bar ---------- */
@@ -1062,10 +1062,6 @@ body.kb-open .tabbar.on{display:none;}
   .tabbar.on{display:none!important;}
   .wrap{max-width:1160px; margin:0; padding:calc(14px + env(safe-area-inset-top)) 40px 96px 32px; flex:1; min-width:0;}
   .dash-grid{grid-template-columns:repeat(3,1fr);}
-  /* the region tiles (Europe/Asia/Africa…) stay one-per-row on mobile so their row-flex layout
-     has room to breathe, but on a wide screen that reads as a wasteful single column - matches
-     the rest of the dashboard's 3-up grid here */
-  .dash-grid.region-grid{grid-template-columns:repeat(3,1fr);}
   /* Itinerary reads as a stack of phone-width cards, not a dashboard - the wide 3-column
      layout the rest of the trip's pages use doesn't suit it, so it keeps its mobile width
      instead, sitting centred with room either side (which just shrinks on its own as the
@@ -1128,8 +1124,17 @@ const NEWS_PROXY_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.19.0';
+const APP_VERSION = '2.20.0';
 const CHANGELOG = [
+  {version:'2.20.0', notes:[
+    "Simplified external links (Letterboxd, Spotify, TikTok, Songkick, News' Read on X, maps, booking links, shared albums, TikTok/Instagram mood board thumbnails) - dropped a Safari-handoff trick that was opening two windows instead of one and making it a hassle to get back to the app. Flight tracking keeps it, since it's the one link that genuinely needs Safari's own saved login.",
+    'Fixed News articles occasionally showing literal HTML like &lt;p&gt; as visible text - some feeds entity-escape their own markup, which slipped past the tag-stripping step.',
+    "Dropped UX Planet from Design News - its feed only ever carried a short teaser, so every one of its articles just linked out instead of being readable in the app.",
+    'Home: renamed "From Your Watchlist" to "Watch Next", and Next Trip now matches Most Played/Currently Playing\'s height exactly instead of just closing most of the gap.',
+    "Settings' link at the foot of Home now matches Next Gig's caption font instead of standing out in its own bolder, smaller one.",
+    'Travel: closed the gap between the Your Trips heading and the first trip card.',
+    'Countries: the continent tiles are two columns now instead of one, with the emoji sitting above the name instead of beside it.',
+  ]},
   {version:'2.19.0', notes:[
     "Home: Last Seen and the Watchlist pick open that film on Letterboxd now, Most Played opens the song on Spotify, Currently Playing opens a TikTok search for the game, and Next Gig opens a Songkick search for the artist - external links throughout, in place of just opening the app's own tabs. Gigs Seen and Films Seen now always land on the actual list (not whatever tab/filter you last had open there), and the News feature picks a fresh random article every time you land on Home instead of showing whatever you last happened to read.",
     "Home: Next Trip's flag emoji is bigger now, closing most of the height gap it had next to its image-led neighbours.",
@@ -2956,7 +2961,7 @@ function dashTripItemHTML(t){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/trip/${esc(t.id)}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${esc(t.id)}'}">
-      <div class="dash-item-flags dash-item-flags-lg" aria-hidden="true">${flags||'✈️'}</div>
+      <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">${flags||'✈️'}</div>
       <div class="dash-item-title">${esc(t.name)}</div>
       <div class="dash-item-sub">Next Trip</div>
     </div>`;
@@ -2969,7 +2974,7 @@ function dashTripWidgetsHTML(){
   if(!trips.length) return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlaces()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
-      <div class="dash-item-flags dash-item-flags-lg" aria-hidden="true">🌍</div>
+      <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">🌍</div>
       <div class="dash-item-title">No Trips Booked</div>
       <div class="dash-item-sub">Plan your next one</div>
     </div>`;
@@ -3048,8 +3053,7 @@ function dashGigWidgetHTML(){
     </div>`;
   const url = gigEventUrl(g);
   return `
-    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(url)}')">
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       ${g.image ? `<img class="dash-item-avatar" src="${esc(g.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
       <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
@@ -3088,8 +3092,7 @@ function dashSongWidgetHTML(t){
       <div class="dash-item-sub">Most Played</div>
     </div>`;
   return `
-    <a class="dash-widget dash-widget-item" href="${esc(t.spotifyUrl)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(t.spotifyUrl)}')">
+    <a class="dash-widget dash-widget-item" href="${esc(t.spotifyUrl)}" target="_blank" rel="noopener">
       ${t.image ? `<img class="dash-item-img-half" src="${esc(t.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
       <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
@@ -3180,8 +3183,7 @@ function gameTikTokUrl(g){
 function dashCurrentlyPlayingWidgetHTML(g){
   const url = gameTikTokUrl(g);
   return `
-    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(url)}')">
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       ${g.iconUrl ? `<img class="dash-item-img-half" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
       <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
@@ -3256,8 +3258,7 @@ function dashLastSeenFilmWidgetHTML(){
     </div>`;
   const url = filmLetterboxdUrl(f);
   return `
-    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(url)}')">
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       ${f.image ? `<img class="dash-item-img-half dash-item-img-half-poster" src="${esc(f.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎬</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
@@ -3277,12 +3278,11 @@ function dashRandomWatchlistWidgetHTML(){
   const f = list[Math.floor(Math.random()*list.length)];
   const url = filmLetterboxdUrl(f);
   return `
-    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(url)}')">
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       ${f.image ? `<img class="dash-item-img-half dash-item-img-half-poster" src="${esc(f.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
-      <div class="dash-item-sub">From Your Watchlist</div>
+      <div class="dash-item-sub">Watch Next</div>
     </a>`;
 }
 /* two explicit column divs rather than CSS column-count - see .dash-masonry's own comment for
@@ -3720,8 +3720,7 @@ function renderGamesConnect(body){
       <h3 style="margin-bottom:8px">Connect your PlayStation account</h3>
       <p class="small muted" style="margin-bottom:14px">
         While signed in to PlayStation in this browser, open
-        <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" rel="noopener"
-          onclick="return App.openExternal(event, 'https://ca.account.sony.com/api/v1/ssocookie')">this link</a>
+        <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" rel="noopener">this link</a>
         and copy the <code>npsso</code> value it returns, then paste it below. It's swapped
         once for a login token through your own proxy; after that only the token stays, on
         this device only.
@@ -4227,8 +4226,7 @@ function renderNewsArticle(i){
   if(!a){ location.hash = '#/news'; return; }
   const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
   const readable = articleIsReadable(a);
-  const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(a.link)}')">${ICONS.ext}Read on ${esc(a.source)}</a>`;
+  const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener">${ICONS.ext}Read on ${esc(a.source)}</a>`;
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
@@ -4420,8 +4418,7 @@ function drawSongsGrid(){
 }
 function songRowHTML(t, i){
   return `
-    <a class="card gig-card song-row" href="${esc(t.spotifyUrl)}" target="_blank" rel="noopener"
-      onclick="return App.openExternal(event, '${esc(t.spotifyUrl)}')">
+    <a class="card gig-card song-row" href="${esc(t.spotifyUrl)}" target="_blank" rel="noopener">
       <div class="gig-top">
         <span class="song-rank">${i+1}</span>
         ${t.image ? `<img class="gig-cover song-cover" src="${esc(t.image)}" alt="" loading="lazy">`
@@ -7755,7 +7752,7 @@ function tabPlan(t, ro){
     const hasImage = !!s.image;
     const mapHref = s.mapsUrl || (s.location ? mapsSearchUrl(t, s.location) : '');
     const time = timeBadge(s);
-    const mapBtnHTML = cls => mapHref ? `<a class="btn icon-only${cls?' '+cls:''}" href="${esc(mapHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(mapHref)}')" aria-label="Open Map" title="Open Map">${mapIcon(mapHref)}</a>` : '';
+    const mapBtnHTML = cls => mapHref ? `<a class="btn icon-only${cls?' '+cls:''}" href="${esc(mapHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${mapIcon(mapHref)}</a>` : '';
     // a title-only card (nothing following it at all) has nothing to space away from, so the
     // head keeps no margin below it - otherwise the bottom padding stacks on top of that
     // margin and reads as lopsided against the plain top padding above the title
@@ -8356,9 +8353,9 @@ function accomCardHTML(a, opts){
     `<a class="btn icon-only" ${attrs} aria-label="${esc(label)}" title="${esc(label)}">${inner}</a>`;
   const mapsUrl = a.address ? googleMapsUrl(a.address) : '';
   const bookingBtn = a.bookingUrl ? iconBtn(faviconFor(a.bookingUrl), 'View Booking',
-      `href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')"`) : '';
+      `href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"`) : '';
   const mapBtn = mapsUrl ? iconBtn(mapIcon(mapsUrl), 'Open Map',
-      `href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(mapsUrl)}')"`) : '';
+      `href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()"`) : '';
   const copyBtn = a.address
       ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)" aria-label="Copy address" title="Copy address">${secEmoji('\u{1F517}')}</button>`
       : '';
@@ -8374,7 +8371,7 @@ function accomCardHTML(a, opts){
      just the one line. */
   const logoInner = a.bookingUrl ? siteLogoFor(a.bookingUrl, '', a.name||'Accommodation') : '';
   const logo = (opts.compact && a.bookingUrl)
-    ? `<a href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(a.bookingUrl)}')" aria-label="View Booking" title="View Booking">${logoInner}</a>`
+    ? `<a href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="View Booking" title="View Booking">${logoInner}</a>`
     : logoInner;
   /* "Airbnb in Palaiokastritsa" said the same thing twice once the logo is doing the "Airbnb"
      part - only strips the exact auto-filled pattern, so a name typed or edited by hand is
@@ -8383,7 +8380,7 @@ function accomCardHTML(a, opts){
   const displayName = (opts.compact && service && a.name && a.name.toLowerCase().startsWith((service+' in ').toLowerCase()))
     ? a.name.slice(service.length+4) : (a.name||'Accommodation');
   const headRight = a.undecided ? `<span class="pill-notbooked">🎫 Not Booked</span>`
-    : opts.compact ? (mapBtn ? `<a class="accom-head-map" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation(); return App.openExternal(event, '${esc(mapsUrl)}')" aria-label="Open Map" title="Open Map">${mapIcon(mapsUrl)}</a>` : '')
+    : opts.compact ? (mapBtn ? `<a class="accom-head-map" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${mapIcon(mapsUrl)}</a>` : '')
     : headNote ? `<span class="muted small">${esc(headNote)}</span>` : '';
   const bodyInner = (opts.showDates!==false ? stayLine('In', inLine) + stayLine('Out', outLine) : '')
     + (a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:'')
@@ -9240,7 +9237,7 @@ function tabPhotos(t, ro){
         <h3 style="margin-bottom:8px">${esc(service)}</h3>
         <p class="muted small" style="margin-bottom:12px">${albumNote(service)}</p>
         <div class="btn-row">
-          <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(a.url)}')">Open Album ${ICONS.ext}</a>
+          <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open Album ${ICONS.ext}</a>
           ${!ro?`<button class="iconbtn edit" aria-label="Edit album link" title="Edit link" onclick="App.albumForm()">${ICONS.edit}</button>
           <button class="iconbtn del" aria-label="Remove album link" title="Remove link" onclick="App.removeAlbum()">${ICONS.trash}</button>`:''}
         </div>
@@ -9323,12 +9320,12 @@ function videoThumbHTML(embed, url){
     loadVideoThumb(url);
     const entry = VIDEO_THUMB[url];
     const thumb = entry && entry.status==='ok' ? entry.thumb : null;
-    return `<a class="video-thumb video-thumb-tiktok" href="${esc(url)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(url)}')" aria-label="Watch on TikTok"${thumb?` style="background-image:url('${esc(thumb)}')"`:''}>
+    return `<a class="video-thumb video-thumb-tiktok" href="${esc(url)}" target="_blank" rel="noopener" aria-label="Watch on TikTok"${thumb?` style="background-image:url('${esc(thumb)}')"`:''}>
       ${!thumb?`<span class="video-thumb-fallback">${fab('tiktok')}</span>`:''}
       <span class="video-thumb-play">${fa('play')}</span>
     </a>`;
   }
-  return `<a class="video-thumb video-thumb-instagram" href="${esc(url)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(url)}')" aria-label="Watch on Instagram">
+  return `<a class="video-thumb video-thumb-instagram" href="${esc(url)}" target="_blank" rel="noopener" aria-label="Watch on Instagram">
     <span class="video-thumb-fallback">${fab('instagram')}</span>
     <span class="video-thumb-play">${fa('play')}</span>
   </a>`;
@@ -9351,7 +9348,7 @@ function tabMood(t, ro){
         ${m.title && !ro?(inItinerary
           ?`<button class="btn sm" style="width:100%" onclick="App.removeIdeaFromItinerary(${i})">Remove from Itinerary</button>`
           :`<button class="btn sm" style="width:100%" onclick="App.planFromIdea(${i})">+ Add to Itinerary</button>`):''}
-        ${mapsHref?`<a class="btn sm" style="width:100%" href="${esc(mapsHref)}" target="_blank" rel="noopener" onclick="return App.openExternal(event, '${esc(mapsHref)}')">${mapIcon(mapsHref)}Open Map</a>`:''}
+        ${mapsHref?`<a class="btn sm" style="width:100%" href="${esc(mapsHref)}" target="_blank" rel="noopener">${mapIcon(mapsHref)}Open Map</a>`:''}
         ${!ro?`<button class="btn sm" style="width:100%" onclick="App.moodForm(${i})">${ICONS.edit}Edit Idea</button>`:''}
       </div>
     </div>`;

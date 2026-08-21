@@ -133,13 +133,15 @@ async function fetchTitles(accessToken, search){
 /* These are long-standing, well-known feed URLs, but nobody guarantees an RSS URL forever -
    if one of these goes quiet, check the publication's own site for its current feed link and
    update it here. A feed failing just means fewer articles that day, not a broken page: each
-   is fetched independently and the rest still come through (see fetchDesignNews). */
+   is fetched independently and the rest still come through (see fetchDesignNews).
+   UX Planet dropped (2026-08): its feed only ever carried a short teaser, well under
+   READABLE_MIN_CHARS, so every one of its articles showed the "Read on UX Planet" link-out
+   button instead of being readable in the app - the opposite of what this section is for. */
 const DESIGN_FEEDS = [
   {name:'Smashing Magazine', url:'https://www.smashingmagazine.com/feed/'},
   {name:'Nielsen Norman Group', url:'https://www.nngroup.com/feed/rss/'},
   {name:'UX Collective', url:'https://uxdesign.cc/feed'},
   {name:'A List Apart', url:'https://alistapart.com/main/feed/'},
-  {name:'UX Planet', url:'https://uxplanet.org/feed'},
 ];
 /* Film and Music news below are the same shape of problem as Design's own feed above - a
    handful of well-known publications, merged - so they reuse every piece of it (parseFeedItems,
@@ -206,7 +208,15 @@ function inlineRuns(html){
     .replace(/<(b|strong)\b[^>]*>/gi, '\u0001B').replace(/<\/(b|strong)\s*>/gi, '\u0001b')
     .replace(/<(i|em)\b[^>]*>/gi, '\u0001I').replace(/<\/(i|em)\s*>/gi, '\u0001i')
     .replace(/<[^>]+>/g, ' ');
-  const text = decodeEntities(marked);
+  /* a few feeds entity-escape their own markup (&lt;p&gt; instead of a literal <p>), invisible to
+     the tag-strip above since it runs before decoding - decodeEntities turns that into a literal
+     "<p>" sitting right there in the text, with nothing left downstream to catch it. Stripping
+     again after decoding removes whatever decoding just revealed - the same double-encoding case
+     extractFeedImage already has to account for. Deliberately a stricter "this actually looks
+     like a tag" pattern here (must open with a letter or /) rather than the loose one above: body
+     text sometimes uses &lt;/&gt; for genuine less-than/greater-than ("x &lt; y"), and the loose
+     <[^>]+> pattern would swallow real prose between an unrelated < and the next > on the line. */
+  const text = decodeEntities(marked).replace(/<\/?[a-z][^<>]*>/gi, ' ');
   const runs = [];
   let bold = 0, ital = 0, buf = '';
   const flush = () => {
