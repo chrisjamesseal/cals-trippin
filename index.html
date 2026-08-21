@@ -1062,8 +1062,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.14.4';
+const APP_VERSION = '2.14.5';
 const CHANGELOG = [
+  {version:'2.14.5', notes:[
+    "Fixed posters staying blank for films logged beyond Letterboxd's own ~50-entry sync limit - finding posters/genres only ever ran right after a CSV import or sync, so anything that failed to match a title at that moment (a hiccup, a title TMDb didn't recognise yet) stayed blank until you re-imported the whole file. It now retries automatically every time the Diary loads.",
+  ]},
   {version:'2.14.4', notes:[
     "Films' News subtab drops Variety and The Hollywood Reporter's all-topics feeds (mostly industry deal news) for their Film/Movies-specific ones, and adds IndieWire for cinema culture and criticism and What's on Netflix for new streaming releases.",
   ]},
@@ -4616,6 +4619,13 @@ function renderFilmsDiary(){
     if(merged) saveFilms(); else saveLocal();
     if(CUR_FILMS_TAB==='diary') drawFilmsGrid();
     if(merged) toast(`Merged ${merged} duplicate film${merged===1?'':'s'}`);
+    // catches anything a sync/import's own backfill missed at the time (a transient search
+    // failure, a title TMDb didn't recognise) - the RSS sync only ever touches the most recent
+    // ~50 entries, so without this, anything a CSV import brought in beyond that only ever gets
+    // retried by re-running the full import again, not just by opening the Diary
+    backfillPosters(DB.films, saveFilms).then(n => {
+      if(n && CUR_FILMS_TAB==='diary'){ drawFilmsGrid(); toast(`Filled in details for ${n} film${n===1?'':'s'}`); }
+    });
   });
 }
 function drawLetterboxdConnect(){
