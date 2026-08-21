@@ -193,8 +193,8 @@ a{color:var(--brand-dark);}
 }
 .subtab.on{background:var(--brand); border-color:var(--brand); color:#fff;}
 /* Music's four subtabs get their own explicit two rows instead of leaving the wrap above to
-   land wherever it happens to (three-and-one one viewport, two-and-two on another) - Not Seen
-   alone up top, Gigs/Artists/Songs evenly filling the row below it */
+   land wherever it happens to (three-and-one on one viewport, two-and-two on another) - Not
+   Seen/Gigs evenly filling the top row, Artists/Songs evenly filling the one below it */
 .gigs-subtabs{display:flex; flex-direction:column; gap:8px; margin-bottom:18px;}
 .gigs-subtabs-row{display:flex; gap:8px;}
 .gigs-subtabs-row-fill .subtab{flex:1; text-align:center;}
@@ -328,7 +328,10 @@ a{color:var(--brand-dark);}
    Songs share one slot div so their fetch can repaint just that div, so that div needs the same
    gap itself or its two tiles render flush against each other with no seam between them */
 .dash-slot{display:flex; flex-direction:column; gap:12px;}
-.dash-widget{display:block; width:100%; margin:0;
+/* most tiles are a div with a click handler (in-app navigation); a few now link straight out to
+   another site (Letterboxd, Spotify, TikTok, Songkick) and are real anchors instead - text-
+   decoration/color reset here so they read identically to their div siblings, a no-op for those */
+.dash-widget{display:block; width:100%; margin:0; text-decoration:none; color:inherit;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:16px; cursor:pointer;
   transition:transform .1s, box-shadow .1s;}
@@ -367,6 +370,11 @@ a{color:var(--brand-dark);}
   padding:7px 28px 7px 12px; border-radius:999px; box-shadow:none;}
 .dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+/* Next Trip has no image the way its masonry neighbours do, just this flag - at the shared
+   1.8rem size the whole card read noticeably shorter than an image-led one next to it. A bigger
+   flag alone (not the title/sub, which stay the shared size) closes most of that gap without
+   turning the tile into something visually different from the rest of the grid. */
+.dash-item-flags-lg{font-size:2.6rem;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
 
@@ -615,6 +623,25 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
   padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);
   transform:translateZ(0); will-change:transform;}
 .places-search input,.games-search input{background:var(--paper);}
+/* Films' own search (find something to log/relog or add to the Watchlist, not filter what's
+   already on the page the way Places/Games' search does) gets the same fixed-above-the-tabbar
+   treatment on mobile - it's reached for as often as those two. Its live-search results open
+   upward from the input instead of down, since down would run the panel straight into the
+   tabbar this thing already sits on top of. On a wide/desktop layout there's no tabbar to sit
+   above, so it drops back into the normal page flow above the genre dropdown instead (see the
+   768px override below). */
+.films-search{position:fixed; left:0; right:0; z-index:55;
+  bottom:calc(var(--bar-h,61px) + var(--kb-inset,0px));
+  padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);
+  transform:translateZ(0); will-change:transform; margin-bottom:0;}
+.films-search input{background:var(--paper);}
+.films-search-results{position:absolute; left:16px; right:16px; bottom:100%; margin-bottom:4px;
+  max-height:50vh; overflow-y:auto; background:var(--paper); border:1px solid var(--line);
+  border-radius:var(--radius); box-shadow:var(--shadow-lift);}
+.films-search-results:empty{display:none; border:none; box-shadow:none;}
+.films-home-result{display:flex; align-items:center; gap:10px; padding:8px 10px; flex-wrap:wrap;}
+.films-home-result .films-home-result-text{flex:1; min-width:120px; font-size:.85rem;}
+.films-home-result .btn-row{flex-shrink:0;}
 /* one country per row: side by side, a long name and its capital and language had nowhere to
    go and the card grew a paragraph tall. Two columns once the screen is wide enough to give
    each of them a sensible width. */
@@ -1044,6 +1071,12 @@ body.kb-open .tabbar.on{display:none;}
      instead, sitting centred with room either side (which just shrinks on its own as the
      window narrows, right down to the sidebar breakpoint above) */
   .wrap[data-tab="plan"]{max-width:560px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 24px 96px;}
+  /* no tabbar to sit above here - back into normal page flow, above the genre dropdown, results
+     opening downward like every other inline search dropdown in the app */
+  .films-search{position:static; left:auto; right:auto; z-index:auto; bottom:auto;
+    padding:0; background:none; border-top:none; margin-bottom:14px;}
+  .films-search-results{position:static; left:auto; right:auto; bottom:auto; margin:8px 0 0;
+    max-height:none; box-shadow:none;}
 }
 @media(min-width:768px) and (max-width:1279px){
   .sidebar{width:216px;}
@@ -1095,8 +1128,16 @@ const NEWS_PROXY_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.18.0';
+const APP_VERSION = '2.19.0';
 const CHANGELOG = [
+  {version:'2.19.0', notes:[
+    "Home: Last Seen and the Watchlist pick open that film on Letterboxd now, Most Played opens the song on Spotify, Currently Playing opens a TikTok search for the game, and Next Gig opens a Songkick search for the artist - external links throughout, in place of just opening the app's own tabs. Gigs Seen and Films Seen now always land on the actual list (not whatever tab/filter you last had open there), and the News feature picks a fresh random article every time you land on Home instead of showing whatever you last happened to read.",
+    "Home: Next Trip's flag emoji is bigger now, closing most of the height gap it had next to its image-led neighbours.",
+    "Music's four subtabs are Not Seen/Gigs on one row and Artists/Songs on the other now, both evenly filling their row, instead of Not Seen alone above the other three.",
+    'Watchlist: dropped + Add Manually - search covers that (and more) on its own now that it has a proper home.',
+    "Watchlist: search moved off the bottom of the page into its own screen, opened with a + Add Film button up top the same way Diary's + Log Film already works.",
+    "Diary: a new search field above the genre filter finds a film to log (or relog, for a rewatch) or add straight to the Watchlist, without leaving the page - sits fixed above the tab bar on mobile the way Places/Games' own search does, inline above the filter on a wider screen.",
+  ]},
   {version:'2.18.0', notes:[
     "Fixed Film and Music News showing nothing - the London-only location filter meant for Design was wrongly applying to those two as well, and Variety/Hollywood Reporter/Resident Advisor/DJ Mag mention Los Angeles/Berlin/Ibiza and the like constantly, so it was quietly dropping almost everything in both categories. It's Design-only now.",
     'Home: the "⚙️ Settings" link at the foot of the page gets breathing room below it now too, not just above.',
@@ -2915,7 +2956,7 @@ function dashTripItemHTML(t){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/trip/${esc(t.id)}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${esc(t.id)}'}">
-      <div class="dash-item-flags" aria-hidden="true">${flags||'✈️'}</div>
+      <div class="dash-item-flags dash-item-flags-lg" aria-hidden="true">${flags||'✈️'}</div>
       <div class="dash-item-title">${esc(t.name)}</div>
       <div class="dash-item-sub">Next Trip</div>
     </div>`;
@@ -2928,7 +2969,7 @@ function dashTripWidgetsHTML(){
   if(!trips.length) return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlaces()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces()}">
-      <div class="dash-item-flags" aria-hidden="true">🌍</div>
+      <div class="dash-item-flags dash-item-flags-lg" aria-hidden="true">🌍</div>
       <div class="dash-item-title">No Trips Booked</div>
       <div class="dash-item-sub">Plan your next one</div>
     </div>`;
@@ -2949,8 +2990,8 @@ function dashGigsBeenCount(range){
 }
 function dashGigsStatWidgetHTML(){
   return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGigs()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGigsSeen()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigsSeen()}">
       <div class="dash-item-flags" aria-hidden="true">🎤</div>
       <div class="dash-item-title">${dashGigsBeenCount(CUR_DASH_SONG_RANGE)} Gigs Seen</div>
     </div>`;
@@ -2990,6 +3031,13 @@ function dashNextGig(){
   upcoming.sort((a,b)=>a.date.localeCompare(b.date));
   return upcoming[0]||null;
 }
+/* the app doesn't store a ticket/event link anywhere - a gig is just artist/location/date - so
+   the honest best-effort destination is a Songkick search for the artist, the same fallback
+   pattern as Letterboxd search for a film with no stored URL. Not the exact event page, but one
+   tap from finding it. */
+function gigEventUrl(g){
+  return 'https://www.songkick.com/search?query='+encodeURIComponent(g.artist||'');
+}
 function dashGigWidgetHTML(){
   const g = dashNextGig();
   if(!g) return `
@@ -2998,14 +3046,15 @@ function dashGigWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🎤</div>
       <div class="dash-item-title">No Upcoming Gigs</div>
     </div>`;
+  const url = gigEventUrl(g);
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGigs()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigs()}">
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener"
+      onclick="return App.openExternal(event, '${esc(url)}')">
       ${g.image ? `<img class="dash-item-avatar" src="${esc(g.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
       <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
       <div class="dash-item-sub">Next Gig</div>
-    </div>`;
+    </a>`;
 }
 /* mirrors Songs' own time-range picker (SONGS_TIME_RANGES / SONGS_CACHE, defined further down
    with the rest of the Music tab) so switching range here doesn't refetch if Songs already has
@@ -3028,7 +3077,9 @@ function dashSongWidgetHTML(t){
       <div class="dash-item-flags" aria-hidden="true">🎵</div>
       <div class="dash-item-title">No Top Song Yet</div>
     </div>`;
-  return `
+  // no spotifyUrl (an older cached fetch, from before the worker started sending it) falls back
+  // to the Songs tab rather than a dead link
+  if(!t.spotifyUrl) return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goSongs()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goSongs()}">
       ${t.image ? `<img class="dash-item-img-half" src="${esc(t.image)}" alt="" loading="lazy">`
@@ -3036,6 +3087,14 @@ function dashSongWidgetHTML(t){
       <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
       <div class="dash-item-sub">Most Played</div>
     </div>`;
+  return `
+    <a class="dash-widget dash-widget-item" href="${esc(t.spotifyUrl)}" target="_blank" rel="noopener"
+      onclick="return App.openExternal(event, '${esc(t.spotifyUrl)}')">
+      ${t.image ? `<img class="dash-item-img-half" src="${esc(t.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
+      <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
+      <div class="dash-item-sub">Most Played</div>
+    </a>`;
 }
 /* lives in the page header next to the "Home" crumb, not inside the song tile itself - a
    dropdown inside one masonry card among many was easy to miss and awkward to hit */
@@ -3065,28 +3124,45 @@ function loadDashboardSong(){
 }
 /* full-width, above the masonry rather than one tile among many - articles change on their own
    schedule (a new one lands whenever the feed does), so this is the one piece of Home worth
-   giving more room to notice at a glance */
-function dashNewsFeatureHTML(){
-  const a = newsLastRead();
-  if(!a) return `
+   giving more room to notice at a glance. A fresh random pick every time Home renders, not
+   whichever one you last actually opened - reads ALL_NEWS_ARTICLES straight from memory if News
+   has already loaded this session, otherwise fetches it fresh the same placeholder-then-fill way
+   Games/Songs do for their own API calls. */
+function dashPickRandomArticle(){
+  if(!ALL_NEWS_ARTICLES.length) return null;
+  const i = Math.floor(Math.random()*ALL_NEWS_ARTICLES.length);
+  return {a: ALL_NEWS_ARTICLES[i], i};
+}
+function dashNewsFeatureHTML(picked){
+  if(!picked) return `
     <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goNews()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goNews()}">
       <div class="dash-item-flags" aria-hidden="true">📰</div>
       <div class="dash-design-feature-text">
-        <div class="dash-item-title">Nothing Read Yet</div>
-        <div class="dash-item-sub">Next Article</div>
+        <div class="dash-item-title">${NEWS_LOADED ? 'Nothing to Show Right Now' : 'Loading…'}</div>
+        <div class="dash-item-sub">Article</div>
       </div>
     </div>`;
+  const {a, i} = picked;
   return `
-    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goNews()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goNews()}">
+    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.readNews(${i})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readNews(${i})}">
       ${a.image ? `<img class="dash-design-feature-img" src="${esc(a.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">📰</div>`}
       <div class="dash-design-feature-text">
         <div class="dash-item-title">${esc(a.title)}</div>
-        <div class="dash-item-sub">Next Article</div>
+        <div class="dash-item-sub">Article</div>
       </div>
     </div>`;
+}
+function loadDashboardNews(){
+  if(ALL_NEWS_ARTICLES.length){ const slot = $('#dash-news-slot'); if(slot) slot.innerHTML = dashNewsFeatureHTML(dashPickRandomArticle()); return; }
+  loadAllNews().then(()=>{
+    const slot = $('#dash-news-slot'); if(slot) slot.innerHTML = dashNewsFeatureHTML(dashPickRandomArticle());
+  }).catch(()=>{
+    // fails silently here - News itself surfaces the real error if you go look
+    const slot = $('#dash-news-slot'); if(slot) slot.innerHTML = dashNewsFeatureHTML(null);
+  });
 }
 function dashGamesStatWidgetHTML(n){
   return `
@@ -3096,15 +3172,21 @@ function dashGamesStatWidgetHTML(n){
       <div class="dash-item-title">${n} Games</div>
     </div>`;
 }
+/* TikTok's own web search - opens the app via its universal link on a phone that has it
+   installed, same fallback-to-web-if-not pattern as every other external link here */
+function gameTikTokUrl(g){
+  return 'https://www.tiktok.com/search?q='+encodeURIComponent(g.name||'');
+}
 function dashCurrentlyPlayingWidgetHTML(g){
+  const url = gameTikTokUrl(g);
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener"
+      onclick="return App.openExternal(event, '${esc(url)}')">
       ${g.iconUrl ? `<img class="dash-item-img-half" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
       <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
       <div class="dash-item-sub">Currently Playing</div>
-    </div>`;
+    </a>`;
 }
 /* PlayStation needs a live fetch, unlike the other three stat tiles which read straight from
    what's already stored on-device - so this one starts as a "connect" prompt (if not set up) or
@@ -3172,14 +3254,15 @@ function dashLastSeenFilmWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🎬</div>
       <div class="dash-item-title">No Films Yet</div>
     </div>`;
+  const url = filmLetterboxdUrl(f);
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsDiary()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener"
+      onclick="return App.openExternal(event, '${esc(url)}')">
       ${f.image ? `<img class="dash-item-img-half dash-item-img-half-poster" src="${esc(f.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎬</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">Last Seen</div>
-    </div>`;
+    </a>`;
 }
 /* re-picked on every Home visit rather than stored anywhere - "what should I watch" is more
    useful as a fresh nudge each time than a fixed pick that goes stale */
@@ -3192,14 +3275,15 @@ function dashRandomWatchlistWidgetHTML(){
       <div class="dash-item-title">Nothing on Watchlist</div>
     </div>`;
   const f = list[Math.floor(Math.random()*list.length)];
+  const url = filmLetterboxdUrl(f);
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsWatchlist()}">
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener"
+      onclick="return App.openExternal(event, '${esc(url)}')">
       ${f.image ? `<img class="dash-item-img-half dash-item-img-half-poster" src="${esc(f.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">From Your Watchlist</div>
-    </div>`;
+    </a>`;
 }
 /* two explicit column divs rather than CSS column-count - see .dash-masonry's own comment for
    why - but which tile lands in which column is now decided by measured height (balanceDash
@@ -3238,7 +3322,7 @@ function renderDashboard(){
     ${dashRandomWatchlistWidgetHTML()}`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
-    ${dashNewsFeatureHTML()}
+    <div id="dash-news-slot">${dashNewsFeatureHTML(dashPickRandomArticle())}</div>
     <div class="dash-stat-grid">
       <div id="dash-places-slot">${dashPlacesBeenWidgetHTML()}</div>
       <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
@@ -3255,6 +3339,7 @@ function renderDashboard(){
   balanceDashboardColumns();
   loadDashboardGames();
   loadDashboardSong();
+  loadDashboardNews();
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
@@ -3992,15 +4077,6 @@ function newsVotes(){
   }catch(e){ return {sources:{}, dismissed:[]}; }
 }
 function saveNewsVotes(v){ try{ localStorage.setItem(NEWS_VOTES_KEY, JSON.stringify(v)); }catch(e){} }
-/* the one article the Home dashboard's News widget shows - just enough to render the card
-   without re-fetching the whole feed */
-const NEWS_LAST_READ_KEY = 'calstrippin_news_last_read';
-function newsLastRead(){ try{ return JSON.parse(localStorage.getItem(NEWS_LAST_READ_KEY)||'null'); }catch(e){ return null; } }
-function saveNewsLastRead(a){
-  try{ localStorage.setItem(NEWS_LAST_READ_KEY, JSON.stringify({
-    title:a.title, image:a.image||'', source:a.source, link:a.link, date:a.date||''
-  })); }catch(e){}
-}
 /* The proxy describes each article rather than sending its HTML - headings, paragraphs,
    bold/italic runs, list items, quotes and image URLs, with every piece of text carried as
    text (see htmlToBlocks in worker.js for why). The tags below are ours and every string goes
@@ -4149,7 +4225,6 @@ function renderNewsArticle(i){
   }
   const a = ALL_NEWS_ARTICLES[i];
   if(!a){ location.hash = '#/news'; return; }
-  saveNewsLastRead(a);
   const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
   const readable = articleIsReadable(a);
   const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener"
@@ -4248,8 +4323,8 @@ function renderGigs(){
       </div>
     </div>
     <div class="gigs-subtabs">
-      <div class="gigs-subtabs-row">${tab('notseen','⭐ Not Seen')}</div>
-      <div class="gigs-subtabs-row gigs-subtabs-row-fill">${tab('log','☑ Gigs')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}</div>
+      <div class="gigs-subtabs-row gigs-subtabs-row-fill">${tab('notseen','⭐ Not Seen')}${tab('log','☑ Gigs')}</div>
+      <div class="gigs-subtabs-row gigs-subtabs-row-fill">${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}</div>
     </div>
     <div id="gigs-body"></div>`;
   if(CUR_GIGS_TAB==='log') drawGigsList();
@@ -4687,7 +4762,8 @@ function renderFilms(){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        ${CUR_FILMS_TAB==='diary'?`<button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>`:''}
+        ${CUR_FILMS_TAB==='diary'?`<button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>`
+          :CUR_FILMS_TAB==='watchlist'?`<button class="btn sm primary" onclick="App.fwAddFilm()">+ Add Film</button>`:''}
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}${tab('stats','📊 Stats')}</div>
@@ -4698,7 +4774,13 @@ function renderFilms(){
 }
 function renderFilmsDiary(){
   const body = $('#films-body'); if(!body) return;
-  body.innerHTML = `<div id="films-grid"></div>`;
+  body.innerHTML = `
+    <div class="films-search">
+      <input type="text" id="films-home-search" placeholder="Search for a film to log or add to your Watchlist…"
+        autocomplete="off" oninput="App.filmsHomeSearchInput()">
+      <div id="films-home-search-results"></div>
+    </div>
+    <div id="films-grid"></div>`;
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
     DB.films = Array.isArray(cloud) ? cloud : [];
@@ -4768,6 +4850,64 @@ function filmCardHTML(f, i){
       ${meta?`<div class="film-meta">${esc(meta)}</div>`:''}
       ${filmStarsHTML(f.rating)}
     </button>`;
+}
+/* the Diary's own live search - not filtering what's already logged (there's no local list here
+   worth filtering, unlike Places/Games), but a real TMDb lookup for something you're about to
+   log or add to the Watchlist, so each result gets both actions rather than picking one for you.
+   Same debounced-typing TMDb call as everywhere else this app searches a live catalogue. */
+let FILMS_HOME_SEARCH_TIMER = null;
+let FILMS_HOME_SEARCH_RESULTS = [];
+function filmsHomeSearchInputImpl(){
+  clearTimeout(FILMS_HOME_SEARCH_TIMER);
+  const q = ($('#films-home-search').value||'').trim();
+  const results = $('#films-home-search-results'); if(results) results.innerHTML = '';
+  if(!q) return;
+  FILMS_HOME_SEARCH_TIMER = setTimeout(()=>filmsHomeSearch(q), 400);
+}
+function filmsHomeSearch(q){
+  const results = $('#films-home-search-results'); if(!results) return;
+  results.innerHTML = `<div class="gig-search-item muted small">Searching…</div>`;
+  fetch('/api/film-search?q=' + encodeURIComponent(q))
+    .then(async r => {
+      if(r.status===503) throw new Error("Film search isn't set up - add TMDB_API_KEY as a Vercel environment variable (see psn-proxy/README.md).");
+      if(!r.ok){ const body = await r.json().catch(()=>({})); throw new Error(body.error || ('status '+r.status)); }
+      return r.json();
+    })
+    .then(data => {
+      const cur = $('#films-home-search-results'); if(!cur) return;
+      FILMS_HOME_SEARCH_RESULTS = data.films||[];
+      cur.innerHTML = FILMS_HOME_SEARCH_RESULTS.length
+        ? FILMS_HOME_SEARCH_RESULTS.map((f,n)=>filmsHomeResultHTML(f,n)).join('')
+        : `<div class="gig-search-item muted small">No films match "${esc(q)}"</div>`;
+    })
+    .catch(e => {
+      const cur = $('#films-home-search-results'); if(!cur) return;
+      cur.innerHTML = `<div class="gig-search-item muted small">${esc(e.message||"Couldn't search")}</div>`;
+    });
+}
+function filmsHomeResultHTML(f, n){
+  return `
+    <div class="gig-search-item films-home-result">
+      ${f.image ? `<img class="film-search-thumb" src="${esc(f.image)}" alt="">` : `<span class="film-search-thumb gig-cover-fallback">${fa('film')}</span>`}
+      <span class="films-home-result-text">${esc(f.title)}${f.year?` <span class="muted">(${esc(f.year)})</span>`:''}</span>
+      <span class="btn-row">
+        <button type="button" class="btn sm" onclick="App.filmsHomeLog(${n})">Log</button>
+        <button type="button" class="btn sm ghost" onclick="App.filmsHomeWatchlist(${n}, this)">+ Watchlist</button>
+      </span>
+    </div>`;
+}
+function filmsHomeLogImpl(n){
+  const m = FILMS_HOME_SEARCH_RESULTS[n]; if(!m) return;
+  filmFormImpl(-1, {title:m.title, year:m.year, image:m.image, genres:m.genres||[]});
+}
+function filmsHomeWatchlistImpl(n, btn){
+  const m = FILMS_HOME_SEARCH_RESULTS[n]; if(!m) return;
+  if(!isOnFilmsWatchlist(m.id)){
+    DB.filmsWatchlist = DB.filmsWatchlist||[];
+    DB.filmsWatchlist.unshift(m);
+    saveFilmsWatchlist();
+  }
+  if(btn){ btn.textContent = '✓ Added'; btn.disabled = true; }
 }
 /* the title field: a live search against TMDb (via api/film-search.js) when it's configured, a
    plain text box otherwise - logging a film never has to wait on that being set up, and picking
@@ -5156,14 +5296,7 @@ let FW_SEARCH_TIMER = null;
 let FW_LAST_RESULTS = [];
 function renderFilmsWatchlist(){
   const body = $('#films-body'); if(!body) return;
-  body.innerHTML = `
-    <div id="fw-my"></div>
-    <div class="field"><input type="text" id="fw-search" placeholder="Search for a film to add…"
-      autocomplete="off" oninput="App.fwSearchInput()"></div>
-    <div class="btn-row" style="margin-bottom:14px">
-      <button type="button" class="btn sm ghost" onclick="App.fwAddManual()">+ Add Manually</button>
-    </div>
-    <div id="fw-results"></div>`;
+  body.innerHTML = `<div id="fw-my"></div>`;
   drawFwMine();
   loadFilmsWatchlistCloud(cloud => {
     DB.filmsWatchlist = Array.isArray(cloud) ? cloud : [];
@@ -5179,24 +5312,26 @@ function renderFilmsWatchlist(){
 function drawFwMine(){
   const el = $('#fw-my'); if(!el) return;
   const mine = DB.filmsWatchlist||[];
-  if(!mine.length){ el.innerHTML = `<div class="empty">Nothing on your watchlist yet - search below to add one.</div>`; return; }
+  if(!mine.length){ el.innerHTML = `<div class="empty">Nothing on your watchlist yet - tap + Add Film above to add one.</div>`; return; }
   const filtered = CUR_FW_GENRE ? mine.filter(f=>(f.genres||[]).includes(CUR_FW_GENRE)) : mine;
   el.innerHTML = filmsGenreSelectHTML('fw-genre-select', mine, CUR_FW_GENRE, 'App.fwGenreFilter')
     + (filtered.length
       ? `<div class="film-grid" style="margin-bottom:20px">${filtered.map(f=>fwMineCardHTML(f)).join('')}</div>`
       : `<div class="empty" style="margin-bottom:20px">No films in that category.</div>`);
 }
-/* a CSV-imported entry carries the exact Letterboxd URI for that film (Letterboxd's own export
-   column); one added via TMDb search never has one, so the closest honest fallback is a
-   Letterboxd search for its title - not the exact film page, but still one tap from it, and the
-   best this app can do without its own Letterboxd film-id lookup */
-function fwLetterboxdUrl(f){
+/* shared by every "open this film on Letterboxd" link app-wide (Watchlist cards, and the Home
+   dashboard's Last Seen/Watchlist-pick widgets) - a Diary entry synced from Letterboxd or a
+   CSV-imported one carries the exact Letterboxd URI (that export's own column / the diary RSS
+   guid); one logged by hand or added via TMDb search never has one, so the closest honest
+   fallback is a Letterboxd search for its title - not the exact film page, but still one tap
+   from it, and the best this app can do without its own Letterboxd film-id lookup */
+function filmLetterboxdUrl(f){
   return f.link || ('https://letterboxd.com/search/films/'+encodeURIComponent(f.title||'')+'/');
 }
 function fwMineCardHTML(f){
   return `
     <div class="film-card">
-      <a href="${esc(fwLetterboxdUrl(f))}" target="_blank" rel="noopener" aria-label="${esc(f.title||'Film')} on Letterboxd">
+      <a href="${esc(filmLetterboxdUrl(f))}" target="_blank" rel="noopener" aria-label="${esc(f.title||'Film')} on Letterboxd">
         ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
                    : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
         <div class="film-title">${esc(f.title||'Untitled')}</div>
@@ -5220,9 +5355,19 @@ function fwResultCardHTML(f){
         onclick="App.fwToggle('${esc(f.id)}')" aria-pressed="${on}">${on?'✓ On Watchlist':'+ Add'}</button>
     </div>`;
 }
-/* each search is a real TMDb call (via the same api/film-search.js the Log Film form uses), so
-   wait for a pause in typing rather than firing per key, same as everywhere else this app
-   searches a live catalogue */
+/* its own screen (openModal's "push" full-page mode - see that function's own comment) rather
+   than a search box sitting inline at the foot of the Watchlist grid, the same way Log Film gets
+   its own "+ Log Film" button/screen instead of living inline on the Diary. Each search is a
+   real TMDb call (via the same api/film-search.js the Log Film form uses), so it waits for a
+   pause in typing rather than firing per key, same as everywhere else this app searches a live
+   catalogue. */
+function fwAddFilmImpl(){
+  openModal(`
+    <h2>Add to Watchlist</h2>
+    <div class="field"><input type="text" id="fw-search" placeholder="Search for a film to add…"
+      autocomplete="off" oninput="App.fwSearchInput()"></div>
+    <div id="fw-results"></div>`);
+}
 function fwSearchInputImpl(){
   clearTimeout(FW_SEARCH_TIMER);
   const q = ($('#fw-search').value||'').trim();
@@ -5250,36 +5395,6 @@ function fwSearch(q){
       const cur = $('#fw-results'); if(!cur) return;
       cur.innerHTML = `<div class="empty">Couldn't search.<br>${esc(e.message||'')}</div>`;
     });
-}
-/* the fallback for whenever search above comes up empty or isn't set up at all (no TMDB_API_KEY)
-   - a film not yet released, an obscure title TMDb doesn't have, or just a quicker way to type a
-   title than waiting on results. Saves straight to the Watchlist with just a title, then tries
-   the same backfillPosters TMDb lookup a CSV import gets to fill in the poster/genres after. */
-function fwAddManualImpl(){
-  openModal(`
-    <h2>Add to Watchlist</h2>
-    <div class="field"><label class="label" for="fw-add-title">Title</label>
-      <input id="fw-add-title" type="text" placeholder="Film title" autocomplete="off"></div>
-    <div class="field"><label class="label" for="fw-add-year">Year</label>
-      <input id="fw-add-year" type="number" inputmode="numeric" min="1888" max="2100" placeholder="Optional"></div>
-    <div class="btn-row" style="margin-top:6px">
-      <button class="btn primary" style="flex:1" onclick="App.fwAddManualSave()">+ Add to Watchlist</button>
-    </div>`);
-}
-function fwAddManualSaveImpl(){
-  const title = ($('#fw-add-title').value||'').trim();
-  if(!title) return markErr('#fw-add-title','Enter a film title');
-  const entry = {
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random(),
-    title, year: ($('#fw-add-year').value||'').trim() || null, image:'', genres:[],
-  };
-  DB.filmsWatchlist = DB.filmsWatchlist||[];
-  DB.filmsWatchlist.unshift(entry);
-  saveFilmsWatchlist();
-  closeModal();
-  drawFwMine();
-  toast('Added to Watchlist');
-  backfillPosters([entry], saveFilmsWatchlist).then(n => { if(n) drawFwMine(); });
 }
 /* watchlist.csv is Letterboxd's export for the watchlist itself, a separate file from
    diary.csv - same shape minus Rating/Rewatch/Watched Date, which a watchlist entry doesn't
@@ -5418,8 +5533,8 @@ function drawFilmsStats(){
 
   body.innerHTML = `
     <div class="stat-overview-row">
-      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.filmsTab('diary')"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmsTab('diary')}">
+      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="CUR_FILMS_GENRE='';App.filmsTab('diary')"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();CUR_FILMS_GENRE='';App.filmsTab('diary')}">
         <div class="dash-stat-num">${films.length}</div><div class="dash-stat-label">Logged</div></div>
       <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.filmsStatsRewatches()"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmsStatsRewatches()}">
@@ -5632,6 +5747,7 @@ App.newsVote = (i, dir) => {
   saveNewsVotes(votes);
 };
 App.goGigs = () => { location.hash = '#/gigs'; };
+App.goGigsSeen = () => { CUR_GIGS_TAB = 'log'; location.hash = '#/gigs'; };
 App.goSongs = () => { CUR_GIGS_TAB = 'songs'; location.hash = '#/gigs'; };
 App.gigsTab = k => { CUR_GIGS_TAB = k; renderGigs(); window.scrollTo(0,0); };
 App.gigForm = gigFormImpl;
@@ -5645,7 +5761,7 @@ App.gigArtistPick = gigArtistPickImpl;
 App.saveGig = saveGigImpl;
 App.delGig = delGigImpl;
 App.goFilms = () => { location.hash = '#/films'; };
-App.goFilmsDiary = () => { CUR_FILMS_TAB = 'diary'; location.hash = '#/films'; };
+App.goFilmsDiary = () => { CUR_FILMS_TAB = 'diary'; CUR_FILMS_GENRE = ''; location.hash = '#/films'; };
 App.goFilmsWatchlist = () => { CUR_FILMS_TAB = 'watchlist'; location.hash = '#/films'; };
 App.filmForm = filmFormImpl;
 App.saveFilm = saveFilmImpl;
@@ -5656,6 +5772,9 @@ App.letterboxdDisconnect = letterboxdDisconnectImpl;
 App.filmTitleInput = filmTitleInputImpl;
 App.filmTitlePick = filmTitlePickImpl;
 App.filmsTab = k => { CUR_FILMS_TAB = k; renderFilms(); window.scrollTo(0,0); };
+App.filmsHomeSearchInput = filmsHomeSearchInputImpl;
+App.filmsHomeLog = filmsHomeLogImpl;
+App.filmsHomeWatchlist = filmsHomeWatchlistImpl;
 App.fwSearchInput = fwSearchInputImpl;
 App.fwToggle = id => {
   if(isOnFilmsWatchlist(id)){
@@ -5684,8 +5803,7 @@ App.filmsStatsYear = y => { location.hash = '#/films/stats/year/'+encodeURICompo
 App.filmsStatsRating = v => { location.hash = '#/films/stats/rating/'+encodeURIComponent(v); };
 App.filmsStatsRewatches = () => { location.hash = '#/films/stats/rewatches'; };
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
-App.fwAddManual = fwAddManualImpl;
-App.fwAddManualSave = fwAddManualSaveImpl;
+App.fwAddFilm = fwAddFilmImpl;
 App.fwImportCsv = filmsWatchlistImportCsvImpl;
 App.fwImportCsvFile = filmsWatchlistImportCsvFileImpl;
 App.filmsGenreFilter = v => { CUR_FILMS_GENRE = v; drawFilmsGrid(); };
