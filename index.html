@@ -1070,8 +1070,11 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.14.1';
+const APP_VERSION = '2.14.2';
 const CHANGELOG = [
+  {version:'2.14.2', notes:[
+    "Fixed Diary duplicates from logging the same film both via Letterboxd sync and a CSV import - the two didn't always agree on what identifies an entry, so the same watch could show up twice. Existing duplicates now merge together automatically (keeping whichever side has the fuller data) next time the Diary loads, and new syncs/imports won't recreate them."
+  ]},
   {version:'2.14.1', notes:[
     "Dropped the Menu button from a trip's mobile header - Share Trip already has its own button lower down the page, and All Trips is a tap away on the bottom bar's Travel tab, so the button was one more way to do things the page already offered."
   ]},
@@ -4610,8 +4613,10 @@ function renderFilmsDiary(){
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
     DB.films = Array.isArray(cloud) ? cloud : [];
-    saveLocal();
+    const merged = dedupeFilms();
+    if(merged) saveFilms(); else saveLocal();
     if(CUR_FILMS_TAB==='diary') drawFilmsGrid();
+    if(merged) toast(`Merged ${merged} duplicate film${merged===1?'':'s'}`);
   });
 }
 function drawLetterboxdConnect(){
@@ -4819,6 +4824,53 @@ function delFilmImpl(i){
     toast('Film removed');
   });
 }
+/* Letterboxd's RSS sync (id: the feed's <guid>, usually the diary entry's own URL) and the CSV
+   import (id: the export's Letterboxd URI column, or a title|year|watchedDate fallback when
+   that column's blank) don't always agree on what string identifies the same watch - a trailing
+   slash, or a rewatch-count suffix one has and the other doesn't, is enough to make two imports
+   of the very same entry look like two different ones by id alone. A title+year+watchedDate
+   triple is what actually makes a diary entry unique on Letterboxd itself, so both merges below
+   fall back to matching on that whenever the id lookup misses, and dedupeFilms() sweeps up
+   anything already duplicated in existing data by the same rule. */
+function filmDedupeKey(f){
+  return f.watchedDate ? (f.title||'').trim().toLowerCase()+'|'+(f.year||'')+'|'+f.watchedDate : '';
+}
+function findFilmIndex(f, byId, byKey){
+  if(byId.has(f.id)) return byId.get(f.id);
+  const key = filmDedupeKey(f);
+  return key && byKey.has(key) ? byKey.get(key) : null;
+}
+function indexFilmAt(list, byId, byKey, idx){
+  byId.set(list[idx].id, idx);
+  const key = filmDedupeKey(list[idx]);
+  if(key) byKey.set(key, idx);
+}
+/* run once whenever the Diary loads, folding together anything the id-based merges above still
+   let through (typically entries logged both by an earlier sync and a CSV import before this
+   fallback existed) - keeps whichever side of each duplicate has the more complete data rather
+   than just picking one arbitrarily */
+function dedupeFilms(){
+  const films = DB.films||[];
+  const byKey = new Map();
+  const kept = [];
+  let merged = 0;
+  const looksLikeUrl = s => /^https?:\/\//i.test(s||'');
+  films.forEach(f=>{
+    const key = filmDedupeKey(f);
+    const priorIdx = key ? byKey.get(key) : undefined;
+    if(priorIdx==null){ if(key) byKey.set(key, kept.length); kept.push(f); return; }
+    const prior = kept[priorIdx];
+    if(!looksLikeUrl(prior.id) && looksLikeUrl(f.id)) prior.id = f.id;
+    if(!prior.link && f.link) prior.link = f.link;
+    if(!prior.image && f.image) prior.image = f.image;
+    if(!(prior.genres&&prior.genres.length) && f.genres&&f.genres.length) prior.genres = f.genres;
+    if(prior.rating==null && f.rating!=null) prior.rating = f.rating;
+    if(!prior.rewatch && f.rewatch) prior.rewatch = f.rewatch;
+    merged++;
+  });
+  if(merged) DB.films = kept;
+  return merged;
+}
 async function letterboxdConnectImpl(){
   const inp = $('#letterboxd-user-input');
   const u = (inp.value||'').trim().replace(/^@/,'');
@@ -4845,16 +4897,18 @@ async function letterboxdSyncImpl(){
     const imported = data.films||[];
     DB.films = DB.films||[];
     const byId = new Map(DB.films.map((f,idx)=>[f.id, idx]));
+    const byKey = new Map();
+    DB.films.forEach((f,idx)=>{ const k = filmDedupeKey(f); if(k) byKey.set(k, idx); });
     let added=0, updated=0;
     imported.forEach(f=>{
-      const existingIdx = byId.get(f.id);
+      const existingIdx = findFilmIndex(f, byId, byKey);
       // the feed doesn't always have a poster for an entry - don't let a blank overwrite one
       // this film already has (from an earlier sync, a CSV import, or the backfill below)
       const existingImage = existingIdx!=null ? DB.films[existingIdx].image : '';
       const entry = {id:f.id, title:f.title, year:f.year, watchedDate:f.watchedDate,
         rating:f.rating, rewatch:f.rewatch, image:f.image||existingImage, link:f.link, source:'letterboxd'};
-      if(existingIdx!=null){ DB.films[existingIdx] = entry; updated++; }
-      else { DB.films.push(entry); byId.set(f.id, DB.films.length-1); added++; }
+      if(existingIdx!=null){ DB.films[existingIdx] = entry; indexFilmAt(DB.films, byId, byKey, existingIdx); updated++; }
+      else { DB.films.push(entry); indexFilmAt(DB.films, byId, byKey, DB.films.length-1); added++; }
     });
     saveFilms();
     drawLetterboxdConnect();
@@ -4951,16 +5005,18 @@ function filmsImportCsvFileImpl(file){
       if(!imported.length) throw new Error('No films found in that file');
       DB.films = DB.films||[];
       const byId = new Map(DB.films.map((f,idx)=>[f.id, idx]));
+      const byKey = new Map();
+      DB.films.forEach((f,idx)=>{ const k = filmDedupeKey(f); if(k) byKey.set(k, idx); });
       let added=0, updated=0;
       imported.forEach(f=>{
-        const existingIdx = byId.get(f.id);
+        const existingIdx = findFilmIndex(f, byId, byKey);
         // diary.csv carries no poster at all - never let that blank out an image this film
         // already has (backfillPosters below fills the rest in from scratch)
         const existingImage = existingIdx!=null ? DB.films[existingIdx].image : '';
         const entry = {id:f.id, title:f.title, year:f.year, watchedDate:f.watchedDate,
           rating:f.rating, rewatch:f.rewatch, image:existingImage||f.image, link:f.link, source:'letterboxd'};
-        if(existingIdx!=null){ DB.films[existingIdx] = entry; updated++; }
-        else { DB.films.push(entry); byId.set(f.id, DB.films.length-1); added++; }
+        if(existingIdx!=null){ DB.films[existingIdx] = entry; indexFilmAt(DB.films, byId, byKey, existingIdx); updated++; }
+        else { DB.films.push(entry); indexFilmAt(DB.films, byId, byKey, DB.films.length-1); added++; }
       });
       saveFilms();
       closeModal();
