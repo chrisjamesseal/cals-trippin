@@ -27,8 +27,10 @@ it's the same fix, so it didn't need its own Cloudflare project. It's public and
 everyone (no login, no per-device state), and cached for 30 minutes so it isn't re-fetching
 five feeds on every page load. Deploying the worker below turns on both tabs at once.
 
-The Films tab's News subtab (`/film-news` - Variety, The Hollywood Reporter) and the Music tab's
-News subtab (`/music-news` - Resident Advisor, DJ Mag, Spotify Newsroom) are the same idea again,
+The Films tab's News subtab (`/film-news` - Variety and The Hollywood Reporter's Film/Movies
+verticals, IndieWire for cinema culture and criticism, What's on Netflix for new streaming
+releases) and the Music tab's News subtab (`/music-news` - Resident Advisor, DJ Mag, Spotify
+Newsroom) are the same idea again,
 reusing the exact same fetch/parse/cache machinery as `/design-news` (see `fetchNewsFeeds` in
 `worker.js`). No separate setup - deploying the worker turns these on too. Each feed is fetched
 independently, so one publication's RSS being down doesn't take out the others in that tab.

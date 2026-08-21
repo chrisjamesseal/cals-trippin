@@ -275,26 +275,18 @@ a{color:var(--brand-dark);}
    photo Gigs' identical dropdown uses, everything else (positioning, item layout) shared as-is */
 .film-search-thumb{width:32px; height:46px; border-radius:3px; object-fit:cover; flex-shrink:0;
   background:var(--bg); border:1px solid var(--line);}
-/* a row of five stars, each its own click target split left/right for half-star granularity -
-   an outline star sits underneath a filled one clipped to 0/50/100% width per star rather than
-   swapping glyphs, so a half star reads as "left half solid" without a separate half-star glyph
-   needing its own font support */
-.star-rating-row{display:flex; align-items:center; gap:10px;}
-/* the gap has to be wide enough for each star's own hit target to bleed into it (below) without
-   overlapping its neighbour's */
+/* a row of five stars, rendered read-only (Films Stats' By Rating rows, and film cards' own
+   rating badge) - an outline star sits underneath a filled one clipped to 0/50/100% width per
+   star rather than swapping glyphs, so a half star reads as "left half solid" without a separate
+   half-star glyph needing its own font support. The Log Film form's own rating input used to be
+   an interactive version of this same markup, but individual stars were too fiddly to hit
+   precisely on a phone - it's a plain <select> now (see filmRatingFieldHTML), so this stays
+   display-only. */
 .star-rating{display:inline-flex; gap:14px;}
 .star-slot{position:relative; display:inline-block; width:36px; height:36px; font-size:32px; line-height:36px;}
 .star-bg,.star-fill{position:absolute; top:0; left:0; overflow:hidden; white-space:nowrap; pointer-events:none;}
 .star-bg{color:var(--line); width:100%;}
 .star-fill{color:var(--brand-dark);}
-/* the actual tap target is bigger than the glyph it sits on - splitting a star in half for
-   half-star granularity halves an already-small target, so each half bleeds past the visible
-   star on every edge (into the row's padding, and into the gap toward its neighbour) rather
-   than relying on making the star itself bigger, which stops helping once the glyph is bigger
-   than a fingertip needs while the half-target is still thin */
-.star-hit{position:absolute; top:-9px; bottom:-9px; width:calc(50% + 6px); padding:0; margin:0;
-  border:none; background:transparent; cursor:pointer; box-shadow:none;}
-.star-hit-l{left:-6px;} .star-hit-r{right:-6px;}
 /* Films Stats: the 3 headline numbers reuse the Home dashboard's own stat-tile look
    (.dash-widget.dash-widget-stat), the By Year/By Rating rows are their own thing - a plain
    clickable row with a count pill (Gigs' own .gig-seen-pill, reused as-is) that drills into a
@@ -308,13 +300,10 @@ a{color:var(--brand-dark);}
   box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s;}
 .stats-row:hover,.stats-row:focus-visible{transform:translateY(-1px); box-shadow:var(--shadow-lift); outline:none;}
 .stats-row-label{font-family:var(--font-head); font-weight:700; font-size:.9rem; color:var(--ink);}
-/* the By Rating tiles' stars - the same .star-rating/.star-slot markup the Log Film form's
-   input uses, just shrunk down and non-interactive (no .star-hit buttons) for a compact label
-   rather than a control */
+/* the By Rating tiles' stars - the same .star-rating/.star-slot markup above, just shrunk down
+   for a compact label */
 .stats-stars{gap:1px;}
 .stats-stars .star-slot{width:14px; height:14px; font-size:13px; line-height:14px;}
-.star-clear{background:none; border:none; box-shadow:none; padding:0; font-size:.78rem;
-  color:var(--muted); text-decoration:underline; cursor:pointer;}
 
 /* ---------- home dashboard (masonry widgets) ---------- */
 /* Two explicit column divs (each tile's home decided in JS, see dashColAHTML/dashColBHTML)
@@ -434,6 +423,9 @@ a{color:var(--brand-dark);}
 .gig-selected-artist{display:flex; align-items:center; gap:10px; padding:8px 10px;
   border:1px solid var(--line); border-radius:var(--radius-sm); margin-top:8px;}
 .gig-selected-artist img{width:36px; height:36px; border-radius:50%; object-fit:cover;}
+/* the picked-film preview reuses the same container, poster-shaped rather than the round artist
+   photo, matching the search dropdown's own .film-search-thumb shape */
+.film-selected-poster img{width:32px; height:46px; border-radius:3px; object-fit:cover;}
 .gig-seen-pill{flex-shrink:0; display:inline-block; background:var(--brand-tint); color:var(--brand-dark);
   font-weight:700; font-size:.72rem; padding:4px 10px; border-radius:999px; white-space:nowrap;}
 .gig-seen-pill.off{background:var(--bg); color:var(--muted);}
@@ -1070,8 +1062,18 @@ const DESIGN_NEWS_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.14.1';
+const APP_VERSION = '2.14.4';
 const CHANGELOG = [
+  {version:'2.14.4', notes:[
+    "Films' News subtab drops Variety and The Hollywood Reporter's all-topics feeds (mostly industry deal news) for their Film/Movies-specific ones, and adds IndieWire for cinema culture and criticism and What's on Netflix for new streaming releases.",
+  ]},
+  {version:'2.14.3', notes:[
+    "Fixed the Log Film search results not actually showing up (a missing style meant the dropdown could render off in the wrong spot) - and while in there, picking a result now shows its poster and year right in the form instead of just quietly filling in a URL field.",
+    'Rating is a dropdown now instead of a row of stars - individual stars, even the bigger tap targets from an earlier fix, were still fiddly to hit precisely on a phone.',
+  ]},
+  {version:'2.14.2', notes:[
+    "Fixed Diary duplicates from logging the same film both via Letterboxd sync and a CSV import - the two didn't always agree on what identifies an entry, so the same watch could show up twice. Existing duplicates now merge together automatically (keeping whichever side has the fuller data) next time the Diary loads, and new syncs/imports won't recreate them."
+  ]},
   {version:'2.14.1', notes:[
     "Dropped the Menu button from a trip's mobile header - Share Trip already has its own button lower down the page, and All Trips is a tap away on the bottom bar's Travel tab, so the button was one more way to do things the page already offered."
   ]},
@@ -4610,8 +4612,10 @@ function renderFilmsDiary(){
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
     DB.films = Array.isArray(cloud) ? cloud : [];
-    saveLocal();
+    const merged = dedupeFilms();
+    if(merged) saveFilms(); else saveLocal();
     if(CUR_FILMS_TAB==='diary') drawFilmsGrid();
+    if(merged) toast(`Merged ${merged} duplicate film${merged===1?'':'s'}`);
   });
 }
 function drawLetterboxdConnect(){
@@ -4672,41 +4676,41 @@ function filmCardHTML(f, i){
    plain text box otherwise - logging a film never has to wait on that being set up, and picking
    a result is just a starting point, not a lock (whatever ends up in the field is what saves) */
 function filmTitleFieldHTML(f){
-  return `<div class="field film-search-wrap"><label class="label" for="film-title">Title</label>
+  return `<div class="field gig-search-wrap"><label class="label" for="film-title">Title</label>
     <input id="film-title" type="text" value="${esc(f.title||'')}" placeholder="Search for a film…"
       autocomplete="off" oninput="App.filmTitleInput()">
     <div id="film-search-results"></div>
+    <div id="film-picked"></div>
   </div>`;
 }
-function filmRatingStarsInnerHTML(v){
-  return [1,2,3,4,5].map(n=>{
-    const fillPct = Math.max(0, Math.min(1, (v==null?0:v) - (n-1))) * 100;
-    return `<span class="star-slot" data-n="${n}">
-      <span class="star-bg" aria-hidden="true">★</span>
-      <span class="star-fill" aria-hidden="true" style="width:${fillPct}%">★</span>
-      <button type="button" class="star-hit star-hit-l" aria-label="Rate ${n-0.5} stars" onclick="App.filmRatingPick(${n-0.5})"></button>
-      <button type="button" class="star-hit star-hit-r" aria-label="Rate ${n} stars" onclick="App.filmRatingPick(${n})"></button>
-    </span>`;
-  }).join('');
+function filmPickedHTML(){
+  if(!FILM_PICKED || !FILM_PICKED.image) return '';
+  return `<div class="gig-selected-artist film-selected-poster">
+    <img src="${esc(FILM_PICKED.image)}" alt="">
+    <span>${esc(FILM_PICKED.title)}${FILM_PICKED.year?` <span class="muted">(${esc(FILM_PICKED.year)})</span>`:''}</span>
+  </div>`;
 }
+/* a plain dropdown rather than a star widget - individual stars (even the enlarged tap targets
+   from an earlier pass) are still fiddly to hit precisely on a phone, especially telling a half
+   star from its neighbour, where a select just needs one accurate tap to open and one to choose */
+function filmRatingLabel(v){ return '★'.repeat(Math.floor(v)) + (v%1!==0 ? '½' : ''); }
 function filmRatingFieldHTML(value){
-  return `<div class="field">
-    <label class="label">Rating</label>
-    <div class="star-rating-row">
-      <div class="star-rating" id="film-rating-stars">${filmRatingStarsInnerHTML(value)}</div>
-      <button type="button" class="star-clear" id="film-rating-clear" onclick="App.filmRatingPick(null)"${value==null?' style="visibility:hidden"':''}>Clear</button>
-    </div>
-    <input type="hidden" id="film-rating" value="${value==null?'':value}">
+  return `<div class="field"><label class="label" for="film-rating">Rating</label>
+    <select id="film-rating">
+      <option value=""${value==null?' selected':''}>No rating</option>
+      ${FILM_RATING_VALUES.map(v=>`<option value="${v}"${value===v?' selected':''}>${filmRatingLabel(v)} (${v})</option>`).join('')}
+    </select>
   </div>`;
 }
 function filmFormImpl(i, prefill){
   const f = (i>=0 && (DB.films||[])[i]) || (prefill ? {title:prefill.title, year:prefill.year, image:prefill.image} : {});
   FILM_SEARCH_RESULTS = [];
   FILM_WATCHLIST_REMOVE_ID = (prefill && prefill.watchlistId) || null;
-  // carries a picked search result's genres through to save (see filmTitlePickImpl) - prefilled
-  // from the Watchlist item itself when opened via its "Watched" button, so a genre already
-  // known there doesn't need re-discovering
-  FILM_PICKED = (i<0 && f.title) ? {title:f.title, genres:(prefill&&prefill.genres)||[]} : null;
+  // shows the poster/title/year preview right away whenever the title's already attached to a
+  // picture - a fresh pick from the Watchlist's "Watched" button, or reopening an already-logged
+  // film to edit it - cleared the moment the title's typed further (see filmTitleInputImpl).
+  // Carries a picked search result's genres through to save too (see filmTitlePickImpl).
+  FILM_PICKED = f.title ? {title:f.title, year:f.year, image:f.image, genres:(i<0 ? (prefill&&prefill.genres)||[] : f.genres||[])} : null;
   openModal(`
     <h2>${i>=0?'Edit Film':'Log a Film'}</h2>
     ${filmTitleFieldHTML(f)}
@@ -4724,12 +4728,7 @@ function filmFormImpl(i, prefill){
       <button class="btn primary" style="flex:1" onclick="App.saveFilm(${i>=0?i:-1})">${i>=0?'Save':'Add Film'}</button>
       ${i>=0?`<button class="btn danger" onclick="App.delFilm(${i})">Delete</button>`:''}
     </div>`);
-}
-function filmRatingPickImpl(v){
-  const inp = $('#film-rating'); if(!inp) return;
-  inp.value = v==null ? '' : v;
-  const stars = $('#film-rating-stars'); if(stars) stars.innerHTML = filmRatingStarsInnerHTML(v);
-  const clearBtn = $('#film-rating-clear'); if(clearBtn) clearBtn.style.visibility = v==null ? 'hidden' : 'visible';
+  const picked = $('#film-picked'); if(picked) picked.innerHTML = filmPickedHTML();
 }
 /* each keystroke would hammer TMDb on every letter, so this waits for a pause in typing before
    firing, same as Gigs' artist search and Board Games' own search */
@@ -4739,6 +4738,7 @@ let FILM_WATCHLIST_REMOVE_ID = null;   // set when Log Film opened via the Watch
 let FILM_PICKED = null;   // {title, genres} - the last search result actually picked, so saveFilmImpl can carry its genres through; cleared whenever the title's typed further so a stale pick can't attach to a since-changed title
 function filmTitleInputImpl(){
   FILM_PICKED = null;
+  const picked = $('#film-picked'); if(picked) picked.innerHTML = '';
   clearTimeout(FILM_SEARCH_TIMER);
   const q = ($('#film-title').value||'').trim();
   const results = $('#film-search-results'); if(results) results.innerHTML = '';
@@ -4775,8 +4775,9 @@ function filmTitlePickImpl(n){
   const titleInp = $('#film-title'); if(titleInp) titleInp.value = m.title;
   const yearInp = $('#film-year'); if(yearInp) yearInp.value = m.year || '';
   const posterInp = $('#film-poster'); if(posterInp) posterInp.value = m.image || '';
-  FILM_PICKED = {title: m.title, genres: m.genres||[]};
+  FILM_PICKED = {title: m.title, year: m.year, image: m.image, genres: m.genres||[]};
   const results = $('#film-search-results'); if(results) results.innerHTML = '';
+  const picked = $('#film-picked'); if(picked) picked.innerHTML = filmPickedHTML();
 }
 function saveFilmImpl(i){
   const title = ($('#film-title').value||'').trim();
@@ -4819,6 +4820,53 @@ function delFilmImpl(i){
     toast('Film removed');
   });
 }
+/* Letterboxd's RSS sync (id: the feed's <guid>, usually the diary entry's own URL) and the CSV
+   import (id: the export's Letterboxd URI column, or a title|year|watchedDate fallback when
+   that column's blank) don't always agree on what string identifies the same watch - a trailing
+   slash, or a rewatch-count suffix one has and the other doesn't, is enough to make two imports
+   of the very same entry look like two different ones by id alone. A title+year+watchedDate
+   triple is what actually makes a diary entry unique on Letterboxd itself, so both merges below
+   fall back to matching on that whenever the id lookup misses, and dedupeFilms() sweeps up
+   anything already duplicated in existing data by the same rule. */
+function filmDedupeKey(f){
+  return f.watchedDate ? (f.title||'').trim().toLowerCase()+'|'+(f.year||'')+'|'+f.watchedDate : '';
+}
+function findFilmIndex(f, byId, byKey){
+  if(byId.has(f.id)) return byId.get(f.id);
+  const key = filmDedupeKey(f);
+  return key && byKey.has(key) ? byKey.get(key) : null;
+}
+function indexFilmAt(list, byId, byKey, idx){
+  byId.set(list[idx].id, idx);
+  const key = filmDedupeKey(list[idx]);
+  if(key) byKey.set(key, idx);
+}
+/* run once whenever the Diary loads, folding together anything the id-based merges above still
+   let through (typically entries logged both by an earlier sync and a CSV import before this
+   fallback existed) - keeps whichever side of each duplicate has the more complete data rather
+   than just picking one arbitrarily */
+function dedupeFilms(){
+  const films = DB.films||[];
+  const byKey = new Map();
+  const kept = [];
+  let merged = 0;
+  const looksLikeUrl = s => /^https?:\/\//i.test(s||'');
+  films.forEach(f=>{
+    const key = filmDedupeKey(f);
+    const priorIdx = key ? byKey.get(key) : undefined;
+    if(priorIdx==null){ if(key) byKey.set(key, kept.length); kept.push(f); return; }
+    const prior = kept[priorIdx];
+    if(!looksLikeUrl(prior.id) && looksLikeUrl(f.id)) prior.id = f.id;
+    if(!prior.link && f.link) prior.link = f.link;
+    if(!prior.image && f.image) prior.image = f.image;
+    if(!(prior.genres&&prior.genres.length) && f.genres&&f.genres.length) prior.genres = f.genres;
+    if(prior.rating==null && f.rating!=null) prior.rating = f.rating;
+    if(!prior.rewatch && f.rewatch) prior.rewatch = f.rewatch;
+    merged++;
+  });
+  if(merged) DB.films = kept;
+  return merged;
+}
 async function letterboxdConnectImpl(){
   const inp = $('#letterboxd-user-input');
   const u = (inp.value||'').trim().replace(/^@/,'');
@@ -4845,16 +4893,18 @@ async function letterboxdSyncImpl(){
     const imported = data.films||[];
     DB.films = DB.films||[];
     const byId = new Map(DB.films.map((f,idx)=>[f.id, idx]));
+    const byKey = new Map();
+    DB.films.forEach((f,idx)=>{ const k = filmDedupeKey(f); if(k) byKey.set(k, idx); });
     let added=0, updated=0;
     imported.forEach(f=>{
-      const existingIdx = byId.get(f.id);
+      const existingIdx = findFilmIndex(f, byId, byKey);
       // the feed doesn't always have a poster for an entry - don't let a blank overwrite one
       // this film already has (from an earlier sync, a CSV import, or the backfill below)
       const existingImage = existingIdx!=null ? DB.films[existingIdx].image : '';
       const entry = {id:f.id, title:f.title, year:f.year, watchedDate:f.watchedDate,
         rating:f.rating, rewatch:f.rewatch, image:f.image||existingImage, link:f.link, source:'letterboxd'};
-      if(existingIdx!=null){ DB.films[existingIdx] = entry; updated++; }
-      else { DB.films.push(entry); byId.set(f.id, DB.films.length-1); added++; }
+      if(existingIdx!=null){ DB.films[existingIdx] = entry; indexFilmAt(DB.films, byId, byKey, existingIdx); updated++; }
+      else { DB.films.push(entry); indexFilmAt(DB.films, byId, byKey, DB.films.length-1); added++; }
     });
     saveFilms();
     drawLetterboxdConnect();
@@ -4951,16 +5001,18 @@ function filmsImportCsvFileImpl(file){
       if(!imported.length) throw new Error('No films found in that file');
       DB.films = DB.films||[];
       const byId = new Map(DB.films.map((f,idx)=>[f.id, idx]));
+      const byKey = new Map();
+      DB.films.forEach((f,idx)=>{ const k = filmDedupeKey(f); if(k) byKey.set(k, idx); });
       let added=0, updated=0;
       imported.forEach(f=>{
-        const existingIdx = byId.get(f.id);
+        const existingIdx = findFilmIndex(f, byId, byKey);
         // diary.csv carries no poster at all - never let that blank out an image this film
         // already has (backfillPosters below fills the rest in from scratch)
         const existingImage = existingIdx!=null ? DB.films[existingIdx].image : '';
         const entry = {id:f.id, title:f.title, year:f.year, watchedDate:f.watchedDate,
           rating:f.rating, rewatch:f.rewatch, image:existingImage||f.image, link:f.link, source:'letterboxd'};
-        if(existingIdx!=null){ DB.films[existingIdx] = entry; updated++; }
-        else { DB.films.push(entry); byId.set(f.id, DB.films.length-1); added++; }
+        if(existingIdx!=null){ DB.films[existingIdx] = entry; indexFilmAt(DB.films, byId, byKey, existingIdx); updated++; }
+        else { DB.films.push(entry); indexFilmAt(DB.films, byId, byKey, DB.films.length-1); added++; }
       });
       saveFilms();
       closeModal();
@@ -5175,9 +5227,9 @@ function statsRowHTML(onclick, label, count){
     <span class="gig-seen-pill">${count}</span>
   </button>`;
 }
-/* a non-interactive version of the Log Film form's own star widget (filmRatingStarsInnerHTML) -
-   same half-star-via-clipped-fill technique, just without the click targets since this is a
-   label, not an input */
+/* same half-star-via-clipped-fill technique .star-rating/.star-slot use everywhere, as a plain
+   read-only label rather than a control (the Log Film form's own rating field is a <select> -
+   see filmRatingFieldHTML) */
 function filmStaticStarsHTML(v){
   return [1,2,3,4,5].map(n=>{
     const fillPct = Math.max(0, Math.min(1, v - (n-1))) * 100;
@@ -5440,7 +5492,6 @@ App.letterboxdSync = letterboxdSyncImpl;
 App.letterboxdDisconnect = letterboxdDisconnectImpl;
 App.filmTitleInput = filmTitleInputImpl;
 App.filmTitlePick = filmTitlePickImpl;
-App.filmRatingPick = filmRatingPickImpl;
 App.filmsTab = k => { CUR_FILMS_TAB = k; renderFilms(); window.scrollTo(0,0); };
 App.fwSearchInput = fwSearchInputImpl;
 App.fwToggle = id => {
