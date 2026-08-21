@@ -165,7 +165,7 @@ a{color:var(--brand-dark);}
    Disconnect button after it) need room to clear it */
 #games-grid{padding-bottom:44px;}
 .game-card{
-  display:flex; align-items:center; gap:12px; padding:12px; min-width:0;
+  display:flex; align-items:center; gap:12px; padding:12px; min-width:0; cursor:pointer;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
   transition:opacity .15s, filter .15s;
 }
@@ -181,6 +181,19 @@ a{color:var(--brand-dark);}
 .game-progress-bar{position:absolute; inset:0 auto 0 0; background:var(--brand); border-radius:999px; transition:width .2s;}
 .game-meta{overflow-wrap:anywhere;}
 .game-hide-btn{flex-shrink:0; align-self:center;}
+/* ---------- individual game page ---------- */
+.game-detail-card{display:flex; flex-direction:column; align-items:center; text-align:center;}
+.game-detail-icon{width:88px; height:88px; border-radius:var(--radius); object-fit:cover; background:var(--bg); margin-bottom:12px; font-size:2rem;}
+.game-detail-name{font-family:var(--font-head); font-weight:700; font-size:1.15rem; overflow-wrap:anywhere;}
+.game-detail-meta{margin:4px 0 14px;}
+.game-detail-card .game-progress{width:100%;}
+.game-detail-pct{margin-top:6px;}
+.game-tiers{display:flex; flex-direction:column; gap:2px; width:100%; margin-top:18px;}
+.game-tier-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line);}
+.game-tier-emoji{font-size:1.2rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.game-tier-label{flex:1; text-align:left; font-weight:700; font-size:.85rem;}
+.game-tier-count{color:var(--muted); font-size:.85rem;}
 
 /* ---------- sub-tabs (Games: PlayStation / Board Games) ---------- */
 /* wraps onto a second row rather than squeezing every label down to fit - four subtabs (Music)
@@ -372,12 +385,17 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 /* Next Trip has no image the way Most Played/Currently Playing do, just this flag - full card
    width (not the half-width box the other widgets' images sit in) so the flag itself reads as
-   big as the card, the way a real photo would. */
+   big as the card, the way a real photo would. A square box at that width would come out twice
+   as tall as .dash-item-img-half's own (width:50%/aspect 1:1) box, so height matches that
+   sibling box's instead (2:1 at full width works out the same) - width and height need sizing
+   from two different axes to fill the shorter box without either overflowing sideways with two
+   flags or spilling over its top/bottom edge with one, which is what container-type:size (not
+   just inline-size) and the min() of a cqw and a cqh figure below are each doing. */
 .dash-item-flags-boxed{display:flex; align-items:stretch; justify-content:center;
-  width:100%; aspect-ratio:1/1; margin:0 0 10px;}
-.dash-item-flags-boxed .flag-cell{container-type:inline-size; flex:1 1 0; min-width:0;
+  width:100%; aspect-ratio:2/1; margin:0 0 10px;}
+.dash-item-flags-boxed .flag-cell{container-type:size; flex:1 1 0; min-width:0;
   display:flex; align-items:center; justify-content:center;}
-.dash-item-flags-boxed .flag-cell span{font-size:92cqw; line-height:1;}
+.dash-item-flags-boxed .flag-cell span{font-size:min(46cqw, 88cqh); line-height:1;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
 
@@ -386,7 +404,7 @@ a{color:var(--brand-dark);}
    vegetables at once and still read as a single glanceable board, not a scroll-heavy list */
 .plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px;}
 .plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px;
-  padding:12px 10px; cursor:pointer;}
+  padding:22px 10px 12px; cursor:pointer;}
 .plant-emoji{font-size:2rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-name{font-family:var(--font-head); font-weight:700; font-size:.88rem; color:var(--ink); overflow-wrap:anywhere;}
@@ -412,21 +430,25 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-water-btn.overdue{border-color:#C0392B; background:#FCEBE9;}
 .plant-water-btn.done{border-color:var(--brand); background:var(--brand-tint);}
+/* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
+   solid border so it doesn't read as just another status colour like overdue/done do */
+.plant-water-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
+.plant-water-btn.sm{width:22px; height:22px; font-size:.8rem;}
 .plant-emoji-picker{display:flex; flex-wrap:wrap; gap:6px;}
 .plant-emoji-opt{font-size:1.3rem; line-height:1; padding:6px 9px; border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji-opt.on{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand);}
-/* Home's tile is minimal on purpose - just the most urgent vegetable's emoji and a watering
-   badge, no name - a quick "does anything need attention" glance, not a second Plants list */
-.plant-dash-row{justify-content:center; gap:8px;}
-.plant-dash-emoji{font-size:1.6rem; line-height:1;
+/* Home shows every vegetable as its own small chip - emoji, its own water button (see
+   plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
+   one" summary, so watering can actually happen right from Home. */
+.plant-home-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink);
+  margin-bottom:10px; cursor:pointer;}
+.plant-home-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); gap:10px;}
+.plant-home-chip{display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;}
+.plant-home-emoji{font-size:1.5rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-dash-badge{display:inline-flex; align-items:center; justify-content:center;
-  width:22px; height:22px; border-radius:50%; font-size:.82rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-dash-badge.overdue{background:#FCEBE9;}
-.plant-dash-badge.ok{background:var(--brand-tint);}
+.plant-home-ts{font-size:.62rem; color:var(--muted); white-space:nowrap;}
 
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:4px;}
@@ -1106,8 +1128,14 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.22.0';
+const APP_VERSION = '2.23.0';
 const CHANGELOG = [
+  {version:'2.23.0', notes:[
+    "Plants: watering a vegetable now shows an Undo option for a few seconds right after, in case of a stray tap - it reverts on its own once that window passes. Also more space above the emoji on each card.",
+    'Home\'s Plants widget now shows every vegetable, each with its own emoji, water button and a short "last watered" timestamp, instead of just the single neediest one.',
+    "Next Trip's flags no longer make the card taller than its neighbours - the box is shorter/wider now, same overall size as Most Played/Currently Playing's.",
+    "Games: tapping one (from the list, or Home's Currently Playing) now opens its own page in the app - platform, last played date, and a full trophy breakdown by tier (Platinum/Gold/Silver/Bronze, earned vs total) - instead of opening a TikTok search.",
+  ]},
   {version:'2.22.0', notes:[
     'Removed the News feature entirely - the article feed, its Home tile, and the icon that replaced it on the tabbar are all gone.',
     "Plants: watering is a timestamped log now instead of a single date, so watering twice in one day (or checking exactly when it last happened) both work properly. The \"Needs watering\" text is gone too - the water button itself turns red when overdue and green once it's done for the day, so cards stay compact with a lot of vegetables on screen. Stage (including Seed Sown) is now a single tap on the card's own dots instead of only changeable from the edit form, and cards are noticeably more compact overall. Home's tile is now just the neediest vegetable's emoji and a watering badge, no text.",
@@ -3146,20 +3174,15 @@ function dashGamesStatWidgetHTML(n){
       <div class="dash-item-title">${n} Games</div>
     </div>`;
 }
-/* TikTok's own web search - opens the app via its universal link on a phone that has it
-   installed, same fallback-to-web-if-not pattern as every other external link here */
-function gameTikTokUrl(g){
-  return 'https://www.tiktok.com/search?q='+encodeURIComponent(g.name||'');
-}
 function dashCurrentlyPlayingWidgetHTML(g){
-  const url = gameTikTokUrl(g);
   return `
-    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/game/${encodeURIComponent(g.id)}'"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/game/${encodeURIComponent(g.id)}'}">
       ${g.iconUrl ? `<img class="dash-item-img-half" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
       <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
       <div class="dash-item-sub">Currently Playing</div>
-    </a>`;
+    </div>`;
 }
 /* PlayStation needs a live fetch, unlike the other three stat tiles which read straight from
    what's already stored on-device - so this one starts as a "connect" prompt (if not set up) or
@@ -3732,8 +3755,10 @@ function gameCardHTML(g, isHidden){
   const earned = (g.earnedTrophies&&g.earnedTrophies.total) || 0;
   const total  = (g.definedTrophies&&g.definedTrophies.total) || 0;
   const hideLabel = (isHidden?'Unhide ':'Hide ') + (g.name||'this game');
+  const href = '#/game/'+encodeURIComponent(g.id);
   return `
-    <div class="game-card${isHidden?' hidden-game':''}">
+    <div class="game-card${isHidden?' hidden-game':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
       ${g.iconUrl ? `<img class="game-icon" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                    : `<span class="game-icon game-icon-fallback">${fa('gamepad')}</span>`}
       <div class="game-info">
@@ -3742,7 +3767,62 @@ function gameCardHTML(g, isHidden){
         <div class="game-meta muted small">${pct}% &middot; ${earned}/${total} trophies${g.platform?' &middot; '+esc(g.platform):''}</div>
       </div>
       <button type="button" class="iconbtn game-hide-btn" aria-label="${esc(hideLabel)}" title="${isHidden?'Unhide':'Hide'}"
-        onclick="App.psnToggleHidden('${esc(g.id)}')">${fa(isHidden?'eye':'eye-slash')}</button>
+        onclick="event.stopPropagation();App.psnToggleHidden('${esc(g.id)}')">${fa(isHidden?'eye':'eye-slash')}</button>
+    </div>`;
+}
+/* the individual game's own page - trophy tiers broken down (Sony's API already returns
+   bronze/silver/gold/platinum separately, /titles now keeps that instead of collapsing it to
+   one number), rather than just the total gameCardHTML shows. PSN_TITLES only lives in memory
+   for the session, so a direct link (a reload, a shared URL) fetches it fresh first, the same
+   pattern renderNewsArticle used to and renderGameDetail's own films/stats siblings still do. */
+function renderGameDetail(id){
+  if(!PSN_TITLES.length){
+    $('#app').innerHTML = `
+      <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">
+        <button class="crumb-backbtn" onclick="App.goGames()" aria-label="Back to Games">${ICONS.back}</button>
+        Game</span></div></div>
+      <div class="empty">Loading…</div>`;
+    psnApi('/titles?limit=200').then(data => {
+      PSN_TITLES = data.titles||[];
+      if(location.hash==='#/game/'+encodeURIComponent(id)) renderGameDetail(id);
+    }).catch(()=>{ location.hash = '#/games'; });
+    return;
+  }
+  const g = PSN_TITLES.find(x=>x.id===id);
+  if(!g){ location.hash = '#/games'; return; }
+  const pct = Math.max(0, Math.min(100, g.progress||0));
+  const e = g.earnedTrophies||{}, d = g.definedTrophies||{};
+  const hidden = psnHidden().has(g.id);
+  const tierRow = (label, emoji, earnedN, totalN) => `
+    <div class="game-tier-row">
+      <span class="game-tier-emoji" aria-hidden="true">${emoji}</span>
+      <span class="game-tier-label">${label}</span>
+      <span class="game-tier-count">${earnedN||0}/${totalN||0}</span>
+    </div>`;
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="App.goGames()" aria-label="Back to Games">${ICONS.back}</button>
+          ${esc(g.name||'Game')}</span>
+      </div>
+    </div>
+    <div class="card game-detail-card">
+      ${g.iconUrl ? `<img class="game-detail-icon" src="${esc(g.iconUrl)}" alt="">`
+                   : `<span class="game-detail-icon game-icon-fallback">${fa('gamepad')}</span>`}
+      <div class="game-detail-name">${esc(g.name||'Untitled')}</div>
+      <div class="small muted game-detail-meta">${esc(g.platform||'')}${g.lastPlayed?' &middot; Last played '+esc(fmtDate(g.lastPlayed.slice(0,10))):''}</div>
+      <div class="game-progress"><div class="game-progress-bar" style="width:${pct}%"></div></div>
+      <div class="small muted game-detail-pct">${pct}% Complete &middot; ${e.total||0}/${d.total||0} Trophies</div>
+      <div class="game-tiers">
+        ${tierRow('Platinum','🏆',e.platinum,d.platinum)}
+        ${tierRow('Gold','🥇',e.gold,d.gold)}
+        ${tierRow('Silver','🥈',e.silver,d.silver)}
+        ${tierRow('Bronze','🥉',e.bronze,d.bronze)}
+      </div>
+      <div class="btn-row" style="margin-top:18px">
+        <button class="btn sm ghost" style="flex:1" onclick="App.psnToggleHidden('${esc(g.id)}');location.hash='#/games'">${hidden?'Unhide':'Hide'} This Game</button>
+      </div>
     </div>`;
 }
 async function psnConnectImpl(){
@@ -5396,6 +5476,10 @@ function route(){
     CUR_TRIP_ID = null; stopSub();
     renderGames(); window.scrollTo(0,0); return;
   }
+  if(h.startsWith('#/game/')){
+    CUR_TRIP_ID = null; stopSub();
+    renderGameDetail(decodeURIComponent(h.slice('#/game/'.length))); window.scrollTo(0,0); return;
+  }
   if(h === '#/settings'){
     CUR_TRIP_ID = null; stopSub();
     renderSettings(); window.scrollTo(0,0); return;
@@ -5539,6 +5623,17 @@ function plantWaterLabel(p){
   if(days===1) return 'Watered yesterday';
   return `Watered ${days} days ago`;
 }
+/* same idea as plantWaterLabel but cut down to fit Home's much narrower per-vegetable chips -
+   just the clock time if it was today (the useful part when it's the same day), otherwise a
+   bare day count */
+function plantWaterShortLabel(p){
+  const ts = plantLastWateredTs(p);
+  if(!ts) return 'Never';
+  const days = daysSinceTs(ts);
+  if(days===0) return new Date(ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+  if(days===1) return 'Yesterday';
+  return `${days}d ago`;
+}
 function plantStageIdx(k){ const i = PLANT_STAGES.findIndex(s=>s.k===k); return i<0 ? 0 : i; }
 /* each dot is its own tap target (App.plantSetStage), not just a progress readout - moving a
    vegetable on a stage (seed sown included) is then one tap on the card, not a trip into the
@@ -5559,11 +5654,25 @@ function plantsSorted(){
     return (a.name||'').localeCompare(b.name||'');
   });
 }
+/* the couple of seconds right after a tap (PLANT_UNDO_TIMERS) is the one time the button shows
+   something other than "log a watering" - an accidental tap is common (it's a small target
+   sitting right where a card is otherwise all tap-to-open), so it turns into a plain "undo that"
+   button instead, then reverts back on its own once the window's passed. sm is used by the
+   Home widget's smaller chips (see dashPlantsWidgetHTML) - same behaviour, smaller button. */
+let PLANT_UNDO_TIMERS = {};
+const PLANT_UNDO_MS = 5000;
+function plantWaterButtonHTML(p, sm){
+  const showUndo = !!PLANT_UNDO_TIMERS[p.id];
+  const cls = (sm?' sm':'') + (showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : plantWateredToday(p) ? ' done' : '');
+  return showUndo
+    ? `<button type="button" class="plant-water-btn${cls}" aria-label="Undo watering"
+        onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`
+    : `<button type="button" class="plant-water-btn${cls}" aria-label="Log watering"
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">💧</button>`;
+}
 /* no separate "Needs watering" text line - the water button's own colour (see .plant-water-btn)
    carries that, so a card with a lot of these on screen at once stays compact and scannable */
 function plantCardHTML(p){
-  const overdue = plantOverdue(p);
-  const btnCls = overdue ? ' overdue' : plantWateredToday(p) ? ' done' : '';
   return `
     <div class="card plant-card" role="button" tabindex="0" onclick="App.plantForm('${esc(p.id)}')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantForm('${esc(p.id)}')}">
@@ -5573,8 +5682,7 @@ function plantCardHTML(p){
       <div class="plant-dots">${plantStageDotsHTML(p)}</div>
       <div class="plant-water-row">
         <span class="plant-water-label">${esc(plantWaterLabel(p))}</span>
-        <button type="button" class="plant-water-btn${btnCls}" aria-label="Log watering"
-          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">💧</button>
+        ${plantWaterButtonHTML(p)}
       </div>
     </div>`;
 }
@@ -5609,9 +5717,24 @@ function plantWaterImpl(id){
   p.waterings = Array.isArray(p.waterings) ? p.waterings : [];
   p.waterings.push(new Date().toISOString());
   savePlants();
+  clearTimeout(PLANT_UNDO_TIMERS[id]);
+  PLANT_UNDO_TIMERS[id] = setTimeout(()=>{
+    delete PLANT_UNDO_TIMERS[id];
+    drawPlantsGrid();
+    drawDashPlantsSlot();
+  }, PLANT_UNDO_MS);
   drawPlantsGrid();
   drawDashPlantsSlot();
   toast('Watered');
+}
+function plantUndoWaterImpl(id){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  if(Array.isArray(p.waterings) && p.waterings.length) p.waterings.pop();
+  clearTimeout(PLANT_UNDO_TIMERS[id]);
+  delete PLANT_UNDO_TIMERS[id];
+  savePlants();
+  drawPlantsGrid();
+  drawDashPlantsSlot();
 }
 function plantSetStageImpl(id, stageKey){
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
@@ -5690,12 +5813,20 @@ function delPlantImpl(id){
     toast('Vegetable removed');
   });
 }
-/* Home's tile is deliberately minimal: just the most urgent vegetable's emoji (plantsSorted
-   already puts overdue watering first) and a watering badge, no name or label - a quick "does
-   anything need attention" glance that hands off to the Plants page for anything more. Reads
-   DB.plants directly like Films' own Home tiles do, no live fetch to wait on since plants are
-   already loaded on-device by the time Home renders (the fuller cloud sync happens if/when the
-   Plants tab itself is opened). */
+/* Home shows every vegetable, not just the neediest one - each as its own small chip (emoji,
+   its own water button, a short last-watered timestamp) so watering can happen right from Home
+   without a trip to the Plants page. Reads DB.plants directly like Films' own Home tiles do, no
+   live fetch to wait on since plants are already loaded on-device by the time Home renders (the
+   fuller cloud sync happens if/when the Plants tab itself is opened). */
+function plantHomeChipHTML(p){
+  return `
+    <div class="plant-home-chip" role="button" tabindex="0" onclick="App.plantForm('${esc(p.id)}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantForm('${esc(p.id)}')}">
+      <span class="plant-home-emoji" aria-hidden="true">${p.emoji||'🌱'}</span>
+      ${plantWaterButtonHTML(p, true)}
+      <span class="plant-home-ts">${esc(plantWaterShortLabel(p))}</span>
+    </div>`;
+}
 function dashPlantsWidgetHTML(){
   const list = DB.plants||[];
   if(!list.length) return `
@@ -5704,14 +5835,11 @@ function dashPlantsWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🥕</div>
       <div class="dash-item-title">Start Growing</div>
     </div>`;
-  const p = plantsSorted()[0];
-  const overdue = plantOverdue(p);
   return `
-    <div class="dash-widget dash-widget-row plant-dash-row" role="button" tabindex="0" onclick="App.goPlants()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}"
-      aria-label="${esc(p.name||'Vegetable')}${overdue?', needs watering':''}">
-      <span class="plant-dash-emoji" aria-hidden="true">${p.emoji||'🌱'}</span>
-      <span class="plant-dash-badge ${overdue?'overdue':'ok'}" aria-hidden="true">💧</span>
+    <div class="dash-widget plant-home-widget">
+      <div class="plant-home-title" role="button" tabindex="0" onclick="App.goPlants()"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">🥕 Plants</div>
+      <div class="plant-home-grid">${plantsSorted().map(plantHomeChipHTML).join('')}</div>
     </div>`;
 }
 function drawDashPlantsSlot(){
@@ -5784,6 +5912,7 @@ App.plantForm = plantFormImpl;
 App.savePlant = savePlantImpl;
 App.delPlant = delPlantImpl;
 App.plantWater = plantWaterImpl;
+App.plantUndoWater = plantUndoWaterImpl;
 App.plantSetStage = plantSetStageImpl;
 App.plantPickEmoji = plantPickEmojiImpl;
 App.plantNameInput = plantNameInputImpl;
