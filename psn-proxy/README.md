@@ -36,15 +36,20 @@ RSS (or one whole category) being down doesn't take out the rest of the merged f
 
 Before articles reach the app, `fetchNewsFeeds` also sorts them newest-first by date (checking
 `pubDate`, `updated`, `published` and `dc:date` in turn, since not every feed uses the same tag)
-and drops two kinds of article: ones that read as not-English (`looksNonEnglish`, a non-ASCII
-character ratio check - it catches non-Latin scripts like Cyrillic or CJK but can't tell French or
-German from English, both being Latin-alphabet) and ones about a named city other than London
-(`looksOffLocation`, a fixed city-name keyword list - an article naming London anywhere always
-survives, and one naming no city at all always survives untouched). Both are cheap heuristics, not
-real language detection or geocoding - see each function's comment in `worker.js` for exactly what
-they will and won't catch. Image extraction (`extractFeedImage`) also falls back through
-`data-src`/`data-original`/`srcset` before `src`, since some publications (DJ Mag among them) lazy-
-load images with a blank placeholder in `src` and the real URL only in one of those attributes.
+and drops articles that read as not-English (`looksNonEnglish`, a non-ASCII character ratio check
+- it catches non-Latin scripts like Cyrillic or CJK but can't tell French or German from English,
+both being Latin-alphabet; this one applies to all three categories). Design additionally drops
+anything about a named city other than London (`looksOffLocation`, a fixed city-name keyword list
+- an article naming London anywhere always survives, and one naming no city at all always survives
+untouched) - Film and Music skip this one (`fetchNewsFeeds`' `filterLocation` argument, `true` only
+for `fetchDesignNews`), since Variety/Hollywood Reporter are LA-centric by nature and Resident
+Advisor/DJ Mag cover Berlin/Ibiza/Amsterdam as core dance-music territory rather than "somewhere
+irrelevant" - a London-only filter there was dropping nearly every article in both categories.
+Both filters are cheap heuristics, not real language detection or geocoding - see each function's
+comment in `worker.js` for exactly what they will and won't catch. Image extraction
+(`extractFeedImage`) also falls back through `data-src`/`data-original`/`srcset` before `src`,
+since some publications (DJ Mag among them) lazy-load images with a blank placeholder in `src` and
+the real URL only in one of those attributes.
 
 ## Deploy it
 
@@ -184,11 +189,11 @@ so the rest still come through, but check the publication's site for its current
 update that one entry. Films and Music work the same way - their sources live in `FILM_FEEDS` and
 `MUSIC_FEEDS` right next to `DESIGN_FEEDS`, same fix if one looks thin.
 
-If a whole category looks thinner than expected but no feed is actually failing, the language or
-location filter is likely doing that on purpose - see `looksNonEnglish`/`looksOffLocation` above.
-An article that's genuinely English but keeps getting filtered is almost always a location false
-positive (it names a city on the `OTHER_CITY_NAMES` list without also naming London); a real gap
-in either heuristic is a `worker.js` edit, not a config problem.
+If a whole category looks thinner than expected but no feed is actually failing, the language
+filter is likely doing that on purpose - see `looksNonEnglish` above (the location filter only
+ever applies to Design, so it can't be the cause for Film or Music). An article that's genuinely
+English but keeps getting filtered is a language-filter false positive; a real gap in the
+heuristic is a `worker.js` edit, not a config problem.
 
 Board Games lives in `api/board-games.js`, not this Worker (see that file's top comment for why
 it moved). If it says "isn't configured", the Vercel project is missing (or has a stale)

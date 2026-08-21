@@ -366,10 +366,15 @@ function looksNonEnglish(title, summary){
   return (nonAscii / text.length) > 0.2;
 }
 /* same honesty caveat as above - a fixed list of other major cities, matched by name in the
-   title/summary. An article that never names a city at all (most Design and Film pieces) always
-   passes through untouched; only ones that explicitly name somewhere else, without also naming
-   London, get dropped. It won't catch a piece about a place not on this list, and it can't tell
-   "the London borough of Hackney" from "Hackney, Georgia" - a keyword match, not real geocoding. */
+   title/summary. An article that never names a city at all (most Design pieces) always passes
+   through untouched; only ones that explicitly name somewhere else, without also naming London,
+   get dropped. It won't catch a piece about a place not on this list, and it can't tell "the
+   London borough of Hackney" from "Hackney, Georgia" - a keyword match, not real geocoding.
+   Design-only (see fetchNewsFeeds' filterLocation flag below): Film and Music are trade press
+   covering a global industry - Variety/Hollywood Reporter are LA-centric by nature, Resident
+   Advisor/DJ Mag cover Berlin/Ibiza/Amsterdam as core dance-music territory, not "somewhere
+   else" - so applying a London-only filter there was dropping nearly everything in both
+   categories rather than just the odd genuinely-irrelevant piece. */
 const OTHER_CITY_NAMES = ['new york','los angeles','san francisco','chicago','miami','las vegas',
   'detroit','brooklyn','berlin','paris','amsterdam','ibiza','barcelona','tokyo','toronto','sydney'];
 function looksOffLocation(title, summary){
@@ -377,7 +382,7 @@ function looksOffLocation(title, summary){
   if(/\blondon\b/.test(text)) return false;
   return OTHER_CITY_NAMES.some(city => new RegExp('\\b'+city+'\\b').test(text));
 }
-async function fetchNewsFeeds(feeds, logLabel){
+async function fetchNewsFeeds(feeds, logLabel, filterLocation){
   const results = await Promise.allSettled(feeds.map(async f => {
     const res = await fetch(f.url, {headers: {'User-Agent': 'Mozilla/5.0 (compatible; MyTripsNewsFeed/1.0)'}});
     if(!res.ok) throw new Error('status ' + res.status);
@@ -394,14 +399,14 @@ async function fetchNewsFeeds(feeds, logLabel){
   // logged here for the Cloudflare dashboard's Logs tab, and (only when EVERY feed failed)
   // passed back to the app so it can say so instead of implying a quiet news day
   failures.forEach(f => console.error(logLabel+' feed failed:', f.name, f.reason));
-  articles = articles.filter(a => !looksNonEnglish(a.title, a.summary) && !looksOffLocation(a.title, a.summary));
+  articles = articles.filter(a => !looksNonEnglish(a.title, a.summary) && (!filterLocation || !looksOffLocation(a.title, a.summary)));
   articles.sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0));
   const allFailed = failures.length === feeds.length;
   return {articles: articles.slice(0, 40), error: allFailed ? failures[0].reason : undefined};
 }
-const fetchDesignNews = () => fetchNewsFeeds(DESIGN_FEEDS, 'design-news');
-const fetchFilmNews = () => fetchNewsFeeds(FILM_FEEDS, 'film-news');
-const fetchMusicNews = () => fetchNewsFeeds(MUSIC_FEEDS, 'music-news');
+const fetchDesignNews = () => fetchNewsFeeds(DESIGN_FEEDS, 'design-news', true);
+const fetchFilmNews = () => fetchNewsFeeds(FILM_FEEDS, 'film-news', false);
+const fetchMusicNews = () => fetchNewsFeeds(MUSIC_FEEDS, 'music-news', false);
 
 /* ================= Letterboxd (Films diary import) =================
    Letterboxd's real API is invite-only (email api@letterboxd.com and hope for approval) - not

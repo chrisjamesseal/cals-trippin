@@ -70,7 +70,7 @@ body{
 .logo .lg2{color:var(--brand);}
 
 /* the version now lives quietly at the foot of Your Trips instead of a top bar */
-.home-foot{display:flex; justify-content:center; border-top:1px solid var(--line); margin-top:14px; padding-top:14px;}
+.home-foot{display:flex; justify-content:center; border-top:1px solid var(--line); margin-top:14px; padding:14px 0;}
 .version-tag{background:none; border:none; padding:6px; margin:0; color:var(--muted); font-size:.75rem; font-weight:600;
   cursor:pointer; text-decoration:underline; text-decoration-color:transparent; transition:text-decoration-color .15s;}
 .version-tag:hover{text-decoration-color:currentColor; color:var(--brand-dark);}
@@ -192,6 +192,12 @@ a{color:var(--brand-dark);}
   white-space:nowrap;
 }
 .subtab.on{background:var(--brand); border-color:var(--brand); color:#fff;}
+/* Music's four subtabs get their own explicit two rows instead of leaving the wrap above to
+   land wherever it happens to (three-and-one one viewport, two-and-two on another) - Not Seen
+   alone up top, Gigs/Artists/Songs evenly filling the row below it */
+.gigs-subtabs{display:flex; flex-direction:column; gap:8px; margin-bottom:18px;}
+.gigs-subtabs-row{display:flex; gap:8px;}
+.gigs-subtabs-row-fill .subtab{flex:1; text-align:center;}
 
 /* ---------- board games ---------- */
 /* the category chips scroll sideways rather than wrapping into three rows of shelf labels */
@@ -339,13 +345,14 @@ a{color:var(--brand-dark);}
    regardless of height (unlike the masonry below, which balances by measured height) so they
    read as one glanceable block rather than being scattered wherever the balancer lands them */
 .dash-stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
-/* Most Played, Currently Playing and Last Seen share this - a half-width image sitting inside
-   the card's own padding (no negative-margin bleed needed), left-aligned rather than centred so
-   it lines up with the title/caption below it instead of floating in the middle of the card */
+/* Most Played and Currently Playing share this - a half-width image sitting inside the card's
+   own padding (no negative-margin bleed needed), left-aligned rather than centred so it lines up
+   with the title/caption below it instead of floating in the middle of the card */
 .dash-item-img-half{display:block; width:50%; aspect-ratio:1/1; object-fit:cover;
   margin:0 0 10px; border-radius:var(--radius-sm);}
-/* Watchlist's pick is a poster, not box art - same half-width/left-aligned treatment but its own
-   2:3 shape instead of a square, so it doesn't crop the poster's actual proportions */
+/* Last Seen and the Watchlist pick are posters, not box art/album art - same half-width/left-
+   aligned treatment but their own 2:3 shape instead of a square, so it doesn't crop the poster's
+   actual proportions */
 .dash-item-img-half-poster{aspect-ratio:2/3;}
 /* an artist has one photo, not a background banner, so it reads as a face/avatar - a small
    circle inside the card's own padding rather than another full-bleed strip */
@@ -1088,8 +1095,16 @@ const NEWS_PROXY_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.17.0';
+const APP_VERSION = '2.18.0';
 const CHANGELOG = [
+  {version:'2.18.0', notes:[
+    "Fixed Film and Music News showing nothing - the London-only location filter meant for Design was wrongly applying to those two as well, and Variety/Hollywood Reporter/Resident Advisor/DJ Mag mention Los Angeles/Berlin/Ibiza and the like constantly, so it was quietly dropping almost everything in both categories. It's Design-only now.",
+    'Home: the "⚙️ Settings" link at the foot of the page gets breathing room below it now too, not just above.',
+    'Home: Last Seen keeps its poster\'s actual 2:3 shape now instead of being cropped to a square, matching the Watchlist pick.',
+    'Gigs: dates read as a short 18/8/26 now instead of the spelled-out full date.',
+    "Music's four subtabs are two clean rows now instead of wrapping unpredictably - Not Seen on its own up top, Gigs/Artists/Songs evenly filling the row below.",
+    "Watchlist: a + Add Manually option next to search, for a film TMDb search doesn't find (not yet released, obscure, or search isn't set up) - it saves with just a title and still gets its poster/genres filled in automatically afterwards.",
+  ]},
   {version:'2.17.0', notes:[
     "Home: Places Been, Gigs Seen, Films Seen and Games now sit together in a fixed two-column row up top, above Currently Playing/Most Played/Last Seen - and Places Been and Films Seen now filter by the same All Time/Last Six Months/Last Four Weeks picker Gigs Seen and Games already did.",
     "Home: Most Played, Currently Playing, Last Seen and the Watchlist pick's images are left-aligned now instead of centred, and the Watchlist pick keeps its poster's actual 2:3 shape instead of being cropped to a square.",
@@ -1911,10 +1926,10 @@ function fmtDateNoYear(d){
   if(!d) return '';
   return new Date(d + 'T00:00:00').toLocaleDateString(undefined, {day:'numeric', month:'long'});
 }
-/* Films' one date format, its own short d/m/yy rather than fmtDate's spelled-out month - a
-   watched date sits next to a year and a star rating on a small poster card, where "19 April
-   2026" crowds the other two out; "19/4/26" reads just as unambiguously in that little a space. */
-function fmtFilmDate(d){
+/* A short d/m/yy date, for the tight card-meta spots (a film's watched date, a gig's date)
+   where fmtDate's spelled-out month - "19 April 2026" - crowds out the year/rating or venue
+   sitting right next to it. "19/4/26" reads just as unambiguously in that little a space. */
+function fmtShortDate(d){
   if(!d) return '';
   const dt = new Date(d + 'T00:00:00');
   return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+String(dt.getFullYear()).slice(-2);
@@ -3160,7 +3175,7 @@ function dashLastSeenFilmWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsDiary()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
-      ${f.image ? `<img class="dash-item-img-half" src="${esc(f.image)}" alt="" loading="lazy">`
+      ${f.image ? `<img class="dash-item-img-half dash-item-img-half-poster" src="${esc(f.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎬</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">Last Seen</div>
@@ -4232,7 +4247,10 @@ function renderGigs(){
         <button class="btn sm primary" onclick="App.gigForm(-1)">+ Add Gig</button>
       </div>
     </div>
-    <div class="subtabs">${tab('notseen','⭐ Not Seen')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}${tab('log','☑ Gigs')}</div>
+    <div class="gigs-subtabs">
+      <div class="gigs-subtabs-row">${tab('notseen','⭐ Not Seen')}</div>
+      <div class="gigs-subtabs-row gigs-subtabs-row-fill">${tab('log','☑ Gigs')}${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}</div>
+    </div>
     <div id="gigs-body"></div>`;
   if(CUR_GIGS_TAB==='log') drawGigsList();
   else if(CUR_GIGS_TAB==='songs') renderSongs();
@@ -4412,7 +4430,7 @@ function drawGigsList(){
   body.innerHTML = `<div class="gig-list">${ordered.map(o=>gigCardHTML(o.g,o.i)).join('')}</div>`;
 }
 function gigCardHTML(g, i){
-  const facts = [g.city, g.date?fmtDate(g.date):''].filter(Boolean).join(' · ');
+  const facts = [g.city, g.date?fmtShortDate(g.date):''].filter(Boolean).join(' · ');
   const isFuture = g.date && g.date > todayStr();
   return `
     <div class="card gig-card${isFuture?' been-upcoming':''}">
@@ -4741,7 +4759,7 @@ function drawFilmsGrid(){
     + (filtered.length ? `<div class="film-grid">${filtered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>` : `<div class="empty">No films in that category.</div>`);
 }
 function filmCardHTML(f, i){
-  const meta = [f.year, f.watchedDate?fmtFilmDate(f.watchedDate):''].filter(Boolean).join(' · ');
+  const meta = [f.year, f.watchedDate?fmtShortDate(f.watchedDate):''].filter(Boolean).join(' · ');
   return `
     <button type="button" class="film-card" onclick="App.filmForm(${i})">
       ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
@@ -5142,6 +5160,9 @@ function renderFilmsWatchlist(){
     <div id="fw-my"></div>
     <div class="field"><input type="text" id="fw-search" placeholder="Search for a film to add…"
       autocomplete="off" oninput="App.fwSearchInput()"></div>
+    <div class="btn-row" style="margin-bottom:14px">
+      <button type="button" class="btn sm ghost" onclick="App.fwAddManual()">+ Add Manually</button>
+    </div>
     <div id="fw-results"></div>`;
   drawFwMine();
   loadFilmsWatchlistCloud(cloud => {
@@ -5229,6 +5250,36 @@ function fwSearch(q){
       const cur = $('#fw-results'); if(!cur) return;
       cur.innerHTML = `<div class="empty">Couldn't search.<br>${esc(e.message||'')}</div>`;
     });
+}
+/* the fallback for whenever search above comes up empty or isn't set up at all (no TMDB_API_KEY)
+   - a film not yet released, an obscure title TMDb doesn't have, or just a quicker way to type a
+   title than waiting on results. Saves straight to the Watchlist with just a title, then tries
+   the same backfillPosters TMDb lookup a CSV import gets to fill in the poster/genres after. */
+function fwAddManualImpl(){
+  openModal(`
+    <h2>Add to Watchlist</h2>
+    <div class="field"><label class="label" for="fw-add-title">Title</label>
+      <input id="fw-add-title" type="text" placeholder="Film title" autocomplete="off"></div>
+    <div class="field"><label class="label" for="fw-add-year">Year</label>
+      <input id="fw-add-year" type="number" inputmode="numeric" min="1888" max="2100" placeholder="Optional"></div>
+    <div class="btn-row" style="margin-top:6px">
+      <button class="btn primary" style="flex:1" onclick="App.fwAddManualSave()">+ Add to Watchlist</button>
+    </div>`);
+}
+function fwAddManualSaveImpl(){
+  const title = ($('#fw-add-title').value||'').trim();
+  if(!title) return markErr('#fw-add-title','Enter a film title');
+  const entry = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random(),
+    title, year: ($('#fw-add-year').value||'').trim() || null, image:'', genres:[],
+  };
+  DB.filmsWatchlist = DB.filmsWatchlist||[];
+  DB.filmsWatchlist.unshift(entry);
+  saveFilmsWatchlist();
+  closeModal();
+  drawFwMine();
+  toast('Added to Watchlist');
+  backfillPosters([entry], saveFilmsWatchlist).then(n => { if(n) drawFwMine(); });
 }
 /* watchlist.csv is Letterboxd's export for the watchlist itself, a separate file from
    diary.csv - same shape minus Rating/Rewatch/Watched Date, which a watchlist entry doesn't
@@ -5633,6 +5684,8 @@ App.filmsStatsYear = y => { location.hash = '#/films/stats/year/'+encodeURICompo
 App.filmsStatsRating = v => { location.hash = '#/films/stats/rating/'+encodeURIComponent(v); };
 App.filmsStatsRewatches = () => { location.hash = '#/films/stats/rewatches'; };
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
+App.fwAddManual = fwAddManualImpl;
+App.fwAddManualSave = fwAddManualSaveImpl;
 App.fwImportCsv = filmsWatchlistImportCsvImpl;
 App.fwImportCsvFile = filmsWatchlistImportCsvFileImpl;
 App.filmsGenreFilter = v => { CUR_FILMS_GENRE = v; drawFilmsGrid(); };
