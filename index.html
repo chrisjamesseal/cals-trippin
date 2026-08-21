@@ -433,7 +433,11 @@ a{color:var(--brand-dark);}
 /* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
    solid border so it doesn't read as just another status colour like overdue/done do */
 .plant-water-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
+/* Home's chips are small and six-plus of them sit side by side, so the overdue/done colour
+   circles that work on the full-size button (see above) just read as clutter at this size -
+   the emoji and timestamp already carry the same information there without it */
 .plant-water-btn.sm{width:22px; height:22px; font-size:.8rem;}
+.plant-water-btn.sm.overdue,.plant-water-btn.sm.done{border-color:var(--line-strong); background:var(--paper);}
 .plant-emoji-picker{display:flex; flex-wrap:wrap; gap:6px;}
 .plant-emoji-opt{font-size:1.3rem; line-height:1; padding:6px 9px; border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
@@ -441,10 +445,11 @@ a{color:var(--brand-dark);}
 .plant-emoji-opt.on{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand);}
 /* Home shows every vegetable as its own small chip - emoji, its own water button (see
    plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
-   one" summary, so watering can actually happen right from Home. */
-.plant-home-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink);
-  margin-bottom:10px; cursor:pointer;}
-.plant-home-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); gap:10px;}
+   one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
+   auto-fill) so six vegetables sit neatly as two even rows regardless of the tile's actual
+   pixel width; a seventh just wraps onto a third row, growing the card down rather than
+   squeezing anything smaller. */
+.plant-home-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px 6px;}
 .plant-home-chip{display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;}
 .plant-home-emoji{font-size:1.5rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
@@ -1128,8 +1133,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.23.0';
+const APP_VERSION = '2.23.1';
 const CHANGELOG = [
+  {version:'2.23.1', notes:[
+    "Home's Plants widget: dropped the \"Plants\" header (redundant with the tabbar), removed the red/green circle around each vegetable's water button (the emoji and timestamp already say enough at that size), and the grid is a fixed 3 columns now so six vegetables sit neatly as two rows, growing downward rather than shrinking as more are added.",
+  ]},
   {version:'2.23.0', notes:[
     "Plants: watering a vegetable now shows an Undo option for a few seconds right after, in case of a stray tap - it reverts on its own once that window passes. Also more space above the emoji on each card.",
     'Home\'s Plants widget now shows every vegetable, each with its own emoji, water button and a short "last watered" timestamp, instead of just the single neediest one.',
@@ -5837,8 +5845,6 @@ function dashPlantsWidgetHTML(){
     </div>`;
   return `
     <div class="dash-widget plant-home-widget">
-      <div class="plant-home-title" role="button" tabindex="0" onclick="App.goPlants()"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">🥕 Plants</div>
       <div class="plant-home-grid">${plantsSorted().map(plantHomeChipHTML).join('')}</div>
     </div>`;
 }
