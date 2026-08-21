@@ -368,112 +368,65 @@ a{color:var(--brand-dark);}
 .home-song-range-wrap{display:inline-block; border-radius:999px; overflow:hidden; box-shadow:none;}
 .home-song-range-sel{display:block; width:auto; font-size:.78rem; font-weight:700;
   padding:7px 28px 7px 12px; border-radius:999px; box-shadow:none;}
-/* News lost its tabbar/menu slot to Plants, this button is its one remaining way in - grouped
-   with the range dropdown in one wrapper so the pair reads as one control cluster, not two
-   separate things fighting .crumb-titlerow's own space-between for the right-hand slot */
-.dash-home-controls{display:inline-flex; align-items:center; gap:8px;}
-.dash-news-btn{display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px;
-  border:none; border-radius:50%; background:var(--paper); box-shadow:var(--shadow); cursor:pointer;
-  padding:0; font-size:1.1rem; line-height:1; flex-shrink:0;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-/* Next Trip has no image the way Most Played/Currently Playing do, just this flag - sized bigger
-   alone (not the title/sub, which stay the shared size) wasn't enough to match their height
-   exactly, since it didn't occupy the same box those widgets' images do. This gives it the exact
-   same width:50%/aspect-ratio:1/1 box .dash-item-img-half's image sits in, centring the flag
-   inside it instead - same box, same height, whatever the column width happens to be. */
+/* Next Trip has no image the way Most Played/Currently Playing do, just this flag - full card
+   width (not the half-width box the other widgets' images sit in) so the flag itself reads as
+   big as the card, the way a real photo would. */
 .dash-item-flags-boxed{display:flex; align-items:stretch; justify-content:center;
-  width:50%; aspect-ratio:1/1; margin:0 0 10px;}
+  width:100%; aspect-ratio:1/1; margin:0 0 10px;}
 .dash-item-flags-boxed .flag-cell{container-type:inline-size; flex:1 1 0; min-width:0;
   display:flex; align-items:center; justify-content:center;}
-.dash-item-flags-boxed .flag-cell span{font-size:80cqw; line-height:1;}
+.dash-item-flags-boxed .flag-cell span{font-size:92cqw; line-height:1;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
 
 /* ---------- plants (vegetable growing tracker) ---------- */
-.plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px;}
-.plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px;
-  padding:18px 12px; cursor:pointer;}
-.plant-emoji{font-size:2.4rem; line-height:1;
+/* tighter grid/padding than most card grids in the app - this one's meant to hold a lot of
+   vegetables at once and still read as a single glanceable board, not a scroll-heavy list */
+.plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px;}
+.plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px;
+  padding:12px 10px; cursor:pointer;}
+.plant-emoji{font-size:2rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-name{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
-.plant-stage-label{color:var(--muted); font-size:.78rem;}
-.plant-dots{display:flex; gap:4px; margin:2px 0;}
-.plant-dot{width:7px; height:7px; border-radius:50%; background:var(--line-strong);}
-.plant-dot.on{background:var(--brand);}
-.plant-tip{font-size:.78rem; font-weight:700; margin-top:2px;}
-.plant-tip-warn{color:#C0392B;}
-.plant-tip-good{color:var(--brand-dark);}
-.plant-tip-info{color:var(--muted);}
-.plant-water-row{display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:8px; width:100%;}
-.plant-water-label{color:var(--muted); font-size:.76rem;}
+.plant-name{font-family:var(--font-head); font-weight:700; font-size:.88rem; color:var(--ink); overflow-wrap:anywhere;}
+.plant-stage-label{color:var(--muted); font-size:.7rem;}
+/* each dot is a real button (bigger tap target than the visible dot itself, via ::after) so a
+   stage is a single tap on the card - no need to open the edit form just to move something on */
+.plant-dots{display:flex; gap:2px; margin:3px 0;}
+.plant-dot{width:16px; height:16px; padding:0; border:none; background:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;}
+.plant-dot::after{content:''; width:6px; height:6px; border-radius:50%; background:var(--line-strong);}
+.plant-dot.on::after{background:var(--brand);}
+.plant-water-row{display:flex; align-items:center; justify-content:space-between; gap:6px;
+  margin-top:4px; width:100%;}
+.plant-water-label{color:var(--muted); font-size:.68rem; text-align:left; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+/* colour carries the urgency that used to be a separate "Needs watering" text line - red when
+   overdue, tinted green once it's been done today, plain otherwise - so the card stays glanceable
+   with a lot of these on screen at once. Always tappable regardless of state: watering twice in
+   a day is normal (a hot day, a top-up), not something to block. */
+.plant-water-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
+  width:30px; height:30px; border:1px solid var(--line-strong); border-radius:50%;
+  background:var(--paper); cursor:pointer; padding:0; font-size:1rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-water-btn.overdue{border-color:#C0392B; background:#FCEBE9;}
+.plant-water-btn.done{border-color:var(--brand); background:var(--brand-tint);}
 .plant-emoji-picker{display:flex; flex-wrap:wrap; gap:6px;}
 .plant-emoji-opt{font-size:1.3rem; line-height:1; padding:6px 9px; border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji-opt.on{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand);}
-
-/* ---------- design (UX news feed) ---------- */
-.design-list{display:flex; flex-direction:column; gap:10px;}
-.design-card{display:block; text-decoration:none; transition:transform .1s, box-shadow .1s, border-color .1s;}
-.design-card:hover,.design-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
-.design-meta{text-transform:uppercase; letter-spacing:.04em; font-size:.68rem; font-weight:700;}
-.design-title{margin:4px 0 0; color:var(--ink);}
-.design-summary{margin-top:6px; color:var(--ink); opacity:.8;}
-.design-card{cursor:pointer;}
-/* pulled out past the card's own padding to sit flush against its rounded top edge, the way a
-   featured image sits in most article-list designs, rather than boxed in like the text below */
-.design-card-img{display:block; width:calc(100% + 36px); height:160px; object-fit:cover;
-  margin:-18px -18px 12px; border-radius:var(--radius) var(--radius) 0 0;}
-/* News' own per-article vote row - pulled the same past-the-padding width as the card's own
-   image, flush against the card's bottom edge, so it reads as the card's footer rather than a
-   fourth block of content. stopPropagation on the row itself keeps a vote tap from also
-   triggering the card's own onclick (which opens the article). */
-.news-vote-row{display:flex; justify-content:flex-end; gap:4px;
-  margin:12px -18px -18px; padding:8px 14px; border-top:1px solid var(--line);}
-.news-vote-btn{background:none; border:none; font-size:1.05rem; line-height:1; padding:6px 10px;
-  border-radius:8px; cursor:pointer;}
-.news-vote-btn:hover{background:var(--bg);}
-/* thumbs down dims the card in place rather than yanking it away mid-scroll - it's gone for good
-   (its link goes on the dismissed list, see App.newsVote) the next time this list is drawn,
-   which is what actually removes it; this is just the marked-down look for the rest of now */
-.news-card-dismissed{opacity:.7; transition:opacity .3s ease-out;}
-/* sits above Home's masonry, full width rather than squeezed into one grid tile - but low and
-   wide rather than the Design tab's tall banner, so it reads as a quick pointer rather than a
-   second hero image competing with the actual masonry below it. Image on the left at roughly a
-   quarter of the card's width (which is itself the screen's width), title and the "Next
-   Article" label stacked on the right - the meta line usually goes above the title everywhere
-   else in the app, but here the headline is what should catch your eye first. */
-.dash-design-feature{margin-bottom:20px; display:flex; align-items:center; gap:14px; cursor:pointer;
-  transition:transform .1s, box-shadow .1s;}
-.dash-design-feature:hover,.dash-design-feature:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
-.dash-design-feature-img{flex:0 0 25%; width:25%; aspect-ratio:1/1; object-fit:cover;
-  border-radius:var(--radius-sm); margin:0;}
-.dash-design-feature .dash-item-flags{flex:0 0 auto; margin:0;}
-.dash-design-feature-text{flex:1; min-width:0;}
-/* same title/caption styling as every other dashboard tile (Currently Playing included),
-   rather than the Design tab's own larger article-list treatment - one card standing out in
-   size read as inconsistent rather than "important" */
-.dash-design-feature .dash-item-title{margin:0;}
-.dash-design-feature .dash-item-sub{margin-top:4px;}
-/* a reading surface rather than a card: a narrower measure and looser lines than the rest of
-   the app, because this is the one screen you sit and read instead of scan */
-.article{max-width:38rem;}
-.article-hero{display:block; width:100%; max-height:280px; object-fit:cover;
-  border-radius:var(--radius-sm); margin-bottom:16px;}
-.article-title{font-size:1.6rem; margin:6px 0 18px;}
-.article-p{margin-bottom:16px; font-size:1.02rem; line-height:1.65; color:var(--ink); overflow-wrap:anywhere;}
-.article-note{margin-top:-4px; margin-bottom:16px;}
-.article-h{font-size:1.15rem; margin:26px 0 10px;}
-.article-img{display:block; width:100%; height:auto; border-radius:var(--radius-sm);
-  border:1px solid var(--line); margin:6px 0 18px;}
-.article-li{margin:0 0 10px 20px; position:relative; font-size:1.02rem; line-height:1.6; color:var(--ink);}
-.article-li::before{content:'\2022'; position:absolute; left:-16px; color:var(--brand);}
-.article-q{margin:0 0 16px; padding:2px 0 2px 14px; border-left:3px solid var(--brand-tint);
-  font-style:italic; color:var(--ink); line-height:1.6;}
-.article-p strong,.article-li strong{font-weight:700; color:var(--ink);}
-.article-actions{margin-top:22px; padding-top:18px; padding-bottom:8px; margin-bottom:24px; border-top:1px solid var(--line);}
+/* Home's tile is minimal on purpose - just the most urgent vegetable's emoji and a watering
+   badge, no name - a quick "does anything need attention" glance, not a second Plants list */
+.plant-dash-row{justify-content:center; gap:8px;}
+.plant-dash-emoji{font-size:1.6rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-dash-badge{display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:50%; font-size:.82rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-dash-badge.overdue{background:#FCEBE9;}
+.plant-dash-badge.ok{background:var(--brand-tint);}
 
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:4px;}
@@ -865,7 +818,7 @@ details .d-body{padding:14px 16px;}
   .btn.primary:hover{background:var(--brand); border-color:var(--brand); color:#fff;}
   .btn.ghost:hover{background:none; color:var(--muted); border-color:transparent;}
   .btn.danger:hover{background:#FCEBE9; border-color:#FCEBE9; color:#C0392B;}
-  .trip-card:hover,.hub-card:hover,.design-card:hover,.dash-tile:hover{
+  .trip-card:hover,.hub-card:hover,.dash-tile:hover{
     transform:none; box-shadow:var(--shadow); border-color:var(--line);}
   .theme-swatch:hover,.bg-card:hover{transform:none; box-shadow:var(--shadow);}
   .emoji-pick:hover,.pack-check[role=checkbox]:hover,
@@ -1145,11 +1098,6 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
    an address, safe to commit; your PSN login itself is entered on-device later and stays in
    this browser's localStorage, never here. Leave blank and Games shows setup instructions. */
 const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
-/* News (Design/Films/Music) reuses the same deployed proxy as Games (see psn-proxy/worker.js's
-   /design-news, /film-news and /music-news endpoints) rather than needing a second one deployed
-   - it's just a public RSS aggregator, nothing PSN-specific about it, the worker just happens to
-   live in that folder already. */
-const NEWS_PROXY_URL = PSN_PROXY_URL;
 /* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
@@ -1158,8 +1106,15 @@ const NEWS_PROXY_URL = PSN_PROXY_URL;
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.21.1';
+const APP_VERSION = '2.22.0';
 const CHANGELOG = [
+  {version:'2.22.0', notes:[
+    'Removed the News feature entirely - the article feed, its Home tile, and the icon that replaced it on the tabbar are all gone.',
+    "Plants: watering is a timestamped log now instead of a single date, so watering twice in one day (or checking exactly when it last happened) both work properly. The \"Needs watering\" text is gone too - the water button itself turns red when overdue and green once it's done for the day, so cards stay compact with a lot of vegetables on screen. Stage (including Seed Sown) is now a single tap on the card's own dots instead of only changeable from the edit form, and cards are noticeably more compact overall. Home's tile is now just the neediest vegetable's emoji and a watering badge, no text.",
+    'Films: Watchlist\'s icon is a heart now instead of a bookmark.',
+    "Next Gig's Songkick link now searches with London added, since that's far more likely to actually turn up a real, findable event than the artist name on its own.",
+    "Next Trip's flag(s) are much bigger now - the box is the full width of the card instead of half of it, the way a real photo would fill it.",
+  ]},
   {version:'2.21.1', notes:[
     "Plants: the auto-picked emoji now covers a lot more vegetables - radish, turnip, beetroot, avocado, olive, beans, herbs (basil, mint, coriander…), courgette, cauliflower, cabbage and more all get a sensible icon now instead of falling back to the plain seedling.",
   ]},
@@ -3095,9 +3050,11 @@ function dashNextGig(){
 /* the app doesn't store a ticket/event link anywhere - a gig is just artist/location/date - so
    the honest best-effort destination is a Songkick search for the artist, the same fallback
    pattern as Letterboxd search for a film with no stored URL. Not the exact event page, but one
-   tap from finding it. */
+   tap from finding it. Biased to London in the query text itself (Songkick's search matches
+   across event/venue/city, not just artist) since that's where a show is most likely to actually
+   be findable for this app's use. */
 function gigEventUrl(g){
-  return 'https://www.songkick.com/search?query='+encodeURIComponent(g.artist||'');
+  return 'https://www.songkick.com/search?query='+encodeURIComponent((g.artist||'')+' London');
 }
 function dashGigWidgetHTML(){
   const g = dashNextGig();
@@ -3166,11 +3123,6 @@ function dashSongRangeSelectHTML(){
       </select>
     </span>`;
 }
-/* News dropped off the tabbar/menu when Plants took its slot there - this is its one remaining
-   way in, grouped with the range dropdown since both live in the same header row */
-function dashHomeControlsHTML(){
-  return `<span class="dash-home-controls">${dashSongRangeSelectHTML()}<button class="dash-news-btn" onclick="App.goNews()" aria-label="News">📰</button></span>`;
-}
 function loadDashboardSong(){
   if(!psnConfigured() || !spotifyTokens()) return;   // the placeholder already shows the right prompt
   const range = CUR_DASH_SONG_RANGE;
@@ -3184,47 +3136,6 @@ function loadDashboardSong(){
     // fails silently here - Music's Songs tab surfaces the real error if you go look
     const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = '';
     balanceDashboardColumns();
-  });
-}
-/* full-width, above the masonry rather than one tile among many - articles change on their own
-   schedule (a new one lands whenever the feed does), so this is the one piece of Home worth
-   giving more room to notice at a glance. A fresh random pick every time Home renders, not
-   whichever one you last actually opened - reads ALL_NEWS_ARTICLES straight from memory if News
-   has already loaded this session, otherwise fetches it fresh the same placeholder-then-fill way
-   Games/Songs do for their own API calls. */
-function dashPickRandomArticle(){
-  if(!ALL_NEWS_ARTICLES.length) return null;
-  const i = Math.floor(Math.random()*ALL_NEWS_ARTICLES.length);
-  return {a: ALL_NEWS_ARTICLES[i], i};
-}
-function dashNewsFeatureHTML(picked){
-  if(!picked) return `
-    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.goNews()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goNews()}">
-      <div class="dash-item-flags" aria-hidden="true">📰</div>
-      <div class="dash-design-feature-text">
-        <div class="dash-item-title">${NEWS_LOADED ? 'Nothing to Show Right Now' : 'Loading…'}</div>
-        <div class="dash-item-sub">Article</div>
-      </div>
-    </div>`;
-  const {a, i} = picked;
-  return `
-    <div class="card dash-design-feature" role="button" tabindex="0" onclick="App.readNews(${i})"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readNews(${i})}">
-      ${a.image ? `<img class="dash-design-feature-img" src="${esc(a.image)}" alt="" loading="lazy">` : ''}
-      <div class="dash-design-feature-text">
-        <div class="dash-item-title">${esc(a.title)}</div>
-        <div class="dash-item-sub">Article</div>
-      </div>
-    </div>`;
-}
-function loadDashboardNews(){
-  if(ALL_NEWS_ARTICLES.length){ const slot = $('#dash-news-slot'); if(slot) slot.innerHTML = dashNewsFeatureHTML(dashPickRandomArticle()); return; }
-  loadAllNews().then(()=>{
-    const slot = $('#dash-news-slot'); if(slot) slot.innerHTML = dashNewsFeatureHTML(dashPickRandomArticle());
-  }).catch(()=>{
-    // fails silently here - News itself surfaces the real error if you go look
-    const slot = $('#dash-news-slot'); if(slot) slot.innerHTML = dashNewsFeatureHTML(null);
   });
 }
 function dashGamesStatWidgetHTML(n){
@@ -3382,8 +3293,7 @@ function renderDashboard(){
     ${dashRandomWatchlistWidgetHTML()}
     <div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   $('#app').innerHTML = `
-    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashHomeControlsHTML()}</div></div>
-    <div id="dash-news-slot">${dashNewsFeatureHTML(dashPickRandomArticle())}</div>
+    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     <div class="dash-stat-grid">
       <div id="dash-places-slot">${dashPlacesBeenWidgetHTML()}</div>
       <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
@@ -3400,7 +3310,6 @@ function renderDashboard(){
   balanceDashboardColumns();
   loadDashboardGames();
   loadDashboardSong();
-  loadDashboardNews();
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
@@ -4111,204 +4020,6 @@ function wlCardHTML(g){
     </div>`;
 }
 
-/* ================= News (unified Design/Films/Music feed) =================
-   One merged, dated feed across three publication categories rather than three separate
-   destinations to remember to check - each fetched independently from the proxy's own
-   /design-news, /film-news, /music-news routes (worker.js's fetchNewsFeeds, one call per
-   category, so one category being down doesn't take out the others), tagged with which category
-   it came from, and merged client-side. Thumbs down hides an article for good (its link goes on
-   a dismissed list - the same article would otherwise keep resurfacing every refetch, since the
-   underlying feed still carries it) and nudges its whole publication down the list from then on;
-   thumbs up nudges that publication up - the closest thing to "learns what you like" buildable
-   here, since real topic/content learning would need infrastructure this static site doesn't
-   have (see the Settings page's own note on why API keys don't live in-app either). */
-const NEWS_CATEGORIES = {
-  design: {endpoint:'/design-news', label:'Design', emoji:'🎨'},
-  film:   {endpoint:'/film-news',   label:'Films',  emoji:'🎬'},
-  music:  {endpoint:'/music-news',  label:'Music',  emoji:'🎤'},
-};
-let ALL_NEWS_ARTICLES = [];   // last merged fetch, tagged with .category, held so opening one doesn't refetch
-let NEWS_LOADED = false;
-const NEWS_VOTES_KEY = 'calstrippin_news_votes';
-function newsVotes(){
-  try{
-    const v = JSON.parse(localStorage.getItem(NEWS_VOTES_KEY)||'null');
-    return (v && typeof v==='object') ? {sources:v.sources||{}, dismissed:v.dismissed||[]} : {sources:{}, dismissed:[]};
-  }catch(e){ return {sources:{}, dismissed:[]}; }
-}
-function saveNewsVotes(v){ try{ localStorage.setItem(NEWS_VOTES_KEY, JSON.stringify(v)); }catch(e){} }
-/* The proxy describes each article rather than sending its HTML - headings, paragraphs,
-   bold/italic runs, list items, quotes and image URLs, with every piece of text carried as
-   text (see htmlToBlocks in worker.js for why). The tags below are ours and every string goes
-   through esc() on the way in, so nothing a feed sends can become markup here.
-   A feed that only publishes a teaser gives us too little to read, in which case the reader
-   says so and hands over to the site rather than pretending a stub is the article. */
-const READABLE_MIN_CHARS = 400;
-const blockTextLength = b =>
-  typeof b === 'string' ? b.length
-  : b && b.r ? b.r.reduce((n,run)=>n+(run.x||'').length, 0)
-  : 0;
-const articleTextLength = a => (a.body||[]).reduce((n,b)=>n+blockTextLength(b), 0);
-const articleIsReadable = a => articleTextLength(a) >= READABLE_MIN_CHARS;
-function articleRunsHTML(runs){
-  return (runs||[]).map(r => {
-    const x = esc(r.x||'');
-    if(r.b && r.i) return `<strong><em>${x}</em></strong>`;
-    if(r.b) return `<strong>${x}</strong>`;
-    if(r.i) return `<em>${x}</em>`;
-    return x;
-  }).join('');
-}
-function articleBlockHTML(b){
-  // an older proxy sends plain strings; treat each as a paragraph
-  if(typeof b === 'string') return b.trim() ? `<p class="article-p">${esc(b)}</p>` : '';
-  if(!b) return '';
-  if(b.t === 'img'){
-    /* checked at both ends: the worker only emits https image URLs, and nothing else gets
-       rendered here either */
-    return /^https:\/\//i.test(b.src||'')
-      ? `<img class="article-img" src="${esc(b.src)}" alt="${esc(b.alt||'')}" loading="lazy">` : '';
-  }
-  const inner = articleRunsHTML(b.r);
-  if(!inner) return '';
-  if(b.t === 'h')  return `<h2 class="article-h">${inner}</h2>`;
-  if(b.t === 'li') return `<p class="article-li">${inner}</p>`;
-  if(b.t === 'q')  return `<blockquote class="article-q">${inner}</blockquote>`;
-  return `<p class="article-p">${inner}</p>`;
-}
-function loadAllNews(){
-  return Promise.allSettled(Object.keys(NEWS_CATEGORIES).map(cat =>
-    fetch(NEWS_PROXY_URL.replace(/\/$/,'') + NEWS_CATEGORIES[cat].endpoint)
-      .then(async r => {
-        if(!r.ok){ const body = await r.json().catch(()=>({})); throw new Error(body.error || ('status '+r.status)); }
-        return r.json();
-      })
-      .then(data => {
-        // every feed failing comes back as a 200 with no articles and an error string attached
-        // (see fetchNewsFeeds in worker.js) - surfaced as a real per-category failure, not
-        // silently rendered as that category having nothing published today
-        if(!data.articles?.length && data.error) throw new Error(data.error);
-        return (data.articles||[]).map(a => ({...a, category:cat}));
-      })
-  )).then(results => {
-    let articles = [], anyOk = false, firstErr = null;
-    results.forEach(r => {
-      if(r.status==='fulfilled'){ anyOk = true; articles = articles.concat(r.value); }
-      else if(!firstErr) firstErr = r.reason;
-    });
-    if(!anyOk) throw (firstErr instanceof Error ? firstErr : new Error('Nothing loaded'));
-    const votes = newsVotes();
-    articles = articles.filter(a => !votes.dismissed.includes(a.link));
-    // a liked publication's pieces float up, a disliked one sinks - no explicit hide threshold,
-    // the score itself does the sorting; publish date breaks ties within the same score
-    articles.sort((a,b) => {
-      const sa = votes.sources[a.source]||0, sb = votes.sources[b.source]||0;
-      return sa!==sb ? sb-sa : new Date(b.date||0) - new Date(a.date||0);
-    });
-    ALL_NEWS_ARTICLES = articles;
-    NEWS_LOADED = true;
-    return articles;
-  });
-}
-let CUR_NEWS_FILTER = '';   // '' = All, or a NEWS_CATEGORIES key
-function newsFilterChipsHTML(){
-  const chip = (k, label) => `<button class="subtab${CUR_NEWS_FILTER===k?' on':''}" onclick="App.newsFilter('${k}')">${label}</button>`;
-  return chip('','All')+Object.keys(NEWS_CATEGORIES).map(k=>chip(k, NEWS_CATEGORIES[k].emoji+' '+NEWS_CATEGORIES[k].label)).join('');
-}
-function renderNews(){
-  $('#app').innerHTML = `
-    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">News</span></div></div>
-    <div class="subtabs" id="news-filters">${newsFilterChipsHTML()}</div>
-    <div id="news-body"></div>`;
-  if(!NEWS_PROXY_URL){
-    $('#news-body').innerHTML = `<div class="empty">No proxy set up yet.<br>Deploy the one in
-      <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
-      <code>PSN_PROXY_URL</code> near the top of <code>index.html</code>.</div>`;
-    return;
-  }
-  if(NEWS_LOADED){ drawNewsList(); return; }   // coming back from a read
-  $('#news-body').innerHTML = `<div class="empty">Loading news…</div>`;
-  loadAllNews()
-    .then(()=>{ if($('#news-body')) drawNewsList(); })
-    .catch(e => {
-      if(!$('#news-body')) return;
-      $('#news-body').innerHTML = `<div class="empty">Couldn't load news.<br>${esc(e.message||'')}
-        <div class="btn-row" style="justify-content:center; margin-top:14px">
-          <button class="btn sm" onclick="App.goNews()">Try Again</button>
-        </div></div>`;
-    });
-}
-function drawNewsList(){
-  const body = $('#news-body'); if(!body) return;
-  // re-checked against the dismissed list on every draw, not just at fetch time - otherwise
-  // coming back to News within the same visit (NEWS_LOADED already true, no refetch) would show
-  // an article thumbed down moments ago right where it was, since it's still sitting in
-  // ALL_NEWS_ARTICLES until the next real fetch
-  const dismissed = newsVotes().dismissed;
-  const visible = ALL_NEWS_ARTICLES.filter(a => !dismissed.includes(a.link));
-  const filtered = CUR_NEWS_FILTER ? visible.filter(a=>a.category===CUR_NEWS_FILTER) : visible;
-  if(!filtered.length){ body.innerHTML = `<div class="empty">Nothing to show right now, try again shortly.</div>`; return; }
-  body.innerHTML = `<div class="design-list">${filtered.map(newsCardHTML).join('')}</div>`;
-}
-function newsCardHTML(a){
-  // the real index into ALL_NEWS_ARTICLES, not the filtered list's - App.readNews/newsVote both
-  // need to find the same article regardless of which category chip is active
-  const i = ALL_NEWS_ARTICLES.indexOf(a);
-  const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
-  const cat = NEWS_CATEGORIES[a.category];
-  return `
-    <div class="card design-card" id="news-card-${i}" role="button" tabindex="0" onclick="App.readNews(${i})"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.readNews(${i})}">
-      ${a.image?`<img class="design-card-img" src="${esc(a.image)}" alt="" loading="lazy">`:''}
-      <div class="small muted design-meta">${esc(a.source)}${cat?' &middot; '+esc(cat.label):''}${dateStr?' &middot; '+esc(dateStr):''}</div>
-      <h3 class="design-title">${esc(a.title)}</h3>
-      ${a.summary?`<p class="small design-summary">${esc(a.summary)}</p>`:''}
-      <div class="news-vote-row" onclick="event.stopPropagation()">
-        <button type="button" class="news-vote-btn" aria-label="More like this" onclick="App.newsVote(${i},1)">👍</button>
-        <button type="button" class="news-vote-btn" aria-label="Less like this" onclick="App.newsVote(${i},-1)">👎</button>
-      </div>
-    </div>`;
-}
-/* the article itself, read in the app. Deep-linking straight here (a reload, a shared URL)
-   finds ALL_NEWS_ARTICLES empty, so it fetches everything first and then shows the one asked for. */
-function renderNewsArticle(i){
-  if(!ALL_NEWS_ARTICLES.length){
-    $('#app').innerHTML = `
-      <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">
-        <button class="crumb-backbtn" onclick="App.goNews()" aria-label="Back to News">${ICONS.back}</button>
-        Reading</span></div></div>
-      <div class="empty">Loading…</div>`;
-    loadAllNews()
-      .then(()=>{ if(location.hash==='#/news/'+i) renderNewsArticle(i); })
-      .catch(()=>{ location.hash = '#/news'; });
-    return;
-  }
-  const a = ALL_NEWS_ARTICLES[i];
-  if(!a){ location.hash = '#/news'; return; }
-  const dateStr = a.date ? fmtDate(a.date.slice(0,10)) : '';
-  const readable = articleIsReadable(a);
-  const openBtn = `<a class="btn${readable?'':' primary'}" href="${esc(a.link)}" target="_blank" rel="noopener">${ICONS.ext}Read on ${esc(a.source)}</a>`;
-  $('#app').innerHTML = `
-    <div class="crumb">
-      <div class="crumb-titlerow">
-        <span class="crumb-here">
-          <button class="crumb-backbtn" onclick="App.goNews()" aria-label="Back to News">${ICONS.back}</button>
-          Reading</span>
-      </div>
-    </div>
-    <article class="article">
-      ${a.image?`<img class="article-hero" src="${esc(a.image)}" alt="">`:''}
-      <div class="small muted design-meta">${esc(a.source)}${dateStr?' &middot; '+esc(dateStr):''}</div>
-      <h1 class="article-title">${esc(a.title)}</h1>
-      ${readable
-        ? (a.body||[]).map(articleBlockHTML).join('')
-        : `<p class="article-p">${esc(a.summary||'')}</p>
-           <p class="small muted article-note">${esc(a.source)} only publishes a preview to its feed,
-             so there's nothing more to show here - the rest is on their site.</p>`}
-      <div class="btn-row article-actions">${openBtn}</div>
-    </article>`;
-}
-
 /* ================= Gigs (live music you've been to) =================
    Its own top-level section rather than folded into a trip: a gig is a moment, not something
    with the trip-shaped start/end dates the rest of the app is built around, and plenty happen
@@ -4684,7 +4395,7 @@ function delGigImpl(i){
 
 /* ================= Films (Letterboxd-style diary) =================
    Letterboxd's own API is invite-only (see worker.js's fetchLetterboxdDiary for the details),
-   so importing works the same way Design's news feed does: the Worker fetches your account's
+   so importing works the same way the proxy's other RSS routes do: it fetches your account's
    public diary RSS feed and hands back plain JSON. That only ever covers your diary (recently
    logged films, capped at roughly the last 50 for a free account) - not your full watched
    history or watchlist, neither of which are exposed outside the closed API. Logging a film by
@@ -4844,7 +4555,7 @@ function renderFilms(){
           :CUR_FILMS_TAB==='watchlist'?`<button class="btn sm primary" onclick="App.fwAddFilm()">+ Add Film</button>`:''}
       </div>
     </div>
-    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','🔖 Watchlist')}${tab('stats','📊 Stats')}</div>
+    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','📊 Stats')}</div>
     <div id="films-body"></div>`;
   if(CUR_FILMS_TAB==='watchlist'){ renderFilmsWatchlist(); return; }
   if(CUR_FILMS_TAB==='stats'){ renderFilmsStats(); return; }
@@ -5538,8 +5249,8 @@ function filmsWatchlistImportCsvFileImpl(file){
 /* ================= Films Stats =================
    Two breakdowns of the Diary - watched by year, and by rating - each row a live count that
    drills into its own filtered poster grid (App.filmsStatsYear/Rating -> a real #/films/stats/…
-   route, the same way News' own articles get their own #/news/<i> rather than living purely in
-   memory, so the back button and a bookmark both land where you'd expect). Ratings are grouped
+   route rather than living purely in memory, so the back button and a bookmark both land
+   where you'd expect). Ratings are grouped
    by their exact value (half-stars included) rather than rounded to a whole star, since the
    data already carries that precision and rounding would just throw it away. */
 function filmsStatsByYear(){
@@ -5715,14 +5426,6 @@ function route(){
     CUR_TRIP_ID = null; stopSub();
     renderFilmsStatsFiltered('rewatch', ''); window.scrollTo(0,0); return;
   }
-  if(h.startsWith('#/news/')){
-    CUR_TRIP_ID = null; stopSub();
-    renderNewsArticle(+h.slice('#/news/'.length)); window.scrollTo(0,0); return;
-  }
-  if(h === '#/news'){
-    CUR_TRIP_ID = null; stopSub();
-    renderNews(); window.scrollTo(0,0); return;
-  }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
     try{
@@ -5805,29 +5508,46 @@ function guessPlantEmoji(name){
   const hit = PLANT_EMOJI_GUESS.find(([re])=>re.test(n));
   return hit ? hit[1] : '';
 }
-function daysSinceStr(dateStr){
-  if(!dateStr) return null;
-  return Math.round((new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00')) / 86400000);
+/* watering is a log now (p.waterings, newest last), not a single date - so it supports
+   watering twice on a hot day and shows exactly when, not just which day. plantLastWateredTs
+   falls back to the old single p.lastWatered field for anything watered before this changed
+   (savePlantImpl migrates it into the log properly the next time that plant's actually saved). */
+function plantLastWateredTs(p){
+  const arr = Array.isArray(p.waterings) ? p.waterings : [];
+  if(arr.length) return arr[arr.length-1];
+  return p.lastWatered ? p.lastWatered+'T12:00:00' : null;
 }
+/* whole calendar days apart, not 24h chunks - watered at 11pm and checked again at 7am is
+   "yesterday", one day ago, not zero */
+function daysSinceTs(ts){
+  if(!ts) return null;
+  const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.round((startOfDay(new Date()) - startOfDay(new Date(ts))) / 86400000);
+}
+/* "watered today" is worked out fresh against the real clock every render, never stored - so it
+   naturally clears itself at midnight without any explicit reset */
+function plantWateredToday(p){ return daysSinceTs(plantLastWateredTs(p))===0; }
 function plantOverdue(p){
-  const since = daysSinceStr(p.lastWatered);
-  return since===null || since>=(p.wateringFrequencyDays||3);
+  const days = daysSinceTs(plantLastWateredTs(p));
+  return days===null || days>=(p.wateringFrequencyDays||3);
 }
-/* the single most useful thing to say about a plant right now: overdue watering trumps
-   everything else (letting it dry out undoes any other progress), then how close it is to
-   harvest, otherwise just a steady "looking good" - each card only ever shows the one tip
-   that matters most, not a wall of every fact it has */
-function plantTip(p){
-  if(plantOverdue(p)) return {text:'💧 Needs watering', cls:'plant-tip-warn'};
-  if(p.stage==='ready') return {text:'🌟 Ready to harvest!', cls:'plant-tip-good'};
-  if(p.stage==='flowering') return {text:'👀 Getting close - check daily', cls:'plant-tip-info'};
-  if(p.stage==='harvested') return {text:'✅ All harvested', cls:'plant-tip-good'};
-  return {text:'✅ Looking good', cls:'plant-tip-good'};
+function plantWaterLabel(p){
+  const ts = plantLastWateredTs(p);
+  if(!ts) return 'Never watered';
+  const days = daysSinceTs(ts);
+  if(days===0) return 'Watered today, '+new Date(ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+  if(days===1) return 'Watered yesterday';
+  return `Watered ${days} days ago`;
 }
 function plantStageIdx(k){ const i = PLANT_STAGES.findIndex(s=>s.k===k); return i<0 ? 0 : i; }
-function plantStageDotsHTML(k){
-  const cur = plantStageIdx(k);
-  return PLANT_STAGES.map((s,i)=>`<span class="plant-dot${i<=cur?' on':''}"></span>`).join('');
+/* each dot is its own tap target (App.plantSetStage), not just a progress readout - moving a
+   vegetable on a stage (seed sown included) is then one tap on the card, not a trip into the
+   edit form's dropdown */
+function plantStageDotsHTML(p){
+  const cur = plantStageIdx(p.stage);
+  return PLANT_STAGES.map((s,i)=>`
+    <button type="button" class="plant-dot${i<=cur?' on':''}" title="${esc(s.label)}" aria-label="${esc(s.label)}"
+      onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${s.k}')"></button>`).join('');
 }
 /* overdue-watering plants float to the top (the thing most worth noticing at a glance),
    harvested ones sink to the bottom (done, least worth the eye), everything else by name */
@@ -5839,21 +5559,22 @@ function plantsSorted(){
     return (a.name||'').localeCompare(b.name||'');
   });
 }
+/* no separate "Needs watering" text line - the water button's own colour (see .plant-water-btn)
+   carries that, so a card with a lot of these on screen at once stays compact and scannable */
 function plantCardHTML(p){
-  const tip = plantTip(p);
-  const since = daysSinceStr(p.lastWatered);
-  const waterLabel = since===null ? 'Never watered' : since===0 ? 'Watered today' : `Watered ${since} day${since===1?'':'s'} ago`;
+  const overdue = plantOverdue(p);
+  const btnCls = overdue ? ' overdue' : plantWateredToday(p) ? ' done' : '';
   return `
     <div class="card plant-card" role="button" tabindex="0" onclick="App.plantForm('${esc(p.id)}')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantForm('${esc(p.id)}')}">
       <div class="plant-emoji" aria-hidden="true">${p.emoji||'🌱'}</div>
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
       <div class="plant-stage-label">${esc((PLANT_STAGES[plantStageIdx(p.stage)]||{}).label||'')}</div>
-      <div class="plant-dots" aria-hidden="true">${plantStageDotsHTML(p.stage)}</div>
-      <div class="plant-tip ${tip.cls}">${tip.text}</div>
+      <div class="plant-dots">${plantStageDotsHTML(p)}</div>
       <div class="plant-water-row">
-        <span class="plant-water-label">${waterLabel}</span>
-        <button class="btn sm" onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">💧 Watered Today</button>
+        <span class="plant-water-label">${esc(plantWaterLabel(p))}</span>
+        <button type="button" class="plant-water-btn${btnCls}" aria-label="Log watering"
+          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">💧</button>
       </div>
     </div>`;
 }
@@ -5880,13 +5601,25 @@ function renderPlants(){
     drawPlantsGrid();
   });
 }
+/* appends rather than overwrites - watering twice in one day (a hot spell, a top-up after
+   forgetting the morning one) is a normal thing to want, not an edge case to guard against, so
+   there's no "already watered today" check here blocking a second tap */
 function plantWaterImpl(id){
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  p.lastWatered = todayStr();
+  p.waterings = Array.isArray(p.waterings) ? p.waterings : [];
+  p.waterings.push(new Date().toISOString());
   savePlants();
   drawPlantsGrid();
   drawDashPlantsSlot();
   toast('Watered');
+}
+function plantSetStageImpl(id, stageKey){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  if(!PLANT_STAGES.some(s=>s.k===stageKey)) return;
+  p.stage = stageKey;
+  savePlants();
+  drawPlantsGrid();
+  drawDashPlantsSlot();
 }
 let PLANT_FORM_EMOJI = '';
 let PLANT_FORM_EMOJI_MANUAL = false;
@@ -5922,8 +5655,6 @@ function plantFormImpl(id){
       <input id="plant-planted" type="date" value="${esc((p&&p.plantedDate)||todayStr())}"></div>
     <div class="field"><label class="label" for="plant-freq">Water Every (Days)</label>
       <input id="plant-freq" type="number" inputmode="numeric" min="1" max="30" value="${esc((p&&p.wateringFrequencyDays)||3)}"></div>
-    <div class="field"><label class="label" for="plant-lastwatered">Last Watered</label>
-      <input id="plant-lastwatered" type="date" value="${esc((p&&p.lastWatered)||'')}"></div>
     <div class="btn-row" style="margin-top:6px">
       <button class="btn primary" style="flex:1" onclick="App.savePlant(${p?`'${esc(p.id)}'`:'null'})">${p?'Save':'Add Vegetable'}</button>
       ${p?`<button class="btn danger" onclick="App.delPlant('${esc(p.id)}')">Delete</button>`:''}
@@ -5933,6 +5664,10 @@ function savePlantImpl(id){
   const name = ($('#plant-name').value||'').trim();
   if(!name) return markErr('#plant-name','Enter a name');
   const existing = id ? (DB.plants||[]).find(x=>x.id===id) : null;
+  // migrates a plant last watered before the switch to a timestamped log (a bare p.lastWatered
+  // date, no p.waterings yet) into the log here, so its history survives being edited
+  const waterings = (existing && Array.isArray(existing.waterings) && existing.waterings.length) ? existing.waterings
+    : (existing && existing.lastWatered) ? [existing.lastWatered+'T12:00:00'] : [];
   const plant = {
     id: (existing&&existing.id) || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()),
     name,
@@ -5940,7 +5675,7 @@ function savePlantImpl(id){
     stage: $('#plant-stage').value,
     plantedDate: $('#plant-planted').value || null,
     wateringFrequencyDays: parseInt($('#plant-freq').value,10) || 3,
-    lastWatered: $('#plant-lastwatered').value || null,
+    waterings,
   };
   DB.plants = DB.plants||[];
   if(existing){ DB.plants[DB.plants.findIndex(x=>x.id===id)] = plant; } else DB.plants.push(plant);
@@ -5955,28 +5690,28 @@ function delPlantImpl(id){
     toast('Vegetable removed');
   });
 }
-/* Home shows just the single most urgent vegetable (plantsSorted already puts overdue
-   watering first) rather than every one of them - same "one tile, one thing to notice" shape
-   as the rest of the dashboard's masonry. Reads DB.plants directly like Films' own Home tiles
-   do, no live fetch to wait on since plants are already loaded on-device by the time Home
-   renders (the fuller cloud sync happens if/when the Plants tab itself is opened). */
+/* Home's tile is deliberately minimal: just the most urgent vegetable's emoji (plantsSorted
+   already puts overdue watering first) and a watering badge, no name or label - a quick "does
+   anything need attention" glance that hands off to the Plants page for anything more. Reads
+   DB.plants directly like Films' own Home tiles do, no live fetch to wait on since plants are
+   already loaded on-device by the time Home renders (the fuller cloud sync happens if/when the
+   Plants tab itself is opened). */
 function dashPlantsWidgetHTML(){
   const list = DB.plants||[];
   if(!list.length) return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlants()"
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlants()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
       <div class="dash-item-flags" aria-hidden="true">🥕</div>
-      <div class="dash-item-title">No Vegetables Yet</div>
-      <div class="dash-item-sub">Start Growing</div>
+      <div class="dash-item-title">Start Growing</div>
     </div>`;
   const p = plantsSorted()[0];
-  const tip = plantTip(p);
+  const overdue = plantOverdue(p);
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goPlants()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
-      <div class="dash-item-flags" aria-hidden="true">${p.emoji||'🌱'}</div>
-      <div class="dash-item-title">${esc(p.name||'Untitled')}</div>
-      <div class="dash-item-sub">${esc(tip.text)}</div>
+    <div class="dash-widget dash-widget-row plant-dash-row" role="button" tabindex="0" onclick="App.goPlants()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}"
+      aria-label="${esc(p.name||'Vegetable')}${overdue?', needs watering':''}">
+      <span class="plant-dash-emoji" aria-hidden="true">${p.emoji||'🌱'}</span>
+      <span class="plant-dash-badge ${overdue?'overdue':'ok'}" aria-hidden="true">💧</span>
     </div>`;
 }
 function drawDashPlantsSlot(){
@@ -6023,23 +5758,6 @@ App.goToYourTrips = () => {
 };
 App.goGames = () => { location.hash = '#/games'; };
 App.goSettings = () => { location.hash = '#/settings'; };
-App.goNews = () => { location.hash = '#/news'; };
-App.newsFilter = k => {
-  CUR_NEWS_FILTER = k;
-  const chips = $('#news-filters'); if(chips) chips.innerHTML = newsFilterChipsHTML();
-  drawNewsList();
-};
-App.newsVote = (i, dir) => {
-  const a = ALL_NEWS_ARTICLES[i]; if(!a) return;
-  const votes = newsVotes();
-  votes.sources[a.source] = (votes.sources[a.source]||0) + dir;
-  if(dir < 0){
-    if(!votes.dismissed.includes(a.link)) votes.dismissed.push(a.link);
-    const card = $('#news-card-'+i);
-    if(card) card.classList.add('news-card-dismissed');
-  }
-  saveNewsVotes(votes);
-};
 App.goGigs = () => { location.hash = '#/gigs'; };
 App.goGigsSeen = () => { CUR_GIGS_TAB = 'log'; location.hash = '#/gigs'; };
 App.goSongs = () => { CUR_GIGS_TAB = 'songs'; location.hash = '#/gigs'; };
@@ -6066,6 +5784,7 @@ App.plantForm = plantFormImpl;
 App.savePlant = savePlantImpl;
 App.delPlant = delPlantImpl;
 App.plantWater = plantWaterImpl;
+App.plantSetStage = plantSetStageImpl;
 App.plantPickEmoji = plantPickEmojiImpl;
 App.plantNameInput = plantNameInputImpl;
 App.letterboxdSync = letterboxdSyncImpl;
@@ -6128,7 +5847,6 @@ App.dashSongRange = k => {
   const filmsSlot = $('#dash-films-slot'); if(filmsSlot) filmsSlot.innerHTML = dashFilmsSeenWidgetHTML();
   balanceDashboardColumns();
 };
-App.readNews = i => { location.hash = '#/news/'+i; };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
