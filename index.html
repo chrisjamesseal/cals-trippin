@@ -715,34 +715,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
   padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);
   transform:translateZ(0); will-change:transform;}
 .places-search input,.games-search input{background:var(--paper);}
-/* Films' own search (find something to log/relog or add to the Watchlist, not filter what's
-   already on the page the way Places/Games' search does) gets the same fixed-above-the-tabbar
-   treatment on mobile - it's reached for as often as those two. Its live-search results open
-   upward from the input instead of down, since down would run the panel straight into the
-   tabbar this thing already sits on top of. On a wide/desktop layout there's no tabbar to sit
-   above, so it drops back into the normal page flow above the genre dropdown instead (see the
-   768px override below). */
-.films-search{position:fixed; left:0; right:0; z-index:55;
-  bottom:calc(var(--bar-h,61px) + var(--kb-inset,0px));
-  padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);
-  transform:translateZ(0); will-change:transform; margin-bottom:0;}
-.films-search input{background:var(--paper);}
-.films-search-row{position:relative; display:flex; align-items:center;}
-.films-search-row input{width:100%; padding-right:34px;}
-/* one tap back to the grid without hunting for the input to clear by hand - only shown once
-   there's actually something typed, sat inside the input's own right edge like a native clear
-   button since browsers don't give text inputs one by default */
-.films-search-clear{position:absolute; right:8px; top:50%; transform:translateY(-50%);
-  border:none; background:none; cursor:pointer; color:var(--muted); font-size:1.1rem;
-  line-height:1; padding:6px; display:none;}
-.films-search-row.has-query .films-search-clear{display:block;}
-.films-search-results{position:absolute; left:16px; right:16px; bottom:100%; margin-bottom:4px;
-  max-height:50vh; overflow-y:auto; background:var(--paper); border:1px solid var(--line);
-  border-radius:var(--radius); box-shadow:var(--shadow-lift);}
-.films-search-results:empty{display:none; border:none; box-shadow:none;}
-.films-home-result{display:flex; align-items:center; gap:10px; padding:8px 10px; flex-wrap:wrap;}
-.films-home-result .films-home-result-text{flex:1; min-width:120px; font-size:.85rem;}
-.films-home-result .btn-row{flex-shrink:0;}
+/* Films' Diary and Watchlist tabs each get the same fixed-above-the-tabbar filter box as
+   Places/Games, filtering what's already on the page rather than a live TMDb search - finding a
+   NEW film to log or add lives on its own full page instead (App.fwAddFilm), reached via the
+   "+ Log Film"/"+ Add Film" buttons, not an overlay stacked above this filter. */
 /* one country per row: side by side, a long name and its capital and language had nowhere to
    go and the card grew a paragraph tall. Two columns once the screen is wide enough to give
    each of them a sensible width. */
@@ -1166,12 +1142,6 @@ body.kb-open .tabbar.on{display:none;}
      instead, sitting centred with room either side (which just shrinks on its own as the
      window narrows, right down to the sidebar breakpoint above) */
   .wrap[data-tab="plan"]{max-width:560px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 24px 96px;}
-  /* no tabbar to sit above here - back into normal page flow, above the genre dropdown, results
-     opening downward like every other inline search dropdown in the app */
-  .films-search{position:static; left:auto; right:auto; z-index:auto; bottom:auto;
-    padding:0; background:none; border-top:none; margin-bottom:14px;}
-  .films-search-results{position:static; left:auto; right:auto; bottom:auto; margin:8px 0 0;
-    max-height:none; box-shadow:none;}
 }
 @media(min-width:768px) and (max-width:1279px){
   .sidebar{width:216px;}
@@ -1218,8 +1188,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.8';
+const APP_VERSION = '2.29.9';
 const CHANGELOG = [
+  {version:'2.29.9', notes:[
+    "Watchlist search now filters the films already on your watchlist instead of searching for new ones - Diary got the same treatment, both now match how Places and Games search their own lists.",
+    "Finding a brand new film to log or add lives on its own full-page search screen (tap + Add Film) instead of the overlay bar that kept floating in the wrong spot above the keyboard - each result now offers both Log and + Add.",
+  ]},
   {version:'2.29.8', notes:[
     "Fixed the Films search bar sometimes floating too high above the keyboard instead of sitting right against it - a timing quirk in how the keyboard's height gets measured could leave it holding a stale, oversized offset.",
   ]},
@@ -3086,10 +3060,6 @@ document.addEventListener('focusin', e => { if(e.target.matches('input,textarea'
 document.addEventListener('focusout', e => {
   if(!e.target.matches('input,textarea')) return;
   document.body.classList.remove('kb-open');
-  // belt-and-braces: closing the keyboard should fire its own visualViewport resize that settles
-  // this back to 0 on its own, but if that event is ever missed or lands stale, a leftover
-  // positive --kb-inset would keep a search bar floating well above where the (now gone)
-  // keyboard used to be - explicitly zeroing it here means a stale value can't survive a blur
   document.documentElement.style.setProperty('--kb-inset', '0px');
 });
 /* the Places/Games search box sits fixed just above the tabbar (--bar-h) - the viewport meta's
@@ -3097,21 +3067,12 @@ document.addEventListener('focusout', e => {
    a newer browser feature (Safari 16.4+/modern Chrome); this is the fallback for anything
    older, where the layout viewport doesn't shrink and a plain bottom-anchored fixed element
    would render underneath the keyboard instead of above it. visualViewport reports the real
-   usable height there, so --kb-inset lifts the search box clear of the keyboard while it's up.
-   On a browser that DOES honour interactive-widget=resizes-content, window.innerHeight shrinks
-   right along with visualViewport's own height as the keyboard opens, so this should land back
-   on ~0 and stay a no-op there - but the two don't always update in the same tick (a well-known
-   cross-browser race around keyboard open/close), and reading window.innerHeight one frame too
-   early can catch it before it's caught up, computing a stale/inflated inset that then sticks
-   until the next viewport event happens to correct it. The rAF here reads both once the frame's
-   settled instead of synchronously inside the event, closing most of that race. */
+   usable height there, so --kb-inset lifts the search box clear of the keyboard while it's up. */
 if(window.visualViewport){
   const vv = window.visualViewport;
   const updateKbInset = () => {
-    requestAnimationFrame(() => {
-      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      document.documentElement.style.setProperty('--kb-inset', inset+'px');
-    });
+    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb-inset', inset+'px');
   };
   vv.addEventListener('resize', updateKbInset);
   vv.addEventListener('scroll', updateKbInset);
@@ -4913,23 +4874,12 @@ function renderFilms(){
   if(CUR_FILMS_TAB==='stats'){ renderFilmsStats(); return; }
   renderFilmsDiary();
 }
-/* shared by the Diary and Watchlist tabs - same TMDb search, same "Log"/"+ Watchlist" pair of
-   actions per result either way, so it's one search bar rather than two near-identical ones */
-function filmsHomeSearchBarHTML(){
-  return `
-    <div class="films-search">
-      <div class="films-search-row" id="films-home-search-row">
-        <input type="text" id="films-home-search" placeholder="Search for a film…"
-          autocomplete="off" oninput="App.filmsHomeSearchInput()">
-        <button type="button" class="films-search-clear" aria-label="Clear search" onclick="App.filmsHomeSearchClear()">✕</button>
-      </div>
-      <div id="films-home-search-results" class="films-search-results"></div>
-    </div>`;
-}
 function renderFilmsDiary(){
   const body = $('#films-body'); if(!body) return;
   body.innerHTML = `
-    ${filmsHomeSearchBarHTML()}
+    <div class="games-search">
+      <input type="text" id="films-diary-filter" placeholder="Search your films…" oninput="drawFilmsGrid()">
+    </div>
     <div id="films-grid"></div>`;
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
@@ -4979,6 +4929,9 @@ function drawLetterboxdConnect(){
       </div>
     </div>`;
 }
+/* re-filters the already-loaded list; leaves the search box and its cursor alone, same pattern
+   as Games' drawGamesList() - filters what's already logged, same as Places/Games' own search
+   does, rather than a live TMDb lookup (that lives on its own page - see App.filmForm/fwAddFilm) */
 function drawFilmsGrid(){
   const grid = $('#films-grid'); if(!grid) return;
   const ordered = filmsSorted();
@@ -4986,9 +4939,11 @@ function drawFilmsGrid(){
     grid.innerHTML = `<div class="empty">No films logged yet.<br>Tap + Log Film, or connect Letterboxd above.</div>`;
     return;
   }
-  const filtered = CUR_FILMS_GENRE ? ordered.filter(o=>(o.f.genres||[]).includes(CUR_FILMS_GENRE)) : ordered;
+  const q = (($('#films-diary-filter')||{}).value||'').trim().toLowerCase();
+  const byQuery = q ? ordered.filter(o=>(o.f.title||'').toLowerCase().includes(q)) : ordered;
+  const filtered = CUR_FILMS_GENRE ? byQuery.filter(o=>(o.f.genres||[]).includes(CUR_FILMS_GENRE)) : byQuery;
   grid.innerHTML = filmsGenreSelectHTML('films-genre-select', DB.films, CUR_FILMS_GENRE, 'App.filmsGenreFilter')
-    + (filtered.length ? `<div class="film-grid">${filtered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>` : `<div class="empty">No films in that category.</div>`);
+    + (filtered.length ? `<div class="film-grid">${filtered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>` : `<div class="empty">No films match.</div>`);
 }
 function filmCardHTML(f, i){
   const meta = [f.year, f.watchedDate?fmtShortDate(f.watchedDate):''].filter(Boolean).join(' · ');
@@ -5000,75 +4955,6 @@ function filmCardHTML(f, i){
       ${meta?`<div class="film-meta">${esc(meta)}</div>`:''}
       ${filmStarsHTML(f.rating)}
     </button>`;
-}
-/* the Diary's own live search - not filtering what's already logged (there's no local list here
-   worth filtering, unlike Places/Games), but a real TMDb lookup for something you're about to
-   log or add to the Watchlist, so each result gets both actions rather than picking one for you.
-   Same debounced-typing TMDb call as everywhere else this app searches a live catalogue. */
-let FILMS_HOME_SEARCH_TIMER = null;
-let FILMS_HOME_SEARCH_RESULTS = [];
-function filmsHomeSearchInputImpl(){
-  clearTimeout(FILMS_HOME_SEARCH_TIMER);
-  const q = ($('#films-home-search').value||'').trim();
-  const row = $('#films-home-search-row'); if(row) row.classList.toggle('has-query', !!q);
-  const results = $('#films-home-search-results'); if(results) results.innerHTML = '';
-  if(!q) return;
-  FILMS_HOME_SEARCH_TIMER = setTimeout(()=>filmsHomeSearch(q), 400);
-}
-function filmsHomeSearchClearImpl(){
-  clearTimeout(FILMS_HOME_SEARCH_TIMER);
-  const input = $('#films-home-search'); if(input) input.value = '';
-  const row = $('#films-home-search-row'); if(row) row.classList.remove('has-query');
-  const results = $('#films-home-search-results'); if(results) results.innerHTML = '';
-}
-function filmsHomeSearch(q){
-  const results = $('#films-home-search-results'); if(!results) return;
-  results.innerHTML = `<div class="gig-search-item muted small">Searching…</div>`;
-  fetch('/api/film-search?q=' + encodeURIComponent(q))
-    .then(async r => {
-      if(r.status===503) throw new Error("Film search isn't set up - add TMDB_API_KEY as a Vercel environment variable (see psn-proxy/README.md).");
-      if(!r.ok){ const body = await r.json().catch(()=>({})); throw new Error(body.error || ('status '+r.status)); }
-      return r.json();
-    })
-    .then(data => {
-      const cur = $('#films-home-search-results'); if(!cur) return;
-      FILMS_HOME_SEARCH_RESULTS = data.films||[];
-      cur.innerHTML = FILMS_HOME_SEARCH_RESULTS.length
-        ? FILMS_HOME_SEARCH_RESULTS.map((f,n)=>filmsHomeResultHTML(f,n)).join('')
-        : `<div class="gig-search-item muted small">No films match "${esc(q)}"</div>`;
-    })
-    .catch(e => {
-      const cur = $('#films-home-search-results'); if(!cur) return;
-      cur.innerHTML = `<div class="gig-search-item muted small">${esc(e.message||"Couldn't search")}</div>`;
-    });
-}
-function filmsHomeResultHTML(f, n){
-  return `
-    <div class="gig-search-item films-home-result">
-      ${f.image ? `<img class="film-search-thumb" src="${esc(f.image)}" alt="">` : `<span class="film-search-thumb gig-cover-fallback">${fa('film')}</span>`}
-      <span class="films-home-result-text">${esc(f.title)}${f.year?` <span class="muted">(${esc(f.year)})</span>`:''}</span>
-      <span class="btn-row">
-        <button type="button" class="btn sm" onclick="App.filmsHomeLog(${n})">Log</button>
-        <button type="button" class="btn sm ghost" onclick="App.filmsHomeWatchlist(${n}, this)">+ Watchlist</button>
-      </span>
-    </div>`;
-}
-function filmsHomeLogImpl(n){
-  const m = FILMS_HOME_SEARCH_RESULTS[n]; if(!m) return;
-  filmFormImpl(-1, {title:m.title, year:m.year, image:m.image, genres:m.genres||[]});
-}
-function filmsHomeWatchlistImpl(n, btn){
-  const m = FILMS_HOME_SEARCH_RESULTS[n]; if(!m) return;
-  if(!isOnFilmsWatchlist(m.id)){
-    DB.filmsWatchlist = DB.filmsWatchlist||[];
-    DB.filmsWatchlist.unshift(m);
-    saveFilmsWatchlist();
-    // this same search bar now lives on the Watchlist tab too - if that's where the tap came
-    // from, the new addition should show up in the list underneath right away, not only once
-    // the search is cleared
-    if(CUR_FILMS_TAB==='watchlist') drawFwMine();
-  }
-  if(btn){ btn.textContent = '✓ Added'; btn.disabled = true; }
 }
 /* the title field: a live search against TMDb (via api/film-search.js) when it's configured, a
    plain text box otherwise - logging a film never has to wait on that being set up, and picking
@@ -5458,7 +5344,9 @@ let FW_LAST_RESULTS = [];
 function renderFilmsWatchlist(){
   const body = $('#films-body'); if(!body) return;
   body.innerHTML = `
-    ${filmsHomeSearchBarHTML()}
+    <div class="games-search">
+      <input type="text" id="fw-filter" placeholder="Search your watchlist…" oninput="drawFwMine()">
+    </div>
     <div id="fw-my"></div>`;
   drawFwMine();
   loadFilmsWatchlistCloud(cloud => {
@@ -5476,11 +5364,13 @@ function drawFwMine(){
   const el = $('#fw-my'); if(!el) return;
   const mine = DB.filmsWatchlist||[];
   if(!mine.length){ el.innerHTML = `<div class="empty">Nothing on your watchlist yet - tap + Add Film above to add one.</div>`; return; }
-  const filtered = CUR_FW_GENRE ? mine.filter(f=>(f.genres||[]).includes(CUR_FW_GENRE)) : mine;
+  const q = (($('#fw-filter')||{}).value||'').trim().toLowerCase();
+  const byQuery = q ? mine.filter(f=>(f.title||'').toLowerCase().includes(q)) : mine;
+  const filtered = CUR_FW_GENRE ? byQuery.filter(f=>(f.genres||[]).includes(CUR_FW_GENRE)) : byQuery;
   el.innerHTML = filmsGenreSelectHTML('fw-genre-select', mine, CUR_FW_GENRE, 'App.fwGenreFilter')
     + (filtered.length
       ? `<div class="film-grid" style="margin-bottom:20px">${filtered.map(f=>fwMineCardHTML(f)).join('')}</div>`
-      : `<div class="empty" style="margin-bottom:20px">No films in that category.</div>`);
+      : `<div class="empty" style="margin-bottom:20px">No films match.</div>`);
   loadFwProviders(filtered);
 }
 /* shared by every "open this film on Letterboxd" link app-wide (Watchlist cards, and the Home
@@ -5601,8 +5491,11 @@ function fwResultCardHTML(f){
                  : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
       <div class="film-title">${esc(f.title)}</div>
       ${f.year?`<div class="film-meta">${esc(f.year)}</div>`:''}
-      <button type="button" class="btn sm fw-mark${on?' on':''}" style="width:100%; margin-top:8px"
-        onclick="App.fwToggle('${esc(f.id)}')" aria-pressed="${on}">${on?'✓ On Watchlist':'+ Add'}</button>
+      <div class="btn-row" style="margin-top:8px">
+        <button type="button" class="btn sm" onclick="App.fwLogFilm('${esc(f.id)}')">Log</button>
+        <button type="button" class="btn sm ghost fw-mark${on?' on':''}"
+          onclick="App.fwToggle('${esc(f.id)}')" aria-pressed="${on}">${on?'✓ On Watchlist':'+ Add'}</button>
+      </div>
     </div>`;
 }
 /* its own screen (openModal's "push" full-page mode - see that function's own comment) rather
@@ -5613,7 +5506,7 @@ function fwResultCardHTML(f){
    catalogue. */
 function fwAddFilmImpl(){
   openModal(`
-    <h2>Add to Watchlist</h2>
+    <h2>Find a Film</h2>
     <div class="field"><input type="text" id="fw-search" placeholder="Search for a film…"
       autocomplete="off" oninput="App.fwSearchInput()"></div>
     <div id="fw-results"></div>`);
@@ -6808,10 +6701,6 @@ App.letterboxdDisconnect = letterboxdDisconnectImpl;
 App.filmTitleInput = filmTitleInputImpl;
 App.filmTitlePick = filmTitlePickImpl;
 App.filmsTab = k => { CUR_FILMS_TAB = k; renderFilms(); window.scrollTo(0,0); };
-App.filmsHomeSearchInput = filmsHomeSearchInputImpl;
-App.filmsHomeSearchClear = filmsHomeSearchClearImpl;
-App.filmsHomeLog = filmsHomeLogImpl;
-App.filmsHomeWatchlist = filmsHomeWatchlistImpl;
 App.fwSearchInput = fwSearchInputImpl;
 App.fwToggle = id => {
   if(isOnFilmsWatchlist(id)){
@@ -6841,6 +6730,10 @@ App.filmsStatsRating = v => { location.hash = '#/films/stats/rating/'+encodeURIC
 App.filmsStatsRewatches = () => { location.hash = '#/films/stats/rewatches'; };
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
 App.fwAddFilm = fwAddFilmImpl;
+App.fwLogFilm = id => {
+  const f = FW_LAST_RESULTS.find(x=>x.id===id); if(!f) return;
+  filmFormImpl(-1, {title:f.title, year:f.year, image:f.image, genres:f.genres||[]});
+};
 App.fwImportCsv = filmsWatchlistImportCsvImpl;
 App.fwImportCsvFile = filmsWatchlistImportCsvFileImpl;
 App.filmsGenreFilter = v => { CUR_FILMS_GENRE = v; drawFilmsGrid(); };
