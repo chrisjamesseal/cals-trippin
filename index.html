@@ -1188,8 +1188,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.9';
+const APP_VERSION = '2.29.10';
 const CHANGELOG = [
+  {version:'2.29.10', notes:[
+    "Theatre watchlist: the Seen button now sits below the show title instead of squeezed in next to it.",
+  ]},
   {version:'2.29.9', notes:[
     "Watchlist search now filters the films already on your watchlist instead of searching for new ones - Diary got the same treatment, both now match how Places and Games search their own lists.",
     "Finding a brand new film to log or add lives on its own full-page search screen (tap + Add Film) instead of the overlay bar that kept floating in the wrong spot above the keyboard - each result now offers both Log and + Add.",
@@ -5930,9 +5933,11 @@ function theatreWatchlistCardHTML(t){
         <div class="gig-info">
           <div class="gig-name">${esc(t.title||'Untitled')}</div>
           ${t.venue?`<div class="gig-facts muted small">${esc(t.venue)}</div>`:''}
+          <div class="btn-row" style="margin-top:8px">
+            <button type="button" class="btn sm" onclick="App.theatreMarkSeen('${esc(t.id)}')">Seen</button>
+          </div>
         </div>
         <div class="gig-actions">
-          <button type="button" class="btn sm" onclick="App.theatreMarkSeen('${esc(t.id)}')">Seen</button>
           <button class="iconbtn del" aria-label="Remove from watchlist" title="Remove" onclick="App.delTheatreWatchlist('${esc(t.id)}')">${ICONS.trash}</button>
         </div>
       </div>
