@@ -54,14 +54,19 @@ async function resolveId(key, title, year){
 function providerBrandKey(name){
   return name
     .replace(/\s*(Apple TV|Amazon|Roku|Google Play|Sky Store)\s*Channel\s*$/i, '')
-    .replace(/\s*with Ads\s*$/i, '')
-    .replace(/\s*Premium\s*$/i, '')
-    .replace(/\s*Channels?\s*$/i, '')
+    // billing-tier qualifiers, wherever they land in the name - not just at the very end. TMDb
+    // inserts these mid-string too ("Netflix Standard with Ads", not just "Netflix with Ads"),
+    // which an end-anchored regex misses entirely, so this was still showing Netflix's base and
+    // ad-supported tiers as two separate logos. "Plus" is deliberately left alone - it's brand-
+    // load-bearing for Paramount Plus/Disney Plus/Apple TV Plus/Discovery Plus, not a tier word.
+    .replace(/\b(with\s*ads|ads\s*included|standard|basic|premium|included|plan)\b/gi, '')
+    .replace(/\s*channels?\s*$/i, '')
     // TMDb isn't consistent about the "Amazon" prefix on Prime Video's own tiers (the base
     // listing has it, the Channels/with-Ads ones sometimes don't) - stripped as a leading word
     // rather than folded into the storefront-suffix regex above, since here it's part of the
     // brand name itself, not a qualifier on some other brand's listing
-    .replace(/^Amazon\s+/i, '')
+    .replace(/^amazon\s+/i, '')
+    .replace(/\s{2,}/g, ' ')
     .trim()
     .toLowerCase();
 }

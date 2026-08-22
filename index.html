@@ -1209,8 +1209,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.5';
+const APP_VERSION = '2.29.6';
 const CHANGELOG = [
+  {version:'2.29.6', notes:[
+    "Fixed Netflix/Prime Video sometimes still showing two logos for the same service - TMDb inserts \"Standard\"/\"Basic\" between the brand name and \"with Ads\" for some titles, which the earlier de-dupe fix didn't account for.",
+  ]},
   {version:'2.29.5', notes:[
     "Added a Streaming Services picker under Settings > Films - select what you actually subscribe to and Watch Next/Watchlist logos only show those.",
     "Watchlist cards: dropped the year under the poster (streaming logos now sit there instead) and switched to a plain row layout, since the grid's columns were too narrow for a side column.",
