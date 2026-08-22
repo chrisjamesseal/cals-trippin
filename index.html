@@ -1155,8 +1155,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.26.2';
+const APP_VERSION = '2.26.3';
 const CHANGELOG = [
+  {version:'2.26.3', notes:[
+    "Plants: Home's small per-vegetable water button now shows a checkmark instead of a water drop once it's had enough water for now, so you can tell what still needs a top-up at a glance without opening each one. Still a single tap to log another watering either way.",
+  ]},
   {version:'2.26.2', notes:[
     "Plants: Sprouted now has its own emoji (🌿). Dropped \"Flowering / Fruiting\" from the stage list too - it didn't fit root veg like carrots (they don't fruit, and flowering there usually means bolting, not progress), so the list is now Seed Sown, Sprouted, Growing, Ready to Harvest, Harvested for every vegetable. Anything already sat on the old Flowering stage now reads as Growing instead.",
   ]},
@@ -5759,12 +5762,15 @@ const PLANT_UNDO_MS = 5000;
 function plantWaterButtonHTML(p, sm){
   const showUndo = !!PLANT_UNDO_TIMERS[p.id];
   if(sm){
-    // no overdue/done colour here - see .plant-water-btn.sm's own comment for why
-    return showUndo
-      ? `<button type="button" class="plant-water-btn sm undo" aria-label="Undo watering"
-          onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`
-      : `<button type="button" class="plant-water-btn sm" aria-label="Log watering"
-          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">💧</button>`;
+    // no overdue/done border colour here - see .plant-water-btn.sm's own comment for why - but
+    // the icon itself still swaps to a checkmark once it's had enough water for now (not
+    // overdue), so Home's still glanceable without needing a colour cue. Still tappable either
+    // way - watering twice in a day is normal, not something to block.
+    if(showUndo) return `<button type="button" class="plant-water-btn sm undo" aria-label="Undo watering"
+          onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`;
+    const enough = !plantOverdue(p);
+    return `<button type="button" class="plant-water-btn sm" aria-label="${enough?'Watered enough for now - log another watering':'Log watering'}"
+          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">${enough?'✅':'💧'}</button>`;
   }
   const state = showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : plantWateredToday(p) ? ' done' : '';
   return showUndo
