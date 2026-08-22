@@ -1218,8 +1218,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.7';
+const APP_VERSION = '2.29.8';
 const CHANGELOG = [
+  {version:'2.29.8', notes:[
+    "Fixed the Films search bar sometimes floating too high above the keyboard instead of sitting right against it - a timing quirk in how the keyboard's height gets measured could leave it holding a stale, oversized offset.",
+  ]},
   {version:'2.29.7', notes:[
     "Fixed Films search: the results list could grow tall enough to push the search box itself off-screen with no way back - it's now a proper scrollable dropdown, plus a ✕ button to clear the search in one tap.",
     "The same search box is now on the Watchlist tab too, not just Diary - search, then Log or + Watchlist straight from there.",
@@ -3080,18 +3083,35 @@ function renderPinGate(){
    .wrap comment in the stylesheet for why this needs a live toggle rather than a permanent
    floor. Delegated on document so it covers inputs that don't exist yet at load time. */
 document.addEventListener('focusin', e => { if(e.target.matches('input,textarea')) document.body.classList.add('kb-open'); });
-document.addEventListener('focusout', e => { if(e.target.matches('input,textarea')) document.body.classList.remove('kb-open'); });
+document.addEventListener('focusout', e => {
+  if(!e.target.matches('input,textarea')) return;
+  document.body.classList.remove('kb-open');
+  // belt-and-braces: closing the keyboard should fire its own visualViewport resize that settles
+  // this back to 0 on its own, but if that event is ever missed or lands stale, a leftover
+  // positive --kb-inset would keep a search bar floating well above where the (now gone)
+  // keyboard used to be - explicitly zeroing it here means a stale value can't survive a blur
+  document.documentElement.style.setProperty('--kb-inset', '0px');
+});
 /* the Places/Games search box sits fixed just above the tabbar (--bar-h) - the viewport meta's
    interactive-widget=resizes-content handles the keyboard correctly on its own now, but that's
    a newer browser feature (Safari 16.4+/modern Chrome); this is the fallback for anything
    older, where the layout viewport doesn't shrink and a plain bottom-anchored fixed element
    would render underneath the keyboard instead of above it. visualViewport reports the real
-   usable height there, so --kb-inset lifts the search box clear of the keyboard while it's up. */
+   usable height there, so --kb-inset lifts the search box clear of the keyboard while it's up.
+   On a browser that DOES honour interactive-widget=resizes-content, window.innerHeight shrinks
+   right along with visualViewport's own height as the keyboard opens, so this should land back
+   on ~0 and stay a no-op there - but the two don't always update in the same tick (a well-known
+   cross-browser race around keyboard open/close), and reading window.innerHeight one frame too
+   early can catch it before it's caught up, computing a stale/inflated inset that then sticks
+   until the next viewport event happens to correct it. The rAF here reads both once the frame's
+   settled instead of synchronously inside the event, closing most of that race. */
 if(window.visualViewport){
   const vv = window.visualViewport;
   const updateKbInset = () => {
-    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-    document.documentElement.style.setProperty('--kb-inset', inset+'px');
+    requestAnimationFrame(() => {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty('--kb-inset', inset+'px');
+    });
   };
   vv.addEventListener('resize', updateKbInset);
   vv.addEventListener('scroll', updateKbInset);
