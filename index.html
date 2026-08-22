@@ -1197,8 +1197,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.2';
+const APP_VERSION = '2.29.3';
 const CHANGELOG = [
+  {version:'2.29.3', notes:[
+    "Theatre: you can attach a photo when logging a show or adding one to the watchlist - there's no catalogue to search for stage-show posters, so this is a manual upload.",
+    "Watchlist: dropped the film title text under a poster that already shows it - still shown for the rare film with no poster.",
+  ]},
   {version:'2.29.2', notes:[
     "Plants: a Not Planted vegetable's button now says \"Mark as Planted\" and actually plants it, instead of showing \"Watered\" for something that isn't in the ground yet.",
   ]},
@@ -5425,7 +5429,7 @@ function fwMineCardHTML(f){
                      : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
           <div data-fw-providers="${esc(f.id)}"></div>
         </div>
-        <div class="film-title">${esc(f.title||'Untitled')}</div>
+        ${f.image ? '' : `<div class="film-title">${esc(f.title||'Untitled')}</div>`}
       </a>
       ${f.year?`<div class="film-meta">${esc(f.year)}</div>`:''}
       <div class="btn-row fw-actions">
@@ -5788,16 +5792,46 @@ function theatreRatingFieldHTML(value){
     </select>
   </div>`;
 }
+/* no catalogue exists to search for a stage show's poster the way Log Film searches TMDb - this
+   mirrors Plants' own "no icon fits, upload one" fallback instead (downscaleToDataURLPng, same
+   status-slot swap pattern), just applied as the primary/only way to attach an image here rather
+   than a fallback to a mostly-automatic one. Shared by both the Log Show and Add-to-Watchlist
+   forms - only one of those modals is ever open at a time, and each resets this when it opens. */
+let THEATRE_FORM_IMAGE = null;
+function theatrePosterStatusHTML(){
+  if(!THEATRE_FORM_IMAGE) return `
+    <label class="btn sm" style="cursor:pointer; margin-bottom:6px">${ICONS.upload} Add a Photo
+      <input type="file" accept="image/*" style="display:none" onchange="App.theatreAttachPoster(this)"></label>`;
+  return `
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px">
+      <img src="${esc(THEATRE_FORM_IMAGE)}" alt="" style="width:40px; height:40px; border-radius:8px; object-fit:cover; border:1px solid var(--line); background:var(--bg)">
+      <button type="button" class="btn sm ghost" onclick="App.theatreClearPoster()">Remove Photo</button>
+    </div>`;
+}
+function theatreAttachPosterImpl(input){
+  const file = input.files[0]; input.value=''; if(!file) return;
+  downscaleToDataURLPng(file, 400, dataUrl => {
+    if(!dataUrl) return;
+    THEATRE_FORM_IMAGE = dataUrl;
+    const status = $('#theatre-poster-status'); if(status) status.innerHTML = theatrePosterStatusHTML();
+  });
+}
+function theatreClearPosterImpl(){
+  THEATRE_FORM_IMAGE = null;
+  const status = $('#theatre-poster-status'); if(status) status.innerHTML = theatrePosterStatusHTML();
+}
 let THEATRE_WATCHLIST_REMOVE_ID = null;   // set when Log Show opened via the Watchlist's "Seen" button
 function theatreFormImpl(i, prefill){
-  const t = (i>=0 && (DB.theatre||[])[i]) || (prefill ? {title:prefill.title, venue:prefill.venue} : {});
+  const t = (i>=0 && (DB.theatre||[])[i]) || (prefill ? {title:prefill.title, venue:prefill.venue, image:prefill.image} : {});
   THEATRE_WATCHLIST_REMOVE_ID = (prefill && prefill.watchlistId) || null;
+  THEATRE_FORM_IMAGE = t.image || null;
   openModal(`
     <h2>${i>=0?'Edit Show':'Log a Show'}</h2>
     <div class="field"><label class="label" for="theatre-title">Title</label><input id="theatre-title" type="text" value="${esc(t.title||'')}"></div>
     <div class="field"><label class="label" for="theatre-venue">Venue</label><input id="theatre-venue" type="text" value="${esc(t.venue||'')}"></div>
     <div class="field"><label class="label" for="theatre-date">Date</label><input id="theatre-date" type="date" value="${esc(t.date||'')}"></div>
     ${theatreRatingFieldHTML(t.rating!=null?t.rating:null)}
+    <div class="field"><label class="label">Photo</label><div id="theatre-poster-status">${theatrePosterStatusHTML()}</div></div>
     <div class="field"><label class="label" for="theatre-notes">Notes</label><textarea id="theatre-notes" rows="3">${esc(t.notes||'')}</textarea></div>
     <button class="btn primary" style="width:100%" onclick="App.saveTheatre(${i>=0?i:-1})">${i>=0?'Save':'Log Show'}</button>`);
 }
@@ -5810,6 +5844,7 @@ function saveTheatreImpl(i){
     venue: $('#theatre-venue').value.trim(),
     date: $('#theatre-date').value,
     rating: ratingRaw===''?null:parseFloat(ratingRaw),
+    image: THEATRE_FORM_IMAGE,
     notes: $('#theatre-notes').value.trim(),
   };
   DB.theatre = DB.theatre||[];
@@ -5852,7 +5887,8 @@ function theatreWatchlistCardHTML(t){
   return `
     <div class="card gig-card">
       <div class="gig-top">
-        <span class="gig-cover gig-cover-fallback" aria-hidden="true">🎭</span>
+        ${t.image ? `<img class="gig-cover" src="${esc(t.image)}" alt="" loading="lazy">`
+                   : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">🎭</span>`}
         <div class="gig-info">
           <div class="gig-name">${esc(t.title||'Untitled')}</div>
           ${t.venue?`<div class="gig-facts muted small">${esc(t.venue)}</div>`:''}
@@ -5867,10 +5903,12 @@ function theatreWatchlistCardHTML(t){
 }
 function theatreWatchlistFormImpl(i){
   const t = (i>=0 && (DB.theatreWatchlist||[])[i]) || {};
+  THEATRE_FORM_IMAGE = t.image || null;
   openModal(`
     <h2>${i>=0?'Edit':'Add to Watchlist'}</h2>
     <div class="field"><label class="label" for="tw-title">Title</label><input id="tw-title" type="text" value="${esc(t.title||'')}"></div>
     <div class="field"><label class="label" for="tw-venue">Venue</label><input id="tw-venue" type="text" value="${esc(t.venue||'')}"></div>
+    <div class="field"><label class="label">Photo</label><div id="theatre-poster-status">${theatrePosterStatusHTML()}</div></div>
     <div class="field"><label class="label" for="tw-notes">Notes</label><textarea id="tw-notes" rows="3">${esc(t.notes||'')}</textarea></div>
     <button class="btn primary" style="width:100%" onclick="App.saveTheatreWatchlist(${i>=0?i:-1})">${i>=0?'Save':'Add'}</button>`);
 }
@@ -5882,6 +5920,7 @@ function saveTheatreWatchlistImpl(i){
     id: existing.id || uid(),
     title,
     venue: $('#tw-venue').value.trim(),
+    image: THEATRE_FORM_IMAGE,
     notes: $('#tw-notes').value.trim(),
   };
   DB.theatreWatchlist = DB.theatreWatchlist||[];
@@ -6657,9 +6696,11 @@ App.delTheatre = delTheatreImpl;
 App.theatreWatchlistForm = theatreWatchlistFormImpl;
 App.saveTheatreWatchlist = saveTheatreWatchlistImpl;
 App.delTheatreWatchlist = delTheatreWatchlistImpl;
+App.theatreAttachPoster = theatreAttachPosterImpl;
+App.theatreClearPoster = theatreClearPosterImpl;
 App.theatreMarkSeen = id => {
   const t = (DB.theatreWatchlist||[]).find(x=>x.id===id); if(!t) return;
-  theatreFormImpl(-1, {title:t.title, venue:t.venue, watchlistId:t.id});
+  theatreFormImpl(-1, {title:t.title, venue:t.venue, image:t.image, watchlistId:t.id});
 };
 App.spotifyConnect = () => {
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
