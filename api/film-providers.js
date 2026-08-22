@@ -42,15 +42,41 @@ async function resolveId(key, title, year){
   return first ? first.id : null;
 }
 
-/* a provider can legitimately appear in both flatrate and free (rare, but seen for ad-supported
-   tiers of otherwise-paid services) - de-duped by provider_id so it isn't shown twice */
+/* TMDb lists every billing tier/storefront SKU as its own provider - "Amazon Prime Video",
+   "Prime Video Channels" and "Prime Video with Ads" for one brand, "Paramount Plus",
+   "Paramount Plus Amazon Channel" and "Paramount Plus with Ads" for another - technically
+   accurate but reads as several unrelated services all repeating the same name. This strips the
+   storefront/tier qualifier to get a brand key and keeps one representative per brand (the
+   shortest/least-qualified name in the group, which is consistently the plain listing). Brands
+   are never merged into each other by this - "Paramount Plus Amazon Channel" collapses down to
+   "Paramount Plus", not "Amazon Prime Video", since it's a separate subscription cost on top of
+   a plain Prime one even though it's bought through Amazon's storefront. */
+function providerBrandKey(name){
+  return name
+    .replace(/\s*(Apple TV|Amazon|Roku|Google Play|Sky Store)\s*Channel\s*$/i, '')
+    .replace(/\s*with Ads\s*$/i, '')
+    .replace(/\s*Premium\s*$/i, '')
+    .replace(/\s*Channels?\s*$/i, '')
+    // TMDb isn't consistent about the "Amazon" prefix on Prime Video's own tiers (the base
+    // listing has it, the Channels/with-Ads ones sometimes don't) - stripped as a leading word
+    // rather than folded into the storefront-suffix regex above, since here it's part of the
+    // brand name itself, not a qualifier on some other brand's listing
+    .replace(/^Amazon\s+/i, '')
+    .trim()
+    .toLowerCase();
+}
 function dedupeProviders(list){
-  const seen = new Set();
-  return list.filter(p => {
-    if(seen.has(p.provider_id)) return false;
-    seen.add(p.provider_id);
-    return true;
-  }).sort((a,b) => (a.display_priority||0) - (b.display_priority||0))
+  const seenIds = new Set();
+  const byBrand = new Map();
+  list.forEach(p => {
+    if(seenIds.has(p.provider_id)) return;
+    seenIds.add(p.provider_id);
+    const key = providerBrandKey(p.provider_name);
+    const existing = byBrand.get(key);
+    if(!existing || p.provider_name.length < existing.provider_name.length) byBrand.set(key, p);
+  });
+  return [...byBrand.values()]
+    .sort((a,b) => (a.display_priority||0) - (b.display_priority||0))
     .map(p => ({id: p.provider_id, name: p.provider_name, logo: p.logo_path ? TMDB_LOGO+p.logo_path : ''}));
 }
 
