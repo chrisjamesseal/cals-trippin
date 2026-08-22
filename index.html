@@ -8,7 +8,7 @@
      underneath it or drifting to wherever the old resizes-visual default left them; ignored
      harmlessly on older browsers, which fall back to the --kb-inset compensation below. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
-<title>My Trips</title>
+<title>Chris app</title>
 <meta name="description" content="One place for your group trip: flights, money, plans and photos.">
 <meta name="theme-color" content="#9C3D22">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTUiIGZpbGw9IiMxMDJBNDMiLz4KPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTYgMTEzLjc3OCkgc2NhbGUoMC41NTU1NTYpIj4KPHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTM4NCA0NzYuMUwxOTIgNDIxLjJsMC0zODUuM0wzODQgOTAuOGwwIDM4NS4zem0zMi0xLjJsMC0zODYuNUw1NDMuMSAzNy41YzE1LjgtNi4zIDMyLjkgNS4zIDMyLjkgMjIuM2wwIDMzNC44YzAgOS44LTYgMTguNi0xNS4xIDIyLjNMNDE2IDQ3NC44ek0xNS4xIDk1LjFMMTYwIDM3LjJsMCAzODYuNUwzMi45IDQ3NC41QzE3LjEgNDgwLjggMCA0NjkuMiAwIDQ1Mi4yTDAgMTE3LjRjMC05LjggNi0xOC42IDE1LjEtMjIuM3oiLz4KPC9nPgo8L3N2Zz4K">
@@ -404,21 +404,21 @@ a{color:var(--brand-dark);}
    vegetables at once and still read as a single glanceable board, not a scroll-heavy list */
 .plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px;}
 .plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px;
-  padding:22px 10px 12px; cursor:pointer;}
+  padding:22px 10px 12px; cursor:pointer; margin-bottom:0;}
 .plant-emoji{font-size:2rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji.plant-icon-img{width:32px; height:32px; object-fit:cover; border-radius:8px;}
 .plant-name{font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--ink); overflow-wrap:anywhere;}
 .plant-stage-label{color:var(--muted); font-size:.7rem;}
-/* each dot is its own bordered circle button (not just a plain coloured dot) so it actually
-   reads as tappable, not decorative - a stage is a single tap on the card, no need to open the
-   edit form just to move something on */
-.plant-dots{display:flex; gap:6px; margin:6px 0;}
-.plant-dot{width:22px; height:22px; padding:0; border:1px solid var(--line-strong); border-radius:50%;
-  background:var(--paper); cursor:pointer; display:flex; align-items:center; justify-content:center;}
-.plant-dot::after{content:''; width:8px; height:8px; border-radius:50%; background:var(--line-strong);}
-.plant-dot.on{border-color:var(--brand); background:var(--brand-tint);}
-.plant-dot.on::after{background:var(--brand);}
+/* the detail page's own picker (plantStagePickerHTML) - every stage gets its own labelled
+   button, wrapping onto as many rows as it needs since this page has the room the compact
+   grid card doesn't. Only the current stage is highlighted; the rest read as plain, equally
+   tappable options rather than a filled-up-to-here progress bar. */
+.plant-stage-picker{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;}
+.plant-stage-btn{display:flex; align-items:center; gap:6px; border:1px solid var(--line-strong);
+  border-radius:var(--radius-sm); background:var(--paper); cursor:pointer; padding:8px 14px;
+  font:inherit; font-weight:600; font-size:.82rem; color:var(--ink);}
+.plant-stage-btn.on{border-color:var(--brand); background:var(--brand-tint); color:var(--brand);}
 .plant-water-label{display:block; color:var(--muted); font-size:.72rem; margin-top:6px; width:100%;}
 /* the full Plants page card's own button - a name plus the water drop underneath it, rather
    than an icon-only circle, since there's room here and it reads more clearly than an emoji
@@ -428,7 +428,7 @@ a{color:var(--brand-dark);}
    to block. */
 .plant-water-action-btn{display:flex; flex-direction:row; align-items:center; justify-content:center;
   gap:8px; width:100%; margin-top:8px; border:1px solid var(--line-strong); border-radius:var(--radius-sm);
-  background:var(--paper); cursor:pointer; padding:9px 6px; font:inherit; font-weight:700;
+  background:var(--paper); cursor:pointer; padding:9px 20px; font:inherit; font-weight:700;
   font-size:.78rem; color:var(--ink);}
 .plant-water-btn-emoji{font-size:1.05rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
@@ -1155,8 +1155,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.25.1';
+const APP_VERSION = '2.26.0';
 const CHANGELOG = [
+  {version:'2.26.0', notes:[
+    "Renamed the app to \"Chris app\".",
+    "Plants: the stage dots are gone. The vegetable's own page now has a full labelled button per stage (with its emoji, where one's accurate) - only the current one highlighted, and a tap on any of them jumps straight there. The smaller Plants page card just shows the current stage as plain text now, plus how often it needs watering. \"Mark as Watered\" is now just \"Watered\", with more breathing room either side of it. Fixed the gap between cards on the Plants page so it's even on all sides.",
+  ]},
   {version:'2.25.1', notes:[
     "Plants: the stage dots on a vegetable's page are properly bordered circles now, so they actually read as tappable buttons instead of plain dots. \"Mark as Watered\" is a single row now too - the label on the left, the water drop on the right - instead of stacked.",
   ]},
@@ -2981,7 +2985,7 @@ function renderChangelog(){
         <span class="crumb-here"><button class="crumb-backbtn" onclick="App.toggleChangelog()" aria-label="Back">${ICONS.back}</button>What's New</span>
       </div>
     </div>
-    <p class="muted small" style="margin:-8px 0 20px">My Trips v${esc(APP_VERSION)}</p>
+    <p class="muted small" style="margin:-8px 0 20px">Chris app v${esc(APP_VERSION)}</p>
     ${CHANGELOG.map(v=>`
       <div class="card">
         <h3 style="margin-bottom:8px">v${esc(v.version)}</h3>
@@ -5603,13 +5607,16 @@ function openTrip(id){
 }
 
 /* ================= plants (vegetable growing tracker) ================= */
+/* emoji is only set where one's actually accurate for the stage - Sprouted genuinely doesn't
+   have a matching one in Unicode, so it just shows as plain text rather than reaching for
+   something that isn't quite right */
 const PLANT_STAGES = [
-  {k:'seed', label:'Seed Sown'},
+  {k:'seed', label:'Seed Sown', emoji:'🌱'},
   {k:'sprout', label:'Sprouted'},
-  {k:'growing', label:'Growing'},
-  {k:'flowering', label:'Flowering / Fruiting'},
-  {k:'ready', label:'Ready to Harvest'},
-  {k:'harvested', label:'Harvested'},
+  {k:'growing', label:'Growing', emoji:'🪴'},
+  {k:'flowering', label:'Flowering / Fruiting', emoji:'🌸'},
+  {k:'ready', label:'Ready to Harvest', emoji:'🧺'},
+  {k:'harvested', label:'Harvested', emoji:'✅'},
 ];
 const PLANT_EMOJIS = ['🍅','🥕','🥬','🥦','🌽','🥒','🫑','🌶️','🧄','🧅','🥔','🍆','🫛','🫘','🫜','🥑','🫒','🌿','🍓','🫐','🍇','🎃','🍈','🍉','🌱'];
 /* a handful of common name -> emoji matches so a fresh vegetable often gets the right icon
@@ -5673,6 +5680,10 @@ function plantWaterLabel(p){
   if(days===1) return 'Last Watered: Yesterday';
   return `Last Watered: ${days} days ago`;
 }
+function plantFreqLabel(p){
+  const days = p.wateringFrequencyDays||3;
+  return days===1 ? 'Water Every Day' : `Water Every ${days} Days`;
+}
 /* same idea as plantWaterLabel but cut down to fit Home's much narrower per-vegetable chips -
    just the clock time if it was today (the useful part when it's the same day), otherwise a
    bare day count */
@@ -5693,14 +5704,23 @@ function plantIconHTML(p, cls){
     : `<span class="${cls}" aria-hidden="true">${p.emoji||'🌱'}</span>`;
 }
 function plantStageIdx(k){ const i = PLANT_STAGES.findIndex(s=>s.k===k); return i<0 ? 0 : i; }
-/* each dot is its own tap target (App.plantSetStage), not just a progress readout - moving a
-   vegetable on a stage (seed sown included) is then one tap on the card, not a trip into the
-   edit form's dropdown */
-function plantStageDotsHTML(p){
+/* the current stage's own label, with its emoji if it has one - used wherever there's only
+   room for a status readout, not a way to change it (the Plants grid card; the detail page's
+   own quick-glance line above its picker) */
+function plantStageStatusText(p){
+  const s = PLANT_STAGES[plantStageIdx(p.stage)] || {};
+  return (s.emoji ? s.emoji+' ' : '') + (s.label||'');
+}
+/* every stage as its own labelled button - only the current one highlighted, not a filled-up-
+   to-here progress readout, since the point here is "which one is it right now", not "how far
+   along the sequence". Tapping any of them jumps straight there, same App.plantSetStage the
+   old dots called. Detail-page only: the Plants grid card just shows plantStageStatusText. */
+function plantStagePickerHTML(p){
   const cur = plantStageIdx(p.stage);
-  return PLANT_STAGES.map((s,i)=>`
-    <button type="button" class="plant-dot${i<=cur?' on':''}" title="${esc(s.label)}" aria-label="${esc(s.label)}"
-      onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${s.k}')"></button>`).join('');
+  return `<div class="plant-stage-picker">${PLANT_STAGES.map((s,i)=>`
+    <button type="button" class="plant-stage-btn${i===cur?' on':''}"
+      onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${s.k}')">
+      ${s.emoji?`<span aria-hidden="true">${s.emoji}</span> `:''}${esc(s.label)}</button>`).join('')}</div>`;
 }
 /* overdue-watering plants float to the top (the thing most worth noticing at a glance),
    harvested ones sink to the bottom (done, least worth the eye), everything else by name */
@@ -5720,8 +5740,8 @@ function plantsSorted(){
 let PLANT_UNDO_TIMERS = {};
 const PLANT_UNDO_MS = 5000;
 /* Home's chips (sm) keep the small icon-only circular button (.plant-water-btn); the full
-   Plants page card gets a bigger labelled button instead - "Mark as Watered" with the emoji
-   sat below it, its own class (.plant-water-action-btn) since it's a different shape
+   Plants page card gets a bigger labelled button instead - "Watered" with the emoji
+   beside it, its own class (.plant-water-action-btn) since it's a different shape
    entirely, not just a bigger version of the same button. */
 function plantWaterButtonHTML(p, sm){
   const showUndo = !!PLANT_UNDO_TIMERS[p.id];
@@ -5738,7 +5758,7 @@ function plantWaterButtonHTML(p, sm){
     ? `<button type="button" class="plant-water-action-btn${state}"
         onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">Undo Watering<span class="plant-water-btn-emoji" aria-hidden="true">↩</span></button>`
     : `<button type="button" class="plant-water-action-btn${state}"
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Mark as Watered<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
 }
 function plantCardHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
@@ -5747,9 +5767,9 @@ function plantCardHTML(p){
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
       ${plantIconHTML(p, 'plant-emoji')}
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
-      <div class="plant-stage-label">${esc((PLANT_STAGES[plantStageIdx(p.stage)]||{}).label||'')}</div>
-      <div class="plant-dots">${plantStageDotsHTML(p)}</div>
+      <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
       <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
+      <div class="plant-water-label">${esc(plantFreqLabel(p))}</div>
       ${plantWaterButtonHTML(p)}
     </div>`;
 }
@@ -5786,8 +5806,9 @@ function plantTimelineHTML(p){
   const events = [...waterings, ...stages].sort((a,b)=>new Date(b.ts)-new Date(a.ts));
   if(!events.length) return `<p class="small muted">Nothing logged yet.</p>`;
   return `<div class="plant-timeline">${events.map(ev=>{
-    const label = ev.type==='water' ? 'Watered' : 'Set to '+esc((PLANT_STAGES[plantStageIdx(ev.stage)]||{}).label||ev.stage);
-    const emoji = ev.type==='water' ? '💧' : '🌱';
+    const stageInfo = PLANT_STAGES[plantStageIdx(ev.stage)]||{};
+    const label = ev.type==='water' ? 'Watered' : 'Set to '+esc(stageInfo.label||ev.stage);
+    const emoji = ev.type==='water' ? '💧' : (stageInfo.emoji||'🌱');
     return `
       <div class="plant-timeline-item">
         <span class="plant-timeline-dot" aria-hidden="true">${emoji}</span>
@@ -5801,12 +5822,13 @@ function plantTimelineHTML(p){
 }
 function plantDetailStageHTML(p){
   return `
-    <div class="plant-stage-label">${esc((PLANT_STAGES[plantStageIdx(p.stage)]||{}).label||'')}</div>
-    <div class="plant-dots">${plantStageDotsHTML(p)}</div>`;
+    <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
+    ${plantStagePickerHTML(p)}`;
 }
 function plantDetailWaterHTML(p){
   return `
     <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
+    <div class="plant-water-label">${esc(plantFreqLabel(p))}</div>
     ${plantWaterButtonHTML(p)}`;
 }
 function renderPlantDetail(id){
