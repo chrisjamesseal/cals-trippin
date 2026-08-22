@@ -295,21 +295,21 @@ a{color:var(--brand-dark);}
 .film-rewatch-badge{color:var(--muted); font-weight:400;}
 .film-meta{margin-top:2px; font-size:.68rem; color:var(--muted);}
 /* UK streaming logos (Watch Next widget, Watchlist cards) - see fetchFilmProviders/
-   filmProvidersHTML. A badge pinned to the poster's own top-right corner rather than another
-   row of text below it - .film-poster-frame just needs relative positioning, its size already
-   comes from the poster/fallback it wraps. Two logos per row max (a 3rd wraps to its own row)
-   via a fixed 2-column grid rather than flex-wrap, so it can't ever read as one long strip.
-   Empty (no wrapper rendered at all) when nothing's streaming it, so it never reserves a blank
-   corner on a card that has nothing to show. */
-.film-poster-frame{position:relative;}
-.film-providers-badge{position:absolute; top:6px; right:6px; display:grid;
-  grid-template-columns:repeat(2, 22px); gap:4px; justify-content:end;}
+   filmProvidersHTML. A narrow column beside the poster, not overlaid on top of it - the row
+   wrapper sits the poster frame and the logo column side by side, top-aligned, the poster frame
+   taking whatever width is left after the column's own natural width. One logo per row (stacked
+   vertically) rather than a grid, so it reads as a column tucked against the poster's right edge.
+   Empty (no wrapper rendered at all) when nothing's streaming it, so the poster just gets the
+   row's full width instead of leaving a blank gutter. */
+.film-poster-row{display:flex; align-items:flex-start; gap:6px;}
+.film-poster-row .film-poster-frame{flex:1; min-width:0;}
+.film-providers-badge{display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;}
 /* text-indent/white-space/overflow hides a broken image's alt text instead of letting it spill
-   out of this tiny 22px box - it'd otherwise wrap and overflow onto the poster art underneath */
+   out of this tiny 22px box */
 .film-provider-logo{width:22px; height:22px; border-radius:5px; object-fit:cover;
-  box-shadow:0 1px 4px rgba(0,0,0,.45); overflow:hidden; white-space:nowrap; text-indent:100%; color:transparent;}
-.film-provider-name{font-size:.5rem; line-height:1.2; text-align:center; color:var(--ink);
-  background:rgba(255,255,255,.92); padding:2px 4px; border-radius:4px;}
+  box-shadow:0 1px 3px rgba(20,40,47,.18); overflow:hidden; white-space:nowrap; text-indent:100%; color:transparent;}
+.film-provider-name{font-size:.5rem; line-height:1.2; text-align:center; color:var(--muted);
+  background:var(--paper); border:1px solid var(--line); padding:2px 4px; border-radius:4px;}
 .film-stars{display:block; margin-top:2px; font-size:.72rem; font-weight:700; color:var(--brand-dark);}
 .films-sync-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
   gap:10px; padding:12px 14px; margin-bottom:16px; border:1px solid var(--line); border-radius:var(--radius);
@@ -393,11 +393,12 @@ a{color:var(--brand-dark);}
    aligned treatment but their own 2:3 shape instead of a square, so it doesn't crop the poster's
    actual proportions */
 .dash-item-img-half-poster{aspect-ratio:2/3;}
-/* Watch Next's own poster frame - a plain half-width img can't anchor an absolutely-positioned
-   provider badge to its own corner (its "top right" would only be the image's top-right within
-   whatever box it happens to sit in), so this wraps just the poster in its own relatively-
-   positioned, width/aspect-ratio-controlled box instead of reusing .dash-item-img-half. */
-.dash-poster-frame{position:relative; width:50%; aspect-ratio:2/3; margin:0 0 10px;
+/* Watch Next's own poster row - the poster sits in a flex row next to the provider logo column
+   (see .film-poster-row's own comment, same idea, own class since dash widgets already have
+   their own image-sizing convention rather than reusing .film-poster/.film-poster-frame) rather
+   than a plain half-width img on its own. */
+.dash-poster-row{display:flex; align-items:flex-start; gap:6px; margin:0 0 10px;}
+.dash-poster-frame{position:relative; flex:1; min-width:0; aspect-ratio:2/3;
   border-radius:var(--radius-sm); overflow:hidden;}
 .dash-poster-frame img{display:block; width:100%; height:100%; object-fit:cover;}
 /* an artist has one photo, not a background banner, so it reads as a face/avatar - a small
@@ -1197,8 +1198,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.3';
+const APP_VERSION = '2.29.4';
 const CHANGELOG = [
+  {version:'2.29.4', notes:[
+    "Streaming logos (Watch Next, Watchlist) moved off the poster itself - they sit in a slim column beside it now instead of overlapping the artwork.",
+  ]},
   {version:'2.29.3', notes:[
     "Theatre: you can attach a photo when logging a show or adding one to the watchlist - there's no catalogue to search for stage-show posters, so this is a manual upload.",
     "Watchlist: dropped the film title text under a poster that already shows it - still shown for the rare film with no poster.",
@@ -3456,8 +3460,8 @@ function dashRandomWatchlistWidgetHTML(){
   const url = filmLetterboxdUrl(f);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
-      ${f.image ? `<div class="dash-poster-frame">
-          <img src="${esc(f.image)}" alt="" loading="lazy">
+      ${f.image ? `<div class="dash-poster-row">
+          <div class="dash-poster-frame"><img src="${esc(f.image)}" alt="" loading="lazy"></div>
           <div id="dash-watchnext-providers"></div>
         </div>`
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
@@ -5424,9 +5428,11 @@ function fwMineCardHTML(f){
   return `
     <div class="film-card">
       <a href="${esc(filmLetterboxdUrl(f))}" target="_blank" rel="noopener" aria-label="${esc(f.title||'Film')} on Letterboxd">
-        <div class="film-poster-frame">
-          ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
-                     : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
+        <div class="film-poster-row">
+          <div class="film-poster-frame">
+            ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                       : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
+          </div>
           <div data-fw-providers="${esc(f.id)}"></div>
         </div>
         ${f.image ? '' : `<div class="film-title">${esc(f.title||'Untitled')}</div>`}
