@@ -110,7 +110,7 @@ RAWG's free tier just needs a key, no OAuth dance:
 The Wishlist itself (which games you've saved) stays on-device in `localStorage`, the same way
 Board Games' Want to Play/Played marks do - no account, nothing synced.
 
-## Connect TMDb (for film search)
+## Connect TMDb (for film search and UK streaming availability)
 
 Logging a film works without any of this - title/year/date/rating can always be typed by hand -
 but the Log Film and Watchlist forms' title fields can search a real catalogue (with posters)
@@ -128,6 +128,12 @@ Vercel Edge Function alongside `api/board-games.js` and `api/game-search.js` (sa
    anywhere else in this repo, tied to your own TMDb account the same as the other keys here):
    Vercel dashboard → your project → Settings → Environment Variables → add `TMDB_API_KEY` with
    the key as its value → redeploy (or just push again) for it to take effect.
+
+The same key also powers the UK streaming-availability logos under Home's Watch Next widget and
+each Watchlist card (`api/film-providers.js`, sourced from TMDb's own watch-providers data,
+which in turn comes from JustWatch - shown alongside a "via JustWatch" credit as their terms for
+that specific endpoint require). No separate setup - if film search already works, this does
+too.
 
 ## Connect Spotify (for Music)
 
