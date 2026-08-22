@@ -955,7 +955,7 @@ a.dash-tile{text-decoration:none;}
 /* ---------- bottom bar ---------- */
 .tabbar{display:none;}
 .tabbar.on{
-  display:grid; grid-template-columns:repeat(6,1fr); align-items:center;
+  display:grid; grid-template-columns:repeat(7,1fr); align-items:center;
   position:fixed; left:0; right:0; bottom:0; z-index:60;
   background:var(--paper); border-top:1px solid var(--line);
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
@@ -1181,8 +1181,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.28.2';
+const APP_VERSION = '2.29.0';
 const CHANGELOG = [
+  {version:'2.29.0', notes:[
+    "Added Theatre: a new 🎭 section for logging stage shows you've seen and shows you want to see, right alongside Films and Music in the menu.",
+  ]},
   {version:'2.28.2', notes:[
     "Home: Next Trip's flags are left-aligned and closer together now instead of stretched across the card, so the card itself is much shorter. Places Been's icon is a globe now instead of a pin. Games' stat tile reads \"N Played\" instead of \"N Games\".",
   ]},
@@ -1911,11 +1914,13 @@ function load(){
       db.gigs = Array.isArray(db.gigs) ? db.gigs : [];
       db.films = Array.isArray(db.films) ? db.films : [];
       db.filmsWatchlist = Array.isArray(db.filmsWatchlist) ? db.filmsWatchlist : [];
+      db.theatre = Array.isArray(db.theatre) ? db.theatre : [];
+      db.theatreWatchlist = Array.isArray(db.theatreWatchlist) ? db.theatreWatchlist : [];
       db.plants = Array.isArray(db.plants) ? db.plants : [];
       return db;
     }
   }catch(e){}
-  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[], films:[], filmsWatchlist:[], plants:[]};
+  return {trips:[], schema:SCHEMA, places:{}, placesArchived:[], gigs:[], films:[], filmsWatchlist:[], theatre:[], theatreWatchlist:[], plants:[]};
 }
 /* persist to localStorage. If storage is full, never lose a trip, drop only the heavy
    in-browser file/photo previews (they still live in the cloud copy when synced) and keep
@@ -5646,6 +5651,226 @@ function renderFilmsStatsFiltered(type, valueStr){
       : `<div class="empty">No films here.</div>`}</div>`;
 }
 
+/* ---------- theatre (stage shows: seen + want to see) ----------
+   Mirrors Films' Diary/Watchlist split, but there's no TMDb-equivalent catalogue of stage
+   productions to search - both lists are typed in by hand. Reuses Gigs' plain list-card look
+   (no poster art suits a stage show any better than a gig) and Films' half-star rating dropdown
+   (FILM_RATING_VALUES/filmRatingLabel are rating-agnostic - only the field's id is renamed). */
+function loadTheatreCloud(cb){
+  if(!fbRoot){ cb(DB.theatre||[]); return; }
+  fbRoot.ref('theatre').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : (DB.theatre||[])))
+    .catch(() => cb(DB.theatre||[]));
+}
+function pushTheatre(){
+  if(!fbRoot) return;
+  fbRoot.ref('theatre').set(DB.theatre||[])
+    .catch(err => {
+      console.error("My Trips, couldn't save Theatre:", err);
+      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        noteModal('Theatre Not Saved', "The database rules don't allow writing Theatre. Open the Firebase console, Realtime Database, Rules, and add a 'theatre' rule.");
+      }else{
+        noteModal('Not Saved', 'Check your connection and try again.');
+      }
+    });
+}
+function saveTheatre(){ saveLocal(); pushTheatre(); }
+
+function loadTheatreWatchlistCloud(cb){
+  if(!fbRoot){ cb(DB.theatreWatchlist||[]); return; }
+  fbRoot.ref('theatreWatchlist').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : (DB.theatreWatchlist||[])))
+    .catch(() => cb(DB.theatreWatchlist||[]));
+}
+function pushTheatreWatchlist(){
+  if(!fbRoot) return;
+  fbRoot.ref('theatreWatchlist').set(DB.theatreWatchlist||[])
+    .catch(err => {
+      console.error("My Trips, couldn't save the Theatre watchlist:", err);
+      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        noteModal('Watchlist Not Saved', "The database rules don't allow writing theatreWatchlist. Open the Firebase console, Realtime Database, Rules, and add a 'theatreWatchlist' rule.");
+      }else{
+        noteModal('Not Saved', 'Check your connection and try again.');
+      }
+    });
+}
+function saveTheatreWatchlist(){ saveLocal(); pushTheatreWatchlist(); }
+
+let CUR_THEATRE_TAB = 'diary';
+function renderTheatre(){
+  const tab = (k, label) => `<button class="subtab${CUR_THEATRE_TAB===k?' on':''}" onclick="App.theatreTab('${k}')">${label}</button>`;
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">Theatre</span>
+        ${CUR_THEATRE_TAB==='diary'?`<button class="btn sm primary" onclick="App.theatreForm(-1)">+ Log Show</button>`
+          :`<button class="btn sm primary" onclick="App.theatreWatchlistForm(-1)">+ Add Show</button>`}
+      </div>
+    </div>
+    <div class="subtabs">${tab('diary','🎭 Seen')}${tab('watchlist','⭐ Want to See')}</div>
+    <div id="theatre-body"></div>`;
+  if(CUR_THEATRE_TAB==='watchlist'){ renderTheatreWatchlist(); return; }
+  renderTheatreDiary();
+}
+function renderTheatreDiary(){
+  const body = $('#theatre-body'); if(!body) return;
+  body.innerHTML = `<div id="theatre-list"></div>`;
+  drawTheatreList();
+  loadTheatreCloud(cloud => {
+    DB.theatre = Array.isArray(cloud) ? cloud : [];
+    saveLocal();
+    if(CUR_THEATRE_TAB==='diary') drawTheatreList();
+  });
+}
+function theatreSorted(){
+  return (DB.theatre||[]).map((t,i)=>({t,i})).sort((a,b)=>(b.t.date||'').localeCompare(a.t.date||''));
+}
+/* targets its own #theatre-list, not the shared #theatre-body - the Watchlist tab reuses that
+   same outer id for its own content (#theatre-watchlist-list), so writing there directly would
+   clobber whichever tab is actually showing when this fires from an unrelated flow (e.g.
+   theatreMarkSeen's save while still sat on the Watchlist tab) */
+function drawTheatreList(){
+  const body = $('#theatre-list'); if(!body) return;
+  const ordered = theatreSorted();
+  body.innerHTML = ordered.length
+    ? `<div class="gig-list">${ordered.map(o=>theatreCardHTML(o.t,o.i)).join('')}</div>`
+    : `<div class="empty">No shows logged yet.<br>Tap + Log Show to log the first one.</div>`;
+}
+function theatreCardHTML(t, i){
+  const facts = [t.venue, t.date?fmtShortDate(t.date):''].filter(Boolean).join(' · ');
+  return `
+    <div class="card gig-card">
+      <div class="gig-top">
+        <span class="gig-cover gig-cover-fallback" aria-hidden="true">🎭</span>
+        <div class="gig-info">
+          <div class="gig-name">${esc(t.title||'Untitled')}</div>
+          ${facts?`<div class="gig-facts muted small">${esc(facts)}</div>`:''}
+          ${t.rating!=null?`<span class="film-stars">${filmRatingLabel(t.rating)}</span>`:''}
+        </div>
+        <div class="gig-actions">
+          <button class="iconbtn edit" aria-label="Edit show" title="Edit" onclick="App.theatreForm(${i})">${ICONS.edit}</button>
+          <button class="iconbtn del" aria-label="Remove show" title="Remove" onclick="App.delTheatre(${i})">${ICONS.trash}</button>
+        </div>
+      </div>
+      ${t.notes?`<div class="small muted" style="margin-top:8px">${esc(t.notes)}</div>`:''}
+    </div>`;
+}
+function theatreRatingFieldHTML(value){
+  return `<div class="field"><label class="label" for="theatre-rating">Rating</label>
+    <select id="theatre-rating">
+      <option value=""${value==null?' selected':''}>No rating</option>
+      ${FILM_RATING_VALUES.map(v=>`<option value="${v}"${value===v?' selected':''}>${filmRatingLabel(v)} (${v})</option>`).join('')}
+    </select>
+  </div>`;
+}
+let THEATRE_WATCHLIST_REMOVE_ID = null;   // set when Log Show opened via the Watchlist's "Seen" button
+function theatreFormImpl(i, prefill){
+  const t = (i>=0 && (DB.theatre||[])[i]) || (prefill ? {title:prefill.title, venue:prefill.venue} : {});
+  THEATRE_WATCHLIST_REMOVE_ID = (prefill && prefill.watchlistId) || null;
+  openModal(`
+    <h2>${i>=0?'Edit Show':'Log a Show'}</h2>
+    <div class="field"><label class="label" for="theatre-title">Title</label><input id="theatre-title" type="text" value="${esc(t.title||'')}"></div>
+    <div class="field"><label class="label" for="theatre-venue">Venue</label><input id="theatre-venue" type="text" value="${esc(t.venue||'')}"></div>
+    <div class="field"><label class="label" for="theatre-date">Date</label><input id="theatre-date" type="date" value="${esc(t.date||'')}"></div>
+    ${theatreRatingFieldHTML(t.rating!=null?t.rating:null)}
+    <div class="field"><label class="label" for="theatre-notes">Notes</label><textarea id="theatre-notes" rows="3">${esc(t.notes||'')}</textarea></div>
+    <button class="btn primary" style="width:100%" onclick="App.saveTheatre(${i>=0?i:-1})">${i>=0?'Save':'Log Show'}</button>`);
+}
+function saveTheatreImpl(i){
+  const title = ($('#theatre-title').value||'').trim();
+  if(!title) return markErr('#theatre-title','Enter a title');
+  const ratingRaw = $('#theatre-rating').value;
+  const show = {
+    title,
+    venue: $('#theatre-venue').value.trim(),
+    date: $('#theatre-date').value,
+    rating: ratingRaw===''?null:parseFloat(ratingRaw),
+    notes: $('#theatre-notes').value.trim(),
+  };
+  DB.theatre = DB.theatre||[];
+  if(i>=0 && DB.theatre[i]) DB.theatre[i] = show; else DB.theatre.push(show);
+  saveTheatre();
+  if(THEATRE_WATCHLIST_REMOVE_ID){
+    DB.theatreWatchlist = (DB.theatreWatchlist||[]).filter(w=>w.id!==THEATRE_WATCHLIST_REMOVE_ID);
+    saveTheatreWatchlist();
+    THEATRE_WATCHLIST_REMOVE_ID = null;
+    drawTheatreWatchlistList();
+  }
+  closeModal(); drawTheatreList();
+}
+function delTheatreImpl(i){
+  confirmModal('Remove This Show?', "This removes it from your log. This can't be undone.", 'Remove', ()=>{
+    DB.theatre = DB.theatre||[];
+    DB.theatre.splice(i,1);
+    saveTheatre();
+    drawTheatreList();
+  });
+}
+function renderTheatreWatchlist(){
+  const body = $('#theatre-body'); if(!body) return;
+  body.innerHTML = `<div id="theatre-watchlist-list"></div>`;
+  drawTheatreWatchlistList();
+  loadTheatreWatchlistCloud(cloud => {
+    DB.theatreWatchlist = Array.isArray(cloud) ? cloud : [];
+    saveLocal();
+    if(CUR_THEATRE_TAB==='watchlist') drawTheatreWatchlistList();
+  });
+}
+function drawTheatreWatchlistList(){
+  const el = $('#theatre-watchlist-list'); if(!el) return;
+  const mine = DB.theatreWatchlist||[];
+  el.innerHTML = mine.length
+    ? `<div class="gig-list">${mine.map(t=>theatreWatchlistCardHTML(t)).join('')}</div>`
+    : `<div class="empty">Nothing on your Theatre watchlist yet - tap + Add Show above to add one.</div>`;
+}
+function theatreWatchlistCardHTML(t){
+  return `
+    <div class="card gig-card">
+      <div class="gig-top">
+        <span class="gig-cover gig-cover-fallback" aria-hidden="true">🎭</span>
+        <div class="gig-info">
+          <div class="gig-name">${esc(t.title||'Untitled')}</div>
+          ${t.venue?`<div class="gig-facts muted small">${esc(t.venue)}</div>`:''}
+        </div>
+        <div class="gig-actions">
+          <button type="button" class="btn sm" onclick="App.theatreMarkSeen('${esc(t.id)}')">Seen</button>
+          <button class="iconbtn del" aria-label="Remove from watchlist" title="Remove" onclick="App.delTheatreWatchlist('${esc(t.id)}')">${ICONS.trash}</button>
+        </div>
+      </div>
+      ${t.notes?`<div class="small muted" style="margin-top:8px">${esc(t.notes)}</div>`:''}
+    </div>`;
+}
+function theatreWatchlistFormImpl(i){
+  const t = (i>=0 && (DB.theatreWatchlist||[])[i]) || {};
+  openModal(`
+    <h2>${i>=0?'Edit':'Add to Watchlist'}</h2>
+    <div class="field"><label class="label" for="tw-title">Title</label><input id="tw-title" type="text" value="${esc(t.title||'')}"></div>
+    <div class="field"><label class="label" for="tw-venue">Venue</label><input id="tw-venue" type="text" value="${esc(t.venue||'')}"></div>
+    <div class="field"><label class="label" for="tw-notes">Notes</label><textarea id="tw-notes" rows="3">${esc(t.notes||'')}</textarea></div>
+    <button class="btn primary" style="width:100%" onclick="App.saveTheatreWatchlist(${i>=0?i:-1})">${i>=0?'Save':'Add'}</button>`);
+}
+function saveTheatreWatchlistImpl(i){
+  const title = ($('#tw-title').value||'').trim();
+  if(!title) return markErr('#tw-title','Enter a title');
+  const existing = (i>=0 && (DB.theatreWatchlist||[])[i]) || {};
+  const show = {
+    id: existing.id || uid(),
+    title,
+    venue: $('#tw-venue').value.trim(),
+    notes: $('#tw-notes').value.trim(),
+  };
+  DB.theatreWatchlist = DB.theatreWatchlist||[];
+  if(i>=0 && DB.theatreWatchlist[i]) DB.theatreWatchlist[i] = show; else DB.theatreWatchlist.push(show);
+  saveTheatreWatchlist();
+  closeModal(); drawTheatreWatchlistList();
+}
+function delTheatreWatchlistImpl(id){
+  DB.theatreWatchlist = (DB.theatreWatchlist||[]).filter(t=>t.id!==id);
+  saveTheatreWatchlist();
+  drawTheatreWatchlistList();
+  toast('Removed from watchlist');
+}
+
 function route(){
   closeModal(); closeMenu();
   // #app is reused across routes (innerHTML swapped, not replaced), so a data-tab left over
@@ -5694,6 +5919,10 @@ function route(){
   if(h === '#/films'){
     CUR_TRIP_ID = null; stopSub();
     renderFilms(); window.scrollTo(0,0); return;
+  }
+  if(h === '#/theatre'){
+    CUR_TRIP_ID = null; stopSub();
+    renderTheatre(); window.scrollTo(0,0); return;
   }
   if(h === '#/plants'){
     CUR_TRIP_ID = null; stopSub();
@@ -6388,6 +6617,18 @@ App.fwImportCsv = filmsWatchlistImportCsvImpl;
 App.fwImportCsvFile = filmsWatchlistImportCsvFileImpl;
 App.filmsGenreFilter = v => { CUR_FILMS_GENRE = v; drawFilmsGrid(); };
 App.fwGenreFilter = v => { CUR_FW_GENRE = v; drawFwMine(); };
+App.goTheatre = () => { location.hash = '#/theatre'; };
+App.theatreTab = k => { CUR_THEATRE_TAB = k; renderTheatre(); window.scrollTo(0,0); };
+App.theatreForm = theatreFormImpl;
+App.saveTheatre = saveTheatreImpl;
+App.delTheatre = delTheatreImpl;
+App.theatreWatchlistForm = theatreWatchlistFormImpl;
+App.saveTheatreWatchlist = saveTheatreWatchlistImpl;
+App.delTheatreWatchlist = delTheatreWatchlistImpl;
+App.theatreMarkSeen = id => {
+  const t = (DB.theatreWatchlist||[]).find(x=>x.id===id); if(!t) return;
+  theatreFormImpl(-1, {title:t.title, venue:t.venue, watchlistId:t.id});
+};
 App.spotifyConnect = () => {
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())+Date.now());
   sessionStorage.setItem('spotify_oauth_state', state);
@@ -7038,6 +7279,7 @@ function sidebarGlobalNav(inTrip){
   const onGames  = location.hash.startsWith('#/games');
   const onGigs   = location.hash.startsWith('#/gigs');
   const onFilms  = location.hash.startsWith('#/films');
+  const onTheatre = location.hash.startsWith('#/theatre');
   const onPlants = location.hash.startsWith('#/plants');
   const item = (label, emoji, fn, active) => `
     <div class="menu-item${active?' active':''}" role="menuitem" tabindex="0" onclick="${fn}"
@@ -7047,6 +7289,7 @@ function sidebarGlobalNav(inTrip){
   return (inTrip ? '' : item('Home','🏠',"App.goDashboard()", onHomeDash))
     + (inTrip ? '' : item('Travel','🌎',"App.goPlaces()", onPlaces))
     + item('Films','🎬',"App.goFilms()", onFilms)
+    + item('Theatre','🎭',"App.goTheatre()", onTheatre)
     + item('Music','🎤',"App.goGigs()", onGigs)
     + item('Games','🎮',"App.goGames()", onGames)
     + item('Plants','🥕',"App.goPlants()", onPlants);
@@ -7069,6 +7312,7 @@ function renderTabbar(){
   const onGames  = location.hash.startsWith('#/games');
   const onGigs   = location.hash.startsWith('#/gigs');
   const onFilms  = location.hash.startsWith('#/films');
+  const onTheatre = location.hash.startsWith('#/theatre');
   const onPlants = location.hash.startsWith('#/plants');
   /* with the menu open the bar rides above it; anything tapped from there dismisses the menu
      on the way through (the menu itself now opens from a button in the trip header, not here) */
@@ -7087,6 +7331,7 @@ function renderTabbar(){
       item('Home','🏠',go("App.goDashboard()"), onHomeDash && !menuOpen, false)
     + item('Travel','🌎',go("App.goPlaces()"), onPlaces && !menuOpen, false)
     + item('Films','🎬',go("App.goFilms()"), onFilms && !menuOpen, false)
+    + item('Theatre','🎭',go("App.goTheatre()"), onTheatre && !menuOpen, false)
     + item('Music','🎤',go("App.goGigs()"), onGigs && !menuOpen, false)
     + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
     + item('Plants','🥕',go("App.goPlants()"), onPlants && !menuOpen, false);
