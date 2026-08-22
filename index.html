@@ -445,6 +445,10 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-water-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
 .plant-water-btn.sm{width:22px; height:22px; font-size:.8rem;}
+/* the checkmark itself already reads as "done" - a circle drawn around it on top just doubles
+   up the shape, so it's dropped here (unlike the plain water-drop state, which still needs the
+   circle as its tap-target outline) */
+.plant-water-btn.checkmark{border:none; background:none;}
 .plant-emoji-picker{display:flex; flex-wrap:wrap; gap:6px;}
 .plant-emoji-opt{font-size:1.3rem; line-height:1; padding:6px 9px; border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
@@ -1155,8 +1159,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.26.3';
+const APP_VERSION = '2.26.4';
 const CHANGELOG = [
+  {version:'2.26.4', notes:[
+    "Plants: dropped the circle around Home's water button once it's showing the checkmark - the checkmark already reads as \"done\" on its own, so the circle was just doubling up the shape. The water-drop state keeps its circle.",
+  ]},
   {version:'2.26.3', notes:[
     "Plants: Home's small per-vegetable water button now shows a checkmark instead of a water drop once it's had enough water for now, so you can tell what still needs a top-up at a glance without opening each one. Still a single tap to log another watering either way.",
   ]},
@@ -5769,7 +5776,7 @@ function plantWaterButtonHTML(p, sm){
     if(showUndo) return `<button type="button" class="plant-water-btn sm undo" aria-label="Undo watering"
           onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`;
     const enough = !plantOverdue(p);
-    return `<button type="button" class="plant-water-btn sm" aria-label="${enough?'Watered enough for now - log another watering':'Log watering'}"
+    return `<button type="button" class="plant-water-btn sm${enough?' checkmark':''}" aria-label="${enough?'Watered enough for now - log another watering':'Log watering'}"
           onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">${enough?'✅':'💧'}</button>`;
   }
   const state = showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : plantWateredToday(p) ? ' done' : '';
