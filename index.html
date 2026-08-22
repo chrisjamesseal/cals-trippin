@@ -410,14 +410,14 @@ a{color:var(--brand-dark);}
 .plant-emoji.plant-icon-img{width:32px; height:32px; object-fit:cover; border-radius:8px;}
 .plant-name{font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--ink); overflow-wrap:anywhere;}
 .plant-stage-label{color:var(--muted); font-size:.7rem;}
-/* the detail page's own picker (plantStagePickerHTML) - every stage gets its own labelled
-   button, wrapping onto as many rows as it needs since this page has the room the compact
-   grid card doesn't. Only the current stage is highlighted; the rest read as plain, equally
-   tappable options rather than a filled-up-to-here progress bar. */
-.plant-stage-picker{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;}
-.plant-stage-btn{display:flex; align-items:center; gap:6px; border:1px solid var(--line-strong);
-  border-radius:var(--radius-sm); background:var(--paper); cursor:pointer; padding:8px 14px;
-  font:inherit; font-weight:600; font-size:.82rem; color:var(--ink);}
+/* the detail page's own picker (plantStagePickerHTML) - every stage gets its own labelled,
+   full-width button, one per row, since this page has the room the compact grid card
+   doesn't. Only the current stage is highlighted; the rest read as plain, equally tappable
+   options rather than a filled-up-to-here progress bar. */
+.plant-stage-picker{display:flex; flex-direction:column; gap:8px; margin:10px 0;}
+.plant-stage-btn{display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
+  border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--paper);
+  cursor:pointer; padding:10px 14px; font:inherit; font-weight:600; font-size:.82rem; color:var(--ink);}
 .plant-stage-btn.on{border-color:var(--brand); background:var(--brand-tint); color:var(--brand);}
 .plant-water-label{display:block; color:var(--muted); font-size:.72rem; margin-top:6px; width:100%;}
 /* the full Plants page card's own button - a name plus the water drop underneath it, rather
@@ -1155,8 +1155,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.26.0';
+const APP_VERSION = '2.26.1';
 const CHANGELOG = [
+  {version:'2.26.1', notes:[
+    "Plants: the stage buttons on a vegetable's own page are full width now, one per row, and the redundant status line above them is gone since the highlighted button already says what stage it's on. On both that page and the Plants grid card, \"Last Watered\" now sits below the watering button instead of above it.",
+  ]},
   {version:'2.26.0', notes:[
     "Renamed the app to \"Chris app\".",
     "Plants: the stage dots are gone. The vegetable's own page now has a full labelled button per stage (with its emoji, where one's accurate) - only the current one highlighted, and a tap on any of them jumps straight there. The smaller Plants page card just shows the current stage as plain text now, plus how often it needs watering. \"Mark as Watered\" is now just \"Watered\", with more breathing room either side of it. Fixed the gap between cards on the Plants page so it's even on all sides.",
@@ -5704,9 +5707,10 @@ function plantIconHTML(p, cls){
     : `<span class="${cls}" aria-hidden="true">${p.emoji||'🌱'}</span>`;
 }
 function plantStageIdx(k){ const i = PLANT_STAGES.findIndex(s=>s.k===k); return i<0 ? 0 : i; }
-/* the current stage's own label, with its emoji if it has one - used wherever there's only
-   room for a status readout, not a way to change it (the Plants grid card; the detail page's
-   own quick-glance line above its picker) */
+/* the current stage's own label, with its emoji if it has one - used on the Plants grid card,
+   the one place a status readout is needed without also being a way to change it (the
+   detail page's own picker below already shows the current stage via its .on button, so it
+   doesn't repeat this as a separate line) */
 function plantStageStatusText(p){
   const s = PLANT_STAGES[plantStageIdx(p.stage)] || {};
   return (s.emoji ? s.emoji+' ' : '') + (s.label||'');
@@ -5768,9 +5772,9 @@ function plantCardHTML(p){
       ${plantIconHTML(p, 'plant-emoji')}
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
       <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
-      <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
       <div class="plant-water-label">${esc(plantFreqLabel(p))}</div>
       ${plantWaterButtonHTML(p)}
+      <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
     </div>`;
 }
 function drawPlantsGrid(){
@@ -5821,15 +5825,13 @@ function plantTimelineHTML(p){
   }).join('')}</div>`;
 }
 function plantDetailStageHTML(p){
-  return `
-    <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
-    ${plantStagePickerHTML(p)}`;
+  return plantStagePickerHTML(p);
 }
 function plantDetailWaterHTML(p){
   return `
-    <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
     <div class="plant-water-label">${esc(plantFreqLabel(p))}</div>
-    ${plantWaterButtonHTML(p)}`;
+    ${plantWaterButtonHTML(p)}
+    <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>`;
 }
 function renderPlantDetail(id){
   const p = (DB.plants||[]).find(x=>x.id===id);
