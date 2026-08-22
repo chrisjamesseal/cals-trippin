@@ -58,6 +58,8 @@ The app works out of the box **on a single device** with no setup. To get everyo
        "gigs": { ".read": true, ".write": true },
        "films": { ".read": true, ".write": true },
        "filmsWatchlist": { ".read": true, ".write": true },
+       "theatre": { ".read": true, ".write": true },
+       "theatreWatchlist": { ".read": true, ".write": true },
        "plants": { ".read": true, ".write": true }
      }
    }
