@@ -727,6 +727,15 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
   padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);
   transform:translateZ(0); will-change:transform; margin-bottom:0;}
 .films-search input{background:var(--paper);}
+.films-search-row{position:relative; display:flex; align-items:center;}
+.films-search-row input{width:100%; padding-right:34px;}
+/* one tap back to the grid without hunting for the input to clear by hand - only shown once
+   there's actually something typed, sat inside the input's own right edge like a native clear
+   button since browsers don't give text inputs one by default */
+.films-search-clear{position:absolute; right:8px; top:50%; transform:translateY(-50%);
+  border:none; background:none; cursor:pointer; color:var(--muted); font-size:1.1rem;
+  line-height:1; padding:6px; display:none;}
+.films-search-row.has-query .films-search-clear{display:block;}
 .films-search-results{position:absolute; left:16px; right:16px; bottom:100%; margin-bottom:4px;
   max-height:50vh; overflow-y:auto; background:var(--paper); border:1px solid var(--line);
   border-radius:var(--radius); box-shadow:var(--shadow-lift);}
@@ -1209,8 +1218,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.6';
+const APP_VERSION = '2.29.7';
 const CHANGELOG = [
+  {version:'2.29.7', notes:[
+    "Fixed Films search: the results list could grow tall enough to push the search box itself off-screen with no way back - it's now a proper scrollable dropdown, plus a ✕ button to clear the search in one tap.",
+    "The same search box is now on the Watchlist tab too, not just Diary - search, then Log or + Watchlist straight from there.",
+    "Forced a fresh fetch for streaming logos so the Netflix/Prime Video duplicate-logo fix applies immediately instead of waiting for the old cached result to expire.",
+  ]},
   {version:'2.29.6', notes:[
     "Fixed Netflix/Prime Video sometimes still showing two logos for the same service - TMDb inserts \"Standard\"/\"Basic\" between the brand name and \"with Ads\" for some titles, which the earlier de-dupe fix didn't account for.",
   ]},
@@ -4879,14 +4893,23 @@ function renderFilms(){
   if(CUR_FILMS_TAB==='stats'){ renderFilmsStats(); return; }
   renderFilmsDiary();
 }
+/* shared by the Diary and Watchlist tabs - same TMDb search, same "Log"/"+ Watchlist" pair of
+   actions per result either way, so it's one search bar rather than two near-identical ones */
+function filmsHomeSearchBarHTML(){
+  return `
+    <div class="films-search">
+      <div class="films-search-row" id="films-home-search-row">
+        <input type="text" id="films-home-search" placeholder="Search for a film…"
+          autocomplete="off" oninput="App.filmsHomeSearchInput()">
+        <button type="button" class="films-search-clear" aria-label="Clear search" onclick="App.filmsHomeSearchClear()">✕</button>
+      </div>
+      <div id="films-home-search-results" class="films-search-results"></div>
+    </div>`;
+}
 function renderFilmsDiary(){
   const body = $('#films-body'); if(!body) return;
   body.innerHTML = `
-    <div class="films-search">
-      <input type="text" id="films-home-search" placeholder="Search for a film…"
-        autocomplete="off" oninput="App.filmsHomeSearchInput()">
-      <div id="films-home-search-results"></div>
-    </div>
+    ${filmsHomeSearchBarHTML()}
     <div id="films-grid"></div>`;
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
@@ -4967,9 +4990,16 @@ let FILMS_HOME_SEARCH_RESULTS = [];
 function filmsHomeSearchInputImpl(){
   clearTimeout(FILMS_HOME_SEARCH_TIMER);
   const q = ($('#films-home-search').value||'').trim();
+  const row = $('#films-home-search-row'); if(row) row.classList.toggle('has-query', !!q);
   const results = $('#films-home-search-results'); if(results) results.innerHTML = '';
   if(!q) return;
   FILMS_HOME_SEARCH_TIMER = setTimeout(()=>filmsHomeSearch(q), 400);
+}
+function filmsHomeSearchClearImpl(){
+  clearTimeout(FILMS_HOME_SEARCH_TIMER);
+  const input = $('#films-home-search'); if(input) input.value = '';
+  const row = $('#films-home-search-row'); if(row) row.classList.remove('has-query');
+  const results = $('#films-home-search-results'); if(results) results.innerHTML = '';
 }
 function filmsHomeSearch(q){
   const results = $('#films-home-search-results'); if(!results) return;
@@ -5013,6 +5043,10 @@ function filmsHomeWatchlistImpl(n, btn){
     DB.filmsWatchlist = DB.filmsWatchlist||[];
     DB.filmsWatchlist.unshift(m);
     saveFilmsWatchlist();
+    // this same search bar now lives on the Watchlist tab too - if that's where the tap came
+    // from, the new addition should show up in the list underneath right away, not only once
+    // the search is cleared
+    if(CUR_FILMS_TAB==='watchlist') drawFwMine();
   }
   if(btn){ btn.textContent = '✓ Added'; btn.disabled = true; }
 }
@@ -5403,7 +5437,9 @@ let FW_SEARCH_TIMER = null;
 let FW_LAST_RESULTS = [];
 function renderFilmsWatchlist(){
   const body = $('#films-body'); if(!body) return;
-  body.innerHTML = `<div id="fw-my"></div>`;
+  body.innerHTML = `
+    ${filmsHomeSearchBarHTML()}
+    <div id="fw-my"></div>`;
   drawFwMine();
   loadFilmsWatchlistCloud(cloud => {
     DB.filmsWatchlist = Array.isArray(cloud) ? cloud : [];
@@ -5442,10 +5478,16 @@ function filmLetterboxdUrl(f){
    Cached client-side per title+year for the session, since Watch Next and a Watchlist card can
    easily land on the same film more than once in one visit. */
 let FILM_PROVIDERS_CACHE = {};
+/* bump this whenever api/film-providers.js's own de-dupe/filtering logic changes - the endpoint
+   caches each title's response for 24h (Cache-Control), keyed by the full request URL, so a code
+   fix alone doesn't touch anything already cached from before the fix shipped. Changing this
+   query param gives every request a new cache key, forcing a fresh response immediately instead
+   of waiting up to a day for the old cached one to expire on its own. */
+const FILM_PROVIDERS_CACHE_VERSION = 2;
 function fetchFilmProviders(title, year, cb){
   const key = (title||'')+'|'+(year||'');
   if(FILM_PROVIDERS_CACHE[key]){ cb(FILM_PROVIDERS_CACHE[key]); return; }
-  fetch('/api/film-providers?title='+encodeURIComponent(title||'')+(year?'&year='+encodeURIComponent(year):''))
+  fetch('/api/film-providers?v='+FILM_PROVIDERS_CACHE_VERSION+'&title='+encodeURIComponent(title||'')+(year?'&year='+encodeURIComponent(year):''))
     .then(res => res.ok ? res.json() : Promise.reject())
     .then(data => { FILM_PROVIDERS_CACHE[key] = data; cb(data); })
     .catch(() => { cb({providers: []}); });   // no key configured, or the lookup failed - just show nothing
@@ -6747,6 +6789,7 @@ App.filmTitleInput = filmTitleInputImpl;
 App.filmTitlePick = filmTitlePickImpl;
 App.filmsTab = k => { CUR_FILMS_TAB = k; renderFilms(); window.scrollTo(0,0); };
 App.filmsHomeSearchInput = filmsHomeSearchInputImpl;
+App.filmsHomeSearchClear = filmsHomeSearchClearImpl;
 App.filmsHomeLog = filmsHomeLogImpl;
 App.filmsHomeWatchlist = filmsHomeWatchlistImpl;
 App.fwSearchInput = fwSearchInputImpl;
