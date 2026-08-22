@@ -1197,8 +1197,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.1';
+const APP_VERSION = '2.29.2';
 const CHANGELOG = [
+  {version:'2.29.2', notes:[
+    "Plants: a Not Planted vegetable's button now says \"Mark as Planted\" and actually plants it, instead of showing \"Watered\" for something that isn't in the ground yet.",
+  ]},
   {version:'2.29.1', notes:[
     "Streaming logos (Watch Next, Watchlist) now sit as a badge in the poster's top-right corner instead of a row below it, and dropped the \"via JustWatch\" credit line. Also cleaned up Amazon/Paramount+ listings so each service only shows once instead of once per billing tier.",
   ]},
@@ -5762,7 +5765,8 @@ function theatreCardHTML(t, i){
   return `
     <div class="card gig-card">
       <div class="gig-top">
-        <span class="gig-cover gig-cover-fallback" aria-hidden="true">🎭</span>
+        ${t.image ? `<img class="gig-cover" src="${esc(t.image)}" alt="" loading="lazy">`
+                   : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">🎭</span>`}
         <div class="gig-info">
           <div class="gig-name">${esc(t.title||'Untitled')}</div>
           ${facts?`<div class="gig-facts muted small">${esc(facts)}</div>`:''}
@@ -6172,14 +6176,21 @@ function plantWaterButtonHTML(p, sm){
     // way - watering twice in a day is normal, not something to block.
     if(showUndo) return `<button type="button" class="plant-water-btn sm undo" aria-label="Undo watering"
           onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`;
-    // a still-unplanted vegetable isn't overdue for water, it just hasn't started yet - the
-    // shovel says "plant me", not "water me", since a watering-shaped icon here would read as
-    // an actual watering need it doesn't have
-    if(p.stage===PLANT_STAGE_DEFAULT) return `<button type="button" class="plant-water-btn sm" aria-label="Not planted yet"
-          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">🪏</button>`;
+    // a still-unplanted vegetable isn't overdue for water, it just hasn't started yet - tapping
+    // the shovel plants it (advances to Seed Sown) rather than logging a watering it can't have
+    // had yet, since there's nothing in the ground to water
+    if(p.stage===PLANT_STAGE_DEFAULT) return `<button type="button" class="plant-water-btn sm" aria-label="Mark as planted"
+          onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">🪏</button>`;
     const enough = !plantOverdue(p);
     return `<button type="button" class="plant-water-btn sm${enough?' checkmark':''}" aria-label="${enough?'Watered enough for now - log another watering':'Log watering'}"
           onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">${enough?'✅':'💧'}</button>`;
+  }
+  // same reasoning as the sm shovel above, just the full-page button shape - "Watered" makes no
+  // sense yet for something that isn't in the ground, so this replaces it with the same planting
+  // action instead of disabling a button whose whole label is wrong for this stage
+  if(p.stage===PLANT_STAGE_DEFAULT){
+    return `<button type="button" class="plant-water-action-btn"
+        onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">Mark as Planted<span class="plant-water-btn-emoji" aria-hidden="true">🪏</span></button>`;
   }
   const doneToday = !showUndo && plantWateredToday(p);
   const state = showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : doneToday ? ' done' : '';
