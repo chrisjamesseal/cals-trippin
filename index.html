@@ -397,19 +397,17 @@ a{color:var(--brand-dark);}
   padding:7px 28px 7px 12px; border-radius:999px; box-shadow:none;}
 .dash-item-flags{font-size:1.8rem; margin-bottom:10px; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-/* Next Trip has no image the way Most Played/Currently Playing do, just this flag - full card
-   width (not the half-width box the other widgets' images sit in) so the flag itself reads as
-   big as the card, the way a real photo would. A square box at that width would come out twice
-   as tall as .dash-item-img-half's own (width:50%/aspect 1:1) box, so height matches that
-   sibling box's instead (2:1 at full width works out the same) - width and height need sizing
-   from two different axes to fill the shorter box without either overflowing sideways with two
-   flags or spilling over its top/bottom edge with one, which is what container-type:size (not
-   just inline-size) and the min() of a cqw and a cqh figure below are each doing. */
-.dash-item-flags-boxed{display:flex; align-items:stretch; justify-content:center;
-  width:100%; aspect-ratio:2/1; margin:0 0 10px;}
-.dash-item-flags-boxed .flag-cell{container-type:size; flex:1 1 0; min-width:0;
-  display:flex; align-items:center; justify-content:center;}
-.dash-item-flags-boxed .flag-cell span{font-size:min(46cqw, 88cqh); line-height:1;}
+/* Next Trip has no image the way Most Played/Currently Playing do, just this flag (or flags) -
+   left-aligned and close together rather than stretched to fill the card's width, so the row
+   reads as one compact group and the card doesn't need to be nearly as tall to hold it. Fixed
+   size rather than the auto-scaling-to-fill approach this used to use, since that's what made
+   the box tall in the first place (it was sized to fit however many flags at whatever size
+   filled the width) - wraps onto a second line in the rare case of more flags than fit one row,
+   rather than shrinking them all down to squeeze in. */
+.dash-item-flags-boxed{display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start;
+  gap:8px; padding:6px 0; margin:0 0 10px;}
+.dash-item-flags-boxed .flag-cell{display:flex; align-items:center; justify-content:center;}
+.dash-item-flags-boxed .flag-cell span{font-size:2.6rem; line-height:1;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
 
@@ -1183,8 +1181,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.28.1';
+const APP_VERSION = '2.28.2';
 const CHANGELOG = [
+  {version:'2.28.2', notes:[
+    "Home: Next Trip's flags are left-aligned and closer together now instead of stretched across the card, so the card itself is much shorter. Places Been's icon is a globe now instead of a pin. Games' stat tile reads \"N Played\" instead of \"N Games\".",
+  ]},
   {version:'2.28.1', notes:[
     "Films: Home's Watch Next widget and every Watchlist card now show which UK streaming services a film's actually on (Netflix, Prime Video, etc. - subscription and free, not rent/buy), sourced from TMDb/JustWatch. Uses the same TMDb key film search already needs, so there's nothing extra to set up if that's already working.",
   ]},
@@ -3210,7 +3211,7 @@ function dashPlacesBeenWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlaces('been')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('been')}">
-      <div class="dash-item-flags" aria-hidden="true">📍</div>
+      <div class="dash-item-flags" aria-hidden="true">🌍</div>
       <div class="dash-item-title">${dashPlacesBeenCount(CUR_DASH_SONG_RANGE)} Places Been</div>
     </div>`;
 }
@@ -3315,7 +3316,7 @@ function dashGamesStatWidgetHTML(n){
     <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
       <div class="dash-item-flags" aria-hidden="true">🎮</div>
-      <div class="dash-item-title">${n} Games</div>
+      <div class="dash-item-title">${n} Played</div>
     </div>`;
 }
 function dashCurrentlyPlayingWidgetHTML(g){
