@@ -725,7 +725,13 @@ async function branchLineItemTotal(env, start, end){
   const res = await fetch(url, {
     headers: { apikey: env.BRANCH_SUPABASE_SERVICE_KEY, Authorization: 'Bearer ' + env.BRANCH_SUPABASE_SERVICE_KEY },
   });
-  if(!res.ok) throw new Error('Branch (Supabase) returned status ' + res.status);
+  // PostgREST's error body (message/code/hint/details) is far more useful for tracking down a
+  // 400/401/403 than the bare status code alone - included here (truncated) so it reaches the
+  // browser tab this endpoint's own troubleshooting steps have you open directly
+  if(!res.ok){
+    const body = await res.text().catch(() => '');
+    throw new Error('Branch (Supabase) returned status ' + res.status + (body ? ': ' + body.slice(0, 300) : ''));
+  }
   const rows = await res.json();
   return rows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
 }
