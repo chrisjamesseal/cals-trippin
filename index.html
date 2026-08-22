@@ -294,16 +294,17 @@ a{color:var(--brand-dark);}
   -webkit-line-clamp:2; overflow:hidden; height:2.5em;}
 .film-rewatch-badge{color:var(--muted); font-weight:400;}
 .film-meta{margin-top:2px; font-size:.68rem; color:var(--muted);}
-/* UK streaming logos (Watch Next widget, Watchlist cards) - see fetchFilmProviders/
-   filmProvidersHTML. A narrow column beside the poster, not overlaid on top of it - the row
-   wrapper sits the poster frame and the logo column side by side, top-aligned, the poster frame
-   taking whatever width is left after the column's own natural width. One logo per row (stacked
-   vertically) rather than a grid, so it reads as a column tucked against the poster's right edge.
-   Empty (no wrapper rendered at all) when nothing's streaming it, so the poster just gets the
-   row's full width instead of leaving a blank gutter. */
-.film-poster-row{display:flex; align-items:flex-start; gap:6px;}
-.film-poster-row .film-poster-frame{flex:1; min-width:0;}
-.film-providers-badge{display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;}
+/* UK streaming logos - see fetchFilmProviders/filmProvidersHTML, shared by two contexts with two
+   different layouts:
+   - Home's Watch Next widget: a column beside the poster (.dash-poster-row sits the poster frame
+     and the logo column side by side, top-aligned - see that class's own comment)
+   - Watchlist grid cards: the grid's columns are too narrow to fit a poster and a side column
+     both, so here it's a plain row directly under the poster instead (the year that used to sit
+     there is gone - see fwMineCardHTML's own comment), wrapping onto a second line if more logos
+     show up than fit one. The margin-top is deliberately generous since this is the card's only
+     spacing between the poster and whatever comes next now that the year's gone. */
+.dash-poster-row .film-providers-badge{display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;}
+.film-card > [data-fw-providers] .film-providers-badge{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;}
 /* text-indent/white-space/overflow hides a broken image's alt text instead of letting it spill
    out of this tiny 22px box */
 .film-provider-logo{width:22px; height:22px; border-radius:5px; object-fit:cover;
@@ -394,9 +395,9 @@ a{color:var(--brand-dark);}
    actual proportions */
 .dash-item-img-half-poster{aspect-ratio:2/3;}
 /* Watch Next's own poster row - the poster sits in a flex row next to the provider logo column
-   (see .film-poster-row's own comment, same idea, own class since dash widgets already have
-   their own image-sizing convention rather than reusing .film-poster/.film-poster-frame) rather
-   than a plain half-width img on its own. */
+   (Watchlist grid cards put the same logos in a plain row below the poster instead, too narrow
+   for a side column - see .film-providers-badge's own comment) rather than a plain half-width
+   img on its own. */
 .dash-poster-row{display:flex; align-items:flex-start; gap:6px; margin:0 0 10px;}
 .dash-poster-frame{position:relative; flex:1; min-width:0; aspect-ratio:2/3;
   border-radius:var(--radius-sm); overflow:hidden;}
@@ -462,7 +463,11 @@ a{color:var(--brand-dark);}
 .plant-water-action-btn{display:flex; flex-direction:row; align-items:center; justify-content:center;
   gap:8px; width:100%; margin-top:8px; border:1px solid #2E86DE; border-radius:var(--radius-sm);
   background:var(--paper); cursor:pointer; padding:9px 20px; font:inherit; font-weight:700;
-  font-size:.78rem; color:var(--ink);}
+  font-size:.78rem; color:var(--ink); white-space:nowrap;}
+/* "Mark as Planted" is longer than "Watered"/"Undo Watering" ever needed to be at the usual
+   padding - tighter padding and a smaller size keep it on one line in a narrow grid card instead
+   of wrapping under the emoji */
+.plant-water-action-btn.plant-mark-planted{padding:9px 6px; gap:5px; font-size:.7rem;}
 .plant-water-btn-emoji{font-size:1.05rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-water-action-btn.overdue{background:#FCEBE9;}
@@ -525,6 +530,12 @@ a{color:var(--brand-dark);}
 .gig-card{padding:14px;}
 .gig-top{display:flex; gap:12px; align-items:center;}
 .gig-cover{width:56px; height:56px; flex-shrink:0; border-radius:50%; object-fit:cover;
+  border:1px solid var(--line); background:var(--bg);}
+/* Theatre's own version of .gig-cover - an artist photo reads fine as a circular avatar, but a
+   show's poster art doesn't (it's not a face, and posters are portrait-shaped to begin with) -
+   same width as the circle it replaces, just the poster's actual 2:3 shape instead of a square
+   crop, with the poster's usual small-radius corners instead of a full circle. */
+.theatre-cover{width:56px; height:84px; flex-shrink:0; border-radius:var(--radius-sm); object-fit:cover;
   border:1px solid var(--line); background:var(--bg);}
 .gig-cover-fallback{display:inline-flex; align-items:center; justify-content:center; font-size:1.3rem; color:var(--muted);}
 .gig-info{min-width:0; flex:1;}
@@ -1198,8 +1209,14 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.4';
+const APP_VERSION = '2.29.5';
 const CHANGELOG = [
+  {version:'2.29.5', notes:[
+    "Added a Streaming Services picker under Settings > Films - select what you actually subscribe to and Watch Next/Watchlist logos only show those.",
+    "Watchlist cards: dropped the year under the poster (streaming logos now sit there instead) and switched to a plain row layout, since the grid's columns were too narrow for a side column.",
+    "Theatre: a show's photo is now poster-shaped (tall, rounded corners) instead of cropped into a circle, same width as before.",
+    "Plants: \"Mark as Planted\" no longer wraps onto two lines on a narrow card.",
+  ]},
   {version:'2.29.4', notes:[
     "Streaming logos (Watch Next, Watchlist) moved off the poster itself - they sit in a slim column beside it now instead of overlapping the artwork.",
   ]},
@@ -4818,8 +4835,26 @@ function renderSettings(){
           <button class="btn sm" onclick="App.fwImportCsv()">Import Watchlist CSV</button>
         </div>
       </div>
+      <h3 style="margin-bottom:10px">Streaming Services</h3>
+      <div class="card" style="margin-bottom:20px">
+        <p class="small muted" style="margin-bottom:14px">
+          Watch Next and the Watchlist show every service a film's streaming on. Select the ones
+          you actually subscribe to and they'll only show those - leave this alone to keep seeing
+          everything.
+        </p>
+        <div class="chips" id="streaming-services-chips">${streamingServicesChipsHTML()}</div>
+        <button class="btn sm ghost" style="margin-top:14px" onclick="App.streamingServicesSelectAll()">Select All</button>
+      </div>
     </div>`;
   drawLetterboxdConnect();
+}
+function streamingServicesChipsHTML(){
+  const selected = selectedStreamingServices();
+  return STREAMING_SERVICES.map(s => {
+    const on = !selected || selected.has(s.key);
+    return `<span class="chip pick${on?' on':''}" role="button" tabindex="0" onclick="App.toggleStreamingService('${s.key}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.toggleStreamingService('${s.key}')}">${esc(s.label)}</span>`;
+  }).join('');
 }
 
 /* Films holds two unrelated things - what you've actually watched, and what you mean to - so it
@@ -5412,32 +5447,71 @@ function fetchFilmProviders(title, year, cb){
     .then(data => { FILM_PROVIDERS_CACHE[key] = data; cb(data); })
     .catch(() => { cb({providers: []}); });   // no key configured, or the lookup failed - just show nothing
 }
+/* which streaming services you actually have (Settings > Streaming Services) - a per-device
+   preference like PSN_HIDDEN_KEY above, not synced anywhere. Unset (null from the getter) means
+   "never configured" and shows every provider TMDb returns, same as always - only once the user
+   actually touches a chip does this start filtering, so nobody sees an empty Watch Next widget
+   just because they never opened Settings. `match` is deliberately loose (TMDb's exact provider
+   name varies by title - "Disney Plus" vs "Disney+", "Now" vs "NOW") rather than requiring exact
+   string equality against the picker's own label. */
+const STREAMING_SERVICES_KEY = 'calstrippin_streaming_services';
+const STREAMING_SERVICES = [
+  {key:'netflix', label:'Netflix', match:/netflix/i},
+  {key:'prime', label:'Amazon Prime Video', match:/prime video/i},
+  {key:'disney', label:'Disney+', match:/disney/i},
+  {key:'paramount', label:'Paramount+', match:/paramount/i},
+  {key:'appletv', label:'Apple TV+', match:/apple tv/i},
+  {key:'now', label:'NOW', match:/^now\b/i},
+  {key:'iplayer', label:'BBC iPlayer', match:/iplayer/i},
+  {key:'itvx', label:'ITVX', match:/itvx/i},
+  {key:'channel4', label:'Channel 4', match:/channel ?4|all ?4/i},
+  {key:'my5', label:'My5', match:/my ?5/i},
+  {key:'britbox', label:'BritBox', match:/britbox/i},
+  {key:'mubi', label:'MUBI', match:/mubi/i},
+  {key:'sky', label:'Sky / NOW Cinema', match:/^sky/i},
+  {key:'discovery', label:'Discovery+', match:/discovery/i},
+];
+function selectedStreamingServices(){
+  try{
+    const raw = localStorage.getItem(STREAMING_SERVICES_KEY);
+    if(raw==null) return null;
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr) : null;
+  }catch(e){ return null; }
+}
+function saveStreamingServices(set){ try{ localStorage.setItem(STREAMING_SERVICES_KEY, JSON.stringify([...set])); }catch(e){} }
+function filterProvidersToOwned(providers){
+  const selected = selectedStreamingServices();
+  if(!selected) return providers;   // never configured - show everything, unfiltered
+  const owned = STREAMING_SERVICES.filter(s => selected.has(s.key));
+  return providers.filter(p => owned.some(s => s.match.test(p.name||'')));
+}
 /* provider logos only, no per-logo link and no on-screen credit line - each logo's own title
    attribute still names the service on hover/long-press. TMDb's terms for this endpoint ask for
    a JustWatch credit + link when the data's shown; dropped here at the user's explicit request
    in favour of a clean poster badge, so noting the tradeoff here for whoever finds this later. */
 function filmProvidersHTML(data){
   if(!data || !data.providers || !data.providers.length) return '';
+  const providers = filterProvidersToOwned(data.providers);
+  if(!providers.length) return '';
   return `<div class="film-providers-badge">
-    ${data.providers.map(p => p.logo
+    ${providers.map(p => p.logo
       ? `<img class="film-provider-logo" src="${esc(p.logo)}" alt="${esc(p.name)}" title="${esc(p.name)}" loading="lazy">`
       : `<span class="film-provider-name">${esc(p.name)}</span>`).join('')}
   </div>`;
 }
+/* the year that used to sit under the poster here is gone - the poster/provider row already
+   fills that space now, and the year wasn't load-bearing information the way the title (kept
+   only as a fallback when there's no poster) or the streaming logos are */
 function fwMineCardHTML(f){
   return `
     <div class="film-card">
       <a href="${esc(filmLetterboxdUrl(f))}" target="_blank" rel="noopener" aria-label="${esc(f.title||'Film')} on Letterboxd">
-        <div class="film-poster-row">
-          <div class="film-poster-frame">
-            ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
-                       : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
-          </div>
-          <div data-fw-providers="${esc(f.id)}"></div>
-        </div>
+        ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                   : `<span class="film-poster film-poster-fallback" aria-hidden="true">${fa('film')}</span>`}
         ${f.image ? '' : `<div class="film-title">${esc(f.title||'Untitled')}</div>`}
       </a>
-      ${f.year?`<div class="film-meta">${esc(f.year)}</div>`:''}
+      <div data-fw-providers="${esc(f.id)}"></div>
       <div class="btn-row fw-actions">
         <button type="button" class="btn sm" onclick="App.fwMarkWatched('${esc(f.id)}')">Watched</button>
         <button type="button" class="iconbtn del" aria-label="Remove from watchlist" title="Remove" onclick="App.fwRemove('${esc(f.id)}')">${ICONS.trash}</button>
@@ -5775,8 +5849,8 @@ function theatreCardHTML(t, i){
   return `
     <div class="card gig-card">
       <div class="gig-top">
-        ${t.image ? `<img class="gig-cover" src="${esc(t.image)}" alt="" loading="lazy">`
-                   : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">🎭</span>`}
+        ${t.image ? `<img class="theatre-cover" src="${esc(t.image)}" alt="" loading="lazy">`
+                   : `<span class="theatre-cover gig-cover-fallback" aria-hidden="true">🎭</span>`}
         <div class="gig-info">
           <div class="gig-name">${esc(t.title||'Untitled')}</div>
           ${facts?`<div class="gig-facts muted small">${esc(facts)}</div>`:''}
@@ -5893,8 +5967,8 @@ function theatreWatchlistCardHTML(t){
   return `
     <div class="card gig-card">
       <div class="gig-top">
-        ${t.image ? `<img class="gig-cover" src="${esc(t.image)}" alt="" loading="lazy">`
-                   : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">🎭</span>`}
+        ${t.image ? `<img class="theatre-cover" src="${esc(t.image)}" alt="" loading="lazy">`
+                   : `<span class="theatre-cover gig-cover-fallback" aria-hidden="true">🎭</span>`}
         <div class="gig-info">
           <div class="gig-name">${esc(t.title||'Untitled')}</div>
           ${t.venue?`<div class="gig-facts muted small">${esc(t.venue)}</div>`:''}
@@ -6234,7 +6308,7 @@ function plantWaterButtonHTML(p, sm){
   // sense yet for something that isn't in the ground, so this replaces it with the same planting
   // action instead of disabling a button whose whole label is wrong for this stage
   if(p.stage===PLANT_STAGE_DEFAULT){
-    return `<button type="button" class="plant-water-action-btn"
+    return `<button type="button" class="plant-water-action-btn plant-mark-planted"
         onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">Mark as Planted<span class="plant-water-btn-emoji" aria-hidden="true">🪏</span></button>`;
   }
   const doneToday = !showUndo && plantWateredToday(p);
@@ -6620,6 +6694,17 @@ App.goToYourTrips = () => {
 };
 App.goGames = () => { location.hash = '#/games'; };
 App.goSettings = () => { location.hash = '#/settings'; };
+App.toggleStreamingService = key => {
+  let selected = selectedStreamingServices();
+  if(!selected) selected = new Set(STREAMING_SERVICES.map(s=>s.key));   // first-ever toggle: lock in "everything on" as the baseline, then flip this one off
+  if(selected.has(key)) selected.delete(key); else selected.add(key);
+  saveStreamingServices(selected);
+  const el = $('#streaming-services-chips'); if(el) el.innerHTML = streamingServicesChipsHTML();
+};
+App.streamingServicesSelectAll = () => {
+  saveStreamingServices(new Set(STREAMING_SERVICES.map(s=>s.key)));
+  const el = $('#streaming-services-chips'); if(el) el.innerHTML = streamingServicesChipsHTML();
+};
 App.goGigs = () => { location.hash = '#/gigs'; };
 App.goGigsSeen = () => { CUR_GIGS_TAB = 'log'; location.hash = '#/gigs'; };
 App.goSongs = () => { CUR_GIGS_TAB = 'songs'; location.hash = '#/gigs'; };
