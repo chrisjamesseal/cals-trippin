@@ -423,9 +423,9 @@ a{color:var(--brand-dark);}
 /* the full Plants page card's own button - a name plus the water drop underneath it, rather
    than an icon-only circle, since there's room here and it reads more clearly than an emoji
    alone. Colour still carries the urgency that used to be a separate "Needs watering" text
-   line - red when overdue, tinted green once done today, plain otherwise. Always tappable
-   regardless of state: watering twice in a day is normal (a hot day, a top-up), not something
-   to block. */
+   line - red when overdue, tinted green once done today, plain otherwise. Disabled once done
+   today (see plantWaterButtonHTML) - the word "Watered" read as a status either way, tappable
+   or not, so leaving it tappable made an already-watered plant look like it still needed a tap. */
 .plant-water-action-btn{display:flex; flex-direction:row; align-items:center; justify-content:center;
   gap:8px; width:100%; margin-top:8px; border:1px solid var(--line-strong); border-radius:var(--radius-sm);
   background:var(--paper); cursor:pointer; padding:9px 20px; font:inherit; font-weight:700;
@@ -437,6 +437,7 @@ a{color:var(--brand-dark);}
 /* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
    solid border so it doesn't read as just another status colour like overdue/done do */
 .plant-water-action-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
+.plant-water-action-btn:disabled{opacity:.7; cursor:default;}
 /* Home's chips (dashPlantsWidgetHTML) use this small icon-only circle instead - six-plus of
    them sit side by side there, so a full labelled button per chip wouldn't fit */
 .plant-water-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
@@ -1159,8 +1160,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.27.0';
+const APP_VERSION = '2.27.1';
 const CHANGELOG = [
+  {version:'2.27.1', notes:[
+    "Plants: the Watered button is disabled once a vegetable's already had water today - it used to stay tappable and just say \"Watered\" either way, so an already-watered plant looked exactly like one still waiting for a tap. Also added a \"Not Planted\" stage ahead of Seed Sown, for a vegetable you're tracking before it's actually gone in the ground - new vegetables start there now.",
+  ]},
   {version:'2.27.0', notes:[
     "Home: new \"Made Today\" tile at the top - today's freelance invoice line items from Branch (a separate CRM), plus a pro-rated day's pay from the 9-to-5 on weekdays. Tap it for the breakdown. Needs a one-time Worker setup - see psn-proxy/README.md's \"Connect Branch\" section - and just doesn't show until that's done.",
   ]},
@@ -5671,14 +5675,18 @@ function openTrip(id){
    apply across the board. "Flowering / Fruiting" used to be in here but didn't fit root veg like
    carrots (they don't fruit, and flowering usually means bolting, not progress), so it's gone;
    see PLANT_STAGE_LEGACY_MAP for what happens to any vegetable still sat on that old stage.
+   "Not Planted" leads the list - a vegetable you're tracking but haven't actually got seeds in
+   the ground for yet, the state a freshly-added one starts in (see PLANT_STAGE_DEFAULT).
    emoji is only set where one's actually accurate for the stage */
 const PLANT_STAGES = [
+  {k:'unplanted', label:'Not Planted'},
   {k:'seed', label:'Seed Sown', emoji:'🌱'},
   {k:'sprout', label:'Sprouted', emoji:'🌿'},
   {k:'growing', label:'Growing', emoji:'🪴'},
   {k:'ready', label:'Ready to Harvest', emoji:'🧺'},
   {k:'harvested', label:'Harvested', emoji:'✅'},
 ];
+const PLANT_STAGE_DEFAULT = PLANT_STAGES[0].k;
 /* a vegetable saved while "Flowering / Fruiting" still existed keeps that raw key in its data -
    this maps it back to the closest stage still on the list (still growing, not yet ready) so it
    reads sensibly everywhere a stage gets looked up, without needing to rewrite old records */
@@ -5823,11 +5831,12 @@ function plantWaterButtonHTML(p, sm){
     return `<button type="button" class="plant-water-btn sm${enough?' checkmark':''}" aria-label="${enough?'Watered enough for now - log another watering':'Log watering'}"
           onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">${enough?'✅':'💧'}</button>`;
   }
-  const state = showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : plantWateredToday(p) ? ' done' : '';
+  const doneToday = !showUndo && plantWateredToday(p);
+  const state = showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : doneToday ? ' done' : '';
   return showUndo
     ? `<button type="button" class="plant-water-action-btn${state}"
         onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">Undo Watering<span class="plant-water-btn-emoji" aria-hidden="true">↩</span></button>`
-    : `<button type="button" class="plant-water-action-btn${state}"
+    : `<button type="button" class="plant-water-action-btn${state}"${doneToday?' disabled':''}
         onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
 }
 function plantCardHTML(p){
@@ -5942,7 +5951,7 @@ function plantDeleteLogEntryImpl(id, type, ts){
     // the plant's actual current stage always tracks whichever entry is now the most recent,
     // so removing one - especially the latest - can't leave the two disagreeing about "now"
     const latest = [...p.stageChanges].sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];
-    p.stage = latest ? latest.stage : 'seed';
+    p.stage = latest ? latest.stage : PLANT_STAGE_DEFAULT;
   }
   savePlants();
   drawPlantsGrid();
@@ -6059,7 +6068,7 @@ function plantFormImpl(id){
       <div class="plant-emoji-picker" id="plant-emoji-picker">${plantEmojiPickerHTML(PLANT_FORM_EMOJI)}</div>
     </div>
     <div class="field"><label class="label" for="plant-stage">Stage</label>
-      <select id="plant-stage">${PLANT_STAGES.map(s=>`<option value="${s.k}"${plantStageKey(p?p.stage:'seed')===s.k?' selected':''}>${esc(s.label)}</option>`).join('')}</select></div>
+      <select id="plant-stage">${PLANT_STAGES.map(s=>`<option value="${s.k}"${plantStageKey(p?p.stage:PLANT_STAGE_DEFAULT)===s.k?' selected':''}>${esc(s.label)}</option>`).join('')}</select></div>
     <div class="field"><label class="label" for="plant-planted">Planted</label>
       <input id="plant-planted" type="date" value="${esc((p&&p.plantedDate)||todayStr())}"></div>
     <div class="field"><label class="label" for="plant-freq">Water Every (Days)</label>
