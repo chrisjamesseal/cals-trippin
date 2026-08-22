@@ -361,6 +361,13 @@ a{color:var(--brand-dark);}
    regardless of height (unlike the masonry below, which balances by measured height) so they
    read as one glanceable block rather than being scattered wherever the balancer lands them */
 .dash-stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
+/* Branch's earnings card - full width rather than squeezed into the 2-column stat grid above,
+   since it's carrying two figures (today/this week) side by side, not one. Reuses the same
+   .dash-stat-num/.dash-stat-label look each stat tile already has, just two of them sharing one
+   card with a divider between, rather than two separate bordered tiles. */
+.dash-branch-card{display:flex; cursor:pointer; margin-bottom:12px;}
+.dash-branch-stat{flex:1; text-align:center; padding:4px 0;}
+.dash-branch-stat + .dash-branch-stat{border-left:1px solid var(--line); margin-left:4px; padding-left:4px;}
 /* Most Played and Currently Playing share this - a half-width image sitting inside the card's
    own padding (no negative-margin bleed needed), left-aligned rather than centred so it lines up
    with the title/caption below it instead of floating in the middle of the card */
@@ -484,6 +491,8 @@ a{color:var(--brand-dark);}
    squeezing anything smaller. */
 .plant-home-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px 6px;}
 .plant-home-chip{display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;}
+/* same "not actually growing yet" fade the Plants page's own cards use (see .plant-card) */
+.plant-home-chip.plant-unplanted{opacity:.55;}
 .plant-home-emoji{font-size:1.5rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-home-emoji.plant-icon-img{width:24px; height:24px; object-fit:cover; border-radius:6px;}
@@ -1167,8 +1176,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.27.3';
+const APP_VERSION = '2.28.0';
 const CHANGELOG = [
+  {version:'2.28.0', notes:[
+    "Home: the Branch earnings card is full width now, and shows Made This Week alongside Made Today rather than just the one figure. Plants: a vegetable still on \"Not Planted\" fades on Home's chip too (not just the Plants page), and its water button shows a shovel instead of a water drop or checkmark, since it isn't due for watering yet - it's due for planting.",
+  ]},
   {version:'2.27.3', notes:[
     "Home: Watch Next now shows above Last Seen instead of below it.",
   ]},
@@ -3113,42 +3125,45 @@ function dashGigsBeenCount(range){
   return (DB.gigs||[]).filter(g=>g.date && g.date<=todayStr() && (!cutoff || g.date>=cutoff)).length;
 }
 /* Branch (a separate CRM, github.com/chrisjamesseal/branch) logs freelance work as invoice
-   line items, each timestamped the moment it's added - this pulls today's total straight from
-   its database via a Worker route (see psn-proxy/worker.js's own Branch section for the
-   server-side half: Supabase, RLS, the 07:00-23:30 window). No per-device connect step the way
-   PSN/Spotify have, since there's nothing for this browser to log into - it's configured
-   entirely on the Worker, so the tile just tries the fetch and quietly disappears (see
-   loadDashboardBranch's catch) if it isn't set up yet, rather than showing a "Connect" prompt
-   with nowhere in this app to send you. Tapping it shows the line-items/salary breakdown
-   behind the one number, since the tile itself only has room for the total. */
+   line items, each timestamped the moment it's added - this pulls two totals straight from its
+   database via a Worker route (see psn-proxy/worker.js's own Branch section for the server-side
+   half: Supabase, RLS, the today/this-week windows). A full-width card rather than one of the
+   2-column stat tiles, since it's carrying two numbers side by side, not one. No per-device
+   connect step the way PSN/Spotify have, since there's nothing for this browser to log into -
+   it's configured entirely on the Worker, so the card just tries the fetch and quietly
+   disappears (see loadDashboardBranch's catch) if it isn't set up yet, rather than showing a
+   "Connect" prompt with nowhere in this app to send you. Tapping it shows the line-items/salary
+   breakdown behind each number, since the card itself only has room for the totals. */
 let DASH_BRANCH_DATA = null;
 function dashBranchPlaceholderHTML(){
-  return `<div class="dash-widget dash-widget-row"><div class="dash-item-flags" aria-hidden="true">💰</div><div class="dash-item-title">Loading…</div></div>`;
+  return `
+    <div class="card dash-branch-card">
+      <div class="dash-branch-stat"><div class="dash-stat-num">£—</div><div class="dash-stat-label">Made Today</div></div>
+      <div class="dash-branch-stat"><div class="dash-stat-num">£—</div><div class="dash-stat-label">Made This Week</div></div>
+    </div>`;
 }
 function dashBranchWidgetHTML(data){
   return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.branchBreakdown()"
+    <div class="card dash-branch-card" role="button" tabindex="0" onclick="App.branchBreakdown()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.branchBreakdown()}">
-      <div class="dash-item-flags" aria-hidden="true">💰</div>
-      <div class="dash-item-title">£${esc(data.total.toFixed(2))} Made Today</div>
+      <div class="dash-branch-stat"><div class="dash-stat-num">£${esc(data.today.total.toFixed(2))}</div><div class="dash-stat-label">Made Today</div></div>
+      <div class="dash-branch-stat"><div class="dash-stat-num">£${esc(data.week.total.toFixed(2))}</div><div class="dash-stat-label">Made This Week</div></div>
     </div>`;
 }
 function loadDashboardBranch(){
   if(!psnConfigured()) return;   // no proxy at all set up - nothing to try
   // psnUrl just builds a URL against the shared Worker - nothing PSN-specific about it
-  fetch(psnUrl('/branch-earnings-today')).then(res => {
+  fetch(psnUrl('/branch-earnings')).then(res => {
     if(!res.ok) throw new Error('not configured');
     return res.json();
   }).then(data => {
     DASH_BRANCH_DATA = data;
     const slot = $('#dash-branch-slot'); if(slot) slot.innerHTML = dashBranchWidgetHTML(data);
-    balanceDashboardColumns();
   }).catch(() => {
-    // Branch isn't configured (or the Worker's stale/unreachable) - the tile just isn't shown,
+    // Branch isn't configured (or the Worker's stale/unreachable) - the card just isn't shown,
     // same "fails quiet" convention loadDashboardSong's own catch uses
     DASH_BRANCH_DATA = null;
     const slot = $('#dash-branch-slot'); if(slot) slot.innerHTML = '';
-    balanceDashboardColumns();
   });
 }
 function dashGigsStatWidgetHTML(){
@@ -3436,8 +3451,8 @@ function renderDashboard(){
     <div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
+    <div id="dash-branch-slot">${dashBranchPlaceholderHTML()}</div>
     <div class="dash-stat-grid">
-      <div id="dash-branch-slot">${dashBranchPlaceholderHTML()}</div>
       <div id="dash-places-slot">${dashPlacesBeenWidgetHTML()}</div>
       <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
       <div id="dash-films-slot">${dashFilmsSeenWidgetHTML()}</div>
@@ -5840,6 +5855,11 @@ function plantWaterButtonHTML(p, sm){
     // way - watering twice in a day is normal, not something to block.
     if(showUndo) return `<button type="button" class="plant-water-btn sm undo" aria-label="Undo watering"
           onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`;
+    // a still-unplanted vegetable isn't overdue for water, it just hasn't started yet - the
+    // shovel says "plant me", not "water me", since a watering-shaped icon here would read as
+    // an actual watering need it doesn't have
+    if(p.stage===PLANT_STAGE_DEFAULT) return `<button type="button" class="plant-water-btn sm" aria-label="Not planted yet"
+          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">🪏</button>`;
     const enough = !plantOverdue(p);
     return `<button type="button" class="plant-water-btn sm${enough?' checkmark':''}" aria-label="${enough?'Watered enough for now - log another watering':'Log watering'}"
           onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">${enough?'✅':'💧'}</button>`;
@@ -6144,8 +6164,9 @@ function delPlantImpl(id){
    fuller cloud sync happens if/when the Plants tab itself is opened). */
 function plantHomeChipHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
+  const unplanted = p.stage===PLANT_STAGE_DEFAULT ? ' plant-unplanted' : '';
   return `
-    <div class="plant-home-chip" role="button" tabindex="0" onclick="location.hash='${href}'"
+    <div class="plant-home-chip${unplanted}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
       ${plantIconHTML(p, 'plant-home-emoji')}
       ${plantWaterButtonHTML(p, true)}
@@ -6176,11 +6197,22 @@ App.setWhenKind = setWhenKindImpl;
 App.psnConnect = psnConnectImpl;
 App.psnDisconnect = psnDisconnectImpl;
 App.psnToggleHidden = psnToggleHiddenImpl;
+/* both periods' breakdowns in one modal, rather than noteModal (which only takes a single
+   plain-text body) - built by hand since it's just two short, static rows */
 App.branchBreakdown = () => {
   const d = DASH_BRANCH_DATA; if(!d) return;
-  const parts = [`Line items: £${d.lineItems.toFixed(2)}`];
-  if(d.isWeekday && d.salaryConfigured) parts.push(`9-to-5 (pro-rated): £${d.salary.toFixed(2)}`);
-  noteModal('Made Today', `${parts.join(' + ')} = £${d.total.toFixed(2)}`);
+  const row = (label, stat) => {
+    const parts = [`Line items: £${stat.lineItems.toFixed(2)}`];
+    if(stat.salary > 0) parts.push(`9-to-5 (pro-rated): £${stat.salary.toFixed(2)}`);
+    return `<p class="small" style="margin-bottom:14px"><strong>${esc(label)}: £${stat.total.toFixed(2)}</strong><br>${esc(parts.join(' + '))}</p>`;
+  };
+  openModal(`
+    <h2>Made Today &amp; This Week</h2>
+    ${row('Today', d.today)}
+    ${row('This Week', d.week)}
+    <div class="modal-actions btn-row" style="justify-content:flex-end">
+      <button class="btn primary" onclick="closeModal()">OK</button>
+    </div>`);
 };
 App.expandBanner = btn => {
   const span = btn.previousElementSibling;

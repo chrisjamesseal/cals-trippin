@@ -1,4 +1,4 @@
-# Proxy (for the Games, News, Music, Films tabs and Home's Made Today widget)
+# Proxy (for the Games, News, Music, Films tabs and Home's Made Today/This Week card)
 
 > A handful of endpoints live here, all for the same reason: a browser can't make these calls
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` `/film-news`
@@ -6,7 +6,7 @@
 > `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` `/spotify-top-tracks` group for Music's artist search, Artists
 > checklist and Songs tab, `/letterboxd-diary` for Films' Letterboxd sync, and
-> `/branch-earnings-today` for Home's Made Today widget. Deploying this once turns all of them
+> `/branch-earnings` for Home's Made Today/This Week card. Deploying this once turns all of them
 > on. (Board Games and the Games tab's Wishlist aren't here - see "Connect BoardGameGeek" and
 > "Connect RAWG" below for where those actually live and their own one-time setup.)
 
@@ -173,12 +173,13 @@ already live; if not, deploying it (see "Deploy it" above) turns this on along w
 else. In the Films tab, tap **Connect Letterboxd** and enter your username (the one in your
 profile URL, not your display name).
 
-## Connect Branch (for Home's Made Today widget)
+## Connect Branch (for Home's Made Today/This Week card)
 
-Home's top tile shows what you've made today: the total of every invoice line item logged in
-[Branch](https://github.com/chrisjamesseal/branch) (a separate CRM app) between 07:00 and 23:30
-that day, plus a pro-rated day's pay from a separate 9-to-5 job on weekdays (annual salary ÷ 260
-working days). Tap the tile to see the two numbers broken out.
+Home's top card shows two figures: what you've made today (every invoice line item logged in
+[Branch](https://github.com/chrisjamesseal/branch), a separate CRM app, between 07:00 and 23:30
+that day) and what you've made this week (Monday 00:00 through now) - each with a pro-rated
+day's pay from a separate 9-to-5 job added on top for every weekday that's started (annual
+salary ÷ 260 working days). Tap the card to see both breakdowns.
 
 Unlike everything else on this page, there's no in-app "Connect" step - Branch's data lives in
 its own Supabase project, and Supabase's row-level security means reading it needs a privileged
@@ -200,15 +201,15 @@ key that only ever touches this Worker, never the browser:
    ```
    wrangler secret put BRANCH_ANNUAL_SALARY
    ```
-   Leaving this unset just means the tile only ever shows the line-items total, every day
+   Leaving this unset just means the card only ever shows the line-items totals, every day
    (weekday salary contributes £0 rather than erroring).
-4. `wrangler deploy`. The tile appears on Home on your next visit - no per-device login step,
+4. `wrangler deploy`. The card appears on Home on your next visit - no per-device login step,
    since (again unlike Games/Music) the Worker authenticates to Supabase itself rather than on
    your behalf.
 
 **Worth doing at the same time:** every other endpoint on this Worker either needs no auth at
 all (the RSS feeds) or is gated by a token proving who's asking (PSN/Spotify's bearer tokens).
-`/branch-earnings-today` has neither - the service_role key above is what authorizes the
+`/branch-earnings` has neither - the service_role key above is what authorizes the
 request, not the caller, so anyone who finds this Worker's URL and knows the route can otherwise
 call it too. Uncomment and set `ALLOWED_ORIGIN` in `wrangler.toml` (see "Deploy it" above) before
 or right after setting this up, so only your own deployed app's origin can reach it.
@@ -280,16 +281,21 @@ variable - see "Connect TMDb" above. The same missing key is why a CSV import's 
 posters…" step silently finds none - nothing breaks, the films just stay posterless the way they
 came in from the CSV.
 
-If Home's Made Today tile just doesn't appear at all, that's by design when Branch isn't
-configured yet (see "Connect Branch" above) - `loadDashboardBranch` fails quiet rather than
-showing a dead-end "Connect" prompt, since unlike Games/Music there's nowhere in this app to
-send you to finish the setup; check the Worker's own Logs tab in the Cloudflare dashboard for
-the actual error (missing secrets show as "Branch isn't configured", a Supabase-side problem
-shows as "Branch (Supabase) returned status …"). A wrong `BRANCH_SUPABASE_URL` or an
-anon/publishable key used in place of the service_role one both show up as that same
-Supabase-status error - a `401`/`403` specifically points at the key (row-level security
-blocking it), not the URL. If the tile shows but the number looks off, check
-`BRANCH_ANNUAL_SALARY` is a plain number (no `£`, no commas) and that today's line items in
-Branch actually fall inside the 07:00-23:30 window `worker.js`'s `branchTodayWindow` uses -
-anything logged outside it (working late past 23:30, say) isn't counted until the next day's
-total instead.
+If Home's Made Today/This Week card just doesn't appear at all, that's by design when Branch
+isn't configured yet (see "Connect Branch" above) - `loadDashboardBranch` fails quiet rather
+than showing a dead-end "Connect" prompt, since unlike Games/Music there's nowhere in this app
+to send you to finish the setup; opening `/branch-earnings` directly in a browser tab is the
+fastest way to see the actual error (missing secrets show as "Branch isn't configured", a
+Supabase-side problem shows as "Branch (Supabase) returned status … : {the PostgREST error
+body}" - a `42703 column ... does not exist` there means a migration in Branch's own
+`supabase/migrations/` hasn't actually been run against the live database yet, most likely
+`0031_invoice_line_item_created_at.sql`/`0032_invoice_line_item_updated_at.sql`, since
+`created_at` on `invoice_line_items` is what both totals filter on). A wrong
+`BRANCH_SUPABASE_URL` or an anon/publishable key used in place of the service_role one both show
+up as that same Supabase-status error too - a `401`/`403` specifically points at the key
+(row-level security blocking it), not the URL. If the card shows but a number looks off, check
+`BRANCH_ANNUAL_SALARY` is a plain number (no `£`, no commas); if today's total specifically
+looks far too high just once, that's likely `ADD COLUMN created_at ... DEFAULT now()` having
+just backfilled every pre-existing line item's `created_at` to the moment that migration ran
+(a one-time Postgres quirk, not lost or duplicated data) - it self-corrects the next day, since
+those rows won't fall inside a future day's window again.

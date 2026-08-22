@@ -680,20 +680,21 @@ async function fetchSpotifyTopTracks(accessToken, timeRange){
    rather than a route on this Worker - see that file for why (BoardGameGeek's API 401s every
    request that comes from here, and Vercel's network is worth a try instead of Cloudflare's). */
 
-/* ================= Branch (Home's "Made Today" widget) =================
+/* ================= Branch (Home's "Made Today / This Week" widget) =================
    Branch is a separate CRM (github.com/chrisjamesseal/branch) built with Next.js + Supabase,
    used to log freelance work as invoice line items - each one timestamped the moment it's
    added, valued at whatever quantity x unit price (or hours x rate) it was entered as - and to
-   raise/track invoices against clients. Home's "Made Today" widget pulls one number out of it:
-   what today's line items add up to, plus a pro-rated day's pay from a separate 9-to-5 job on
-   weekdays, without this app needing to know anything else about Branch's data model.
+   raise/track invoices against clients. Home's widget pulls two figures out of it: today's line
+   items (07:00-23:30 Europe/London) and this week's (Monday 00:00 through now), each with a
+   pro-rated day's pay from a separate 9-to-5 job added on top for every weekday that's started,
+   without this app needing to know anything else about Branch's data model.
 
    Supabase's row-level security scopes every table to owner_id = auth.uid(), so reading it
    from here - a server with no logged-in Supabase session of its own - needs a privileged key
    that bypasses RLS: the service_role key from that Supabase project's own dashboard
    (Settings -> API), not the public anon key the Branch app itself uses in the browser.
    Requires BRANCH_SUPABASE_URL and BRANCH_SUPABASE_SERVICE_KEY as Worker secrets;
-   BRANCH_ANNUAL_SALARY is optional (see fetchBranchEarningsToday below for what's skipped
+   BRANCH_ANNUAL_SALARY is optional (see fetchBranchEarnings below for what's skipped
    without it). Unlike every other integration on this Worker, this one has no per-request
    bearer token proving who's asking - the service key above is what authorizes the request,
    not the caller, so setting ALLOWED_ORIGIN (see wrangler.toml) matters more here than it does
@@ -711,13 +712,32 @@ function londonOffsetMinutes(date){
   const m = /GMT([+-]\d+)?/.exec(tz);
   return (m && m[1]) ? parseInt(m[1],10) * 60 : 0;
 }
-function branchTodayWindow(now){
+function londonDateAndWeekday(now){
   const ymd = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/London', year:'numeric', month:'2-digit', day:'2-digit'}).format(now);
   const weekday = new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London', weekday:'short'}).format(now);
+  return {ymd, weekday};
+}
+function branchTodayWindow(now){
+  const {ymd, weekday} = londonDateAndWeekday(now);
   const offset = londonOffsetMinutes(now);
   const start = new Date(`${ymd}T07:00:00Z`); start.setUTCMinutes(start.getUTCMinutes() - offset);
   const end = new Date(`${ymd}T23:30:00Z`); end.setUTCMinutes(end.getUTCMinutes() - offset);
   return {ymd, start, end, isWeekday: !['Sat','Sun'].includes(weekday)};
+}
+/* Monday 00:00 Europe/London of the current week through right now - no 07:00-23:30 windowing
+   within that (that's specifically a same-day noise filter, not something a week total needs).
+   weekdaysSoFar counts Mon..Fri days that have started already this week (today included, if
+   today's itself a weekday) - capped at 5 since the whole working week's elapsed by Saturday. */
+const WEEKDAY_ORDER = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function branchWeekWindow(now){
+  const {ymd, weekday} = londonDateAndWeekday(now);
+  const dayIndex = WEEKDAY_ORDER.indexOf(weekday);
+  const offset = londonOffsetMinutes(now);
+  const mondayMidnightUTCDateOnly = new Date(`${ymd}T00:00:00Z`);
+  mondayMidnightUTCDateOnly.setUTCDate(mondayMidnightUTCDateOnly.getUTCDate() - dayIndex);
+  const mondayYmd = mondayMidnightUTCDateOnly.toISOString().slice(0, 10);
+  const start = new Date(`${mondayYmd}T00:00:00Z`); start.setUTCMinutes(start.getUTCMinutes() - offset);
+  return {start, weekdaysSoFar: Math.min(dayIndex + 1, 5)};
 }
 async function branchLineItemTotal(env, start, end){
   const url = `${env.BRANCH_SUPABASE_URL.replace(/\/$/,'')}/rest/v1/invoice_line_items` +
@@ -736,22 +756,29 @@ async function branchLineItemTotal(env, start, end){
   return rows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
 }
 /* line items count regardless of the invoice they're on being sent/paid yet - they're a log of
-   work done today, not of money actually collected, which is the whole point of a same-day
+   work done, not of money actually collected, which is the whole point of a same-day/same-week
    total (an invoice might not go out, let alone get paid, for weeks). Weekday salary is a flat
-   pro-rated add-on once the day counts as a weekday at all, not scaled by how much of it has
+   pro-rated add-on for each weekday that's started already, not scaled by how much of a day has
    passed - you're on payroll for the whole day the moment it starts. */
-async function fetchBranchEarningsToday(env){
+async function fetchBranchEarnings(env){
   if(!env.BRANCH_SUPABASE_URL || !env.BRANCH_SUPABASE_SERVICE_KEY){
     throw Object.assign(new Error("Branch isn't configured - add BRANCH_SUPABASE_URL and BRANCH_SUPABASE_SERVICE_KEY as Worker secrets"), {status:503});
   }
-  const {ymd, start, end, isWeekday} = branchTodayWindow(new Date());
-  const lineItems = await branchLineItemTotal(env, start, end);
+  const now = new Date();
+  const {ymd, start: todayStart, end: todayEnd, isWeekday} = branchTodayWindow(now);
+  const {start: weekStart, weekdaysSoFar} = branchWeekWindow(now);
+  const [todayLineItems, weekLineItems] = await Promise.all([
+    branchLineItemTotal(env, todayStart, todayEnd),
+    branchLineItemTotal(env, weekStart, now),
+  ]);
   const salaryConfigured = !!env.BRANCH_ANNUAL_SALARY;
   const dailySalary = salaryConfigured ? (parseFloat(env.BRANCH_ANNUAL_SALARY) / BRANCH_WORKDAYS_PER_YEAR) : 0;
-  const salary = isWeekday ? dailySalary : 0;
+  const todaySalary = isWeekday ? dailySalary : 0;
+  const weekSalary = dailySalary * weekdaysSoFar;
   return {
     date: ymd, isWeekday, salaryConfigured,
-    lineItems: branchRound2(lineItems), salary: branchRound2(salary), total: branchRound2(lineItems + salary),
+    today: {lineItems: branchRound2(todayLineItems), salary: branchRound2(todaySalary), total: branchRound2(todayLineItems + todaySalary)},
+    week: {lineItems: branchRound2(weekLineItems), salary: branchRound2(weekSalary), total: branchRound2(weekLineItems + weekSalary)},
   };
 }
 
@@ -855,11 +882,11 @@ export default {
         if(!token) return json({error:'missing bearer token'}, 401, env);
         return json(await fetchSpotifyTopTracks(token, url.searchParams.get('time_range')), 200, env);
       }
-      if(request.method === 'GET' && url.pathname === '/branch-earnings-today'){
+      if(request.method === 'GET' && url.pathname === '/branch-earnings'){
         // personal financial data, changes through the day - not cached, and (see this
         // section's own comment above) gated by the Supabase service key rather than a
         // per-request bearer token
-        return json(await fetchBranchEarningsToday(env), 200, env);
+        return json(await fetchBranchEarnings(env), 200, env);
       }
       return json({error:'not found'}, 404, env);
     }catch(e){
