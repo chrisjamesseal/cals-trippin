@@ -405,6 +405,10 @@ a{color:var(--brand-dark);}
 .plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px;}
 .plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px;
   padding:22px 10px 12px; cursor:pointer; margin-bottom:0;}
+/* a vegetable still on "Not Planted" isn't actually being grown yet - fading the whole card
+   (rather than just its stage label) makes that read at a glance across a grid of several,
+   without needing to open each one to check */
+.plant-card.plant-unplanted{opacity:.55;}
 .plant-emoji{font-size:2rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji.plant-icon-img{width:32px; height:32px; object-fit:cover; border-radius:8px;}
@@ -427,17 +431,20 @@ a{color:var(--brand-dark);}
    today (see plantWaterButtonHTML) - the word "Watered" read as a status either way, tappable
    or not, so leaving it tappable made an already-watered plant look like it still needed a tap. */
 .plant-water-action-btn{display:flex; flex-direction:row; align-items:center; justify-content:center;
-  gap:8px; width:100%; margin-top:8px; border:1px solid var(--line-strong); border-radius:var(--radius-sm);
+  gap:8px; width:100%; margin-top:8px; border:1px solid #2E86DE; border-radius:var(--radius-sm);
   background:var(--paper); cursor:pointer; padding:9px 20px; font:inherit; font-weight:700;
   font-size:.78rem; color:var(--ink);}
 .plant-water-btn-emoji{font-size:1.05rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-water-action-btn.overdue{border-color:#C0392B; background:#FCEBE9;}
-.plant-water-action-btn.done{border-color:var(--brand); background:var(--brand-tint);}
+.plant-water-action-btn.overdue{background:#FCEBE9;}
+.plant-water-action-btn.done{background:var(--brand-tint);}
 /* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
    solid border so it doesn't read as just another status colour like overdue/done do */
 .plant-water-action-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
-.plant-water-action-btn:disabled{opacity:.7; cursor:default;}
+/* disabled once already watered today (see plantWaterButtonHTML) - noticeably more faded than a
+   typical disabled control, since "Watered" needs to read as a completed state at a glance, not
+   just a slightly-dimmed button */
+.plant-water-action-btn:disabled{opacity:.45; cursor:default;}
 /* Home's chips (dashPlantsWidgetHTML) use this small icon-only circle instead - six-plus of
    them sit side by side there, so a full labelled button per chip wouldn't fit */
 .plant-water-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
@@ -1160,8 +1167,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.27.1';
+const APP_VERSION = '2.27.2';
 const CHANGELOG = [
+  {version:'2.27.2', notes:[
+    "Plants: the Watered button's outline is blue now, and it fades noticeably more once it's disabled (already watered today). A vegetable still on \"Not Planted\" fades its whole card, on both the Plants page and its own detail page, so it reads as not-actively-growing-yet at a glance.",
+  ]},
   {version:'2.27.1', notes:[
     "Plants: the Watered button is disabled once a vegetable's already had water today - it used to stay tappable and just say \"Watered\" either way, so an already-watered plant looked exactly like one still waiting for a tap. Also added a \"Not Planted\" stage ahead of Seed Sown, for a vegetable you're tracking before it's actually gone in the ground - new vegetables start there now.",
   ]},
@@ -5841,8 +5851,9 @@ function plantWaterButtonHTML(p, sm){
 }
 function plantCardHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
+  const unplanted = p.stage===PLANT_STAGE_DEFAULT ? ' plant-unplanted' : '';
   return `
-    <div class="card plant-card" role="button" tabindex="0" onclick="location.hash='${href}'"
+    <div class="card plant-card${unplanted}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
       ${plantIconHTML(p, 'plant-emoji')}
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
@@ -5920,7 +5931,7 @@ function renderPlantDetail(id){
         <button class="btn sm ghost" onclick="App.plantForm('${esc(p.id)}')">Edit</button>
       </div>
     </div>
-    <div class="card plant-card" style="cursor:default; margin-bottom:22px">
+    <div class="card plant-card${p.stage===PLANT_STAGE_DEFAULT?' plant-unplanted':''}" id="plant-detail-card" style="cursor:default; margin-bottom:22px">
       ${plantIconHTML(p, 'plant-emoji')}
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
       <div id="plant-detail-stage">${plantDetailStageHTML(p)}</div>
@@ -5938,6 +5949,8 @@ function drawPlantDetail(id){
   waterRoot.innerHTML = plantDetailWaterHTML(p);
   const stageRoot = $('#plant-detail-stage'); if(stageRoot) stageRoot.innerHTML = plantDetailStageHTML(p);
   const timelineRoot = $('#plant-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantTimelineHTML(p);
+  const cardRoot = $('#plant-detail-card');
+  if(cardRoot) cardRoot.classList.toggle('plant-unplanted', p.stage===PLANT_STAGE_DEFAULT);
 }
 function plantDeleteLogEntryImpl(id, type, ts){
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
