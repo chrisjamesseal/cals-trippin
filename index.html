@@ -1167,8 +1167,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.27.2';
+const APP_VERSION = '2.27.3';
 const CHANGELOG = [
+  {version:'2.27.3', notes:[
+    "Home: Watch Next now shows above Last Seen instead of below it.",
+  ]},
   {version:'2.27.2', notes:[
     "Plants: the Watered button's outline is blue now, and it fades noticeably more once it's disabled (already watered today). A vegetable still on \"Not Planted\" fades its whole card, on both the Plants page and its own detail page, so it reads as not-actively-growing-yet at a glance.",
   ]},
@@ -3428,8 +3431,8 @@ function renderDashboard(){
     ${dashGigWidgetHTML()}
     <div id="dash-games-current-slot" class="dash-slot"></div>
     <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
-    ${dashLastSeenFilmWidgetHTML()}
     ${dashRandomWatchlistWidgetHTML()}
+    ${dashLastSeenFilmWidgetHTML()}
     <div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
