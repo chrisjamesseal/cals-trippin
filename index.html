@@ -1155,8 +1155,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.26.1';
+const APP_VERSION = '2.26.2';
 const CHANGELOG = [
+  {version:'2.26.2', notes:[
+    "Plants: Sprouted now has its own emoji (🌿). Dropped \"Flowering / Fruiting\" from the stage list too - it didn't fit root veg like carrots (they don't fruit, and flowering there usually means bolting, not progress), so the list is now Seed Sown, Sprouted, Growing, Ready to Harvest, Harvested for every vegetable. Anything already sat on the old Flowering stage now reads as Growing instead.",
+  ]},
   {version:'2.26.1', notes:[
     "Plants: the stage buttons on a vegetable's own page are full width now, one per row, and the redundant status line above them is gone since the highlighted button already says what stage it's on. On both that page and the Plants grid card, \"Last Watered\" now sits below the watering button instead of above it.",
   ]},
@@ -5610,17 +5613,22 @@ function openTrip(id){
 }
 
 /* ================= plants (vegetable growing tracker) ================= */
-/* emoji is only set where one's actually accurate for the stage - Sprouted genuinely doesn't
-   have a matching one in Unicode, so it just shows as plain text rather than reaching for
-   something that isn't quite right */
+/* one universal list for every vegetable, not tailored per type - kept to stages that genuinely
+   apply across the board. "Flowering / Fruiting" used to be in here but didn't fit root veg like
+   carrots (they don't fruit, and flowering usually means bolting, not progress), so it's gone;
+   see PLANT_STAGE_LEGACY_MAP for what happens to any vegetable still sat on that old stage.
+   emoji is only set where one's actually accurate for the stage */
 const PLANT_STAGES = [
   {k:'seed', label:'Seed Sown', emoji:'🌱'},
-  {k:'sprout', label:'Sprouted'},
+  {k:'sprout', label:'Sprouted', emoji:'🌿'},
   {k:'growing', label:'Growing', emoji:'🪴'},
-  {k:'flowering', label:'Flowering / Fruiting', emoji:'🌸'},
   {k:'ready', label:'Ready to Harvest', emoji:'🧺'},
   {k:'harvested', label:'Harvested', emoji:'✅'},
 ];
+/* a vegetable saved while "Flowering / Fruiting" still existed keeps that raw key in its data -
+   this maps it back to the closest stage still on the list (still growing, not yet ready) so it
+   reads sensibly everywhere a stage gets looked up, without needing to rewrite old records */
+const PLANT_STAGE_LEGACY_MAP = {flowering:'growing'};
 const PLANT_EMOJIS = ['🍅','🥕','🥬','🥦','🌽','🥒','🫑','🌶️','🧄','🧅','🥔','🍆','🫛','🫘','🫜','🥑','🫒','🌿','🍓','🫐','🍇','🎃','🍈','🍉','🌱'];
 /* a handful of common name -> emoji matches so a fresh vegetable often gets the right icon
    picked automatically as soon as its name is typed - plantNameInputImpl only applies this
@@ -5706,7 +5714,8 @@ function plantIconHTML(p, cls){
     ? `<img class="${cls} plant-icon-img" src="${esc(p.customIcon)}" alt="">`
     : `<span class="${cls}" aria-hidden="true">${p.emoji||'🌱'}</span>`;
 }
-function plantStageIdx(k){ const i = PLANT_STAGES.findIndex(s=>s.k===k); return i<0 ? 0 : i; }
+function plantStageKey(k){ return PLANT_STAGE_LEGACY_MAP[k] || k; }
+function plantStageIdx(k){ const i = PLANT_STAGES.findIndex(s=>s.k===plantStageKey(k)); return i<0 ? 0 : i; }
 /* the current stage's own label, with its emoji if it has one - used on the Plants grid card,
    the one place a status readout is needed without also being a way to change it (the
    detail page's own picker below already shows the current stage via its .on button, so it
@@ -5993,7 +6002,7 @@ function plantFormImpl(id){
       <div class="plant-emoji-picker" id="plant-emoji-picker">${plantEmojiPickerHTML(PLANT_FORM_EMOJI)}</div>
     </div>
     <div class="field"><label class="label" for="plant-stage">Stage</label>
-      <select id="plant-stage">${PLANT_STAGES.map(s=>`<option value="${s.k}"${(p?p.stage:'seed')===s.k?' selected':''}>${esc(s.label)}</option>`).join('')}</select></div>
+      <select id="plant-stage">${PLANT_STAGES.map(s=>`<option value="${s.k}"${plantStageKey(p?p.stage:'seed')===s.k?' selected':''}>${esc(s.label)}</option>`).join('')}</select></div>
     <div class="field"><label class="label" for="plant-planted">Planted</label>
       <input id="plant-planted" type="date" value="${esc((p&&p.plantedDate)||todayStr())}"></div>
     <div class="field"><label class="label" for="plant-freq">Water Every (Days)</label>
