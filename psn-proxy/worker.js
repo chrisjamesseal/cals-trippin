@@ -680,6 +680,75 @@ async function fetchSpotifyTopTracks(accessToken, timeRange){
    rather than a route on this Worker - see that file for why (BoardGameGeek's API 401s every
    request that comes from here, and Vercel's network is worth a try instead of Cloudflare's). */
 
+/* ================= Branch (Home's "Made Today" widget) =================
+   Branch is a separate CRM (github.com/chrisjamesseal/branch) built with Next.js + Supabase,
+   used to log freelance work as invoice line items - each one timestamped the moment it's
+   added, valued at whatever quantity x unit price (or hours x rate) it was entered as - and to
+   raise/track invoices against clients. Home's "Made Today" widget pulls one number out of it:
+   what today's line items add up to, plus a pro-rated day's pay from a separate 9-to-5 job on
+   weekdays, without this app needing to know anything else about Branch's data model.
+
+   Supabase's row-level security scopes every table to owner_id = auth.uid(), so reading it
+   from here - a server with no logged-in Supabase session of its own - needs a privileged key
+   that bypasses RLS: the service_role key from that Supabase project's own dashboard
+   (Settings -> API), not the public anon key the Branch app itself uses in the browser.
+   Requires BRANCH_SUPABASE_URL and BRANCH_SUPABASE_SERVICE_KEY as Worker secrets;
+   BRANCH_ANNUAL_SALARY is optional (see fetchBranchEarningsToday below for what's skipped
+   without it). Unlike every other integration on this Worker, this one has no per-request
+   bearer token proving who's asking - the service key above is what authorizes the request,
+   not the caller, so setting ALLOWED_ORIGIN (see wrangler.toml) matters more here than it does
+   for the others, since anyone who finds this Worker's URL can otherwise call it too. */
+const BRANCH_WORKDAYS_PER_YEAR = 260;   // 52 weeks x 5 weekdays - a simple, common approximation
+function branchRound2(n){ return Math.round(n * 100) / 100; }
+/* Europe/London's current UTC offset (0 in winter, 60 minutes in summer) - used to convert the
+   day's 07:00-23:30 local window into the UTC timestamps Supabase actually stores created_at
+   as. Computed fresh per request rather than hardcoded so it tracks the BST switch on its own;
+   the only day this is ever wrong is the day the offset itself changes mid-window, which
+   nothing here needs to be exact about. */
+function londonOffsetMinutes(date){
+  const parts = new Intl.DateTimeFormat('en-US', {timeZone:'Europe/London', timeZoneName:'shortOffset'}).formatToParts(date);
+  const tz = (parts.find(p=>p.type==='timeZoneName') || {}).value || 'GMT';
+  const m = /GMT([+-]\d+)?/.exec(tz);
+  return (m && m[1]) ? parseInt(m[1],10) * 60 : 0;
+}
+function branchTodayWindow(now){
+  const ymd = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/London', year:'numeric', month:'2-digit', day:'2-digit'}).format(now);
+  const weekday = new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London', weekday:'short'}).format(now);
+  const offset = londonOffsetMinutes(now);
+  const start = new Date(`${ymd}T07:00:00Z`); start.setUTCMinutes(start.getUTCMinutes() - offset);
+  const end = new Date(`${ymd}T23:30:00Z`); end.setUTCMinutes(end.getUTCMinutes() - offset);
+  return {ymd, start, end, isWeekday: !['Sat','Sun'].includes(weekday)};
+}
+async function branchLineItemTotal(env, start, end){
+  const url = `${env.BRANCH_SUPABASE_URL.replace(/\/$/,'')}/rest/v1/invoice_line_items` +
+    `?select=amount&created_at=gte.${encodeURIComponent(start.toISOString())}&created_at=lte.${encodeURIComponent(end.toISOString())}`;
+  const res = await fetch(url, {
+    headers: { apikey: env.BRANCH_SUPABASE_SERVICE_KEY, Authorization: 'Bearer ' + env.BRANCH_SUPABASE_SERVICE_KEY },
+  });
+  if(!res.ok) throw new Error('Branch (Supabase) returned status ' + res.status);
+  const rows = await res.json();
+  return rows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+}
+/* line items count regardless of the invoice they're on being sent/paid yet - they're a log of
+   work done today, not of money actually collected, which is the whole point of a same-day
+   total (an invoice might not go out, let alone get paid, for weeks). Weekday salary is a flat
+   pro-rated add-on once the day counts as a weekday at all, not scaled by how much of it has
+   passed - you're on payroll for the whole day the moment it starts. */
+async function fetchBranchEarningsToday(env){
+  if(!env.BRANCH_SUPABASE_URL || !env.BRANCH_SUPABASE_SERVICE_KEY){
+    throw Object.assign(new Error("Branch isn't configured - add BRANCH_SUPABASE_URL and BRANCH_SUPABASE_SERVICE_KEY as Worker secrets"), {status:503});
+  }
+  const {ymd, start, end, isWeekday} = branchTodayWindow(new Date());
+  const lineItems = await branchLineItemTotal(env, start, end);
+  const salaryConfigured = !!env.BRANCH_ANNUAL_SALARY;
+  const dailySalary = salaryConfigured ? (parseFloat(env.BRANCH_ANNUAL_SALARY) / BRANCH_WORKDAYS_PER_YEAR) : 0;
+  const salary = isWeekday ? dailySalary : 0;
+  return {
+    date: ymd, isWeekday, salaryConfigured,
+    lineItems: branchRound2(lineItems), salary: branchRound2(salary), total: branchRound2(lineItems + salary),
+  };
+}
+
 export default {
   async fetch(request, env, ctx){
     if(request.method === 'OPTIONS') return new Response(null, {headers: corsHeaders(env)});
@@ -779,6 +848,12 @@ export default {
         const token = bearerFrom(request);
         if(!token) return json({error:'missing bearer token'}, 401, env);
         return json(await fetchSpotifyTopTracks(token, url.searchParams.get('time_range')), 200, env);
+      }
+      if(request.method === 'GET' && url.pathname === '/branch-earnings-today'){
+        // personal financial data, changes through the day - not cached, and (see this
+        // section's own comment above) gated by the Supabase service key rather than a
+        // per-request bearer token
+        return json(await fetchBranchEarningsToday(env), 200, env);
       }
       return json({error:'not found'}, 404, env);
     }catch(e){

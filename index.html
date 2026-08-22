@@ -1159,8 +1159,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.26.4';
+const APP_VERSION = '2.27.0';
 const CHANGELOG = [
+  {version:'2.27.0', notes:[
+    "Home: new \"Made Today\" tile at the top - today's freelance invoice line items from Branch (a separate CRM), plus a pro-rated day's pay from the 9-to-5 on weekdays. Tap it for the breakdown. Needs a one-time Worker setup - see psn-proxy/README.md's \"Connect Branch\" section - and just doesn't show until that's done.",
+  ]},
   {version:'2.26.4', notes:[
     "Plants: dropped the circle around Home's water button once it's showing the checkmark - the checkmark already reads as \"done\" on its own, so the circle was just doubling up the shape. The water-drop state keeps its circle.",
   ]},
@@ -3092,6 +3095,45 @@ function dashGigsBeenCount(range){
   const cutoff = dashRangeCutoffStr(range);
   return (DB.gigs||[]).filter(g=>g.date && g.date<=todayStr() && (!cutoff || g.date>=cutoff)).length;
 }
+/* Branch (a separate CRM, github.com/chrisjamesseal/branch) logs freelance work as invoice
+   line items, each timestamped the moment it's added - this pulls today's total straight from
+   its database via a Worker route (see psn-proxy/worker.js's own Branch section for the
+   server-side half: Supabase, RLS, the 07:00-23:30 window). No per-device connect step the way
+   PSN/Spotify have, since there's nothing for this browser to log into - it's configured
+   entirely on the Worker, so the tile just tries the fetch and quietly disappears (see
+   loadDashboardBranch's catch) if it isn't set up yet, rather than showing a "Connect" prompt
+   with nowhere in this app to send you. Tapping it shows the line-items/salary breakdown
+   behind the one number, since the tile itself only has room for the total. */
+let DASH_BRANCH_DATA = null;
+function dashBranchPlaceholderHTML(){
+  return `<div class="dash-widget dash-widget-row"><div class="dash-item-flags" aria-hidden="true">💰</div><div class="dash-item-title">Loading…</div></div>`;
+}
+function dashBranchWidgetHTML(data){
+  return `
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.branchBreakdown()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.branchBreakdown()}">
+      <div class="dash-item-flags" aria-hidden="true">💰</div>
+      <div class="dash-item-title">£${esc(data.total.toFixed(2))} Made Today</div>
+    </div>`;
+}
+function loadDashboardBranch(){
+  if(!psnConfigured()) return;   // no proxy at all set up - nothing to try
+  // psnUrl just builds a URL against the shared Worker - nothing PSN-specific about it
+  fetch(psnUrl('/branch-earnings-today')).then(res => {
+    if(!res.ok) throw new Error('not configured');
+    return res.json();
+  }).then(data => {
+    DASH_BRANCH_DATA = data;
+    const slot = $('#dash-branch-slot'); if(slot) slot.innerHTML = dashBranchWidgetHTML(data);
+    balanceDashboardColumns();
+  }).catch(() => {
+    // Branch isn't configured (or the Worker's stale/unreachable) - the tile just isn't shown,
+    // same "fails quiet" convention loadDashboardSong's own catch uses
+    DASH_BRANCH_DATA = null;
+    const slot = $('#dash-branch-slot'); if(slot) slot.innerHTML = '';
+    balanceDashboardColumns();
+  });
+}
 function dashGigsStatWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGigsSeen()"
@@ -3378,6 +3420,7 @@ function renderDashboard(){
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     <div class="dash-stat-grid">
+      <div id="dash-branch-slot">${dashBranchPlaceholderHTML()}</div>
       <div id="dash-places-slot">${dashPlacesBeenWidgetHTML()}</div>
       <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
       <div id="dash-films-slot">${dashFilmsSeenWidgetHTML()}</div>
@@ -3393,6 +3436,7 @@ function renderDashboard(){
   balanceDashboardColumns();
   loadDashboardGames();
   loadDashboardSong();
+  loadDashboardBranch();
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
@@ -6107,6 +6151,12 @@ App.setWhenKind = setWhenKindImpl;
 App.psnConnect = psnConnectImpl;
 App.psnDisconnect = psnDisconnectImpl;
 App.psnToggleHidden = psnToggleHiddenImpl;
+App.branchBreakdown = () => {
+  const d = DASH_BRANCH_DATA; if(!d) return;
+  const parts = [`Line items: £${d.lineItems.toFixed(2)}`];
+  if(d.isWeekday && d.salaryConfigured) parts.push(`9-to-5 (pro-rated): £${d.salary.toFixed(2)}`);
+  noteModal('Made Today', `${parts.join(' + ')} = £${d.total.toFixed(2)}`);
+};
 App.expandBanner = btn => {
   const span = btn.previousElementSibling;
   openModal(`<p class="small" style="white-space:normal">${span.innerHTML}</p>`, {autofocus:false});

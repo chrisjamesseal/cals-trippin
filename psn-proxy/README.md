@@ -1,14 +1,14 @@
-# Proxy (for the Games, News, Music and Films tabs)
+# Proxy (for the Games, News, Music, Films tabs and Home's Made Today widget)
 
 > A handful of endpoints live here, all for the same reason: a browser can't make these calls
 > itself. `/session`, `/refresh` and `/titles` for PlayStation, `/design-news` `/film-news`
 > `/music-news` for the News tab's RSS (three categories, merged into one feed client-side),
 > `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` `/spotify-top-tracks` group for Music's artist search, Artists
-> checklist and Songs tab, and `/letterboxd-diary` for Films' Letterboxd sync. Deploying this
-> once turns all of them on. (Board Games and the Games tab's Wishlist aren't here - see
-> "Connect BoardGameGeek" and "Connect RAWG" below for where those actually live and their own
-> one-time setup.)
+> checklist and Songs tab, `/letterboxd-diary` for Films' Letterboxd sync, and
+> `/branch-earnings-today` for Home's Made Today widget. Deploying this once turns all of them
+> on. (Board Games and the Games tab's Wishlist aren't here - see "Connect BoardGameGeek" and
+> "Connect RAWG" below for where those actually live and their own one-time setup.)
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
 and the unofficial one needs an auth step a browser can't make itself (it has to send a
@@ -173,6 +173,46 @@ already live; if not, deploying it (see "Deploy it" above) turns this on along w
 else. In the Films tab, tap **Connect Letterboxd** and enter your username (the one in your
 profile URL, not your display name).
 
+## Connect Branch (for Home's Made Today widget)
+
+Home's top tile shows what you've made today: the total of every invoice line item logged in
+[Branch](https://github.com/chrisjamesseal/branch) (a separate CRM app) between 07:00 and 23:30
+that day, plus a pro-rated day's pay from a separate 9-to-5 job on weekdays (annual salary ÷ 260
+working days). Tap the tile to see the two numbers broken out.
+
+Unlike everything else on this page, there's no in-app "Connect" step - Branch's data lives in
+its own Supabase project, and Supabase's row-level security means reading it needs a privileged
+key that only ever touches this Worker, never the browser:
+
+1. In Branch's Supabase project dashboard: **Settings → API**. Copy the **Project URL** and the
+   **service_role** key (not the `anon` one - the service key bypasses row-level security,
+   which is exactly what's needed here since this Worker has no logged-in Supabase session of
+   its own).
+2. Set them as secrets on the deployed worker, **not** in `worker.js` or anywhere else in this
+   repo - same reasoning as Spotify's credentials above, except more so: the service_role key
+   has full read/write access to every table in that Supabase project.
+   ```
+   wrangler secret put BRANCH_SUPABASE_URL
+   wrangler secret put BRANCH_SUPABASE_SERVICE_KEY
+   ```
+3. Optional: to include the weekday 9-to-5 pay figure, also set your annual salary (a plain
+   number, no currency symbol or commas):
+   ```
+   wrangler secret put BRANCH_ANNUAL_SALARY
+   ```
+   Leaving this unset just means the tile only ever shows the line-items total, every day
+   (weekday salary contributes £0 rather than erroring).
+4. `wrangler deploy`. The tile appears on Home on your next visit - no per-device login step,
+   since (again unlike Games/Music) the Worker authenticates to Supabase itself rather than on
+   your behalf.
+
+**Worth doing at the same time:** every other endpoint on this Worker either needs no auth at
+all (the RSS feeds) or is gated by a token proving who's asking (PSN/Spotify's bearer tokens).
+`/branch-earnings-today` has neither - the service_role key above is what authorizes the
+request, not the caller, so anyone who finds this Worker's URL and knows the route can otherwise
+call it too. Uncomment and set `ALLOWED_ORIGIN` in `wrangler.toml` (see "Deploy it" above) before
+or right after setting this up, so only your own deployed app's origin can reach it.
+
 ## If it breaks
 
 Sony hasn't published this API and hasn't promised not to change it. `worker.js`'s
@@ -239,3 +279,17 @@ text box either way), the Vercel project is missing (or has a stale) `TMDB_API_K
 variable - see "Connect TMDb" above. The same missing key is why a CSV import's "finding
 posters…" step silently finds none - nothing breaks, the films just stay posterless the way they
 came in from the CSV.
+
+If Home's Made Today tile just doesn't appear at all, that's by design when Branch isn't
+configured yet (see "Connect Branch" above) - `loadDashboardBranch` fails quiet rather than
+showing a dead-end "Connect" prompt, since unlike Games/Music there's nowhere in this app to
+send you to finish the setup; check the Worker's own Logs tab in the Cloudflare dashboard for
+the actual error (missing secrets show as "Branch isn't configured", a Supabase-side problem
+shows as "Branch (Supabase) returned status …"). A wrong `BRANCH_SUPABASE_URL` or an
+anon/publishable key used in place of the service_role one both show up as that same
+Supabase-status error - a `401`/`403` specifically points at the key (row-level security
+blocking it), not the URL. If the tile shows but the number looks off, check
+`BRANCH_ANNUAL_SALARY` is a plain number (no `£`, no commas) and that today's line items in
+Branch actually fall inside the 07:00-23:30 window `worker.js`'s `branchTodayWindow` uses -
+anything logged outside it (working late past 23:30, say) isn't counted until the next day's
+total instead.
