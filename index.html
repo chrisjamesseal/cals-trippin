@@ -6,7 +6,11 @@
      viewport when the on-screen keyboard opens, so position:fixed elements (the tabbar, the
      Places/Games search bar) land right above the keyboard on their own instead of sliding
      underneath it or drifting to wherever the old resizes-visual default left them; ignored
-     harmlessly on older browsers, which fall back to the --kb-inset compensation below. -->
+     harmlessly on older browsers, which just get the keyboard covering that bit of the page
+     instead - simpler than the visualViewport-tracking JS fallback this used to have, which
+     went through three rounds of timing fixes and still regularly left the search bar floating
+     above the keyboard with a gap of page showing through (see body.kb-open .games-search
+     below for the one bit of compensation this still needs). -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Chris app</title>
 <meta name="description" content="One place for your group trip: flights, money, plans and photos.">
@@ -711,10 +715,20 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    than guessed, because guessing left a sliver of page showing between the two on a phone
    whose safe-area inset made the bar taller than the arithmetic said */
 .places-search,.games-search{position:fixed; left:0; right:0; z-index:55;
-  bottom:calc(var(--bar-h,61px) + var(--kb-inset,0px));
+  bottom:var(--bar-h,61px);
   padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);
   transform:translateZ(0); will-change:transform;}
 .places-search input,.games-search input{background:var(--paper);}
+/* while the keyboard's up, the tabbar this normally sits above is hidden (body.kb-open
+   .tabbar.on above) - collapses the reserved bar-h gap so the search box drops flush to the
+   bottom instead of floating bar-h's worth above the keyboard with nothing occupying that
+   space. Trusts the page's own interactive-widget=resizes-content meta tag to have already
+   shrunk the viewport to end right above the keyboard by the time this applies - three separate
+   attempts at tracking the keyboard's height via visualViewport (a --kb-inset custom property,
+   each with its own timing fix) all still raced the resize animation and left the box floating
+   above the keyboard with a gap of page showing through, so this stops trying to measure the
+   keyboard at all rather than attempt a fourth timing fix. */
+body.kb-open .places-search,body.kb-open .games-search{bottom:0;}
 /* Films' Diary and Watchlist tabs each get the same fixed-above-the-tabbar filter box as
    Places/Games, filtering what's already on the page rather than a live TMDb search - finding a
    NEW film to log or add lives on its own full page instead (App.fwAddFilm), reached via the
@@ -1188,8 +1202,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.10';
+const APP_VERSION = '2.29.11';
 const CHANGELOG = [
+  {version:'2.29.11', notes:[
+    "Fixed the Places/Games-style search bar (now also used on Films' Diary and Watchlist tabs) floating well above the keyboard with a gap of page showing through underneath it - the keyboard-height tracking behind that has raced the keyboard's own resize animation for three fix attempts running, so it's gone for good in favour of trusting the page's viewport settings to position things correctly on their own.",
+  ]},
   {version:'2.29.10', notes:[
     "Theatre watchlist: the Seen button now sits below the show title instead of squeezed in next to it.",
   ]},
@@ -3063,23 +3080,7 @@ document.addEventListener('focusin', e => { if(e.target.matches('input,textarea'
 document.addEventListener('focusout', e => {
   if(!e.target.matches('input,textarea')) return;
   document.body.classList.remove('kb-open');
-  document.documentElement.style.setProperty('--kb-inset', '0px');
 });
-/* the Places/Games search box sits fixed just above the tabbar (--bar-h) - the viewport meta's
-   interactive-widget=resizes-content handles the keyboard correctly on its own now, but that's
-   a newer browser feature (Safari 16.4+/modern Chrome); this is the fallback for anything
-   older, where the layout viewport doesn't shrink and a plain bottom-anchored fixed element
-   would render underneath the keyboard instead of above it. visualViewport reports the real
-   usable height there, so --kb-inset lifts the search box clear of the keyboard while it's up. */
-if(window.visualViewport){
-  const vv = window.visualViewport;
-  const updateKbInset = () => {
-    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-    document.documentElement.style.setProperty('--kb-inset', inset+'px');
-  };
-  vv.addEventListener('resize', updateKbInset);
-  vv.addEventListener('scroll', updateKbInset);
-}
 /* ================= router ================= */
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', ()=>{
