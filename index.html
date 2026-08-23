@@ -902,6 +902,15 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    still the first thing you reach on the way in rather than buried below a long list. */
 .places-search,.games-search{margin-bottom:14px;}
 .places-search input,.games-search input{background:var(--paper);}
+/* the Been tab's own glanceable stat row (beenStatsHTML) - same plain two-column tile grid
+   Plants' own dashboard stats use (see .plants-stats), reused here rather than shared since
+   the two live in unrelated parts of the app. */
+.been-stats{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+.been-stat-tile{display:flex; align-items:center; gap:8px; border:1px solid var(--line);
+  border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:12px 14px;}
+.been-stat-icon{font-size:1.3rem; line-height:1; flex-shrink:0;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.been-stat-text{font-size:.82rem; font-weight:700; color:var(--ink);}
 /* one country per row: side by side, a long name and its capital and language had nowhere to
    go and the card grew a paragraph tall. Two columns once the screen is wide enough to give
    each of them a sensible width. */
@@ -1368,8 +1377,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.21';
+const APP_VERSION = '2.29.22';
 const CHANGELOG = [
+  {version:'2.29.22', notes:[
+    "Places I've Been: added a stat row above the list - countries been, % of the world, continents visited, and your longest trip - so the numbers you'd otherwise have to count up yourself are right there at a glance.",
+  ]},
   {version:'2.29.21', notes:[
     "Plants: Today's Tips folded into Today's Checklist instead of its own separate section, and every checklist row (manual and auto-tracked alike) now uses the same big, fully-tappable row as the trip area's Packing List - a filled, checkmarked square instead of a bare ☑/☐ symbol, the whole row a single tap target rather than just the icon.",
   ]},
@@ -3813,7 +3825,7 @@ function renderPlaces(view){
           ${esc(PLACES_VIEWS[v].title)}</span>
       </div>
     </div>
-    ${v==='been' ? `<div class="subtabs" id="been-subtabs"></div>` : ''}
+    ${v==='been' ? `<div class="subtabs" id="been-subtabs"></div><div id="been-stats"></div>` : ''}
     <div class="places-search">
       <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
     </div>
@@ -3884,6 +3896,30 @@ function placeCardHTML(co, tripStatus){
    number for when it landed in the order, the flag (stacked above the name now there's
    nothing to share the row with, so both get more room) and a single way to change anything,
    taking it back off. */
+/* four glanceable numbers above the Been list, same plain-tile grid Plants' own dashboard stats
+   use (see plantsDashboardStatsHTML) - purely informational, no destination to tap through to
+   since it's the exact same list right below. Reflects the full unfiltered Been list regardless
+   of what's typed into the search box above it - a search narrowing the list shouldn't make "how
+   many countries have I been to" appear to shrink too. Longest Trip only appears once at least
+   one trip actually has both a start and end date to measure from. */
+function beenStatsHTML(list){
+  const pctWorld = COUNTRY_CODES.length ? Math.round(list.length / COUNTRY_CODES.length * 100) : 0;
+  const continentsVisited = new Set(list.map(co => continentOf(co.code))).size;
+  let longestDays = 0;
+  (DB.trips||[]).forEach(t=>{
+    if(!t.startDate || !t.endDate) return;
+    const days = Math.round((new Date(t.endDate) - new Date(t.startDate))/86400000) + 1;
+    if(days > longestDays) longestDays = days;
+  });
+  const stats = [
+    ['🌍', `${list.length} ${list.length===1?'Country':'Countries'} Been`],
+    ['📊', `${pctWorld}% of the World`],
+    ['🗺️', `${continentsVisited} of ${CONTINENT_ORDER.length} Continents`],
+  ];
+  if(longestDays) stats.push(['🏆', `${longestDays}-Day Longest Trip`]);
+  return `<div class="been-stats">${stats.map(([icon,text]) => `
+    <div class="been-stat-tile"><span class="been-stat-icon" aria-hidden="true">${icon}</span><span class="been-stat-text">${esc(text)}</span></div>`).join('')}</div>`;
+}
 /* Been can be read two ways: the order you went (one numbered run) or where in the world it
    was (grouped by continent). Same cards and the same numbers either way, just regrouped. */
 function drawBeenSubtabs(){
@@ -3983,6 +4019,7 @@ function drawPlacesGrid(){
   if(CUR_PLACES_VIEW==='been'){
     let list = beenOrderedCountries(trips);
     let upcoming = beenUpcomingCountries(trips);
+    const statsRoot = $('#been-stats'); if(statsRoot) statsRoot.innerHTML = beenStatsHTML(list);
     if(q){
       list = list.filter(co=>co.name.toLowerCase().includes(q));
       upcoming = upcoming.filter(co=>co.name.toLowerCase().includes(q));
