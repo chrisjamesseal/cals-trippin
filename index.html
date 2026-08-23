@@ -427,11 +427,13 @@ a{color:var(--brand-dark);}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
 
 /* ---------- plants (vegetable growing tracker) ---------- */
-/* tighter grid/padding than most card grids in the app - this one's meant to hold a lot of
-   vegetables at once and still read as a single glanceable board, not a scroll-heavy list */
-.plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px;}
-.plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px;
-  padding:22px 10px 12px; cursor:pointer; margin-bottom:0;}
+/* still tight enough to hold a lot of vegetables at once and read as a glanceable board, not a
+   scroll-heavy list, but with more breathing room per card than before - the redesign adds a
+   health badge and a couple of extra status lines, so cards need the extra vertical gap to keep
+   from feeling cramped. */
+.plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:14px;}
+.plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px;
+  padding:24px 12px 16px; cursor:pointer; margin-bottom:0;}
 /* a vegetable still on "Not Planted" isn't actually being grown yet - fading the whole card
    (rather than just its stage label) makes that read at a glance across a grid of several,
    without needing to open each one to check */
@@ -440,6 +442,15 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji.plant-icon-img{width:32px; height:32px; object-fit:cover; border-radius:8px;}
 .plant-name{font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--ink); overflow-wrap:anywhere;}
+/* the single most prominent thing on the card after the name (plantHealthBadgeHTML) - a filled
+   pill rather than plain coloured text, since this is meant to be read before anything else
+   below it, not just skimmed along with the rest. Same three colours the water-status chip and
+   button below it use, so nothing on the card can disagree about which state it's in. */
+.plant-health-badge{display:inline-block; padding:4px 12px; border-radius:20px; font-weight:700;
+  font-size:.72rem; margin:2px 0 4px;}
+.plant-health-badge.green{background:var(--brand-tint); color:#1F7A3D;}
+.plant-health-badge.yellow{background:#FDF2D9; color:#8A6402;}
+.plant-health-badge.red{background:#FCEBE9; color:#C0392B;}
 .plant-stage-label{color:var(--muted); font-size:.7rem;}
 /* the detail page's own picker (plantStagePickerHTML) - every stage gets its own labelled,
    full-width button, one per row, since this page has the room the compact grid card
@@ -450,30 +461,34 @@ a{color:var(--brand-dark);}
   border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--paper);
   cursor:pointer; padding:10px 14px; font:inherit; font-weight:600; font-size:.82rem; color:var(--ink);}
 .plant-stage-btn.on{border-color:var(--brand); background:var(--brand-tint); color:var(--brand);}
-/* a plain-language echo of the water button's own overdue colour, in case the colour alone
-   isn't enough to go on at a glance - dry reuses the button's own overdue-red, moist reuses the
-   water-drop blue #2E86DE already used for the button's border throughout this page. */
-.plant-soil-label{font-size:.68rem; font-weight:700; margin-top:3px;}
-.plant-soil-label.dry{color:#C0392B;}
-.plant-soil-label.moist{color:#2E86DE;}
-.plant-water-label{display:block; color:var(--muted); font-size:.72rem; margin-top:6px; width:100%;}
+/* the same red/amber/green verdict as the health badge above, phrased for water specifically
+   (plantWaterStatusHTML) - red reuses the badge's own red, green the water-drop blue #2E86DE
+   already used for the button's border throughout this page (moist soil, not "all clear", so it
+   doesn't borrow the badge's green). */
+.plant-water-status{font-size:.68rem; font-weight:700; margin-top:2px;}
+.plant-water-status.green{color:#2E86DE;}
+.plant-water-status.yellow{color:#8A6402;}
+.plant-water-status.red{color:#C0392B;}
+.plant-germ-label{color:var(--muted); font-size:.68rem; margin-top:1px;}
+.plant-water-footer{color:var(--muted); font-size:.68rem; margin-top:6px;}
 /* the full Plants page card's own button - a name plus the water drop underneath it, rather
    than an icon-only circle, since there's room here and it reads more clearly than an emoji
-   alone. Colour still carries the urgency that used to be a separate "Needs watering" text
-   line - red when overdue, tinted green once done today, plain otherwise. Disabled once done
-   today (see plantWaterButtonHTML) - the word "Watered" read as a status either way, tappable
-   or not, so leaving it tappable made an already-watered plant look like it still needed a tap. */
+   alone. Filled rather than outlined once there's something to actually do (overdue), so the
+   one action worth taking on the card is the most visually prominent control on it, not just
+   another outlined pill sat among several. Disabled once done today (see plantWaterButtonHTML) -
+   the word "Watered" read as a status either way, tappable or not, so leaving it tappable made an
+   already-watered plant look like it still needed a tap. */
 .plant-water-action-btn{display:flex; flex-direction:row; align-items:center; justify-content:center;
-  gap:8px; width:100%; margin-top:8px; border:1px solid #2E86DE; border-radius:var(--radius-sm);
-  background:var(--paper); cursor:pointer; padding:9px 20px; font:inherit; font-weight:700;
-  font-size:.78rem; color:var(--ink); white-space:nowrap;}
+  gap:8px; width:100%; margin-top:10px; border:1px solid #2E86DE; border-radius:var(--radius-sm);
+  background:var(--paper); cursor:pointer; padding:11px 20px; font:inherit; font-weight:700;
+  font-size:.8rem; color:var(--ink); white-space:nowrap;}
 /* "Mark as Planted" is longer than "Watered"/"Undo Watering" ever needed to be at the usual
    padding - tighter padding and a smaller size keep it on one line in a narrow grid card instead
    of wrapping under the emoji */
 .plant-water-action-btn.plant-mark-planted{padding:9px 6px; gap:5px; font-size:.7rem;}
 .plant-water-btn-emoji{font-size:1.05rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-water-action-btn.overdue{background:#FCEBE9;}
+.plant-water-action-btn.overdue{background:#2E86DE; border-color:#2E86DE; color:#fff;}
 .plant-water-action-btn.done{background:var(--brand-tint);}
 /* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
    solid border so it doesn't read as just another status colour like overdue/done do */
@@ -501,6 +516,31 @@ a{color:var(--brand-dark);}
 .plant-emoji-opt.on{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand);}
 /* ---------- plant detail page (watering + stage-change timeline) ---------- */
 .plant-timeline-heading{font-family:var(--font-head); font-size:1rem; margin:0 0 10px;}
+/* the germination day-count + ring (plantProgressHTML) - the number lives inside the ring itself
+   rather than as separate text, so "how far along is this" reads as one shape rather than two
+   things to cross-reference. */
+.plant-progress-row{display:flex; align-items:center; gap:16px; margin-bottom:22px;}
+.plant-progress-ring{flex-shrink:0;}
+.plant-progress-text{font-size:.86rem;}
+.plant-progress-text > div:first-child{font-weight:700; margin-bottom:2px;}
+/* Growing Conditions (plantGrowingConditionsHTML) - one icon-led row per known condition, value
+   right-aligned so the row reads as a label/value pair rather than a run-on sentence */
+.plant-conditions{margin-bottom:22px;}
+.plant-condition-row{display:flex; align-items:center; gap:10px; padding:9px 0;
+  border-bottom:1px solid var(--line); font-size:.84rem;}
+.plant-condition-row:last-child{border-bottom:none;}
+.plant-condition-label{color:var(--muted); flex:1;}
+.plant-condition-value{font-weight:700; color:var(--ink); text-align:right;}
+/* Care Tips (plantCareTipsHTML) - each one icon + a single short line, never more than 5 */
+.plant-care-tips{list-style:none; margin:0 0 22px; padding:0; display:flex; flex-direction:column; gap:10px;}
+.plant-care-tips li{display:flex; align-items:flex-start; gap:10px; font-size:.84rem; line-height:1.4;}
+/* Success Tracker (plantSuccessTrackerHTML) - three auto-derived rows, one tappable manual one
+   (In Correct Location) with its own affordance so it doesn't look identical to the read-only
+   ones above it */
+.plant-tracker{display:flex; flex-direction:column; gap:8px; margin-bottom:22px;}
+.plant-tracker-row{display:flex; align-items:center; gap:8px; font-size:.84rem; padding:2px 0;}
+.plant-tracker-row.manual{cursor:pointer; border-radius:var(--radius-sm); padding:8px 10px; margin:0 -10px;}
+.plant-tracker-row.manual:hover{background:var(--bg);}
 .plant-timeline{display:flex; flex-direction:column;}
 .plant-timeline-item{display:flex; gap:12px; position:relative; padding-bottom:18px;}
 .plant-timeline-item:not(:last-child)::before{content:''; position:absolute; left:11px; top:26px; bottom:0; width:2px; background:var(--line);}
@@ -1236,8 +1276,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.15';
+const APP_VERSION = '2.29.16';
 const CHANGELOG = [
+  {version:'2.29.16', notes:[
+    "Plants redesign: a colour-coded 🟢/🟡/🔴 status badge now sits right under each vegetable's name - the most prominent thing on the card after its name - so it's obvious at a glance whether anything needs doing. The old \"Water Every N Days\" line and \"Last Watered: ...\" text are gone, replaced by a short 💧 status chip and a compact 🕒 relative-time footer.",
+    "Plants: seeds and sprouts now show a germination countdown (⏳ 10 to 21d on the card, a day count with a progress ring on the detail page) for the vegetables this app has a known germination window for - so a slow starter doesn't read as a failure before it's had the time it actually needs.",
+    "Plants detail page: added Growing Conditions (sun/water/temperature/spacing/pot size), up to 5 Care Tips, and a Success Tracker (Watered Today/Soil Moist/In Correct Location/Germination Window Active - the first three auto-tracked, Location a manual tap) for every vegetable this app has care data for.",
+  ]},
   {version:'2.29.15', notes:[
     "Plants: added Growing Guides for Cauliflower and Rocket too, written from general growing knowledge since the seed kit's booklet doesn't cover either of them.",
     "Plants: every card (grid and detail) now shows what the soil should feel like right now - dry or moist - alongside the Watered button, a plain-language read of the same overdue/not-due state the button's own colour already carries.",
@@ -6215,26 +6260,93 @@ function plantOverdue(p){
   const days = daysSinceTs(plantLastWateredTs(p));
   return days===null || days>=(p.wateringFrequencyDays||3);
 }
+/* the one piece of logic every status readout on a plant (the health badge, the water-status
+   chip, the Success Tracker's "Soil Moist" line) all key off, so they can never disagree with
+   each other - red once actually overdue (see plantOverdue), amber the day before that so
+   there's a heads-up rather than the state jumping straight from fine to overdue with no
+   warning, green otherwise. No verdict for a still-unplanted vegetable - nothing's growing yet
+   to have a watering opinion about. */
+function plantHealthState(p){
+  if(p.stage===PLANT_STAGE_DEFAULT) return null;
+  if(plantOverdue(p)) return 'red';
+  const days = daysSinceTs(plantLastWateredTs(p));
+  if(days===(p.wateringFrequencyDays||3)-1) return 'yellow';
+  return 'green';
+}
+const PLANT_HEALTH_META = {
+  green: {emoji:'🟢', label:'On Track'},
+  yellow: {emoji:'🟡', label:'Check Today'},
+  red: {emoji:'🔴', label:'Needs Water'},
+};
+/* the most prominent thing on the card after the name, per the redesign brief - a single glance
+   at colour + label should be enough to know whether this vegetable needs anything right now. */
+function plantHealthBadgeHTML(p){
+  const state = plantHealthState(p); if(!state) return '';
+  const m = PLANT_HEALTH_META[state];
+  return `<div class="plant-health-badge ${state}">${m.emoji} ${m.label}</div>`;
+}
+/* the same three-state verdict as the health badge, phrased for water specifically rather than
+   "the plant" generally - a short icon-led chip rather than the "Should feel dry/moist" prose
+   line this replaces, and now three states instead of two so there's a heads-up state instead of
+   jumping straight from "fine" to "overdue" with nothing in between. */
+function plantWaterStatusHTML(p){
+  const state = plantHealthState(p); if(!state) return '';
+  const text = state==='red' ? 'Water Needed' : state==='yellow' ? 'Check Today' : 'Soil Moist';
+  return `<div class="plant-water-status ${state}">💧 ${text}</div>`;
+}
+/* how many whole days a vegetable's been growing, preferring the edit form's own Planted date
+   (p.plantedDate - the grower's actual answer to "when did you sow this") over guessing from the
+   stage-change log, which only exists as a fallback for a plant that predates this reading it
+   (or one whose Planted date was left on the default and never actually confirmed). When it does
+   fall back, it counts from the most recent time the plant was actually set to Seed Sown (a
+   re-sown batch resets the clock, which is correct - see plantLogStageChange). */
+function plantDaysSinceSown(p){
+  if(p.plantedDate) return daysSinceTs(p.plantedDate+'T12:00:00');
+  const entries = (Array.isArray(p.stageChanges) ? p.stageChanges : []).filter(e => plantStageKey(e.stage)==='seed');
+  if(!entries.length) return null;
+  const latest = entries.reduce((a,b) => new Date(b.ts) > new Date(a.ts) ? b : a);
+  return daysSinceTs(latest.ts);
+}
+/* only meaningful while it's actually germinating, and only for a vegetable this app has a
+   known germination window for (see PLANT_CARE_DATA) - returns null otherwise so callers can
+   just skip the row/section rather than showing a countdown for numbers nobody supplied. */
+function plantGerminationInfo(p){
+  if(!['seed','sprout'].includes(plantStageKey(p.stage))) return null;
+  const care = plantCareDataFor(p); if(!care || !care.germDays) return null;
+  const days = plantDaysSinceSown(p); if(days===null) return null;
+  return {day: days+1, min: care.germDays[0], max: care.germDays[1]};
+}
+function plantGerminationRowHTML(p){
+  const g = plantGerminationInfo(p); if(!g) return '';
+  return `<div class="plant-germ-label">⏳ ${g.min} to ${g.max}d</div>`;
+}
+/* real elapsed time for anything watered in the last day (matches the brief's own "2h ago"
+   example), falling back to the calendar-day phrasing the rest of the app already uses (see
+   daysSinceTs) once it's further out than that - a bare "23h ago" reads oddly once it tips into
+   yesterday, "Yesterday" doesn't. */
+function plantWaterRelativeLabel(p){
+  const ts = plantLastWateredTs(p);
+  if(!ts) return 'Never';
+  const mins = Math.round((Date.now() - new Date(ts).getTime())/60000);
+  if(mins < 1) return 'Just now';
+  if(mins < 60) return mins+'m ago';
+  const hrs = Math.round(mins/60);
+  if(hrs < 24) return hrs+'h ago';
+  const days = daysSinceTs(ts);
+  return days===1 ? 'Yesterday' : days+'d ago';
+}
+function plantWaterFooterHTML(p){
+  if(p.stage===PLANT_STAGE_DEFAULT) return '';
+  return `<div class="plant-water-footer">🕒 ${esc(plantWaterRelativeLabel(p))}</div>`;
+}
 /* 24-hour HH:MM rather than toLocaleTimeString's 12-hour "6:00 PM" - shorter, and reads
    unambiguously at the small size this sits at on the card */
 function hhmm(ts){
   const d = new Date(ts);
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
-function plantWaterLabel(p){
-  const ts = plantLastWateredTs(p);
-  if(!ts) return 'Last Watered: Never';
-  const days = daysSinceTs(ts);
-  if(days===0) return 'Last Watered: '+hhmm(ts);
-  if(days===1) return 'Last Watered: Yesterday';
-  return `Last Watered: ${days} days ago`;
-}
-function plantFreqLabel(p){
-  const days = p.wateringFrequencyDays||3;
-  return days===1 ? 'Water Every Day' : `Water Every ${days} Days`;
-}
-/* same idea as plantWaterLabel but cut down to fit Home's much narrower per-vegetable chips -
-   just the clock time if it was today (the useful part when it's the same day), otherwise a
+/* same idea as plantWaterRelativeLabel but cut down to fit Home's much narrower per-vegetable
+   chips - just the clock time if it was today (the useful part when it's the same day), otherwise a
    bare day count */
 function plantWaterShortLabel(p){
   const ts = plantLastWateredTs(p);
@@ -6330,16 +6442,13 @@ function plantWaterButtonHTML(p, sm){
     : `<button type="button" class="plant-water-action-btn${state}"${notDue?' disabled':''}
         onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
 }
-/* a plain-language read of the same overdue/not-due state the water button's colour already
-   carries (see plantWaterButtonHTML) - the button tells you what to DO, this tells you what to
-   expect if you actually looked at the pot right now, which is the thing worth checking the
-   button's colour against. Nothing to say for an unplanted vegetable - there's no soil in the
-   pot to have an opinion about yet. */
-function plantSoilStatusHTML(p){
-  if(p.stage===PLANT_STAGE_DEFAULT) return '';
-  const dry = plantOverdue(p);
-  return `<div class="plant-soil-label${dry?' dry':' moist'}">Soil: ${dry?'Should feel dry':'Should feel moist'}</div>`;
-}
+/* the card, top to bottom: icon, name, the health badge (the most prominent thing here after
+   the name, per the redesign brief), then three short icon-led status lines - growth stage,
+   water status, and (seed/sprout stage only) a germination countdown - the CTA button, then a
+   compact "last watered" footer. Deliberately no long sentences anywhere on this card: that's
+   what the detail page's Growing Conditions/Care Tips are for now (see plantGrowingConditionsHTML/
+   plantCareTipsHTML) - the card's job is "what's this vegetable's status, what do I do next",
+   not "how do I grow it". */
 function plantCardHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
   const unplanted = p.stage===PLANT_STAGE_DEFAULT ? ' plant-unplanted' : '';
@@ -6348,11 +6457,12 @@ function plantCardHTML(p){
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
       ${plantIconHTML(p, 'plant-emoji')}
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
+      ${plantHealthBadgeHTML(p)}
       <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
-      ${plantSoilStatusHTML(p)}
-      <div class="plant-water-label">${esc(plantFreqLabel(p))}</div>
+      ${plantWaterStatusHTML(p)}
+      ${plantGerminationRowHTML(p)}
       ${plantWaterButtonHTML(p)}
-      <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
+      ${plantWaterFooterHTML(p)}
     </div>`;
 }
 function drawPlantsGrid(){
@@ -6407,10 +6517,93 @@ function plantDetailStageHTML(p){
 }
 function plantDetailWaterHTML(p){
   return `
-    ${plantSoilStatusHTML(p)}
-    <div class="plant-water-label">${esc(plantFreqLabel(p))}</div>
+    ${plantWaterStatusHTML(p)}
     ${plantWaterButtonHTML(p)}
-    <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>`;
+    ${plantWaterFooterHTML(p)}`;
+}
+/* the germination countdown from the card (see plantGerminationRowHTML), given more room here -
+   a day count, the expected window, and a ring so "is this normal yet" reads as a proportion at
+   a glance rather than needing to do 4-vs-14 math in your head. Nothing shown once it's past
+   Seed Sown/Sprouted, or for a vegetable with no known germination window. */
+function plantProgressHTML(p){
+  const g = plantGerminationInfo(p); if(!g) return '';
+  const pct = Math.max(0, Math.min(100, Math.round((g.day/g.max)*100)));
+  const r = 26, c = Math.round(2*Math.PI*r);
+  return `
+    <h3 class="plant-timeline-heading">Progress</h3>
+    <div class="plant-progress-row">
+      <svg class="plant-progress-ring" width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--line)" stroke-width="6"/>
+        <circle cx="32" cy="32" r="${r}" fill="none" stroke="#2E86DE" stroke-width="6" stroke-linecap="round"
+          stroke-dasharray="${c}" stroke-dashoffset="${Math.round(c*(1-pct/100))}" transform="rotate(-90 32 32)"/>
+        <text x="32" y="37" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">${g.day}</text>
+      </svg>
+      <div class="plant-progress-text">
+        <div>📅 Day ${g.day}</div>
+        <div class="muted small">⏳ Expected ${g.min} to ${g.max} days</div>
+      </div>
+    </div>`;
+}
+/* the card keeps this to a single icon+word chip (plantWaterStatusHTML) - full sentences live
+   here instead, one labelled row per known growing condition, only for a vegetable this app
+   actually has care data for (see PLANT_CARE_DATA). Nothing shown for a vegetable with none,
+   rather than guessing at conditions nobody's supplied. */
+function plantGrowingConditionsHTML(p){
+  const care = plantCareDataFor(p); if(!care) return '';
+  const rows = [
+    care.sun && ['☀️','Sun', care.sun],
+    ['💧','Water', care.water],
+    care.temp && ['🌡️','Temperature', care.temp],
+    care.spacing && ['📏','Spacing', care.spacing],
+    care.pot && ['🪴','Pot Size', care.pot],
+  ].filter(Boolean);
+  return `
+    <h3 class="plant-timeline-heading">Growing Conditions</h3>
+    <div class="plant-conditions">${rows.map(([icon,label,val]) => `
+      <div class="plant-condition-row"><span aria-hidden="true">${icon}</span><span class="plant-condition-label">${esc(label)}</span><span class="plant-condition-value">${esc(val)}</span></div>`).join('')}</div>`;
+}
+/* derived from the same care data rather than hand-written per vegetable - the water/sun/temp
+   tips restate PLANT_CARE_DATA's own fields as an actual tip rather than a bare label, and the
+   two generic ones (slugs, thinning) are genuinely true of pot-grown vegetables in general.
+   Capped at 5 per the brief, though nothing here currently produces more than 4. */
+function plantCareTips(care){
+  if(!care) return [];
+  const tips = [{icon:'💧', text:care.water}];
+  if(care.sun==='Full Sun') tips.push({icon:'☀️', text:'Give it as much direct sun as you can manage'});
+  else if(care.sun) tips.push({icon:'🌤', text:'Partial shade is fine - avoid baking, direct heat'});
+  if(care.temp==='Warm Spot') tips.push({icon:'🔥', text:'Keep it somewhere warm, especially while young'});
+  else if(care.temp==='Cool Crop') tips.push({icon:'❄️', text:'Prefers cooler conditions - avoid a hot, baking spot'});
+  tips.push({icon:'🐌', text:'Watch for slugs and snails on young seedlings'});
+  tips.push({icon:'✂️', text:'Thin out crowded seedlings so the strongest have room'});
+  return tips.slice(0,5);
+}
+function plantCareTipsHTML(p){
+  const tips = plantCareTips(plantCareDataFor(p)); if(!tips.length) return '';
+  return `
+    <h3 class="plant-timeline-heading">Care Tips</h3>
+    <ul class="plant-care-tips">${tips.map(t=>`<li><span aria-hidden="true">${t.icon}</span>${esc(t.text)}</li>`).join('')}</ul>`;
+}
+/* three of these are read straight off state the app already tracks (today's watering, the
+   health badge's own green/not, whether it's within its germination window); "In Correct
+   Location" has nothing to derive it from - there's no location data anywhere in this app - so
+   it's the one manually-tappable row here, a plain per-plant yes/no the grower sets themselves. */
+function plantSuccessTrackerHTML(p){
+  if(p.stage===PLANT_STAGE_DEFAULT) return '';
+  const g = plantGerminationInfo(p);
+  const items = [
+    {on: daysSinceTs(plantLastWateredTs(p))===0, label:'Watered Today'},
+    {on: plantHealthState(p)==='green', label:'Soil Moist'},
+    {on: !!p.locationOk, label:'In Correct Location', manual:true},
+  ];
+  if(g) items.push({on:true, label:'Germination Window Active'});
+  return `
+    <h3 class="plant-timeline-heading">Success Tracker</h3>
+    <div class="plant-tracker">${items.map(it => `
+      <div class="plant-tracker-row${it.manual?' manual':''}"${it.manual
+        ? ` role="button" tabindex="0" onclick="App.plantToggleLocation('${esc(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantToggleLocation('${esc(p.id)}')}"`
+        : ''}>
+        <span aria-hidden="true">${it.on?'✅':'⬜'}</span> ${esc(it.label)}
+      </div>`).join('')}</div>`;
 }
 /* transcribed from our physical seed-kit's own growing guide booklet - only the 6 vegetables it
    actually covers get one, matched by the plant's name (see PLANT_GUIDE_ALIASES for the handful
@@ -6666,10 +6859,33 @@ const PLANT_GUIDE_ALIASES = {
   radish: 'radish', radishes: 'radish',
   cauliflower: 'cauliflower',
   rocket: 'rocket', arugula: 'rocket', rucola: 'rocket',
+  'spring onion': 'spring-onion', 'spring onions': 'spring-onion', scallion: 'spring-onion', scallions: 'spring-onion',
 };
 function plantGuideFor(p){
   const key = PLANT_GUIDE_ALIASES[((p&&p.name)||'').trim().toLowerCase()];
   return key ? PLANT_GROWING_GUIDES[key] : null;
+}
+/* concise per-vegetable care stats driving the card's health badge, water-status chip and
+   germination countdown, plus the detail page's Growing Conditions/Care Tips - deliberately kept
+   separate from PLANT_GROWING_GUIDES above (the long phase-by-phase prose) since a card needs a
+   number and a couple of words, not a paragraph. Shares the same name/alias lookup - see
+   plantCareDataFor - so "Squash" and "Patty Pan Squash" resolve to the one entry either way.
+   Spring Onion has care data but no full Growing Guide (nobody's asked for the long-form one for
+   it yet), which is fine - plantGuideFor and plantCareDataFor are looked up independently. */
+const PLANT_CARE_DATA = {
+  carrot: {water:'Keep moist until germination', germDays:[10,21], sun:'Full Sun', spacing:'5cm apart', pot:'Medium Pot'},
+  cauliflower: {water:'Check daily during germination', germDays:[7,14], sun:'Full Sun', temp:'Cool Crop', spacing:'40cm apart once potted on', pot:'Large Pot'},
+  lettuce: {water:'Keep consistently moist', germDays:[7,14], sun:'Partial Sun', temp:'Cool Crop', spacing:'15-20cm apart', pot:'Medium Pot'},
+  oregano: {water:'Allow slight drying between watering', germDays:[14,28], sun:'Full Sun', temp:'Warm Spot', spacing:'20cm apart', pot:'Small Pot'},
+  radish: {water:'Keep evenly moist', germDays:[3,7], sun:'Full Sun', spacing:'4cm apart', pot:'Medium Pot'},
+  rocket: {water:'Keep evenly moist', germDays:[5,10], sun:'Partial Sun', temp:'Cool Crop', spacing:'sow thinly, thin as needed', pot:'Medium Pot'},
+  spinach: {water:'Keep evenly moist', germDays:[7,14], sun:'Partial Sun', temp:'Cool Crop', spacing:'5cm apart', pot:'Big Pot'},
+  squash: {water:'Moist but never soggy', germDays:[7,14], sun:'Full Sun', temp:'Warm Spot', spacing:'45cm+ apart', pot:'Big Pot'},
+  'spring-onion': {water:'Check daily during germination', germDays:[14,21], sun:'Full Sun', spacing:'2-3cm apart', pot:'Medium Pot'},
+};
+function plantCareDataFor(p){
+  const key = PLANT_GUIDE_ALIASES[((p&&p.name)||'').trim().toLowerCase()];
+  return key ? PLANT_CARE_DATA[key] : null;
 }
 /* Planted/Outside/Munch are the guide's own generic month ranges ("June - July") - real
    planting rarely lines up exactly with a printed booklet's timing, so these (and each phase's
@@ -6789,24 +7005,46 @@ function renderPlantDetail(id){
     <div class="card plant-card${p.stage===PLANT_STAGE_DEFAULT?' plant-unplanted':''}" id="plant-detail-card" style="cursor:default; margin-bottom:22px">
       ${plantIconHTML(p, 'plant-emoji')}
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
+      <div id="plant-detail-badge">${plantHealthBadgeHTML(p)}</div>
       <div id="plant-detail-stage">${plantDetailStageHTML(p)}</div>
       <div id="plant-detail-water">${plantDetailWaterHTML(p)}</div>
     </div>
+    <div id="plant-detail-progress">${plantProgressHTML(p)}</div>
+    ${plantGrowingConditionsHTML(p)}
+    ${plantCareTipsHTML(p)}
     ${plantGrowingGuideHTML(p)}
+    <div id="plant-detail-tracker">${plantSuccessTrackerHTML(p)}</div>
     <h3 class="plant-timeline-heading">Timeline</h3>
     <div id="plant-timeline">${plantTimelineHTML(p)}</div>`;
 }
-/* refreshes just the live bits of the detail page in place (water status, stage, timeline)
-   rather than a full re-render - a no-op if some other page is actually showing right now,
-   same guard-on-the-DOM-node pattern drawPlantsGrid/drawDashPlantsSlot already use */
+/* refreshes just the live bits of the detail page in place (water status, stage, badge,
+   progress, tracker, timeline) rather than a full re-render - a no-op if some other page is
+   actually showing right now, same guard-on-the-DOM-node pattern drawPlantsGrid/
+   drawDashPlantsSlot already use. Growing Conditions/Care Tips/the Growing Guide aren't included
+   here since none of them change from anything this function's callers do (watering, stage
+   changes, undo) - only a name edit could change which one applies, and that goes through a full
+   renderPlantDetail instead (see App.savePlant). */
 function drawPlantDetail(id){
   const waterRoot = $('#plant-detail-water'); if(!waterRoot) return;
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
   waterRoot.innerHTML = plantDetailWaterHTML(p);
+  const badgeRoot = $('#plant-detail-badge'); if(badgeRoot) badgeRoot.innerHTML = plantHealthBadgeHTML(p);
   const stageRoot = $('#plant-detail-stage'); if(stageRoot) stageRoot.innerHTML = plantDetailStageHTML(p);
+  const progressRoot = $('#plant-detail-progress'); if(progressRoot) progressRoot.innerHTML = plantProgressHTML(p);
+  const trackerRoot = $('#plant-detail-tracker'); if(trackerRoot) trackerRoot.innerHTML = plantSuccessTrackerHTML(p);
   const timelineRoot = $('#plant-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantTimelineHTML(p);
   const cardRoot = $('#plant-detail-card');
   if(cardRoot) cardRoot.classList.toggle('plant-unplanted', p.stage===PLANT_STAGE_DEFAULT);
+}
+/* the Success Tracker's one manually-set row (see plantSuccessTrackerHTML) - just a plain
+   per-plant flip, no confirmation needed either way since ticking it wrong costs nothing and is
+   just as easy to untick */
+function plantToggleLocationImpl(id){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  p.locationOk = !p.locationOk;
+  savePlants();
+  const trackerRoot = $('#plant-detail-tracker');
+  if(trackerRoot) trackerRoot.innerHTML = plantSuccessTrackerHTML(p);
 }
 function plantDeleteLogEntryImpl(id, type, ts){
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
@@ -7124,6 +7362,7 @@ App.plantGrowPhotoUpload = plantGrowPhotoUploadImpl;
 App.plantGrowPhotoRemove = plantGrowPhotoRemoveImpl;
 App.plantGrowFactEdit = plantGrowFactEditImpl;
 App.plantGrowRangeEdit = plantGrowRangeEditImpl;
+App.plantToggleLocation = plantToggleLocationImpl;
 App.plantPickEmoji = plantPickEmojiImpl;
 App.plantAttachIcon = plantAttachIconImpl;
 App.plantClearIcon = plantClearIconImpl;
