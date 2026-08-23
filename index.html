@@ -176,27 +176,35 @@ a{color:var(--brand-dark);}
 @media(max-width:360px){.hub-emoji{font-size:1.15rem;} .hub-text > span{font-size:.78rem;}}
 
 /* ---------- games (PSN progress) ---------- */
-.games-list{display:flex; flex-direction:column; gap:10px;}
-.game-card{
-  display:flex; align-items:center; gap:12px; padding:12px; min-width:0; cursor:pointer;
-  border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
-  transition:opacity .15s, filter .15s;
-}
-/* hidden games stay in the list rather than vanishing (easy to bring back), just pushed to the
-   bottom and faded so they read as "out of the way" without losing your place if you change
+/* a poster grid, same shape as Films' .film-grid, rather than the old thumbnail-and-text row -
+   Sony's trophy icon art is worth showing at real size, not cropped down to 52px */
+.games-cover-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:16px;}
+.game-card{display:block; width:100%; text-align:left; cursor:pointer; border:none; background:none;
+  padding:0; font:inherit; color:inherit; transition:opacity .15s, filter .15s;}
+/* hidden games stay in the grid rather than vanishing (easy to bring back), just pushed to the
+   end and faded so they read as "out of the way" without losing your place if you change
    your mind */
 .game-card.hidden-game{opacity:.45; filter:grayscale(.5);}
-.game-icon{width:52px; height:52px; border-radius:var(--radius-sm); object-fit:cover; flex-shrink:0; background:var(--bg);}
-.game-icon-fallback{display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.3rem;}
-.game-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;}
-.game-name{font-family:var(--font-head); font-weight:700; font-size:.9rem; overflow-wrap:anywhere;}
+.game-cover-wrap{position:relative; width:100%; aspect-ratio:1/1; border-radius:var(--radius); overflow:hidden;
+  border:1px solid var(--line); background:var(--paper); box-shadow:var(--shadow);}
+.game-cover{display:block; width:100%; height:100%; object-fit:cover;}
+.game-cover-fallback{display:flex; align-items:center; justify-content:center; width:100%; height:100%;
+  color:var(--muted); font-size:2.2rem; background:var(--bg);}
+.game-hide-btn{position:absolute; top:6px; right:6px; background:var(--paper); box-shadow:var(--shadow);}
+.game-hide-btn:hover{background:var(--brand-ghost);}
+.game-info{padding-top:8px; display:flex; flex-direction:column; gap:5px; min-width:0;}
+/* clamped to 2 lines, same reasoning as Films' .film-title - so every card's text block takes
+   the same room whichever title lands in it and the covers below stay in a strict grid */
+.game-name{font-family:var(--font-head); font-weight:700; font-size:.82rem; overflow-wrap:anywhere;
+  line-height:1.25; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; height:2.5em;}
 .game-progress{position:relative; overflow:hidden; height:6px; border-radius:999px; background:var(--bg);}
 .game-progress-bar{position:absolute; inset:0 auto 0 0; background:var(--brand); border-radius:999px; transition:width .2s;}
 .game-meta{overflow-wrap:anywhere;}
-.game-hide-btn{flex-shrink:0; align-self:center;}
 /* ---------- individual game page ---------- */
 .game-detail-card{display:flex; flex-direction:column; align-items:center; text-align:center;}
-.game-detail-icon{width:88px; height:88px; border-radius:var(--radius); object-fit:cover; background:var(--bg); margin-bottom:12px; font-size:2rem;}
+.game-detail-icon{width:min(240px,60vw); aspect-ratio:1/1; height:auto; border-radius:var(--radius); object-fit:cover;
+  background:var(--bg); margin-bottom:14px; font-size:3rem; box-shadow:var(--shadow);}
+.game-detail-icon.game-cover-fallback{width:min(240px,60vw); height:min(240px,60vw);}
 .game-detail-name{font-family:var(--font-head); font-weight:700; font-size:1.15rem; overflow-wrap:anywhere;}
 .game-detail-meta{margin:4px 0 14px;}
 .game-detail-card .game-progress{width:100%;}
@@ -1417,8 +1425,16 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.25';
+const APP_VERSION = '2.29.27';
 const CHANGELOG = [
+  {version:'2.29.27', notes:[
+    "Fixed Home Dashboard reordering: moving a widget in Settings only held up until the layout's own height-balancing pass ran right after, which quietly put everything back into size order regardless of what you'd chosen - most visible on Next Trip, since its flag card is usually one of the largest tiles and kept floating back to the top no matter where you moved it.",
+    "Watch Next now only ever picks something actually streaming on a service you've selected in Settings > Streaming Services, instead of any random film on the Watchlist. No services selected yet still works exactly as before, unfiltered.",
+  ]},
+  {version:'2.29.26', notes:[
+    "PS5/PS4 games now show as a grid of full-size covers instead of a row of small icons - same list, same tap-through to trophies, just bigger art. The game's own page got a bigger cover too.",
+    "Board Games is hidden from the Games tab for now - it needs its own BoardGameGeek app token that hasn't been set up yet, so there's nothing behind it to search. Nothing's been lost; it comes straight back once that token's in place.",
+  ]},
   {version:'2.29.25', notes:[
     "Places I've Been got a Map subtab: a real world map, countries coloured in by status (Been, Going, Want to Go) rather than just a list. Tap a country to see its name and status. A handful of the smallest nations aren't shown - there's no shape small enough to draw them at this scale - but they're still counted everywhere else.",
   ]},
@@ -3727,41 +3743,113 @@ function dashLastSeenFilmWidgetHTML(){
     </a>`;
 }
 /* re-picked on every Home visit rather than stored anywhere - "what should I watch" is more
-   useful as a fresh nudge each time than a fixed pick that goes stale. DASH_WATCHNEXT_FILM
-   remembers which one, so loadDashWatchNextProviders (called once, right after this renders)
-   knows what to look up without re-picking a different random film itself. */
+   useful as a fresh nudge each time than a fixed pick that goes stale.
+
+   Without any Streaming Services set up (Settings > Streaming Services), the pick is instant -
+   any watchlist film is fair game, same as this always worked. Once services are set up, a
+   film's only a fair pick if it's actually streaming on one of them, which means checking
+   providers before showing anything - so this widget starts on a loading state, then
+   loadDashWatchNextProviders walks a shuffled copy of the watchlist (shuffled first so "the
+   first one that matches" is still a uniformly random pick among everything that does) and
+   checks each film's providers in turn, stopping at the first that streams on something owned.
+   Capped at DASH_WATCHNEXT_CHECK_CAP films so an unlucky walk through a big watchlist can't hang
+   the widget forever - if nothing in that many checks streams anywhere you have, it says so
+   rather than quietly showing something you can't actually watch there.
+
+   DASH_WATCHNEXT_FILM remembers the current pick so a stray provider fetch from a walk Home has
+   since moved on from can tell it's stale; DASH_WATCHNEXT_TOKEN does the same for the walk
+   itself (a single flag isn't enough once checks can be several fetches deep). */
 let DASH_WATCHNEXT_FILM = null;
-function dashRandomWatchlistWidgetHTML(){
-  const list = DB.filmsWatchlist||[];
-  if(!list.length){
-    DASH_WATCHNEXT_FILM = null;
-    return `
+let DASH_WATCHNEXT_TOKEN = null;
+const DASH_WATCHNEXT_CHECK_CAP = 25;
+function dashWatchNextEmptyHTML(){
+  return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsWatchlist()}">
       <div class="dash-item-flags" aria-hidden="true">🔖</div>
       <div class="dash-item-title">Nothing on Watchlist</div>
     </div>`;
-  }
-  const f = list[Math.floor(Math.random()*list.length)];
-  DASH_WATCHNEXT_FILM = f;
+}
+function dashWatchNextLoadingHTML(){
+  return `
+    <div class="dash-widget dash-widget-item">
+      <div class="dash-item-flags" aria-hidden="true">🔖</div>
+      <div class="dash-item-title">Finding Something Streaming…</div>
+    </div>`;
+}
+function dashWatchNextNoneStreamingHTML(){
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsWatchlist()}">
+      <div class="dash-item-flags" aria-hidden="true">🔖</div>
+      <div class="dash-item-title">Nothing Streaming Right Now</div>
+      <div class="dash-item-sub">See Watchlist</div>
+    </div>`;
+}
+function dashWatchNextFilmHTML(f, providersData){
   const url = filmLetterboxdUrl(f);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       ${f.image ? `<div class="dash-poster-row">
           <div class="dash-poster-frame"><img src="${esc(f.image)}" alt="" loading="lazy"></div>
-          <div id="dash-watchnext-providers"></div>
+          <div id="dash-watchnext-providers">${providersData ? filmProvidersHTML(providersData) : ''}</div>
         </div>`
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">Watch Next</div>
     </a>`;
 }
+function dashRandomWatchlistWidgetHTML(){
+  const list = DB.filmsWatchlist||[];
+  if(!list.length){ DASH_WATCHNEXT_FILM = null; return dashWatchNextEmptyHTML(); }
+  if(!selectedStreamingServices()){
+    // no services configured - unfiltered instant pick, exactly how this always worked
+    const f = list[Math.floor(Math.random()*list.length)];
+    DASH_WATCHNEXT_FILM = f;
+    return dashWatchNextFilmHTML(f, null);
+  }
+  DASH_WATCHNEXT_FILM = null;
+  return dashWatchNextLoadingHTML();
+}
 function loadDashWatchNextProviders(){
-  const f = DASH_WATCHNEXT_FILM; if(!f) return;
-  fetchFilmProviders(f.title, f.year, data => {
-    if(DASH_WATCHNEXT_FILM !== f) return;   // Home moved on before this came back
-    const slot = $('#dash-watchnext-providers'); if(slot) slot.innerHTML = filmProvidersHTML(data);
-  });
+  const list = DB.filmsWatchlist||[];
+  if(!list.length) return;
+  if(!selectedStreamingServices()){
+    // unfiltered pick already showing - this just fills in its badge, same as always
+    const f = DASH_WATCHNEXT_FILM; if(!f) return;
+    fetchFilmProviders(f.title, f.year, data => {
+      if(DASH_WATCHNEXT_FILM !== f) return;   // Home moved on before this came back
+      const badge = $('#dash-watchnext-providers'); if(badge) badge.innerHTML = filmProvidersHTML(data);
+    });
+    return;
+  }
+  const shuffled = list.slice();
+  for(let i=shuffled.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]; }
+  const candidates = shuffled.slice(0, DASH_WATCHNEXT_CHECK_CAP);
+  const token = {}; DASH_WATCHNEXT_TOKEN = token;
+  let i = 0;
+  const tryNext = () => {
+    if(DASH_WATCHNEXT_TOKEN !== token) return;   // Home moved on since this walk started
+    const slot = $('#dash-watchnext-slot');
+    if(i >= candidates.length){
+      DASH_WATCHNEXT_FILM = null;
+      if(slot) slot.innerHTML = dashWatchNextNoneStreamingHTML();
+      balanceDashboardColumns();
+      return;
+    }
+    const f = candidates[i++];
+    fetchFilmProviders(f.title, f.year, data => {
+      if(DASH_WATCHNEXT_TOKEN !== token) return;
+      if(filterProvidersToOwned(data.providers||[]).length){
+        DASH_WATCHNEXT_FILM = f;
+        if(slot) slot.innerHTML = dashWatchNextFilmHTML(f, data);
+        balanceDashboardColumns();
+        return;
+      }
+      tryNext();
+    });
+  };
+  tryNext();
 }
 /* two explicit column divs rather than CSS column-count - see .dash-masonry's own comment for
    why - but which tile lands in which column is now decided by measured height (balanceDash
@@ -3777,17 +3865,36 @@ function loadDashWatchNextProviders(){
    doesn't hit the original bug that made column-count unusable here (images loading in late and
    changing height after the browser had already balanced things; aspect-ratio now reserves that
    space upfront, so a height measurement at this point is already final). */
+/* which column a tile lands in is still decided largest-first (see the comment above), but
+   that pass used to also become the tiles' final order within each column - so the Home
+   Dashboard's own reorder setting (see dashWidgetOrder/App.dashWidgetMove) only ever held up
+   until this function ran right after, which silently put every tile back into height order
+   regardless of what Settings said. The largest-first pass now only decides A-or-B; each
+   column is then filled back in the order the tiles already had (the order render put them in,
+   i.e. the user's Settings order), so balance and the user's chosen order both hold.
+
+   This runs more than once per Home visit - once synchronously right after render, then again
+   whenever an async widget (Games, Song, Watch Next...) fills in and changes height - so it has
+   to be idempotent: re-running it can't be allowed to drift the order further from Settings each
+   time. Reading order straight off colA/colB's current children isn't safe for that, since a
+   previous call already split them across two columns - concatenating "everything currently in
+   A" then "everything currently in B" is a real order, just not necessarily the Settings one any
+   more. So renderDashboard stamps every tile with its true Settings position once, up front
+   (data-dash-order), and every call here sorts by that stamp rather than by wherever the DOM
+   currently has things - the same true order every time, no matter how many times this runs. */
 function balanceDashboardColumns(){
   const colA = $('#dash-col-a'), colB = $('#dash-col-b');
   if(!colA || !colB) return;
-  const nodes = [...colA.children, ...colB.children]
-    .map(n => ({n, h: n.getBoundingClientRect().height}))
-    .sort((x,y) => y.h - x.h);
+  const ordered = [...colA.children, ...colB.children]
+    .sort((a,b) => Number(a.dataset.dashOrder||0) - Number(b.dataset.dashOrder||0));
+  const byHeight = ordered.map(n => ({n, h: n.getBoundingClientRect().height})).sort((x,y) => y.h - x.h);
   let ha = 0, hb = 0;
-  nodes.forEach(({n,h}) => {
-    if(ha <= hb){ colA.appendChild(n); ha += h; }
-    else { colB.appendChild(n); hb += h; }
+  const columnOf = new Map();
+  byHeight.forEach(({n,h}) => {
+    if(ha <= hb){ columnOf.set(n, colA); ha += h; }
+    else { columnOf.set(n, colB); hb += h; }
   });
+  ordered.forEach(n => columnOf.get(n).appendChild(n));
 }
 /* per-device dashboard widget order/visibility (see the Home Dashboard settings section) - a
    personal display preference, not travel data, so it lives in its own localStorage key rather
@@ -3828,7 +3935,7 @@ function dashWidgetHTML(key){
   if(key==='gig') return dashGigWidgetHTML();
   if(key==='game') return `<div id="dash-games-current-slot" class="dash-slot"></div>`;
   if(key==='song') return `<div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
-  if(key==='watchnext') return dashRandomWatchlistWidgetHTML();
+  if(key==='watchnext') return `<div id="dash-watchnext-slot">${dashRandomWatchlistWidgetHTML()}</div>`;
   if(key==='lastseen') return dashLastSeenFilmWidgetHTML();
   if(key==='plants') return `<div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   return '';
@@ -3868,6 +3975,9 @@ function renderDashboard(){
     <div class="home-foot">
       <button class="version-tag" onclick="App.goSettings()">⚙️ Settings</button>
     </div>`;
+  // stamp every tile with its true Settings position before the first balance pass ever moves
+  // anything - see balanceDashboardColumns' own comment for why this has to happen up front
+  [...$('#dash-col-a').children].forEach((n,i) => { n.dataset.dashOrder = i; });
   balanceDashboardColumns();
   loadDashboardGames();
   loadDashboardSong();
@@ -4297,13 +4407,19 @@ async function psnApi(path){
   return res.json();
 }
 /* Games holds two unrelated collections - what you're playing on the PlayStation, and board
-   games you might get to the table - so it splits into sub-tabs rather than one mixed list. */
+   games you might get to the table - so it splits into sub-tabs rather than one mixed list.
+   Board Games needs its own BGG_API_TOKEN Vercel environment variable (BoardGameGeek requires
+   a registered app token on every request - see psn-proxy/README.md) that hasn't been set up
+   yet, so its subtab is hidden until it has been - the feature itself is untouched underneath,
+   just not linked to, and flipping this back to true is the whole job of turning it back on. */
+const BOARD_GAMES_ENABLED = false;
 let CUR_GAMES_TAB = 'psn';
 function renderGames(){
+  if(CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) CUR_GAMES_TAB = 'psn';
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
-    <div class="subtabs">${tab('psn','🎮 PS5/PS4')}${tab('board','🎲 Board Games')}${tab('wishlist','🕹️ Wishlist')}</div>
+    <div class="subtabs">${tab('psn','🎮 PS5/PS4')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}${tab('wishlist','🕹️ Wishlist')}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
   if(CUR_GAMES_TAB==='wishlist'){ renderWishlist(); return; }
@@ -4369,7 +4485,7 @@ function drawGamesList(){
   if(!list.length){ grid.innerHTML = `<div class="empty">No games match "${esc(q)}"</div>`; return; }
   // hidden games sink to the bottom (faded, not removed) rather than disappearing outright
   const ordered = list.filter(g=>!hidden.has(g.id)).concat(list.filter(g=>hidden.has(g.id)));
-  grid.innerHTML = `<div class="games-list">${ordered.map(g=>gameCardHTML(g, hidden.has(g.id))).join('')}</div>
+  grid.innerHTML = `<div class="games-cover-grid">${ordered.map(g=>gameCardHTML(g, hidden.has(g.id))).join('')}</div>
     <div class="btn-row" style="justify-content:center; margin-top:6px">
       <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
     </div>`;
@@ -4383,15 +4499,17 @@ function gameCardHTML(g, isHidden){
   return `
     <div class="game-card${isHidden?' hidden-game':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
-      ${g.iconUrl ? `<img class="game-icon" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
-                   : `<span class="game-icon game-icon-fallback">${fa('gamepad')}</span>`}
+      <div class="game-cover-wrap">
+        ${g.iconUrl ? `<img class="game-cover" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+                     : `<span class="game-cover game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
+        <button type="button" class="iconbtn game-hide-btn" aria-label="${esc(hideLabel)}" title="${isHidden?'Unhide':'Hide'}"
+          onclick="event.stopPropagation();App.psnToggleHidden('${esc(g.id)}')">${fa(isHidden?'eye':'eye-slash')}</button>
+      </div>
       <div class="game-info">
         <div class="game-name">${esc(g.name||'Untitled')}</div>
         <div class="game-progress"><div class="game-progress-bar" style="width:${pct}%"></div></div>
         <div class="game-meta muted small">${pct}% &middot; ${earned}/${total} trophies${g.platform?' &middot; '+esc(g.platform):''}</div>
       </div>
-      <button type="button" class="iconbtn game-hide-btn" aria-label="${esc(hideLabel)}" title="${isHidden?'Unhide':'Hide'}"
-        onclick="event.stopPropagation();App.psnToggleHidden('${esc(g.id)}')">${fa(isHidden?'eye':'eye-slash')}</button>
     </div>`;
 }
 /* the individual game's own page - trophy tiers broken down (Sony's API already returns
@@ -4433,7 +4551,7 @@ function renderGameDetail(id){
     </div>
     <div class="card game-detail-card">
       ${g.iconUrl ? `<img class="game-detail-icon" src="${esc(g.iconUrl)}" alt="">`
-                   : `<span class="game-detail-icon game-icon-fallback">${fa('gamepad')}</span>`}
+                   : `<span class="game-detail-icon game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
       <div class="game-detail-name">${esc(g.name||'Untitled')}</div>
       <div class="small muted game-detail-meta">${esc(g.platform||'')}${g.lastPlayed?' &middot; Last played '+esc(fmtDate(g.lastPlayed.slice(0,10))):''}</div>
       <div class="game-progress"><div class="game-progress-bar" style="width:${pct}%"></div></div>
