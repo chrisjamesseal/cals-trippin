@@ -277,6 +277,12 @@ a{color:var(--brand-dark);}
 .wl-facts{margin-top:2px;}
 .wl-actions{margin-top:12px;}
 .wl-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
+/* the manual "get this next" override (App.wlPin) - same on/off treatment as the wishlist mark
+   button next to it, plus a small badge up top on the card itself once pinned, so it stands out
+   even before reading either button's own label. */
+.wl-pin.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
+.wl-pin-badge{display:inline-block; background:var(--brand); color:#fff; font-weight:700;
+  font-size:.68rem; padding:3px 10px; border-radius:20px; margin-bottom:10px;}
 
 /* Settings ends right where .wrap's own bottom padding starts, no closing section below it the
    way Home's foot bar gives every other page - a little extra room of its own so the last card
@@ -1389,8 +1395,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.23';
+const APP_VERSION = '2.29.24';
 const CHANGELOG = [
+  {version:'2.29.24', notes:[
+    "My Wishlist: games now sort by release urgency automatically (closest to today, whether upcoming or just out, floats to the top), and you can pin any game with \"Play This Next\" to override the order and mark it as your pick.",
+  ]},
   {version:'2.29.23', notes:[
     "Settings: added a Home Dashboard section - reorder or hide any of Home's widgets (Next Trip, Next Gig, Currently Playing, Most Played, Watch Next, Last Seen, Plants) with up/down arrows and an eye toggle. A personal preference kept on this device only, not synced to the shared trip data.",
   ]},
@@ -4563,6 +4572,25 @@ function wlReleaseLabel(g){
   if(g.tba || !g.released) return 'To be announced';
   return g.released > todayStr() ? 'Releases '+fmtDate(g.released) : fmtDate(g.released);
 }
+/* "what should I get next" - a game with no known release date can't be acted on yet, so it
+   sinks to the bottom regardless of anything else; everything with a real date sorts by how
+   close that date is to today in either direction, closest first. That puts an about-to-release
+   game and one that just came out at the top together (both genuinely "get this soon"), and
+   something years off (or long since out and still not bought) further down - a plainer, more
+   useful ordering than a straight ascending date sort would give. */
+function wlUrgencyKey(g){
+  if(g.tba || !g.released) return Infinity;
+  return Math.abs(new Date(g.released) - new Date(todayStr()));
+}
+/* the one manual override on top of that automatic ordering - "Play This Next" always wins
+   regardless of release date, for the case where the auto sort doesn't match what you actually
+   want next. Both pinned and unpinned groups still sort by urgency within themselves. */
+function wishlistSorted(){
+  return wishlistGames().slice().sort((a,b) => {
+    if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return wlUrgencyKey(a) - wlUrgencyKey(b);
+  });
+}
 function renderWishlist(){
   const body = $('#games-body'); if(!body) return;
   body.innerHTML = `
@@ -4576,11 +4604,11 @@ function renderWishlist(){
 }
 function drawWishlistMine(){
   const el = $('#wl-my'); if(!el) return;
-  const mine = wishlistGames();
+  const mine = wishlistSorted();
   if(!mine.length){ el.innerHTML = ''; return; }
   el.innerHTML = `
     <h3 style="margin-bottom:10px">My Wishlist</h3>
-    <div class="wl-list" style="margin-bottom:22px">${mine.map(g=>wlCardHTML(g)).join('')}</div>`;
+    <div class="wl-list" style="margin-bottom:22px">${mine.map(g=>wlCardHTML(g, true)).join('')}</div>`;
 }
 /* one network call per distinct search; the RAWG function itself decides what "coming up"
    means when there's no query - see api/game-search.js */
@@ -4600,7 +4628,7 @@ function loadGameSearch(q){
       WL_LAST_GAMES = data.games||[];
       const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
       $('#wl-grid').innerHTML = games.length
-        ? `<div class="wl-list">${games.map(g=>wlCardHTML(g)).join('')}</div>`
+        ? `<div class="wl-list">${games.map(g=>wlCardHTML(g, false)).join('')}</div>`
         : `<div class="empty">${q?`No games match "${esc(q)}"`:'Nothing new to show right now.'}</div>`;
     })
     .catch(e => {
@@ -4611,11 +4639,15 @@ function loadGameSearch(q){
         </div></div>`;
     });
 }
-function wlCardHTML(g){
+/* mine=true only inside My Wishlist itself (see drawWishlistMine) - the Play This Next pin only
+   makes sense for something already saved, so the browse/search grid below it (still just RAWG
+   results, not yet on the shelf) never shows that button. */
+function wlCardHTML(g, mine){
   const on = isWishlisted(g.id);
   const facts = [wlPlatformsLabel(g), wlReleaseLabel(g)].filter(Boolean).join(' · ');
   return `
     <div class="wl-card${on?' wl-marked':''}">
+      ${mine && g.pinned ? `<div class="wl-pin-badge">🎯 Play Next</div>` : ''}
       <div class="wl-top">
         ${g.image ? `<img class="wl-cover" src="${esc(g.image)}" alt="" loading="lazy">`
                   : `<span class="wl-cover wl-cover-fallback" aria-hidden="true">🕹️</span>`}
@@ -4625,6 +4657,8 @@ function wlCardHTML(g){
         </div>
       </div>
       <div class="btn-row wl-actions">
+        ${mine ? `<button type="button" class="btn sm wl-pin${g.pinned?' on':''}" onclick="App.wlPin('${esc(g.id)}')" aria-pressed="${!!g.pinned}">
+          <span aria-hidden="true">🎯</span>${g.pinned?'Playing Next':'Play This Next'}</button>` : ''}
         <button type="button" class="btn sm wl-mark${on?' on':''}" onclick="App.wlToggle('${esc(g.id)}')" aria-pressed="${on}">
           <span aria-hidden="true">${on?'✓':'⭐'}</span>${on?'On Wishlist':'Add to Wishlist'}</button>
       </div>
@@ -8029,8 +8063,18 @@ App.wlToggle = id => {
   const grid = $('#wl-grid'); if(!grid) return;
   const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
   grid.innerHTML = games.length
-    ? `<div class="wl-list">${games.map(g=>wlCardHTML(g)).join('')}</div>`
+    ? `<div class="wl-list">${games.map(g=>wlCardHTML(g, false)).join('')}</div>`
     : `<div class="empty">Nothing new to show right now.</div>`;
+};
+/* the one manual override on top of the automatic release-urgency sort (see wishlistSorted) -
+   just a plain per-game flip, same as every other manual flag in this app. Only ever meaningful
+   on My Wishlist itself, so nothing needs to redraw the browse grid below it. */
+App.wlPin = id => {
+  const list = wishlistGames();
+  const g = list.find(x=>x.id===id); if(!g) return;
+  g.pinned = !g.pinned;
+  saveWishlist(list);
+  drawWishlistMine();
 };
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
