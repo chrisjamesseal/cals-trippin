@@ -610,19 +610,28 @@ a{color:var(--brand-dark);}
 .plant-info-row:last-child{border-bottom:none;}
 .plant-info-label{color:var(--muted); flex:1;}
 .plant-info-value{font-weight:700; color:var(--ink); text-align:right;}
-/* Today's Tips (plantCareTipsHTML) - each one icon + a single short line, never more than 4 */
-.plant-care-tips{list-style:none; margin:0 0 22px; padding:0; display:flex; flex-direction:column; gap:10px;}
-.plant-care-tips li{display:flex; align-items:flex-start; gap:10px; font-size:.84rem; line-height:1.4;}
-/* Today's Checklist (plantChecklistHTML) - split into "Needs Your Check" (manual, tappable, its
-   own affordance) and "Already Tracked" (read-only, this app's own derived state) so it's obvious
-   at a glance which is which, rather than one flat list where only a hover state told them apart. */
+/* Today's Checklist (plantChecklistHTML) - the most valuable, most-tapped section on the page, so
+   its rows borrow the trip area's own Packing List look (see .pack-row/.pack-check) rather than a
+   plain icon+text line: a full-width tap target and a filled, checkmarked square instead of a bare
+   ☑/☐ glyph. Split into "Needs Your Check" (manual, tappable) and "Already Tracked" (read-only,
+   this app's own derived state) so it's obvious at a glance which is which, with Today's Tips
+   folded in underneath as the section's one non-checkable group. */
 .plant-checklist-group{margin-bottom:14px;}
 .plant-checklist-group-label{font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
   font-weight:700; color:var(--muted); margin-bottom:6px;}
-.plant-tracker{display:flex; flex-direction:column; gap:6px;}
-.plant-tracker-row{display:flex; align-items:center; gap:8px; font-size:.84rem; padding:2px 0;}
-.plant-tracker-row.manual{cursor:pointer; border-radius:var(--radius-sm); padding:8px 10px; margin:0 -10px;}
-.plant-tracker-row.manual:hover{background:var(--bg);}
+.plant-checklist-rows{display:flex; flex-direction:column;}
+.plant-checklist-row{display:flex; align-items:center; gap:12px; padding:11px 2px; border-bottom:1px solid var(--line); min-height:44px; cursor:pointer;}
+.plant-checklist-row:last-child{border-bottom:none;}
+.plant-checklist-row.auto{cursor:default;}
+.plant-checklist-check{flex-shrink:0; width:21px; height:21px; border:2px solid var(--line-strong); border-radius:6px;
+  display:inline-flex; align-items:center; justify-content:center; font-size:.66rem; color:#fff; background:var(--paper);}
+.plant-checklist-row:not(.auto):hover .plant-checklist-check,
+.plant-checklist-row:not(.auto):focus-visible .plant-checklist-check{border-color:var(--brand); outline:none;}
+.plant-checklist-check.on{background:var(--brand); border-color:var(--brand);}
+.plant-checklist-label{font-size:.88rem; overflow-wrap:anywhere;}
+.plant-checklist-row.done .plant-checklist-label{text-decoration:line-through; color:var(--muted);}
+.plant-care-tips{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
+.plant-care-tips li{display:flex; align-items:flex-start; gap:10px; font-size:.84rem; line-height:1.4;}
 .plant-timeline{display:flex; flex-direction:column;}
 .plant-timeline-item{display:flex; gap:12px; position:relative; padding-bottom:14px;}
 .plant-timeline-item:not(:last-child)::before{content:''; position:absolute; left:11px; top:26px; bottom:0; width:2px; background:var(--line);}
@@ -1359,8 +1368,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.20';
+const APP_VERSION = '2.29.21';
 const CHANGELOG = [
+  {version:'2.29.21', notes:[
+    "Plants: Today's Tips folded into Today's Checklist instead of its own separate section, and every checklist row (manual and auto-tracked alike) now uses the same big, fully-tappable row as the trip area's Packing List - a filled, checkmarked square instead of a bare ☑/☐ symbol, the whole row a single tap target rather than just the icon.",
+  ]},
   {version:'2.29.20', notes:[
     "Plant detail page split into two tabs - Overview (everything dynamic: today's checklist, watering, what's next, progress, tips, activity) and Information (everything static: growing conditions, the full booklet-sourced growing guide) - so daily-care content never has to compete for space with once-in-a-while reference material.",
     "Plants: the sticky header is now full-width (not a floating card), shows the plant's name once - it's been dropped from the page's crumb - and collapses to a single \"Name · Day N · Status\" line once you scroll past it, plus gained its own Mark Watered button for one-tap watering without scrolling.",
@@ -6846,8 +6858,8 @@ function plantWaterButtonHTML(p, sm){
    the name, per the redesign brief), then three short icon-led status lines - growth stage,
    water status, and (seed/sprout stage only) a germination countdown - the CTA button, then a
    compact "last watered" footer. Deliberately no long sentences anywhere on this card: that's
-   what the detail page's Watering card/Today's Tips are for now (see plantWateringCardHTML/
-   plantCareTipsHTML) - the card's job is "what's this vegetable's status, what do I do next",
+   what the detail page's Watering card/Today's Checklist are for now (see plantWateringCardHTML/
+   plantChecklistHTML) - the card's job is "what's this vegetable's status, what do I do next",
    not "how do I grow it". */
 function plantCardHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
@@ -6967,32 +6979,38 @@ function plantCareTips(care){
   tips.push({icon:'✂️', text:'Thin out crowded seedlings for room'});
   return tips.slice(0,4);
 }
-function plantCareTipsHTML(p){
-  const tips = plantCareTips(plantCareDataFor(p)); if(!tips.length) return '';
-  return `
-    ${plantSectionHeadingHTML('lightbulb',"Today's Tips")}
-    <ul class="plant-care-tips">${tips.map(t=>`<li><span aria-hidden="true">${t.icon}</span>${esc(t.text)}</li>`).join('')}</ul>`;
-}
-/* three of these are read straight off state the app already tracks (today's watering, the
-   health badge's own green/not, whether it's within its germination window); "Pot Is In Full
-   Sun" has nothing to derive it from - there's no location data anywhere in this app - so it's
-   the one manually-tappable row here, a plain per-plant yes/no the grower sets themselves. */
 /* one plain per-plant flip, no confirmation needed either way since ticking either of these
    wrong costs nothing and is just as easy to untick. Kept as simple persistent booleans (same as
    every other manual flag in this app) rather than resetting nightly - a proper daily-reset habit
-   tracker is a bigger feature than this checklist is trying to be. */
+   tracker is a bigger feature than this checklist is trying to be. The whole row is the tap
+   target and the check itself is a filled square with a checkmark rather than a bare ☑/☐ glyph -
+   the same prominent, packing-list-style row this app already uses for the trip Packing List
+   (see packRowHTML), reused here since it's proven to read as clearly tappable at a glance. */
 function plantChecklistRowHTML(p, key, label, on){
   return `
-    <div class="plant-tracker-row manual" role="button" tabindex="0"
+    <div class="plant-checklist-row${on?' done':''}" role="checkbox" aria-checked="${on}" tabindex="0"
       onclick="App.plantToggleChecklist('${esc(p.id)}','${key}')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantToggleChecklist('${esc(p.id)}','${key}')}">
-      <span aria-hidden="true">${on?'☑':'☐'}</span> ${esc(label)}
+      <span class="plant-checklist-check${on?' on':''}" aria-hidden="true">${on?fa('check'):''}</span>
+      <span class="plant-checklist-label">${esc(label)}</span>
     </div>`;
 }
-/* the most valuable section on the page, per the CRM redesign brief - split so it's obvious at a
-   glance which rows are this app's own read on things (auto-tracked, read-only) and which are
-   the grower's own honest yes/no (manually tapped) - the two used to sit in one flat list with
-   only the cursor/hover affordance telling them apart. */
+/* the auto-tracked rows share the exact same big-checkbox visual as the manual ones above (so the
+   whole checklist reads as one consistent list), just without the tap target - role="checkbox" is
+   dropped and there's no click handler, since these reflect state the app already knows rather
+   than something the grower sets. */
+function plantChecklistAutoRowHTML(it){
+  return `
+    <div class="plant-checklist-row auto${it.on?' done':''}">
+      <span class="plant-checklist-check${it.on?' on':''}" aria-hidden="true">${it.on?fa('check'):''}</span>
+      <span class="plant-checklist-label">${esc(it.label)}</span>
+    </div>`;
+}
+/* the most valuable section on the page, per the CRM redesign brief - Today's Tips folded in
+   underneath rather than kept as its own separate section, since it's the same "what do I need to
+   know for today" purpose, just advice instead of a checkbox. The checklist itself stays split so
+   it's obvious at a glance which rows are this app's own read on things (auto-tracked, read-only)
+   and which are the grower's own honest yes/no (manually tapped). */
 function plantChecklistHTML(p){
   if(p.stage===PLANT_STAGE_DEFAULT) return '';
   const g = plantGerminationInfo(p);
@@ -7000,20 +7018,25 @@ function plantChecklistHTML(p){
     {on: daysSinceTs(plantLastWateredTs(p))===0, label:'Watered recently'},
   ];
   if(g) auto.push({on:true, label:'Germination active'});
+  const tips = plantCareTips(plantCareDataFor(p));
   return `
     ${plantSectionHeadingHTML('list-check',"Today's Checklist")}
     <div class="plant-checklist-group">
       <div class="plant-checklist-group-label">Needs Your Check</div>
-      <div class="plant-tracker">
+      <div class="plant-checklist-rows">
         ${plantChecklistRowHTML(p, 'soil', 'Soil feels moist', !!p.soilMoistOk)}
         ${plantChecklistRowHTML(p, 'sun', 'Pot gets enough sun', !!p.locationOk)}
       </div>
     </div>
     <div class="plant-checklist-group">
       <div class="plant-checklist-group-label">Already Tracked</div>
-      <div class="plant-tracker">${auto.map(it => `
-        <div class="plant-tracker-row"><span aria-hidden="true">${it.on?'☑':'☐'}</span> ${esc(it.label)}</div>`).join('')}</div>
-    </div>`;
+      <div class="plant-checklist-rows">${auto.map(plantChecklistAutoRowHTML).join('')}</div>
+    </div>
+    ${tips.length ? `
+      <div class="plant-checklist-group">
+        <div class="plant-checklist-group-label">Tips</div>
+        <ul class="plant-care-tips">${tips.map(t=>`<li><span aria-hidden="true">${t.icon}</span>${esc(t.text)}</li>`).join('')}</ul>
+      </div>` : ''}`;
 }
 /* transcribed from our physical seed-kit's own growing guide booklet - only the 6 vegetables it
    actually covers get one, matched by the plant's name (see PLANT_GUIDE_ALIASES for the handful
@@ -7393,7 +7416,6 @@ function plantDetailOverviewHTML(p){
     <div id="plant-detail-water">${plantWateringCardHTML(p)}</div>
     <div id="plant-detail-next">${plantWhatsNextHTML(p)}</div>
     <div id="plant-detail-progress">${plantProgressTimelineHTML(p)}</div>
-    ${plantCareTipsHTML(p)}
     <div id="plant-detail-timeline">${plantActivityTimelineHTML(p)}</div>`;
 }
 function renderPlantDetail(id){
