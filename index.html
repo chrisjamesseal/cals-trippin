@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <!-- interactive-widget=resizes-content (Safari 16.4+/modern Chrome) shrinks the actual layout
-     viewport when the on-screen keyboard opens, so position:fixed elements (the tabbar, the
-     Places/Games search bar) land right above the keyboard on their own instead of sliding
+     viewport when the on-screen keyboard opens, so the one position:fixed element left that
+     needs to sit right above it - the tabbar - lands there on its own instead of sliding
      underneath it or drifting to wherever the old resizes-visual default left them; ignored
      harmlessly on older browsers, which just get the keyboard covering that bit of the page
-     instead - simpler than the visualViewport-tracking JS fallback this used to have, which
-     went through three rounds of timing fixes and still regularly left the search bar floating
-     above the keyboard with a gap of page showing through (see body.kb-open .games-search
-     below for the one bit of compensation this still needs). -->
+     instead. The Places/Games-style search bar used to be position:fixed here too and needed
+     this as much as the tabbar did, but four rounds of fighting the keyboard over its position
+     (three visualViewport timing fixes, then trusting this meta tag alone) never fully fixed it,
+     so it's a normal in-flow element now - see .places-search,.games-search below. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Chris app</title>
 <meta name="description" content="One place for your group trip: flights, money, plans and photos.">
@@ -165,9 +165,6 @@ a{color:var(--brand-dark);}
 
 /* ---------- games (PSN progress) ---------- */
 .games-list{display:flex; flex-direction:column; gap:10px;}
-/* the fixed search sits over the foot of the page, same as Places, so the last game (and the
-   Disconnect button after it) need room to clear it */
-#games-grid{padding-bottom:44px;}
 .game-card{
   display:flex; align-items:center; gap:12px; padding:12px; min-width:0; cursor:pointer;
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow);
@@ -234,8 +231,6 @@ a{color:var(--brand-dark);}
 .bg-sel .label{margin-bottom:3px;}
 .bg-sel select{width:100%; font-size:.82rem; padding:8px 6px;}
 .bg-list{display:flex; flex-direction:column; gap:12px;}
-/* the fixed search sits over the foot of the page, same as Places and PlayStation */
-#bg-grid,#gig-artists-grid{padding-bottom:44px;}
 .bg-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:14px;}
 .bg-marked{border-color:var(--brand);}
@@ -256,7 +251,6 @@ a{color:var(--brand-dark);}
 .bg-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
 
 /* ---------- wishlist (new & upcoming video games) - same shape as board game cards ---------- */
-#wl-grid{padding-bottom:44px;}
 .wl-list{display:flex; flex-direction:column; gap:12px;}
 .wl-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); padding:14px;}
@@ -278,7 +272,6 @@ a{color:var(--brand-dark);}
 #settings-body{padding-bottom:40px;}
 
 /* ---------- films (Letterboxd-style diary) - a poster shelf, not a list ---------- */
-#films-grid{padding-bottom:44px;}
 .film-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(100px,1fr)); gap:12px; align-items:start;}
 .film-card{display:block; width:100%; text-align:left; cursor:pointer; border:none; background:none;
   padding:0; font:inherit; color:inherit;}
@@ -707,39 +700,22 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    descender space below the letters, so it reads high next to an emoji that fills its box.
    Nudging the text down by a pixel lines the two up optically. */
 .meta-text{display:inline-block; transform:translateY(1px);}
-/* the search sits on top of the bottom bar rather than at the top of the page: it's the one
-   control you reach for constantly on a list of 223, and at the top of a scrolled page it's
-   both out of sight and out of thumb's reach. Below the bar's z-index so the bar stays put
-   on top of it, and the grid leaves room underneath so the last country clears both. */
-/* sits exactly on top of the bar: --bar-h is measured from the real thing each render rather
-   than guessed, because guessing left a sliver of page showing between the two on a phone
-   whose safe-area inset made the bar taller than the arithmetic said */
-.places-search,.games-search{position:fixed; left:0; right:0; z-index:55;
-  bottom:var(--bar-h,61px);
-  padding:10px 16px; background:var(--bg); border-top:1px solid var(--line);
-  transform:translateZ(0); will-change:transform;}
+/* an ordinary field sitting at the top of the list, not pinned above the tabbar - it used to be
+   position:fixed there instead, reachable without scrolling on a long list, but keeping it
+   fixed above the keyboard turned out to be a fight this app kept losing: four separate attempts
+   (three rounds of visualViewport timing fixes, then trusting interactive-widget=resizes-content
+   alone) all still left it floating somewhere above the keyboard with a gap of page showing
+   through underneath. Living in normal flow sidesteps the whole problem - focusing the input
+   just scrolls it into view above the keyboard the way every native text field does, no custom
+   positioning code involved anywhere. Every page using this (Places, Games, Board Games,
+   Wishlist, Gig Artists, Films Diary/Watchlist) puts the box first, right above its grid, so it's
+   still the first thing you reach on the way in rather than buried below a long list. */
+.places-search,.games-search{margin-bottom:14px;}
 .places-search input,.games-search input{background:var(--paper);}
-/* while the keyboard's up, the tabbar this normally sits above is hidden (body.kb-open
-   .tabbar.on above) - collapses the reserved bar-h gap so the search box drops flush to the
-   bottom instead of floating bar-h's worth above the keyboard with nothing occupying that
-   space. Trusts the page's own interactive-widget=resizes-content meta tag to have already
-   shrunk the viewport to end right above the keyboard by the time this applies - three separate
-   attempts at tracking the keyboard's height via visualViewport (a --kb-inset custom property,
-   each with its own timing fix) all still raced the resize animation and left the box floating
-   above the keyboard with a gap of page showing through, so this stops trying to measure the
-   keyboard at all rather than attempt a fourth timing fix. */
-body.kb-open .places-search,body.kb-open .games-search{bottom:0;}
-/* Films' Diary and Watchlist tabs each get the same fixed-above-the-tabbar filter box as
-   Places/Games, filtering what's already on the page rather than a live TMDb search - finding a
-   NEW film to log or add lives on its own full page instead (App.fwAddFilm), reached via the
-   "+ Log Film"/"+ Add Film" buttons, not an overlay stacked above this filter. */
 /* one country per row: side by side, a long name and its capital and language had nowhere to
    go and the card grew a paragraph tall. Two columns once the screen is wide enough to give
    each of them a sensible width. */
 .places-grid{display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:22px;}
-/* the fixed search sits over the foot of the page, so the last country needs room to clear it
-   on top of the space .wrap already leaves for the bar */
-#places-grid{padding-bottom:44px;}
 @media(min-width:620px){.places-grid{grid-template-columns:repeat(2,1fr);}}
 /* Been only: two columns at any width, see drawPlacesGrid() for why */
 .places-grid.dense{grid-template-columns:repeat(2,1fr);}
@@ -1202,8 +1178,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.12';
+const APP_VERSION = '2.29.13';
 const CHANGELOG = [
+  {version:'2.29.13', notes:[
+    "The search box on Places, Games, Board Games, Wishlist, Gig Artists and Films' Diary/Watchlist no longer floats above the keyboard - it's a normal part of the page now, sitting right at the top of each list, instead of pinned above the tabbar. That pinned positioning was the whole source of the keyboard-floating bug that kept coming back no matter how it was patched, so it's gone rather than fixed again.",
+  ]},
   {version:'2.29.12', notes:[
     "Plants: a vegetable's Watered button now fades out and stops being tappable once it's had enough water for its schedule - previously only greyed out if watered that exact day, so a plant on a 2-day schedule watered yesterday still looked tappable even though it wasn't due yet.",
   ]},
@@ -3610,10 +3589,10 @@ function renderPlaces(view){
       </div>
     </div>
     ${v==='been' ? `<div class="subtabs" id="been-subtabs"></div>` : ''}
-    <div id="places-grid"></div>
     <div class="places-search">
       <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
-    </div>`;
+    </div>
+    <div id="places-grid"></div>`;
   drawBeenSubtabs();
   drawPlacesGrid();
   loadPlacesCloud(cloud => {
@@ -3950,10 +3929,10 @@ function renderGamesList(titles){
   PSN_TITLES = titles;
   if(!titles.length){ body.innerHTML = `<div class="empty">No games found on this account yet.</div>`; return; }
   body.innerHTML = `
-    <div id="games-grid"></div>
     <div class="games-search">
       <input type="text" id="games-search" placeholder="Search games…" oninput="drawGamesList()">
-    </div>`;
+    </div>
+    <div id="games-grid"></div>`;
   drawGamesList();
 }
 /* re-filters/re-sorts the already-fetched list; leaves the search box and its cursor alone,
@@ -4125,10 +4104,10 @@ function renderBoardGames(){
   const body = $('#games-body'); if(!body) return;
   body.innerHTML = `
     <div id="bg-filters"></div>
-    <div id="bg-grid"><div class="empty">Loading board games…</div></div>
     <div class="games-search">
       <input type="text" id="bg-search" placeholder="Search board games…" oninput="App.bgSearchInput()">
-    </div>`;
+    </div>
+    <div id="bg-grid"><div class="empty">Loading board games…</div></div>`;
   drawBgFilters();
   loadBoardGames('');
 }
@@ -4258,10 +4237,10 @@ function renderWishlist(){
   const body = $('#games-body'); if(!body) return;
   body.innerHTML = `
     <div id="wl-my"></div>
-    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>
     <div class="games-search">
       <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
-    </div>`;
+    </div>
+    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>`;
   drawWishlistMine();
   loadGameSearch('');
 }
@@ -4520,10 +4499,10 @@ function drawGigsArtists(){
   const artists = SPOTIFY_ARTISTS||[];
   if(!artists.length){ body.innerHTML = `<div class="empty">You're not following any artists on Spotify yet.</div>`; return; }
   body.innerHTML = `
-    <div id="gig-artists-grid"></div>
     <div class="games-search">
       <input type="text" id="gig-artists-search" placeholder="Search your artists…" oninput="App.gigArtistsFilter()">
     </div>
+    <div id="gig-artists-grid"></div>
     <div class="btn-row" style="justify-content:center; margin-top:6px">
       <button class="btn sm ghost" onclick="App.spotifyDisconnect()">Disconnect Spotify</button>
     </div>`;
