@@ -526,34 +526,54 @@ a{color:var(--brand-dark);}
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji-opt.on{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand);}
-/* ---------- plant detail page (friendly gardening coach) ---------- */
+/* ---------- plant detail page (a CRM/dashboard for one plant, not a reference page) ---------- */
 .plant-timeline-heading{font-family:var(--font-head); font-size:1rem; margin:0 0 10px;}
 .plant-timeline-subheading{font-family:var(--font-head); font-size:.88rem; color:var(--muted);
   margin:18px 0 10px;}
-/* the top summary card (plantDetailSummaryHTML) - health badge plus a handful of short, plain-
-   English fact lines, each glanceable on its own rather than one run-on status sentence */
-.plant-summary-facts{display:flex; flex-direction:column; gap:4px; margin-top:6px; font-size:.82rem; color:var(--ink);}
+/* the sticky header (plantStickyHeaderHTML) - this plant's own dashboard: icon + name, then a
+   handful of short dynamic fact lines that change by stage (day count while germinating, a
+   watering hint once growing, etc). Sticks to the top of the viewport while the rest of the page
+   scrolls underneath it, so "what do I need to know right now" never scrolls out of view - the
+   one thing every other section on this page is secondary to. */
+.plant-sticky-header{position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:12px;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:12px 16px; margin-bottom:18px;}
+.plant-sticky-header.plant-unplanted{opacity:.75;}
+.plant-sticky-emoji{font-size:2rem; line-height:1; flex-shrink:0;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-sticky-emoji.plant-icon-img{width:36px; height:36px; object-fit:cover; border-radius:8px;}
+.plant-sticky-info{min-width:0;}
+.plant-sticky-name{font-family:var(--font-head); font-weight:700; font-size:1rem; color:var(--ink); overflow-wrap:anywhere;}
+.plant-sticky-line{font-size:.78rem; color:var(--ink); margin-top:2px;}
 /* "What Happens Next?" (plantWhatsNextHTML) - a distinct softly-tinted card so it reads as the
    one thing worth reading in full, not another stat sitting flush against the page background */
 .plant-next-card{background:var(--brand-tint); border-radius:var(--radius); padding:16px 18px; margin-bottom:22px;}
 .plant-next-title{font-family:var(--font-head); font-weight:700; font-size:.88rem; margin-bottom:6px; color:var(--brand-dark);}
 .plant-next-card p{font-size:.84rem; line-height:1.5; margin:0; color:var(--ink);}
-/* the journey stepper (plantJourneyHTML) - four plain stops rather than a filled-up-to-here bar,
-   each just an emoji + label; "current" and "done" only change the dot's own colour so it stays
-   readable at a glance without needing a legend */
-.plant-journey-steps{display:flex; align-items:flex-start; justify-content:space-between; gap:4px; margin-bottom:14px;}
-.plant-journey-step{display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; min-width:0;}
-.plant-journey-dot{width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  font-size:1.05rem; line-height:1; background:var(--bg); border:1px solid var(--line-strong); opacity:.5;
+/* the Progress Tracker (plantProgressTrackerHTML) - plain numbers/text, no graphic here (see
+   .plant-journey-timeline further down the page for that) - just the day count a beginner
+   actually wants at a glance. */
+.plant-progress-tracker{display:flex; flex-direction:column; gap:4px; margin-bottom:22px; font-size:.84rem; color:var(--ink);}
+/* the Growing Journey's own vertical timeline (plantGrowingJourneyHTML) - a plain stack of stops
+   (same <details> card idiom the Plant Information phases below use, see .grow-phase) rather than
+   a horizontal stepper. Progression is communicated through each stop's own mark (a hollow circle,
+   a checkmark, or the stage's own emoji once current) instead of a connecting line, so there's no
+   gap between cards to bridge. Tapping one reveals a short description of that stage (and, for
+   anything but the current stage, a quick way to jump straight to it - see
+   plantJourneyStepDescription/App.plantSetStage). */
+.plant-journey-timeline{display:flex; flex-direction:column; margin-bottom:8px;}
+.plant-journey-node summary{display:flex; align-items:center; gap:10px; cursor:pointer; list-style:none; padding:14px 16px;}
+.plant-journey-node summary::-webkit-details-marker{display:none;}
+.plant-journey-node-mark{width:24px; height:24px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem; line-height:1;
+  background:var(--bg); border:1px solid var(--line-strong); color:var(--muted);
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-journey-step.done .plant-journey-dot{opacity:1; border-color:var(--brand); background:var(--brand-tint);}
-.plant-journey-step.current .plant-journey-dot{opacity:1; border-color:var(--brand); background:var(--brand); box-shadow:0 0 0 3px var(--brand-tint);}
-.plant-journey-label{font-size:.62rem; color:var(--muted); text-align:center;}
-.plant-journey-step.current .plant-journey-label{color:var(--ink); font-weight:700;}
-.plant-journey-current{font-size:.84rem; margin-bottom:8px;}
-.plant-journey-detail{font-size:.8rem; margin-bottom:2px;}
-.plant-journey-detail.muted{color:var(--muted);}
-.plant-journey-encourage{font-size:.82rem; color:var(--muted); margin:6px 0 0; font-style:italic;}
+.plant-journey-node.done .plant-journey-node-mark{border-color:var(--brand); background:var(--brand-tint); color:var(--brand-dark);}
+.plant-journey-node.current .plant-journey-node-mark{border-color:var(--brand); background:var(--brand); color:#fff;}
+.plant-journey-node-label{font-weight:700; font-size:.88rem; color:var(--ink); flex:1; min-width:0;}
+.plant-journey-node-meta{font-size:.7rem; color:var(--muted); white-space:nowrap; flex-shrink:0;}
+.plant-journey-node-body{padding:0 16px 14px 50px;}
+.plant-journey-node-body p{font-size:.82rem; line-height:1.5; margin:0 0 8px; color:var(--ink);}
 .plant-journey-change{margin:14px 0 22px;}
 .plant-journey-change summary{color:var(--brand); font-weight:700; font-size:.8rem; cursor:pointer; list-style:none;}
 .plant-journey-change summary::-webkit-details-marker{display:none;}
@@ -569,17 +589,21 @@ a{color:var(--brand-dark);}
 .plant-water-card-status.yellow{background:#FDF2D9; color:#8A6402;}
 .plant-water-card-status.red{background:#FCEBE9; color:#C0392B;}
 .plant-water-card-next{font-size:.84rem; font-weight:700; color:var(--ink); margin-bottom:12px;}
-/* Growing Conditions (plantGrowingConditionsHTML) - individual softly-bordered cards instead of
-   table rows, each glanceable on its own: an icon, the value, and where there's one, a quieter
-   secondary detail line underneath */
-.plant-conditions{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:22px;}
-.plant-condition-card{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
-  padding:12px 14px; display:flex; flex-direction:column; gap:2px;}
-.plant-condition-icon{font-size:1.2rem; line-height:1; margin-bottom:4px;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-condition-label{color:var(--muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.03em; font-weight:700;}
-.plant-condition-value{font-weight:700; color:var(--ink); font-size:.86rem;}
-.plant-condition-sub{color:var(--muted); font-size:.7rem;}
+/* Plant Information (plantInfoSectionHTML) - a single collapsed section right near the bottom of
+   the page holding everything that's useful occasionally but not daily: light/water/temperature/
+   harvest-season, plus (where one exists) the full booklet-sourced growing guide. Nothing in here
+   changes what to actually do today, so it starts closed rather than taking up space above the
+   fold the way it used to as its own top-level "Growing Conditions" section. */
+.plant-info-section{margin:8px 0 22px; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+.plant-info-summary{font-family:var(--font-head); font-weight:700; font-size:.92rem; cursor:pointer;
+  list-style:none; padding:14px 16px; background:var(--paper);}
+.plant-info-summary::-webkit-details-marker{display:none;}
+.plant-info-body{padding:4px 16px 16px;}
+.plant-info-rows{margin-bottom:8px;}
+.plant-info-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:.84rem;}
+.plant-info-row:last-child{border-bottom:none;}
+.plant-info-label{color:var(--muted); flex:1;}
+.plant-info-value{font-weight:700; color:var(--ink); text-align:right;}
 /* Today's Tips (plantCareTipsHTML) - each one icon + a single short line, never more than 4 */
 .plant-care-tips{list-style:none; margin:0 0 22px; padding:0; display:flex; flex-direction:column; gap:10px;}
 .plant-care-tips li{display:flex; align-items:flex-start; gap:10px; font-size:.84rem; line-height:1.4;}
@@ -616,14 +640,13 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-home-emoji.plant-icon-img{width:24px; height:24px; object-fit:cover; border-radius:6px;}
 .plant-home-ts{font-size:.62rem; color:var(--muted); white-space:nowrap;}
-/* the detail page's reference material for the handful of vegetables this app actually has
-   published growing instructions for (see PLANT_GROWING_GUIDES) - purely informational, doesn't
-   feed the watering/stage tracking above it. Every month-range value (the top facts row's
-   Planted/Outside/Munch, and each phase's own date range) is an editable input rather than
-   plain text - the booklet's timing is generic, real planting rarely lines up with it exactly,
-   see plantGrowFactEdit/plantGrowRangeEdit for where the per-plant override is saved. */
-.grow-guide{margin-top:26px;}
-.grow-facts{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:12px 0 18px;}
+/* the Plant Information section's own reference material for the handful of vegetables this app
+   actually has published growing instructions for (see PLANT_GROWING_GUIDES) - purely
+   informational, doesn't feed the watering/stage tracking above it. Every month-range value (the
+   facts row's Sow/Move Outside/Harvest, and each phase's own date range) is an editable input
+   rather than plain text - the booklet's timing is generic, real planting rarely lines up with it
+   exactly, see plantGrowFactEdit/plantGrowRangeEdit for where the per-plant override is saved. */
+.grow-facts{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:4px 0 18px;}
 .grow-fact{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 12px;}
 .grow-fact-label{color:var(--muted); font-size:.62rem; text-transform:uppercase; letter-spacing:.04em; font-weight:700;}
 .grow-fact-value{font-weight:700; font-size:.84rem; margin-top:2px; color:var(--ink);}
@@ -658,20 +681,6 @@ a{color:var(--brand-dark);}
 /* the short imperative summary (phase.tldr) - bold and set apart from the fuller booklet
    paragraphs underneath, so a glance at the open phase gives the one-line version first */
 .grow-phase-tldr{font-weight:700;}
-/* three tap-to-add slots matching the guide's own progress captions (e.g. Sprouting/Swelling/
-   Pulling) - the app has no photos of its own for these yet (they come from a printed booklet,
-   not something with reusable source images), so this starts empty and lets you fill them in
-   with your own as your plants actually go through each stage. */
-.grow-progress-intro{font-size:.8rem; color:var(--muted); margin-bottom:10px;}
-.grow-progress{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:16px;}
-.grow-progress-slot{display:flex; flex-direction:column; align-items:center; gap:5px;}
-.grow-progress-photo{display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1;
-  border-radius:var(--radius-sm); border:1px dashed var(--line-strong); background:var(--bg) center/cover no-repeat;
-  color:var(--muted); font-size:1.1rem; cursor:pointer;}
-.grow-progress-photo.has-photo{border-style:solid; border-color:var(--line); color:transparent;}
-.grow-progress-remove{border:none; background:none; padding:0; color:var(--muted); font-size:.68rem;
-  text-decoration:underline; cursor:pointer; font:inherit;}
-.grow-progress-caption{font-size:.66rem; color:var(--muted); text-align:center;}
 
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:4px;}
@@ -1329,8 +1338,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.18';
+const APP_VERSION = '2.29.19';
 const CHANGELOG = [
+  {version:'2.29.19', notes:[
+    "Plant detail page rebuilt as a dashboard for the plant you've already got growing, not a reference page: a sticky header stays pinned at the top as you scroll, showing this plant's own status/day-count/watering hint at a glance, and Today's Checklist now sits right underneath it as the page's primary action area.",
+    "Plants: removed the Growth Journey photo section entirely (future progress photos will live under a dedicated Journal tab instead), and dropped Spacing/Pot Size from the page - those are setup decisions already made by the time a plant has a detail page.",
+    "Plants: added a Progress Tracker (plain day-count text) and a new Growing Journey vertical timeline - tap any stage to see a short description or jump straight to it. Today's Tips moved up, and everything static (light/water/temperature/harvest season, plus the full booklet-sourced growing guide) now lives in a single collapsed \"📚 Plant Information\" section near the bottom.",
+  ]},
   {version:'2.29.18', notes:[
     "Plant detail page redesigned as a beginner-friendly gardening coach: a plain-English summary (soil status, day count, reassurance) replaces the old status area, a colour-tinted \"What Happens Next?\" card explains what to expect at the current stage, and a 4-step Seed Sown → Sprouted → Growing → Harvest journey stepper replaces the old progress ring.",
     "Plants: added a dedicated Watering card (last watered, a plain Moist/Check Soil/Needs Water status, and one concrete next action) separate from the rest of the page.",
@@ -6382,6 +6396,23 @@ function plantGerminationRowHTML(p){
   const g = plantGerminationInfo(p); if(!g) return '';
   return `<div class="plant-germ-label">⏳ ${g.min} to ${g.max}d</div>`;
 }
+/* how many whole days since the plant last actually entered a given stage (its most recent
+   stageChanges entry for that stage) - every stage transition gets logged (see
+   plantSetStageImpl/plantLogStageChange), so this works for any stage a plant has actually
+   reached, not just the current one. */
+function plantDaysSinceStageEntered(p, stageKey){
+  const entries = (Array.isArray(p.stageChanges) ? p.stageChanges : []).filter(e => plantStageKey(e.stage)===stageKey);
+  if(!entries.length) return null;
+  const latest = entries.reduce((a,b) => new Date(b.ts) > new Date(a.ts) ? b : a);
+  return daysSinceTs(latest.ts);
+}
+/* how many days until the next watering is actually due, going by the same wateringFrequencyDays
+   every other watering readout uses - only meaningful once it's actually been watered at least
+   once (a never-watered plant is already 'red' via plantHealthState, which callers check first). */
+function plantDaysUntilWaterDue(p){
+  const last = plantLastWateredTs(p); if(!last) return null;
+  return (p.wateringFrequencyDays||3) - daysSinceTs(last);
+}
 /* real elapsed time for anything watered in the last day (matches the brief's own "2h ago"
    example), falling back to the calendar-day phrasing the rest of the app already uses (see
    daysSinceTs) once it's further out than that - a bare "23h ago" reads oddly once it tips into
@@ -6403,44 +6434,9 @@ function plantWaterFooterHTML(p){
 }
 /* ---- the detail page's "friendly coach" layer ----
    Everything below reads the exact same underlying state (plantHealthState, plantGerminationInfo,
-   plantStageKey) the card and the data-y sections already use - this is purely a warmer, plainer-
-   English presentation of it for a beginner who's never grown anything before, not a second
-   source of truth. */
-/* the third fact line on the summary card - reassurance that whatever's currently true (or not
-   yet true) about the plant is normal, not a warning sign. Only the seed/sprout-stage lines are
-   germination-specific; growing/ready/harvested get their own, since "too early to see sprouts"
-   stops being relevant once it's already sprouted. */
-function plantReassuranceText(p){
-  const stage = plantStageKey(p.stage);
-  const g = plantGerminationInfo(p);
-  if(stage==='seed') return g && g.day <= g.min ? "🌱 Too early to see sprouts yet" : "🌱 Sprouts could show any day now";
-  if(stage==='sprout') return "🌿 It's through - the hard part's done";
-  if(stage==='growing') return "🪴 Growing well, nothing to worry about";
-  if(stage==='ready') return "🧺 Ready whenever you are";
-  if(stage==='harvested') return "✅ All done - nice work";
-  return '';
-}
-/* the summary card's own water line - a plain sentence rather than the card's single-word chip
-   (plantWaterStatusHTML), since this is the "read it in one glance" version for someone who
-   might not know what a coloured dot means yet. */
-function plantWaterSentence(state){
-  if(state==='red') return '💧 Soil is likely dry - give it a drink';
-  if(state==='yellow') return '💧 Worth a soil check today';
-  return '💧 Soil should still be moist';
-}
-function plantDetailSummaryHTML(p){
-  if(p.stage===PLANT_STAGE_DEFAULT) return plantHealthBadgeHTML(p);
-  const state = plantHealthState(p);
-  const g = plantGerminationInfo(p);
-  const lines = [
-    plantWaterSentence(state),
-    g ? `⏳ Day ${g.day} of ${g.max}` : '',
-    plantReassuranceText(p),
-  ].filter(Boolean);
-  return `
-    ${plantHealthBadgeHTML(p)}
-    <div class="plant-summary-facts">${lines.map(l=>`<div>${esc(l)}</div>`).join('')}</div>`;
-}
+   plantStageKey) the sticky header and the data-y sections already use - this is purely a warmer,
+   plainer-English presentation of it for a beginner who's never grown anything before, not a
+   second source of truth. */
 /* the beginner-facing "what do I actually do" card - the thing this whole redesign is for. One
    short paragraph, changes with the stage (and, during germination, whether it's still early or
    getting close to the expected window), never assumes any gardening knowledge. */
@@ -6480,8 +6476,8 @@ const PLANT_JOURNEY_STEPS = [
 function plantJourneyStepIdx(p){
   return PLANT_JOURNEY_STEPS.findIndex(s => s.stages.includes(plantStageKey(p.stage)));
 }
-/* the germination-specific encouragement under the stepper - only shown while there's an actual
-   day count to react to (seed/sprout stage, a known germination window - see
+/* the germination-specific encouragement in the Progress Tracker - only shown while there's an
+   actual day count to react to (seed/sprout stage, a known germination window - see
    plantGerminationInfo), since "everything's happening underground" only means something in
    context of waiting for a sprout. */
 function plantDayEncouragement(day){
@@ -6489,31 +6485,89 @@ function plantDayEncouragement(day){
   if(day<=7) return "Seeds are waking up.";
   return "Watch for tiny green shoots.";
 }
-function plantJourneyHTML(p){
-  const idx = plantJourneyStepIdx(p);
-  if(idx<0){
+/* the "how far along" numbers - day count and expected range while germinating, a short
+   one-line status once past that. No stepper here (see plantGrowingJourneyHTML further down the
+   page for the visual timeline) - this is just the number a beginner actually wants at a glance. */
+function plantProgressTrackerHTML(p){
+  if(p.stage===PLANT_STAGE_DEFAULT) return '';
+  const stage = plantStageKey(p.stage);
+  const g = plantGerminationInfo(p);
+  const lines = [];
+  if(g){
+    lines.push(`📅 Day ${g.day}`);
+    lines.push(`⏳ Expected ${g.min} to ${g.max} days`);
+    lines.push(plantDayEncouragement(g.day));
+  } else if(stage==='sprout'){
+    const days = plantDaysSinceStageEntered(p, 'sprout');
+    lines.push(days!=null ? `🌿 Sprouted ${days===0?'today':days===1?'yesterday':days+' days ago'}` : '🌿 Sprouted');
+    lines.push("The hard part's done - now it's about steady care.");
+  } else if(stage==='growing'){
+    const days = plantDaysSinceSown(p);
+    if(days!=null) lines.push(`📅 Day ${days+1} since sowing`);
+    lines.push('Growing steadily - keep the routine going.');
+  } else if(stage==='ready'){
+    lines.push('🧺 Ready to harvest whenever suits you.');
+  } else if(stage==='harvested'){
+    lines.push('✅ This batch is done - nice work.');
+  }
+  if(!lines.length) return '';
+  return `
+    <h3 class="plant-timeline-heading">Progress Tracker</h3>
+    <div class="plant-progress-tracker">${lines.map(l=>`<div>${esc(l)}</div>`).join('')}</div>`;
+}
+/* a short, stage-specific blurb for the Growing Journey timeline below - independent of the
+   plant's own current stage, since tapping a *future* node should still explain what that stage
+   actually involves, not just describe whatever's happening right now. */
+function plantJourneyStepDescription(i, p){
+  const care = plantCareDataFor(p);
+  if(i===0) return care && care.germDays
+    ? `Waiting for the seed to sprout. Most seeds like this take ${care.germDays[0]} to ${care.germDays[1]} days.`
+    : "Waiting for the seed to sprout. Every seed's a little different, so there's no exact day to expect it by.";
+  if(i===1) return "The seedling's up. Give it plenty of light so it grows strong, not tall and floppy.";
+  if(i===2) return "Actively growing. Keep the water and sunlight coming - nothing else needed.";
+  return "Ready to pick. Harvest whenever suits you - it won't spoil by waiting a day or two.";
+}
+function plantJourneyStepCompletedOn(p, step){
+  const entries = (Array.isArray(p.stageChanges)?p.stageChanges:[]).filter(e=>step.stages.includes(plantStageKey(e.stage)));
+  if(!entries.length) return '';
+  const latest = entries.reduce((a,b) => new Date(b.ts) > new Date(a.ts) ? b : a);
+  return fmtDate(latest.ts.slice(0,10));
+}
+/* the page's one visual timeline - a plain vertical list of stops rather than a horizontal
+   stepper, each one openable for a short description of what that stage actually involves. Every
+   node (not just the current one) can jump the plant straight to that stage - the same
+   jump-to-any-stage behaviour the flat button list (plantStagePickerHTML) gives, just presented
+   as a progression instead. While still unplanted there's nothing to progress through yet, so
+   this falls back to the plain stage picker so there's still a way to mark it planted. */
+function plantGrowingJourneyHTML(p){
+  if(p.stage===PLANT_STAGE_DEFAULT){
     return `
+      <h3 class="plant-timeline-heading">Growing Journey</h3>
       <details class="plant-journey-change" open>
         <summary>Change Stage</summary>
         ${plantStagePickerHTML(p)}
       </details>`;
   }
-  const g = plantGerminationInfo(p);
+  const idx = plantJourneyStepIdx(p);
   return `
-    <div class="plant-journey-steps">${PLANT_JOURNEY_STEPS.map((s,i) => `
-      <div class="plant-journey-step${i===idx?' current':i<idx?' done':''}">
-        <span class="plant-journey-dot" aria-hidden="true">${s.emoji}</span>
-        <span class="plant-journey-label">${esc(s.label)}</span>
-      </div>`).join('')}</div>
-    <div class="plant-journey-current">Current Stage: <strong>${esc(PLANT_JOURNEY_STEPS[idx].emoji+' '+PLANT_JOURNEY_STEPS[idx].label)}</strong></div>
-    ${g ? `
-      <div class="plant-journey-detail">📅 Day ${g.day}</div>
-      <div class="plant-journey-detail muted">⏳ Expected ${g.min} to ${g.max} days</div>
-      <p class="plant-journey-encourage">${esc(plantDayEncouragement(g.day))}</p>` : ''}
-    <details class="plant-journey-change">
-      <summary>Change Stage</summary>
-      ${plantStagePickerHTML(p)}
-    </details>`;
+    <h3 class="plant-timeline-heading">Growing Journey</h3>
+    <div class="plant-journey-timeline">${PLANT_JOURNEY_STEPS.map((s,i) => {
+      const done = i<idx, current = i===idx;
+      const completedOn = done ? plantJourneyStepCompletedOn(p, s) : '';
+      const meta = current ? 'Current Stage' : done ? ('Done' + (completedOn ? ' · '+completedOn : '')) : '';
+      return `
+      <details class="plant-journey-node${current?' current':''}${done?' done':''}"${current?' open':''}>
+        <summary>
+          <span class="plant-journey-node-mark" aria-hidden="true">${done?'✓':current?s.emoji:'○'}</span>
+          <span class="plant-journey-node-label">${esc(s.label)}</span>
+          <span class="plant-journey-node-meta">${esc(meta)}</span>
+        </summary>
+        <div class="plant-journey-node-body">
+          <p>${esc(plantJourneyStepDescription(i, p))}</p>
+          ${current?'':`<button type="button" class="btn sm ghost" onclick="App.plantSetStage('${esc(p.id)}','${s.stages[0]}')">Set as current stage</button>`}
+        </div>
+      </details>`;
+    }).join('')}</div>`;
 }
 /* the dedicated Watering card - last watered, a plain-English status sentence, and one concrete
    next action, ending with the actual Watered button. Deliberately never recommends watering
@@ -6535,6 +6589,75 @@ function plantWateringCardHTML(p){
       <div class="plant-water-card-status ${state}">${PLANT_HEALTH_META[state].emoji} ${esc(text)}</div>
       <div class="plant-water-card-next">${esc(plantWateringNextAction(state))}</div>
       ${plantWaterButtonHTML(p)}
+    </div>`;
+}
+/* the sticky header's own watering hint - short enough to sit on one line next to the status and
+   (for a growing plant) a harvest-timing line, so it's phrased as a single word or two rather
+   than the fuller sentence the Watering card below gets. */
+function plantStickyWaterHint(p, state){
+  if(state==='red') return '💧 Water today';
+  if(state==='yellow') return '💧 Check soil today';
+  const until = plantDaysUntilWaterDue(p);
+  if(until===1) return '💧 Water tomorrow';
+  if(until>1) return `💧 Water in ${until} days`;
+  return '✅ Nothing to do today';
+}
+/* the header's own status line - urgency (needing water) always wins over the stage-flavoured
+   "going well" phrasing, since "growing strong" reads oddly next to a plant that's actually
+   overdue a drink. Otherwise each stage gets its own upbeat label rather than reusing the plain
+   health-badge wording everywhere. */
+function plantStickyStatusLine(p, state){
+  const stage = plantStageKey(p.stage);
+  if(state==='red') return `${PLANT_HEALTH_META.red.emoji} Needs Water`;
+  if(state==='yellow') return `${PLANT_HEALTH_META.yellow.emoji} Check Today`;
+  if(stage==='sprout') return '🟢 Growing Well';
+  if(stage==='growing') return '🪴 Growing Strong';
+  if(stage==='ready') return '🧺 Ready to Harvest';
+  if(stage==='harvested') return '✅ All Done';
+  return '🟢 Looking Good';
+}
+/* the sticky header's own three-line dashboard - deliberately different content per stage rather
+   than reusing the same fields everywhere, since "what's worth knowing right now" genuinely
+   changes: a germination countdown while it's a seed, days-since-sprouting once it's up, a
+   watering + harvest-timing hint once it's actually growing. This is the CRM-style "what do I
+   need to do next" summary the whole redesign is built around - everything below it is detail. */
+function plantStickyLines(p){
+  if(p.stage===PLANT_STAGE_DEFAULT) return ['⚪ Not Planted Yet', 'Tap Change Stage below to get started'];
+  const stage = plantStageKey(p.stage);
+  const state = plantHealthState(p);
+  const lines = [plantStickyStatusLine(p, state)];
+  if(stage==='seed'){
+    const g = plantGerminationInfo(p);
+    if(g){ lines.push(`📅 Day ${g.day}`); lines.push(`⏳ ${g.min} to ${g.max} days until expected sprouts`); }
+    else lines.push(plantStickyWaterHint(p, state));
+  } else if(stage==='sprout'){
+    const days = plantDaysSinceStageEntered(p, 'sprout');
+    lines.push(days!=null ? `🌿 Sprouted ${days===0?'today':days===1?'yesterday':days+' days ago'}` : '🌿 Sprouted');
+    lines.push(plantStickyWaterHint(p, state));
+  } else if(stage==='growing'){
+    lines.push(plantStickyWaterHint(p, state));
+    const guide = plantGuideFor(p);
+    const munch = guide && guide.facts && guide.facts.munch;
+    if(munch) lines.push(`🥦 Harvest ${munch}`);
+  } else if(stage==='ready'){
+    lines.push('🥦 Harvest whenever suits you');
+  } else if(stage==='harvested'){
+    lines.push('🎉 Nice work growing this one');
+  }
+  return lines;
+}
+/* the page's own dashboard for this one plant (per the CRM-style redesign) - sticks to the top
+   of the viewport while the rest of the page scrolls underneath it, so "what do I need to know
+   right now" is always in view without having to scroll back up. */
+function plantStickyHeaderHTML(p){
+  const lines = plantStickyLines(p);
+  return `
+    <div class="plant-sticky-header${p.stage===PLANT_STAGE_DEFAULT?' plant-unplanted':''}" id="plant-detail-sticky">
+      ${plantIconHTML(p, 'plant-sticky-emoji')}
+      <div class="plant-sticky-info">
+        <div class="plant-sticky-name">${esc(p.name||'Untitled')}</div>
+        ${lines.map(l=>`<div class="plant-sticky-line">${esc(l)}</div>`).join('')}
+      </div>
     </div>`;
 }
 /* 24-hour HH:MM rather than toLocaleTimeString's 12-hour "6:00 PM" - shorter, and reads
@@ -6687,7 +6810,7 @@ function plantWaterButtonHTML(p, sm){
    the name, per the redesign brief), then three short icon-led status lines - growth stage,
    water status, and (seed/sprout stage only) a germination countdown - the CTA button, then a
    compact "last watered" footer. Deliberately no long sentences anywhere on this card: that's
-   what the detail page's Growing Conditions/Care Tips are for now (see plantGrowingConditionsHTML/
+   what the detail page's Watering card/Today's Tips are for now (see plantWateringCardHTML/
    plantCareTipsHTML) - the card's job is "what's this vegetable's status, what do I do next",
    not "how do I grow it". */
 function plantCardHTML(p){
@@ -6760,24 +6883,25 @@ function plantTimelineHTML(p){
    here instead, one labelled row per known growing condition, only for a vegetable this app
    actually has care data for (see PLANT_CARE_DATA). Nothing shown for a vegetable with none,
    rather than guessing at conditions nobody's supplied. */
-function plantGrowingConditionsHTML(p){
+/* setup decisions (spacing, pot size) are dropped entirely here, not just de-emphasised - by the
+   time a plant has a detail page it's already in its pot, so those two numbers can't actually be
+   acted on any more. Light/Water/Temperature stay since they affect daily care, plus Harvest
+   Season off the growing guide where one exists. Lives inside the collapsed Plant Information
+   section (see plantInfoSectionHTML) rather than as its own top-level section - reference
+   material, not something worth a glance every visit. */
+function plantInfoConditionRows(p){
   const care = plantCareDataFor(p); if(!care) return '';
-  const cards = [
-    care.sun && ['☀️','Light', care.sun, care.sun==='Full Sun' ? '6+ hours daily' : 'A few hours is enough'],
-    ['💧','Water', care.water, ''],
-    care.temp && ['🌡️','Temperature', care.temp, ''],
-    care.spacing && ['📏','Spacing', care.spacing, ''],
-    care.pot && ['🪴','Pot Size', care.pot, ''],
+  const guide = plantGuideFor(p);
+  const munch = guide && guide.facts && guide.facts.munch;
+  const rows = [
+    care.sun && ['☀️','Light', care.sun],
+    ['💧','Water', care.water],
+    care.temp && ['🌡️','Temperature', care.temp],
+    munch && ['🥦','Harvest Season', munch],
   ].filter(Boolean);
-  return `
-    <h3 class="plant-timeline-heading">Growing Conditions</h3>
-    <div class="plant-conditions">${cards.map(([icon,label,val,sub]) => `
-      <div class="plant-condition-card">
-        <span class="plant-condition-icon" aria-hidden="true">${icon}</span>
-        <span class="plant-condition-label">${esc(label)}</span>
-        <span class="plant-condition-value">${esc(val)}</span>
-        ${sub ? `<span class="plant-condition-sub">${esc(sub)}</span>` : ''}
-      </div>`).join('')}</div>`;
+  if(!rows.length) return '';
+  return `<div class="plant-info-rows">${rows.map(([icon,label,val]) => `
+    <div class="plant-info-row"><span aria-hidden="true">${icon}</span><span class="plant-info-label">${esc(label)}</span><span class="plant-info-value">${esc(val)}</span></div>`).join('')}</div>`;
 }
 /* derived from the same care data rather than hand-written per vegetable - the water/sun/temp
    tips restate PLANT_CARE_DATA's own fields as an actual tip rather than a bare label, and the
@@ -7149,69 +7273,25 @@ function plantGrowPhaseHTML(p, phase, isOpen){
       </div>
     </details>`;
 }
-/* rough day estimates for the 2nd/3rd photo slots, anchored off this vegetable's own germination
-   window when we have one (sprouted + 2 weeks growing on, then + a further ~45 days to maturity) -
-   just a friendly guess to make the empty slots feel like a timeline rather than a form, not shown
-   at all for a vegetable with no care data to estimate from. */
-function plantGrowPhotoDayEstimates(p){
-  const care = plantCareDataFor(p);
-  if(!care || !care.germDays) return [null,null,null];
-  const sprout = care.germDays[1];
-  return [sprout, sprout+14, sprout+45];
-}
-function plantGrowProgressHTML(p, guide){
-  const photos = p.growPhotos||[];
-  const days = plantGrowPhotoDayEstimates(p);
-  return `
-    <div class="grow-progress-intro">📅 Day 1: Seed planted</div>
-    <div class="grow-progress">${guide.progress.map((caption,i)=>{
-    const photo = photos[i];
-    const day = days[i];
-    return `
-    <div class="grow-progress-slot">
-      <label class="grow-progress-photo${photo?' has-photo':''}"${photo?` style="background-image:url('${esc(photo)}')"`:''} aria-label="${photo?'Change':'Add'} photo for ${esc(caption)}">
-        ${photo?'':ICONS.camera}
-        <input type="file" accept="image/*" style="display:none" onchange="App.plantGrowPhotoUpload('${esc(p.id)}',${i},this)">
-      </label>
-      ${photo?`<button type="button" class="grow-progress-remove" onclick="App.plantGrowPhotoRemove('${esc(p.id)}',${i})">Remove</button>`:''}
-      <div class="grow-progress-caption">${day!=null?`Day ${day} &middot; `:''}${esc(caption)}</div>
-    </div>`;
-  }).join('')}</div>`;
-}
-function plantGrowingGuideHTML(p){
+/* everything a beginner needed once, at setup, but doesn't need read back to them every day -
+   light/water/temperature/harvest-season plus (for the handful of vegetables with one) the full
+   booklet-sourced growing guide, calendar facts included. Collapsed by default and pushed to the
+   very bottom of the page, per the CARE NOW vs PLANT INFO split - nothing in here changes what to
+   actually do today, so it doesn't earn a place above the fold. */
+function plantInfoSectionHTML(p){
+  const conditions = plantInfoConditionRows(p);
   const guide = plantGuideFor(p);
-  if(!guide) return '';
+  if(!conditions && !guide) return '';
   return `
-    <div class="grow-guide" id="plant-grow-guide">
-      <h3 class="plant-timeline-heading">Growing Guide</h3>
-      ${plantGrowFactsHTML(p, guide)}
-      <h4 class="plant-timeline-subheading">Growing Journey</h4>
-      ${guide.phases.map((phase,i)=>plantGrowPhaseHTML(p, phase, i===0)).join('')}
-      <h4 class="plant-timeline-subheading">📸 Growth Journey</h4>
-      ${plantGrowProgressHTML(p, guide)}
-    </div>`;
-}
-function drawPlantGrowGuide(id){
-  const root = $('#plant-grow-guide'); if(!root) return;
-  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  root.outerHTML = plantGrowingGuideHTML(p);
-}
-function plantGrowPhotoUploadImpl(id, idx, input){
-  const file = input.files[0]; input.value=''; if(!file) return;
-  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  downscaleToDataURLPng(file, 500, dataUrl => {
-    if(!dataUrl) return;
-    p.growPhotos = Array.isArray(p.growPhotos) ? p.growPhotos : [];
-    p.growPhotos[idx] = dataUrl;
-    savePlants();
-    drawPlantGrowGuide(id);
-  });
-}
-function plantGrowPhotoRemoveImpl(id, idx){
-  const p = (DB.plants||[]).find(x=>x.id===id); if(!p || !Array.isArray(p.growPhotos)) return;
-  p.growPhotos[idx] = null;
-  savePlants();
-  drawPlantGrowGuide(id);
+    <details class="plant-info-section" id="plant-info-section">
+      <summary class="plant-info-summary">📚 Plant Information</summary>
+      <div class="plant-info-body">
+        ${conditions}
+        ${guide ? `
+          ${plantGrowFactsHTML(p, guide)}
+          ${guide.phases.map(phase=>plantGrowPhaseHTML(p, phase, false)).join('')}` : ''}
+      </div>
+    </details>`;
 }
 /* both edits save straight into the input the user's already looking at, so there's nothing to
    redraw here - re-rendering the whole guide section would also collapse every accordion back to
@@ -7242,39 +7322,34 @@ function renderPlantDetail(id){
         <button class="btn sm ghost" onclick="App.plantForm('${esc(p.id)}')">Edit</button>
       </div>
     </div>
-    <div class="card plant-card${p.stage===PLANT_STAGE_DEFAULT?' plant-unplanted':''}" id="plant-detail-card" style="cursor:default; margin-bottom:22px">
-      ${plantIconHTML(p, 'plant-emoji')}
-      <div class="plant-name">${esc(p.name||'Untitled')}</div>
-      <div id="plant-detail-summary">${plantDetailSummaryHTML(p)}</div>
-    </div>
-    <div id="plant-detail-next">${plantWhatsNextHTML(p)}</div>
-    <div id="plant-detail-journey">${plantJourneyHTML(p)}</div>
-    <div id="plant-detail-water">${plantWateringCardHTML(p)}</div>
-    ${plantGrowingConditionsHTML(p)}
-    ${plantCareTipsHTML(p)}
-    ${plantGrowingGuideHTML(p)}
+    ${plantStickyHeaderHTML(p)}
     <div id="plant-detail-tracker">${plantSuccessTrackerHTML(p)}</div>
+    <div id="plant-detail-next">${plantWhatsNextHTML(p)}</div>
+    <div id="plant-detail-water">${plantWateringCardHTML(p)}</div>
+    <div id="plant-detail-progress">${plantProgressTrackerHTML(p)}</div>
+    ${plantCareTipsHTML(p)}
+    <div id="plant-detail-journey">${plantGrowingJourneyHTML(p)}</div>
+    ${plantInfoSectionHTML(p)}
     <h3 class="plant-timeline-heading">Timeline</h3>
     <div id="plant-timeline">${plantTimelineHTML(p)}</div>`;
 }
-/* refreshes just the live bits of the detail page in place (summary, what's next, journey,
-   watering, tracker, timeline) rather than a full re-render - a no-op if some other page is
-   actually showing right now, same guard-on-the-DOM-node pattern drawPlantsGrid/
-   drawDashPlantsSlot already use. Growing Conditions/Care Tips/the Growing Guide aren't included
-   here since none of them change from anything this function's callers do (watering, stage
-   changes, undo) - only a name edit could change which one applies, and that goes through a full
+/* refreshes just the live bits of the detail page in place (sticky header, checklist, what's
+   next, watering, progress tracker, growing journey, timeline) rather than a full re-render - a
+   no-op if some other page is actually showing right now, same guard-on-the-DOM-node pattern
+   drawPlantsGrid/drawDashPlantsSlot already use. Today's Tips/Plant Information aren't included
+   here since neither changes from anything this function's callers do (watering, stage changes,
+   undo) - only a name edit could change which one applies, and that goes through a full
    renderPlantDetail instead (see App.savePlant). */
 function drawPlantDetail(id){
-  const summaryRoot = $('#plant-detail-summary'); if(!summaryRoot) return;
+  const stickyRoot = $('#plant-detail-sticky'); if(!stickyRoot) return;
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  summaryRoot.innerHTML = plantDetailSummaryHTML(p);
-  const nextRoot = $('#plant-detail-next'); if(nextRoot) nextRoot.innerHTML = plantWhatsNextHTML(p);
-  const journeyRoot = $('#plant-detail-journey'); if(journeyRoot) journeyRoot.innerHTML = plantJourneyHTML(p);
-  const waterRoot = $('#plant-detail-water'); if(waterRoot) waterRoot.innerHTML = plantWateringCardHTML(p);
+  stickyRoot.outerHTML = plantStickyHeaderHTML(p);
   const trackerRoot = $('#plant-detail-tracker'); if(trackerRoot) trackerRoot.innerHTML = plantSuccessTrackerHTML(p);
+  const nextRoot = $('#plant-detail-next'); if(nextRoot) nextRoot.innerHTML = plantWhatsNextHTML(p);
+  const waterRoot = $('#plant-detail-water'); if(waterRoot) waterRoot.innerHTML = plantWateringCardHTML(p);
+  const progressRoot = $('#plant-detail-progress'); if(progressRoot) progressRoot.innerHTML = plantProgressTrackerHTML(p);
+  const journeyRoot = $('#plant-detail-journey'); if(journeyRoot) journeyRoot.innerHTML = plantGrowingJourneyHTML(p);
   const timelineRoot = $('#plant-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantTimelineHTML(p);
-  const cardRoot = $('#plant-detail-card');
-  if(cardRoot) cardRoot.classList.toggle('plant-unplanted', p.stage===PLANT_STAGE_DEFAULT);
 }
 /* Today's Checklist's one manually-set row (see plantSuccessTrackerHTML) - just a plain
    per-plant flip, no confirmation needed either way since ticking it wrong costs nothing and is
@@ -7598,8 +7673,6 @@ App.plantWater = plantWaterImpl;
 App.plantUndoWater = plantUndoWaterImpl;
 App.plantSetStage = plantSetStageImpl;
 App.plantDeleteLogEntry = plantDeleteLogEntryImpl;
-App.plantGrowPhotoUpload = plantGrowPhotoUploadImpl;
-App.plantGrowPhotoRemove = plantGrowPhotoRemoveImpl;
 App.plantGrowFactEdit = plantGrowFactEditImpl;
 App.plantGrowRangeEdit = plantGrowRangeEditImpl;
 App.plantToggleLocation = plantToggleLocationImpl;
