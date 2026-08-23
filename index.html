@@ -185,7 +185,10 @@ a{color:var(--brand-dark);}
    end and faded so they read as "out of the way" without losing your place if you change
    your mind */
 .game-card.hidden-game{opacity:.45; filter:grayscale(.5);}
-.game-cover-wrap{position:relative; width:100%; aspect-ratio:1/1; border-radius:var(--radius); overflow:hidden;
+/* box-art proportions, not square - Sony's trophy icon art is a square source image, but a
+   game box is thinner than that, same 2/3 portrait ratio Films' own .film-poster uses, so this
+   crops in on the vertical middle of the icon rather than showing the whole square */
+.game-cover-wrap{position:relative; width:100%; aspect-ratio:2/3; border-radius:var(--radius); overflow:hidden;
   border:1px solid var(--line); background:var(--paper); box-shadow:var(--shadow);}
 .game-cover{display:block; width:100%; height:100%; object-fit:cover;}
 .game-cover-fallback{display:flex; align-items:center; justify-content:center; width:100%; height:100%;
@@ -202,9 +205,9 @@ a{color:var(--brand-dark);}
 .game-meta{overflow-wrap:anywhere;}
 /* ---------- individual game page ---------- */
 .game-detail-card{display:flex; flex-direction:column; align-items:center; text-align:center;}
-.game-detail-icon{width:min(240px,60vw); aspect-ratio:1/1; height:auto; border-radius:var(--radius); object-fit:cover;
+.game-detail-icon{width:min(220px,58vw); aspect-ratio:2/3; height:auto; border-radius:var(--radius); object-fit:cover;
   background:var(--bg); margin-bottom:14px; font-size:3rem; box-shadow:var(--shadow);}
-.game-detail-icon.game-cover-fallback{width:min(240px,60vw); height:min(240px,60vw);}
+.game-detail-icon.game-cover-fallback{width:min(220px,58vw); height:calc(min(220px,58vw) * 3 / 2);}
 .game-detail-name{font-family:var(--font-head); font-weight:700; font-size:1.15rem; overflow-wrap:anywhere;}
 .game-detail-meta{margin:4px 0 14px;}
 .game-detail-card .game-progress{width:100%;}
@@ -1425,8 +1428,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.27';
+const APP_VERSION = '2.29.28';
 const CHANGELOG = [
+  {version:'2.29.28', notes:[
+    "Fixed Home Dashboard reorder for real this time: the previous fix kept each widget in the right order within its own column, but a widget could still be assigned to the wrong column entirely by the height-balancing pass, so the first thing Settings said to show didn't always end up the first thing you saw. Widgets now get walked in Settings order and each one goes to whichever column is shortest at that point, rather than sorted by size first - the sequence you see now traces Settings order left-to-right, top-to-bottom.",
+    "PS5/PS4 game covers are box-art shaped now (a portrait 2:3, same ratio Films' posters use), not square - the source art is square, so this crops in on the middle rather than showing the whole icon, but it reads much more like an actual game cover.",
+  ]},
   {version:'2.29.27', notes:[
     "Fixed Home Dashboard reordering: moving a widget in Settings only held up until the layout's own height-balancing pass ran right after, which quietly put everything back into size order regardless of what you'd chosen - most visible on Next Trip, since its flag card is usually one of the largest tiles and kept floating back to the top no matter where you moved it.",
     "Watch Next now only ever picks something actually streaming on a service you've selected in Settings > Streaming Services, instead of any random film on the Watchlist. No services selected yet still works exactly as before, unfiltered.",
@@ -3865,13 +3872,21 @@ function loadDashWatchNextProviders(){
    doesn't hit the original bug that made column-count unusable here (images loading in late and
    changing height after the browser had already balanced things; aspect-ratio now reserves that
    space upfront, so a height measurement at this point is already final). */
-/* which column a tile lands in is still decided largest-first (see the comment above), but
-   that pass used to also become the tiles' final order within each column - so the Home
-   Dashboard's own reorder setting (see dashWidgetOrder/App.dashWidgetMove) only ever held up
-   until this function ran right after, which silently put every tile back into height order
-   regardless of what Settings said. The largest-first pass now only decides A-or-B; each
-   column is then filled back in the order the tiles already had (the order render put them in,
-   i.e. the user's Settings order), so balance and the user's chosen order both hold.
+/* which column a tile lands in is walked in Settings order (see data-dash-order below), each
+   tile going to whichever column is currently shorter - not sorted largest-first any more. A
+   largest-first pass gives a tighter final balance, but it decides A-or-B by height alone, with
+   no regard for where a tile sits in Settings - the first two tiles in Settings order could both
+   be tall enough to fall on the *same* side, or the tile Settings says should lead could easily
+   be the shorter of the two and get bumped to column B while something further down leads column
+   A instead. That reads as "reordering doesn't work" even though every tile's relative position
+   within its own column is technically still correct - the top-left/top-right pair is the first
+   thing anyone actually compares against Settings' own order. Walking tiles in that same order
+   and asking only "which column is shorter right now" can't produce that mismatch: the first
+   tile always opens column A, and every tile after it lands wherever's shortest *at that point in
+   the walk*, so the sequence you see always traces Settings order having read left-to-right,
+   top-to-bottom. The trade is a less tightly packed pair of columns than true bin-packing would
+   give (Illustrated by the doc comment above, kept for that "why not a fixed split" background)
+   - an acceptable one now that there's a real reorder control for smoothing it out by hand.
 
    This runs more than once per Home visit - once synchronously right after render, then again
    whenever an async widget (Games, Song, Watch Next...) fills in and changes height - so it has
@@ -3880,21 +3895,19 @@ function loadDashWatchNextProviders(){
    previous call already split them across two columns - concatenating "everything currently in
    A" then "everything currently in B" is a real order, just not necessarily the Settings one any
    more. So renderDashboard stamps every tile with its true Settings position once, up front
-   (data-dash-order), and every call here sorts by that stamp rather than by wherever the DOM
-   currently has things - the same true order every time, no matter how many times this runs. */
+   (data-dash-order), and every call here walks that stamp rather than wherever the DOM currently
+   has things - the same true order every time, no matter how many times this runs. */
 function balanceDashboardColumns(){
   const colA = $('#dash-col-a'), colB = $('#dash-col-b');
   if(!colA || !colB) return;
   const ordered = [...colA.children, ...colB.children]
     .sort((a,b) => Number(a.dataset.dashOrder||0) - Number(b.dataset.dashOrder||0));
-  const byHeight = ordered.map(n => ({n, h: n.getBoundingClientRect().height})).sort((x,y) => y.h - x.h);
   let ha = 0, hb = 0;
-  const columnOf = new Map();
-  byHeight.forEach(({n,h}) => {
-    if(ha <= hb){ columnOf.set(n, colA); ha += h; }
-    else { columnOf.set(n, colB); hb += h; }
+  ordered.forEach(n => {
+    const h = n.getBoundingClientRect().height;
+    if(ha <= hb){ colA.appendChild(n); ha += h; }
+    else { colB.appendChild(n); hb += h; }
   });
-  ordered.forEach(n => columnOf.get(n).appendChild(n));
 }
 /* per-device dashboard widget order/visibility (see the Home Dashboard settings section) - a
    personal display preference, not travel data, so it lives in its own localStorage key rather
