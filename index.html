@@ -1425,8 +1425,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.26';
+const APP_VERSION = '2.29.27';
 const CHANGELOG = [
+  {version:'2.29.27', notes:[
+    "Fixed Home Dashboard reordering: moving a widget in Settings only held up until the layout's own height-balancing pass ran right after, which quietly put everything back into size order regardless of what you'd chosen - most visible on Next Trip, since its flag card is usually one of the largest tiles and kept floating back to the top no matter where you moved it.",
+    "Watch Next now only ever picks something actually streaming on a service you've selected in Settings > Streaming Services, instead of any random film on the Watchlist. No services selected yet still works exactly as before, unfiltered.",
+  ]},
   {version:'2.29.26', notes:[
     "PS5/PS4 games now show as a grid of full-size covers instead of a row of small icons - same list, same tap-through to trophies, just bigger art. The game's own page got a bigger cover too.",
     "Board Games is hidden from the Games tab for now - it needs its own BoardGameGeek app token that hasn't been set up yet, so there's nothing behind it to search. Nothing's been lost; it comes straight back once that token's in place.",
@@ -3739,41 +3743,113 @@ function dashLastSeenFilmWidgetHTML(){
     </a>`;
 }
 /* re-picked on every Home visit rather than stored anywhere - "what should I watch" is more
-   useful as a fresh nudge each time than a fixed pick that goes stale. DASH_WATCHNEXT_FILM
-   remembers which one, so loadDashWatchNextProviders (called once, right after this renders)
-   knows what to look up without re-picking a different random film itself. */
+   useful as a fresh nudge each time than a fixed pick that goes stale.
+
+   Without any Streaming Services set up (Settings > Streaming Services), the pick is instant -
+   any watchlist film is fair game, same as this always worked. Once services are set up, a
+   film's only a fair pick if it's actually streaming on one of them, which means checking
+   providers before showing anything - so this widget starts on a loading state, then
+   loadDashWatchNextProviders walks a shuffled copy of the watchlist (shuffled first so "the
+   first one that matches" is still a uniformly random pick among everything that does) and
+   checks each film's providers in turn, stopping at the first that streams on something owned.
+   Capped at DASH_WATCHNEXT_CHECK_CAP films so an unlucky walk through a big watchlist can't hang
+   the widget forever - if nothing in that many checks streams anywhere you have, it says so
+   rather than quietly showing something you can't actually watch there.
+
+   DASH_WATCHNEXT_FILM remembers the current pick so a stray provider fetch from a walk Home has
+   since moved on from can tell it's stale; DASH_WATCHNEXT_TOKEN does the same for the walk
+   itself (a single flag isn't enough once checks can be several fetches deep). */
 let DASH_WATCHNEXT_FILM = null;
-function dashRandomWatchlistWidgetHTML(){
-  const list = DB.filmsWatchlist||[];
-  if(!list.length){
-    DASH_WATCHNEXT_FILM = null;
-    return `
+let DASH_WATCHNEXT_TOKEN = null;
+const DASH_WATCHNEXT_CHECK_CAP = 25;
+function dashWatchNextEmptyHTML(){
+  return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsWatchlist()}">
       <div class="dash-item-flags" aria-hidden="true">🔖</div>
       <div class="dash-item-title">Nothing on Watchlist</div>
     </div>`;
-  }
-  const f = list[Math.floor(Math.random()*list.length)];
-  DASH_WATCHNEXT_FILM = f;
+}
+function dashWatchNextLoadingHTML(){
+  return `
+    <div class="dash-widget dash-widget-item">
+      <div class="dash-item-flags" aria-hidden="true">🔖</div>
+      <div class="dash-item-title">Finding Something Streaming…</div>
+    </div>`;
+}
+function dashWatchNextNoneStreamingHTML(){
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsWatchlist()}">
+      <div class="dash-item-flags" aria-hidden="true">🔖</div>
+      <div class="dash-item-title">Nothing Streaming Right Now</div>
+      <div class="dash-item-sub">See Watchlist</div>
+    </div>`;
+}
+function dashWatchNextFilmHTML(f, providersData){
   const url = filmLetterboxdUrl(f);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       ${f.image ? `<div class="dash-poster-row">
           <div class="dash-poster-frame"><img src="${esc(f.image)}" alt="" loading="lazy"></div>
-          <div id="dash-watchnext-providers"></div>
+          <div id="dash-watchnext-providers">${providersData ? filmProvidersHTML(providersData) : ''}</div>
         </div>`
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">Watch Next</div>
     </a>`;
 }
+function dashRandomWatchlistWidgetHTML(){
+  const list = DB.filmsWatchlist||[];
+  if(!list.length){ DASH_WATCHNEXT_FILM = null; return dashWatchNextEmptyHTML(); }
+  if(!selectedStreamingServices()){
+    // no services configured - unfiltered instant pick, exactly how this always worked
+    const f = list[Math.floor(Math.random()*list.length)];
+    DASH_WATCHNEXT_FILM = f;
+    return dashWatchNextFilmHTML(f, null);
+  }
+  DASH_WATCHNEXT_FILM = null;
+  return dashWatchNextLoadingHTML();
+}
 function loadDashWatchNextProviders(){
-  const f = DASH_WATCHNEXT_FILM; if(!f) return;
-  fetchFilmProviders(f.title, f.year, data => {
-    if(DASH_WATCHNEXT_FILM !== f) return;   // Home moved on before this came back
-    const slot = $('#dash-watchnext-providers'); if(slot) slot.innerHTML = filmProvidersHTML(data);
-  });
+  const list = DB.filmsWatchlist||[];
+  if(!list.length) return;
+  if(!selectedStreamingServices()){
+    // unfiltered pick already showing - this just fills in its badge, same as always
+    const f = DASH_WATCHNEXT_FILM; if(!f) return;
+    fetchFilmProviders(f.title, f.year, data => {
+      if(DASH_WATCHNEXT_FILM !== f) return;   // Home moved on before this came back
+      const badge = $('#dash-watchnext-providers'); if(badge) badge.innerHTML = filmProvidersHTML(data);
+    });
+    return;
+  }
+  const shuffled = list.slice();
+  for(let i=shuffled.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]; }
+  const candidates = shuffled.slice(0, DASH_WATCHNEXT_CHECK_CAP);
+  const token = {}; DASH_WATCHNEXT_TOKEN = token;
+  let i = 0;
+  const tryNext = () => {
+    if(DASH_WATCHNEXT_TOKEN !== token) return;   // Home moved on since this walk started
+    const slot = $('#dash-watchnext-slot');
+    if(i >= candidates.length){
+      DASH_WATCHNEXT_FILM = null;
+      if(slot) slot.innerHTML = dashWatchNextNoneStreamingHTML();
+      balanceDashboardColumns();
+      return;
+    }
+    const f = candidates[i++];
+    fetchFilmProviders(f.title, f.year, data => {
+      if(DASH_WATCHNEXT_TOKEN !== token) return;
+      if(filterProvidersToOwned(data.providers||[]).length){
+        DASH_WATCHNEXT_FILM = f;
+        if(slot) slot.innerHTML = dashWatchNextFilmHTML(f, data);
+        balanceDashboardColumns();
+        return;
+      }
+      tryNext();
+    });
+  };
+  tryNext();
 }
 /* two explicit column divs rather than CSS column-count - see .dash-masonry's own comment for
    why - but which tile lands in which column is now decided by measured height (balanceDash
@@ -3789,17 +3865,36 @@ function loadDashWatchNextProviders(){
    doesn't hit the original bug that made column-count unusable here (images loading in late and
    changing height after the browser had already balanced things; aspect-ratio now reserves that
    space upfront, so a height measurement at this point is already final). */
+/* which column a tile lands in is still decided largest-first (see the comment above), but
+   that pass used to also become the tiles' final order within each column - so the Home
+   Dashboard's own reorder setting (see dashWidgetOrder/App.dashWidgetMove) only ever held up
+   until this function ran right after, which silently put every tile back into height order
+   regardless of what Settings said. The largest-first pass now only decides A-or-B; each
+   column is then filled back in the order the tiles already had (the order render put them in,
+   i.e. the user's Settings order), so balance and the user's chosen order both hold.
+
+   This runs more than once per Home visit - once synchronously right after render, then again
+   whenever an async widget (Games, Song, Watch Next...) fills in and changes height - so it has
+   to be idempotent: re-running it can't be allowed to drift the order further from Settings each
+   time. Reading order straight off colA/colB's current children isn't safe for that, since a
+   previous call already split them across two columns - concatenating "everything currently in
+   A" then "everything currently in B" is a real order, just not necessarily the Settings one any
+   more. So renderDashboard stamps every tile with its true Settings position once, up front
+   (data-dash-order), and every call here sorts by that stamp rather than by wherever the DOM
+   currently has things - the same true order every time, no matter how many times this runs. */
 function balanceDashboardColumns(){
   const colA = $('#dash-col-a'), colB = $('#dash-col-b');
   if(!colA || !colB) return;
-  const nodes = [...colA.children, ...colB.children]
-    .map(n => ({n, h: n.getBoundingClientRect().height}))
-    .sort((x,y) => y.h - x.h);
+  const ordered = [...colA.children, ...colB.children]
+    .sort((a,b) => Number(a.dataset.dashOrder||0) - Number(b.dataset.dashOrder||0));
+  const byHeight = ordered.map(n => ({n, h: n.getBoundingClientRect().height})).sort((x,y) => y.h - x.h);
   let ha = 0, hb = 0;
-  nodes.forEach(({n,h}) => {
-    if(ha <= hb){ colA.appendChild(n); ha += h; }
-    else { colB.appendChild(n); hb += h; }
+  const columnOf = new Map();
+  byHeight.forEach(({n,h}) => {
+    if(ha <= hb){ columnOf.set(n, colA); ha += h; }
+    else { columnOf.set(n, colB); hb += h; }
   });
+  ordered.forEach(n => columnOf.get(n).appendChild(n));
 }
 /* per-device dashboard widget order/visibility (see the Home Dashboard settings section) - a
    personal display preference, not travel data, so it lives in its own localStorage key rather
@@ -3840,7 +3935,7 @@ function dashWidgetHTML(key){
   if(key==='gig') return dashGigWidgetHTML();
   if(key==='game') return `<div id="dash-games-current-slot" class="dash-slot"></div>`;
   if(key==='song') return `<div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
-  if(key==='watchnext') return dashRandomWatchlistWidgetHTML();
+  if(key==='watchnext') return `<div id="dash-watchnext-slot">${dashRandomWatchlistWidgetHTML()}</div>`;
   if(key==='lastseen') return dashLastSeenFilmWidgetHTML();
   if(key==='plants') return `<div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   return '';
@@ -3880,6 +3975,9 @@ function renderDashboard(){
     <div class="home-foot">
       <button class="version-tag" onclick="App.goSettings()">⚙️ Settings</button>
     </div>`;
+  // stamp every tile with its true Settings position before the first balance pass ever moves
+  // anything - see balanceDashboardColumns' own comment for why this has to happen up front
+  [...$('#dash-col-a').children].forEach((n,i) => { n.dataset.dashOrder = i; });
   balanceDashboardColumns();
   loadDashboardGames();
   loadDashboardSong();
