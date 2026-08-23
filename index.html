@@ -123,7 +123,19 @@ a{color:var(--brand-dark);}
 .iconbtn.edit:hover{color:var(--brand-dark); background:var(--brand-ghost);}
 .iconbtn.del{color:#C0392B;}
 .iconbtn.del:hover{color:#A93226; background:#FCEBE9;}
+.iconbtn:disabled{opacity:.3; cursor:default;}
+.iconbtn:disabled:hover{background:none; color:var(--muted);}
 .icon{line-height:1;}
+/* the Home Dashboard section of Settings (dashWidgetsSettingsHTML) - up/down to reorder, an eye
+   to hide/show; a hidden widget's row stays in the list (faded) rather than disappearing, so
+   there's still something to tap to bring it back. */
+.dash-prefs-list{display:flex; flex-direction:column;}
+.dash-prefs-row{display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:10px 0; border-bottom:1px solid var(--line);}
+.dash-prefs-row:last-child{border-bottom:none;}
+.dash-prefs-row.hidden{opacity:.5;}
+.dash-prefs-label{font-size:.88rem; font-weight:600; color:var(--ink);}
+.dash-prefs-actions{display:flex; align-items:center; gap:2px; flex-shrink:0;}
 
 /* ---------- cards & panels ---------- */
 .card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:18px; margin-bottom:16px; position:relative;}
@@ -1377,8 +1389,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.22';
+const APP_VERSION = '2.29.23';
 const CHANGELOG = [
+  {version:'2.29.23', notes:[
+    "Settings: added a Home Dashboard section - reorder or hide any of Home's widgets (Next Trip, Next Gig, Currently Playing, Most Played, Watch Next, Last Seen, Plants) with up/down arrows and an eye toggle. A personal preference kept on this device only, not synced to the shared trip data.",
+  ]},
   {version:'2.29.22', notes:[
     "Places I've Been: added a stat row above the list - countries been, % of the world, continents visited, and your longest trip - so the numbers you'd otherwise have to count up yourself are right there at a glance.",
   ]},
@@ -3740,16 +3755,69 @@ function balanceDashboardColumns(){
     else { colB.appendChild(n); hb += h; }
   });
 }
+/* per-device dashboard widget order/visibility (see the Home Dashboard settings section) - a
+   personal display preference, not travel data, so it lives in its own localStorage key rather
+   than the shared, cloud-synced DB - same reasoning as the Games Wishlist's own WL_KEY (see
+   wishlistGames/saveWishlist). One person hiding Currently Playing on their own phone shouldn't
+   hide it for everyone else sharing the same trips. */
+const DASH_PREFS_KEY = 'calstrippin_dash_widgets';
+const DASH_WIDGET_DEFS = [
+  {key:'trip', label:'Next Trip'},
+  {key:'gig', label:'Next Gig'},
+  {key:'game', label:'Currently Playing'},
+  {key:'song', label:'Most Played'},
+  {key:'watchnext', label:'Watch Next'},
+  {key:'lastseen', label:'Last Seen'},
+  {key:'plants', label:'Plants'},
+];
+/* reconciles whatever's saved with the widgets that actually exist right now - any widget added
+   to the app since the prefs were last saved (or before they've ever been customised at all) is
+   appended at the end, visible by default, rather than silently vanishing off the dashboard. */
+function dashWidgetOrder(){
+  const known = new Set(DASH_WIDGET_DEFS.map(d=>d.key));
+  let saved;
+  try{ saved = JSON.parse(localStorage.getItem(DASH_PREFS_KEY)||'null'); }catch(e){ saved = null; }
+  const list = Array.isArray(saved) ? saved.filter(w=>w && known.has(w.key)) : [];
+  const listed = new Set(list.map(w=>w.key));
+  DASH_WIDGET_DEFS.forEach(d=>{ if(!listed.has(d.key)) list.push({key:d.key, hidden:false}); });
+  return list;
+}
+function saveDashWidgetOrder(list){
+  try{ localStorage.setItem(DASH_PREFS_KEY, JSON.stringify(list)); }catch(e){}
+}
+/* each widget's own markup, keyed the same way DASH_WIDGET_DEFS is - the async ones (games,
+   song, plants) keep the exact id'd placeholder div their own loader (loadDashboardGames/
+   loadDashboardSong) already looks up by id, so reordering them is just moving that div
+   somewhere else in the DOM, not changing how or when it gets filled in. */
+function dashWidgetHTML(key){
+  if(key==='trip') return dashTripWidgetsHTML();
+  if(key==='gig') return dashGigWidgetHTML();
+  if(key==='game') return `<div id="dash-games-current-slot" class="dash-slot"></div>`;
+  if(key==='song') return `<div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
+  if(key==='watchnext') return dashRandomWatchlistWidgetHTML();
+  if(key==='lastseen') return dashLastSeenFilmWidgetHTML();
+  if(key==='plants') return `<div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
+  return '';
+}
+/* the Home Dashboard section of Settings (see renderSettings) - up/down to reorder, an eye to
+   hide/show, no drag-and-drop (nothing else in this app uses it, and up/down buttons work fine
+   with a list this short). */
+function dashWidgetsSettingsHTML(){
+  const order = dashWidgetOrder();
+  const label = k => (DASH_WIDGET_DEFS.find(d=>d.key===k)||{}).label || k;
+  return `<div class="dash-prefs-list">${order.map((w,i) => `
+    <div class="dash-prefs-row${w.hidden?' hidden':''}">
+      <span class="dash-prefs-label">${esc(label(w.key))}</span>
+      <div class="dash-prefs-actions">
+        <button class="iconbtn" aria-label="Move ${esc(label(w.key))} up"${i===0?' disabled':''} onclick="App.dashWidgetMove('${w.key}',-1)">${fa('chevron-up')}</button>
+        <button class="iconbtn" aria-label="Move ${esc(label(w.key))} down"${i===order.length-1?' disabled':''} onclick="App.dashWidgetMove('${w.key}',1)">${fa('chevron-down')}</button>
+        <button class="iconbtn" aria-label="${w.hidden?'Show':'Hide'} ${esc(label(w.key))}" onclick="App.dashWidgetToggle('${w.key}')">${fa(w.hidden?'eye-slash':'eye')}</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
 function renderDashboard(){
   renderSidebar(null);
-  const widgets = `
-    ${dashTripWidgetsHTML()}
-    ${dashGigWidgetHTML()}
-    <div id="dash-games-current-slot" class="dash-slot"></div>
-    <div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>
-    ${dashRandomWatchlistWidgetHTML()}
-    ${dashLastSeenFilmWidgetHTML()}
-    <div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
+  const widgets = dashWidgetOrder().filter(w=>!w.hidden).map(w=>dashWidgetHTML(w.key)).join('');
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Home</span>${dashSongRangeSelectHTML()}</div></div>
     <div id="dash-branch-slot">${dashBranchPlaceholderHTML()}</div>
@@ -5069,6 +5137,14 @@ function renderSettings(){
       </div>
     </div>
     <div id="settings-body">
+      <h3 style="margin-bottom:10px">Home Dashboard</h3>
+      <div class="card" style="margin-bottom:20px">
+        <p class="small muted" style="margin-bottom:14px">
+          Reorder or hide Home's widgets (Next Trip, Currently Playing, Most Played, etc) - a
+          personal preference kept on this device only.
+        </p>
+        <div id="settings-dash-widgets">${dashWidgetsSettingsHTML()}</div>
+      </div>
       <h3 style="margin-bottom:10px">Films</h3>
       <div id="settings-letterboxd" style="margin-bottom:14px"></div>
       <div class="card" style="margin-bottom:20px">
@@ -7774,6 +7850,21 @@ App.goToYourTrips = () => {
 };
 App.goGames = () => { location.hash = '#/games'; };
 App.goSettings = () => { location.hash = '#/settings'; };
+App.dashWidgetMove = (key, dir) => {
+  const order = dashWidgetOrder();
+  const i = order.findIndex(w=>w.key===key); if(i<0) return;
+  const j = i+dir; if(j<0 || j>=order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  saveDashWidgetOrder(order);
+  const el = $('#settings-dash-widgets'); if(el) el.innerHTML = dashWidgetsSettingsHTML();
+};
+App.dashWidgetToggle = key => {
+  const order = dashWidgetOrder();
+  const w = order.find(w=>w.key===key); if(!w) return;
+  w.hidden = !w.hidden;
+  saveDashWidgetOrder(order);
+  const el = $('#settings-dash-widgets'); if(el) el.innerHTML = dashWidgetsSettingsHTML();
+};
 App.toggleStreamingService = key => {
   let selected = selectedStreamingServices();
   if(!selected) selected = new Set(STREAMING_SERVICES.map(s=>s.key));   // first-ever toggle: lock in "everything on" as the baseline, then flip this one off
