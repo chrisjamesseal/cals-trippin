@@ -450,6 +450,12 @@ a{color:var(--brand-dark);}
   border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--paper);
   cursor:pointer; padding:10px 14px; font:inherit; font-weight:600; font-size:.82rem; color:var(--ink);}
 .plant-stage-btn.on{border-color:var(--brand); background:var(--brand-tint); color:var(--brand);}
+/* a plain-language echo of the water button's own overdue colour, in case the colour alone
+   isn't enough to go on at a glance - dry reuses the button's own overdue-red, moist reuses the
+   water-drop blue #2E86DE already used for the button's border throughout this page. */
+.plant-soil-label{font-size:.68rem; font-weight:700; margin-top:3px;}
+.plant-soil-label.dry{color:#C0392B;}
+.plant-soil-label.moist{color:#2E86DE;}
 .plant-water-label{display:block; color:var(--muted); font-size:.72rem; margin-top:6px; width:100%;}
 /* the full Plants page card's own button - a name plus the water drop underneath it, rather
    than an icon-only circle, since there's room here and it reads more clearly than an emoji
@@ -1230,8 +1236,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.14';
+const APP_VERSION = '2.29.15';
 const CHANGELOG = [
+  {version:'2.29.15', notes:[
+    "Plants: added Growing Guides for Cauliflower and Rocket too, written from general growing knowledge since the seed kit's booklet doesn't cover either of them.",
+    "Plants: every card (grid and detail) now shows what the soil should feel like right now - dry or moist - alongside the Watered button, a plain-language read of the same overdue/not-due state the button's own colour already carries.",
+  ]},
   {version:'2.29.14', notes:[
     "Plants: added a Growing Guide to the vegetable page for Oregano, Spinach, Squash, Lettuce, Carrot and Radish, transcribed straight from our seed kit's own booklet - the full month-by-month facts, phase-by-phase instructions (tap a phase to open it), and three tap-to-add slots for your own progress photos. Every month range is editable too, since real planting rarely lines up exactly with a generic guide.",
   ]},
@@ -6320,6 +6330,16 @@ function plantWaterButtonHTML(p, sm){
     : `<button type="button" class="plant-water-action-btn${state}"${notDue?' disabled':''}
         onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
 }
+/* a plain-language read of the same overdue/not-due state the water button's colour already
+   carries (see plantWaterButtonHTML) - the button tells you what to DO, this tells you what to
+   expect if you actually looked at the pot right now, which is the thing worth checking the
+   button's colour against. Nothing to say for an unplanted vegetable - there's no soil in the
+   pot to have an opinion about yet. */
+function plantSoilStatusHTML(p){
+  if(p.stage===PLANT_STAGE_DEFAULT) return '';
+  const dry = plantOverdue(p);
+  return `<div class="plant-soil-label${dry?' dry':' moist'}">Soil: ${dry?'Should feel dry':'Should feel moist'}</div>`;
+}
 function plantCardHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
   const unplanted = p.stage===PLANT_STAGE_DEFAULT ? ' plant-unplanted' : '';
@@ -6329,6 +6349,7 @@ function plantCardHTML(p){
       ${plantIconHTML(p, 'plant-emoji')}
       <div class="plant-name">${esc(p.name||'Untitled')}</div>
       <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
+      ${plantSoilStatusHTML(p)}
       <div class="plant-water-label">${esc(plantFreqLabel(p))}</div>
       ${plantWaterButtonHTML(p)}
       <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>
@@ -6386,6 +6407,7 @@ function plantDetailStageHTML(p){
 }
 function plantDetailWaterHTML(p){
   return `
+    ${plantSoilStatusHTML(p)}
     <div class="plant-water-label">${esc(plantFreqLabel(p))}</div>
     ${plantWaterButtonHTML(p)}
     <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>`;
@@ -6581,6 +6603,57 @@ const PLANT_GROWING_GUIDES = {
     ],
     progress: ['Sprouting.', 'Swelling.', 'Pulling.'],
   },
+  /* the seed kit's booklet doesn't cover Cauliflower or Rocket, so unlike the six guides above
+     these are written from general growing knowledge rather than transcribed - no character
+     name/voice to borrow since there isn't a real page to lift one from. */
+  cauliflower: {
+    facts: {planted:'April - July', indoors:'Yes', watering:'Keep moist', repot:'Once', outside:'May onwards', munch:'July - Oct'},
+    phases: [
+      {num:1, title:'Get It Started', range:'April to May', points:[
+        "Sow seeds into small pots or trays of compost indoors, about 1cm deep, and water gently so the compost is moist but not waterlogged.",
+        "Keep them on a warm, bright windowsill - they should germinate within 7-14 days.",
+        "Keep the compost consistently moist while they get going. Letting it dry out at this stage checks their growth in a way they don't recover well from.",
+      ]},
+      {num:2, title:'Grow It On', range:'May to June', points:[
+        "Once seedlings have a few true leaves and are sturdy enough to handle, move each one into its own pot, or straight into its final larger pot outside.",
+        "Harden them off gradually over a week or so - a few hours outside to start, building up to full time - before leaving them out for good.",
+        "Keep them well watered from here on. Cauliflower that dries out or gets stressed tends to \"button\" - producing a small, premature head instead of a proper one.",
+      ]},
+      {num:3, title:'Protect the Head', range:'June to August', points:[
+        "As the white head (the curd) starts to form in the centre of the plant, fold a few of the outer leaves over it to shield it from direct sun. This keeps it pale rather than yellowing.",
+        "Keep watering consistently through this stage - irregular watering is the most common cause of small or poorly formed heads.",
+        "A balanced liquid feed every couple of weeks helps it bulk out, especially in a pot where nutrients run out faster than they would in open ground.",
+      ]},
+      {num:4, title:'Harvest', range:'July to October', points:[
+        "Cut the head while the curds are still tight and tightly packed together, before they start to separate or the plant tries to flower.",
+        "Morning is the best time to harvest, while the head is still firm from the cool of the night.",
+        "Each plant only gives you the one head - once it's cut, that plant's done. Stagger your sowings a few weeks apart if you want a longer harvest window rather than one glut.",
+      ]},
+    ],
+    progress: ['Seedlings up.', 'Transplanted outside.', 'Curd forming.'],
+  },
+  rocket: {
+    facts: {planted:'April - Sept', indoors:'No', watering:'Keep moist', repot:'No', outside:'Always', munch:'May - Oct'},
+    phases: [
+      {num:1, title:'Get It Going', range:'April to September', points:[
+        "Fill a pot with compost and scatter the seeds thinly, about 1cm apart, across the surface.",
+        "Cover with a fine layer of compost - around 0.5cm - and water gently so it's moist to the touch.",
+        "A sunny or lightly shaded spot both work, but too much heat tends to push it towards bolting (flowering) faster, which is worth avoiding if you can.",
+      ]},
+      {num:2, title:'Keep It Growing', range:'April to September', points:[
+        "It germinates quickly - usually within a week.",
+        "Keep the compost consistently moist. Rocket that's allowed to dry out turns tough and noticeably more bitter and peppery, fast.",
+        "Thin out any overcrowded seedlings if it's come up too dense, so the rest have room and airflow to grow properly.",
+      ]},
+      {num:3, title:'Munch It', range:'May to October', points:[
+        "Ready to start harvesting in as little as 3-4 weeks.",
+        "Cut the outer leaves with scissors, leaving the centre of the plant intact - it regrows quickly, so one sowing can usually be cut several times.",
+        "It bolts fast in hot weather, and once it flowers the leaves turn much more bitter. Sowing a fresh batch every few weeks through summer keeps a steady, milder supply coming.",
+        "It's fairly cold-hardy too, so a late-summer sowing can often keep cropping on into autumn.",
+      ]},
+    ],
+    progress: ['Just sown.', 'Leaves filling in.', 'Ready to snip.'],
+  },
 };
 /* alternate names that should still resolve to a guide above - e.g. a plant logged as just
    "Squash" or "Patty Pan" rather than the exact "Patty Pan Squash" */
@@ -6591,6 +6664,8 @@ const PLANT_GUIDE_ALIASES = {
   lettuce: 'lettuce',
   carrot: 'carrot', carrots: 'carrot',
   radish: 'radish', radishes: 'radish',
+  cauliflower: 'cauliflower',
+  rocket: 'rocket', arugula: 'rocket', rucola: 'rocket',
 };
 function plantGuideFor(p){
   const key = PLANT_GUIDE_ALIASES[((p&&p.name)||'').trim().toLowerCase()];
