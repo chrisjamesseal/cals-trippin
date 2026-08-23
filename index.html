@@ -431,6 +431,18 @@ a{color:var(--brand-dark);}
    scroll-heavy list, but with more breathing room per card than before - the redesign adds a
    health badge and a couple of extra status lines, so cards need the extra vertical gap to keep
    from feeling cramped. */
+/* the four counts above the grid (plantsDashboardStatsHTML) - purely informational, no
+   destination to tap through to (it's the exact same list right below), so plain tiles rather
+   than the app's usual clickable dash-widget ones; fixed two columns like Home's own stat row
+   so they read as one glanceable block. */
+.plants-stats{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+.plants-stat-tile{display:flex; align-items:center; gap:8px; border:1px solid var(--line);
+  border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:12px 14px;}
+.plants-stat-icon{font-size:1.3rem; line-height:1; flex-shrink:0;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plants-stat-text{font-size:.82rem; font-weight:700; color:var(--ink);}
+.plants-sort-row{margin-bottom:14px;}
+.plants-sort-row select{width:auto; padding:8px 30px 8px 12px; font-size:.8rem;}
 .plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:14px;}
 .plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px;
   padding:24px 12px 16px; cursor:pointer; margin-bottom:0;}
@@ -1276,8 +1288,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.16';
+const APP_VERSION = '2.29.17';
 const CHANGELOG = [
+  {version:'2.29.17', notes:[
+    "Plants: added a 4-tile dashboard (Total Plants/Need Water/Germinating/Ready To Harvest) above the grid, plus a sort picker - Needs Attention (the old default), Recently Watered, Plant Name, or Date Sown.",
+  ]},
   {version:'2.29.16', notes:[
     "Plants redesign: a colour-coded 🟢/🟡/🔴 status badge now sits right under each vegetable's name - the most prominent thing on the card after its name - so it's obvious at a glance whether anything needs doing. The old \"Water Every N Days\" line and \"Last Watered: ...\" text are gone, replaced by a short 💧 status chip and a compact 🕒 relative-time footer.",
     "Plants: seeds and sprouts now show a germination countdown (⏳ 10 to 21d on the card, a day count with a progress ring on the detail page) for the vegetables this app has a known germination window for - so a slow starter doesn't read as a failure before it's had the time it actually needs.",
@@ -6385,15 +6400,58 @@ function plantStagePickerHTML(p){
       onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${s.k}')">
       ${s.emoji?`<span aria-hidden="true">${s.emoji}</span> `:''}${esc(s.label)}</button>`).join('')}</div>`;
 }
-/* overdue-watering plants float to the top (the thing most worth noticing at a glance),
-   harvested ones sink to the bottom (done, least worth the eye), everything else by name */
+const PLANTS_SORT_OPTIONS = [
+  ['attention','Needs Attention'],
+  ['watered','Recently Watered'],
+  ['name','Plant Name'],
+  ['sown','Date Sown'],
+];
+let CUR_PLANTS_SORT = 'attention';
+/* the default (and only) ordering used to be "Needs Attention" - overdue-watering plants float
+   to the top (the thing most worth noticing at a glance), harvested ones sink to the bottom
+   (done, least worth the eye), everything else by name. Now one of four, picked via the sort
+   select above the grid (see plantsSortSelectHTML/App.plantsSortChange). */
 function plantsSorted(){
-  return [...(DB.plants||[])].sort((a,b)=>{
+  const list = [...(DB.plants||[])];
+  if(CUR_PLANTS_SORT==='name') return list.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  if(CUR_PLANTS_SORT==='watered') return list.sort((a,b) => {
+    const ta = plantLastWateredTs(a), tb = plantLastWateredTs(b);
+    if(!ta && !tb) return 0;
+    if(!ta) return 1; if(!tb) return -1;   // never-watered sinks to the bottom either way
+    return new Date(tb) - new Date(ta);   // most recently watered first
+  });
+  if(CUR_PLANTS_SORT==='sown') return list.sort((a,b) => {
+    const da = plantDaysSinceSown(a), db = plantDaysSinceSown(b);
+    if(da===null && db===null) return 0;
+    if(da===null) return 1; if(db===null) return -1;   // never-sown sinks to the bottom
+    return da - db;   // most recently sown (fewest days ago) first
+  });
+  return list.sort((a,b) => {
     if((a.stage==='harvested') !== (b.stage==='harvested')) return a.stage==='harvested' ? 1 : -1;
     const oa = plantOverdue(a), ob = plantOverdue(b);
     if(oa !== ob) return oa ? -1 : 1;
     return (a.name||'').localeCompare(b.name||'');
   });
+}
+function plantsSortSelectHTML(){
+  return `<select id="plants-sort-select" aria-label="Sort vegetables" onchange="App.plantsSortChange(this.value)">
+    ${PLANTS_SORT_OPTIONS.map(([k,label]) => `<option value="${k}"${CUR_PLANTS_SORT===k?' selected':''}>${esc(label)}</option>`).join('')}
+  </select>`;
+}
+/* the four counts above the grid - purely informational (no destination to tap through to, it's
+   all the exact same list right below), so plain tiles rather than the app's usual clickable
+   dash-widget ones. Recomputed by drawPlantsGrid on every redraw, same as the grid itself, so
+   watering/adding/deleting a vegetable keeps these in sync automatically. */
+function plantsDashboardStatsHTML(){
+  const list = DB.plants||[];
+  const stats = [
+    ['🌱', list.length, 'Total Plants'],
+    ['💧', list.filter(p => plantHealthState(p)==='red').length, 'Need Water'],
+    ['⏳', list.filter(p => !!plantGerminationInfo(p)).length, 'Germinating'],
+    ['🌾', list.filter(p => plantStageKey(p.stage)==='ready').length, 'Ready To Harvest'],
+  ];
+  return `<div class="plants-stats">${stats.map(([icon,n,label]) => `
+    <div class="plants-stat-tile"><span class="plants-stat-icon" aria-hidden="true">${icon}</span><span class="plants-stat-text">${n} ${esc(label)}</span></div>`).join('')}</div>`;
 }
 /* the couple of seconds right after a tap (PLANT_UNDO_TIMERS) is the one time the button shows
    something other than "log a watering" - an accidental tap is common (it's a small target
@@ -6471,6 +6529,7 @@ function drawPlantsGrid(){
   grid.innerHTML = list.length
     ? `<div class="plants-grid">${list.map(plantCardHTML).join('')}</div>`
     : `<div class="empty" style="margin-top:40px">No Vegetables Yet<br><span class="muted small">Add one to start tracking its growth and watering.</span></div>`;
+  const statsRoot = $('#plants-stats'); if(statsRoot) statsRoot.innerHTML = plantsDashboardStatsHTML();
 }
 function renderPlants(){
   $('#app').innerHTML = `
@@ -6480,6 +6539,8 @@ function renderPlants(){
         <button class="btn sm primary" onclick="App.plantForm()">+ Add Vegetable</button>
       </div>
     </div>
+    <div id="plants-stats"></div>
+    <div class="plants-sort-row">${plantsSortSelectHTML()}</div>
     <div id="plants-grid"></div>`;
   drawPlantsGrid();
   loadPlantsCloud(cloud => {
@@ -7363,6 +7424,7 @@ App.plantGrowPhotoRemove = plantGrowPhotoRemoveImpl;
 App.plantGrowFactEdit = plantGrowFactEditImpl;
 App.plantGrowRangeEdit = plantGrowRangeEditImpl;
 App.plantToggleLocation = plantToggleLocationImpl;
+App.plantsSortChange = v => { CUR_PLANTS_SORT = v; drawPlantsGrid(); };
 App.plantPickEmoji = plantPickEmojiImpl;
 App.plantAttachIcon = plantAttachIconImpl;
 App.plantClearIcon = plantClearIconImpl;
