@@ -1202,8 +1202,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.11';
+const APP_VERSION = '2.29.12';
 const CHANGELOG = [
+  {version:'2.29.12', notes:[
+    "Plants: a vegetable's Watered button now fades out and stops being tappable once it's had enough water for its schedule - previously only greyed out if watered that exact day, so a plant on a 2-day schedule watered yesterday still looked tappable even though it wasn't due yet.",
+  ]},
   {version:'2.29.11', notes:[
     "Fixed the Places/Games-style search bar (now also used on Films' Diary and Watchlist tabs) floating well above the keyboard with a gap of page showing through underneath it - the keyboard-height tracking behind that has raced the keyboard's own resize animation for three fix attempts running, so it's gone for good in favour of trusting the page's viewport settings to position things correctly on their own.",
   ]},
@@ -6164,9 +6167,6 @@ function daysSinceTs(ts){
   const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   return Math.round((startOfDay(new Date()) - startOfDay(new Date(ts))) / 86400000);
 }
-/* "watered today" is worked out fresh against the real clock every render, never stored - so it
-   naturally clears itself at midnight without any explicit reset */
-function plantWateredToday(p){ return daysSinceTs(plantLastWateredTs(p))===0; }
 function plantOverdue(p){
   const days = daysSinceTs(plantLastWateredTs(p));
   return days===null || days>=(p.wateringFrequencyDays||3);
@@ -6275,12 +6275,15 @@ function plantWaterButtonHTML(p, sm){
     return `<button type="button" class="plant-water-action-btn plant-mark-planted"
         onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">Mark as Planted<span class="plant-water-btn-emoji" aria-hidden="true">🪏</span></button>`;
   }
-  const doneToday = !showUndo && plantWateredToday(p);
-  const state = showUndo ? ' undo' : plantOverdue(p) ? ' overdue' : doneToday ? ' done' : '';
+  // not just "watered today" - a plant on a 2-day schedule watered yesterday isn't due yet
+  // either, and the button needs to look that way (faded, not just non-bold) rather than
+  // reading as a normal tappable action for a watering it doesn't need
+  const notDue = !showUndo && !plantOverdue(p);
+  const state = showUndo ? ' undo' : notDue ? ' done' : ' overdue';
   return showUndo
     ? `<button type="button" class="plant-water-action-btn${state}"
         onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">Undo Watering<span class="plant-water-btn-emoji" aria-hidden="true">↩</span></button>`
-    : `<button type="button" class="plant-water-action-btn${state}"${doneToday?' disabled':''}
+    : `<button type="button" class="plant-water-action-btn${state}"${notDue?' disabled':''}
         onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
 }
 function plantCardHTML(p){
