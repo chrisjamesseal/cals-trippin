@@ -521,6 +521,58 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-home-emoji.plant-icon-img{width:24px; height:24px; object-fit:cover; border-radius:6px;}
 .plant-home-ts{font-size:.62rem; color:var(--muted); white-space:nowrap;}
+/* the detail page's reference material for the handful of vegetables this app actually has
+   published growing instructions for (see PLANT_GROWING_GUIDES) - purely informational, doesn't
+   feed the watering/stage tracking above it. Every month-range value (the top facts row's
+   Planted/Outside/Munch, and each phase's own date range) is an editable input rather than
+   plain text - the booklet's timing is generic, real planting rarely lines up with it exactly,
+   see plantGrowFactEdit/plantGrowRangeEdit for where the per-plant override is saved. */
+.grow-guide{margin-top:26px;}
+.grow-facts{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:12px 0 18px;}
+.grow-fact{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 12px;}
+.grow-fact-label{color:var(--muted); font-size:.62rem; text-transform:uppercase; letter-spacing:.04em; font-weight:700;}
+.grow-fact-value{font-weight:700; font-size:.84rem; margin-top:2px; color:var(--ink);}
+/* the shared look for every editable month field, fact or phase-range alike - blends in as
+   plain text until you actually interact with it, so the page doesn't read as one big form.
+   Doubled up as .grow-editable.grow-fact-value/.grow-phase-range (rather than plain
+   .grow-editable) so this beats the app's own global input[type=text] styling on specificity -
+   a single class alone ties with that attribute selector and loses on source order. */
+.grow-editable.grow-fact-value,.grow-editable.grow-phase-range{border:none; background:none;
+  font:inherit; color:inherit; padding:0; border-bottom:1px dashed transparent; border-radius:0;
+  -webkit-appearance:none; appearance:none;}
+.grow-editable.grow-fact-value:hover,.grow-editable.grow-phase-range:hover{border-bottom-color:var(--line-strong);}
+.grow-editable.grow-fact-value:focus,.grow-editable.grow-phase-range:focus{outline:none; border-bottom-color:var(--brand);}
+.grow-editable.grow-fact-value{width:100%; margin-top:2px;}
+/* phases as <details>/<summary> - collapsed by default past the first one, since six paragraphs
+   times three-or-four phases is a lot of scrolling to land on when all you want is which phase
+   you're up to. The date-range input sits inside the tappable summary, so its own clicks are
+   stopped from bubbling up and toggling the accordion (see plantGrowPhaseHTML). */
+.grow-phase{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm); margin-bottom:12px; overflow:hidden;}
+.grow-phase-head{display:flex; justify-content:space-between; align-items:center; gap:8px 10px;
+  flex-wrap:wrap; padding:14px 16px; cursor:pointer; list-style:none;}
+.grow-phase-head::-webkit-details-marker{display:none;}
+.grow-phase-title{font-family:var(--font-head); font-weight:700; font-size:.92rem; flex:1; min-width:0;}
+.grow-phase-num{display:inline-block; background:var(--brand-tint); color:var(--brand-dark);
+  font-weight:700; font-size:.64rem; padding:3px 9px; border-radius:20px; margin-right:8px; white-space:nowrap;}
+.grow-editable.grow-phase-range{color:var(--muted); font-size:.7rem; white-space:nowrap; text-align:right; flex-shrink:0; width:112px;}
+.grow-phase-chevron{color:var(--muted); font-size:.72rem; flex-shrink:0; transition:transform .15s;}
+.grow-phase[open] .grow-phase-chevron{transform:rotate(180deg);}
+.grow-phase-body{padding:0 16px 14px;}
+.grow-phase-body p{font-size:.82rem; line-height:1.5; margin:0 0 8px; color:var(--ink);}
+.grow-phase-body p:last-child{margin-bottom:0;}
+/* three tap-to-add slots matching the guide's own progress captions (e.g. Sprouting/Swelling/
+   Pulling) - the app has no photos of its own for these yet (they come from a printed booklet,
+   not something with reusable source images), so this starts empty and lets you fill them in
+   with your own as your plants actually go through each stage. */
+.grow-progress{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:16px;}
+.grow-progress-slot{display:flex; flex-direction:column; align-items:center; gap:5px;}
+.grow-progress-photo{display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1;
+  border-radius:var(--radius-sm); border:1px dashed var(--line-strong); background:var(--bg) center/cover no-repeat;
+  color:var(--muted); font-size:1.1rem; cursor:pointer;}
+.grow-progress-photo.has-photo{border-style:solid; border-color:var(--line); color:transparent;}
+.grow-progress-remove{border:none; background:none; padding:0; color:var(--muted); font-size:.68rem;
+  text-decoration:underline; cursor:pointer; font:inherit;}
+.grow-progress-caption{font-size:.66rem; color:var(--muted); text-align:center;}
 
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:4px;}
@@ -1178,8 +1230,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.13';
+const APP_VERSION = '2.29.14';
 const CHANGELOG = [
+  {version:'2.29.14', notes:[
+    "Plants: added a Growing Guide to the vegetable page for Oregano, Spinach, Squash, Lettuce, Carrot and Radish, transcribed straight from our seed kit's own booklet - the full month-by-month facts, phase-by-phase instructions (tap a phase to open it), and three tap-to-add slots for your own progress photos. Every month range is editable too, since real planting rarely lines up exactly with a generic guide.",
+  ]},
   {version:'2.29.13', notes:[
     "The search box on Places, Games, Board Games, Wishlist, Gig Artists and Films' Diary/Watchlist no longer floats above the keyboard - it's a normal part of the page now, sitting right at the top of each list, instead of pinned above the tabbar. That pinned positioning was the whole source of the keyboard-floating bug that kept coming back no matter how it was patched, so it's gone rather than fixed again.",
   ]},
@@ -6335,6 +6390,315 @@ function plantDetailWaterHTML(p){
     ${plantWaterButtonHTML(p)}
     <div class="plant-water-label">${esc(plantWaterLabel(p))}</div>`;
 }
+/* transcribed from our physical seed-kit's own growing guide booklet - only the 6 vegetables it
+   actually covers get one, matched by the plant's name (see PLANT_GUIDE_ALIASES for the handful
+   of alternate names, e.g. "Squash", that still resolve to the right guide). Purely reference
+   material shown on the detail page - it doesn't feed the watering-schedule tracking above it,
+   which stays driven by each plant's own wateringFrequencyDays regardless of what its guide
+   (if any) says in prose. Recipes from the same booklet aren't included here - growing
+   instructions only. */
+const PLANT_GROWING_GUIDES = {
+  oregano: {
+    facts: {planted:'June - July', indoors:'Yes', watering:'Let him dry', repot:'No', outside:'July - Aug', munch:'Aug - Oct'},
+    phases: [
+      {num:1, title:'Kick Him Off', range:'June to July', points:[
+        "To get the big man going, fill your small black pot up to the very top with compost, breaking up any clumps as you go. Give it a gentle water so it's moist but not soaking.",
+        "Grab his seed bag and carefully open it. Easy does it. Pour all of the seeds out onto your palm. Best to see what you're working with here.",
+        "Sprinkle the seeds evenly across the surface of the compost. We're trying to avoid any big gaps here. They're teeny tiny and don't need to be buried - press them gently into the surface so they're still slightly exposed to the light.",
+        "Stick him next to your sunniest window. He needs warmth and a lot of sunshine to get going. He can take a few weeks to pop up, so stay patient.",
+        "He needs to be nice and cosy to begin with, so put some clingfilm or a freezer bag over his pot. This creates enough humidity for him to kick off.",
+        "Keep his compost moist, watering every few days. He's vvv delicate at this stage, so try not to churn up his seeds or baby shoots. Steady-ish hand required.",
+      ]},
+      {num:2, title:'Get Him Tanning', range:'June to August', points:[
+        "He can be a bit temperamental as a baby, so we need to give him time and space. He can take up to a month to poke his head up. Don't stress.",
+        "He needs lots of direct sunlight to grow, so keep him on the same sunny windowsill. Tan central.",
+        "When his shoots are 3-4cm tall, remove all but the strongest five. We want the ones which are standing most upright and stable.",
+        "Once his first shoots appear, whip off his clingfilm or freezer bag. We want lots of breezy airflow around him.",
+        "Once he's up, let his compost dry out between waterings. Imagine Mediterranean conditions - then only water so he's slightly moist, not soggy.",
+        "This feels harsh but leads to lots more Oregano, as there's less competition for sun, water and nutrients.",
+      ]},
+      {num:3, title:'Munch Him', range:'July to October', points:[
+        "Once he's 5cm-ish tall, move him outside onto your patio or balcony. Only keep him outside in the daytime at first, then full time after a week or so.",
+        "He loves the sun, so make sure he's in a bright spot. The more rays he soaks in, the more his leaves will bush out.",
+        "Keep letting his compost almost dry out, then gently watering - probably every couple of days through summer. Think Mediterranean conditions.",
+        "Within a couple of months, he'll start growing pretty bushy, with a low, scraggly, dense growing habit.",
+        "From early August he should be ready to start harvesting. Start by snipping off his outer branches, as new ones will grow out the middle of the plant. The more you snip, the more he'll sprawl.",
+        "You can strip the leaves off his sprigs and use them fresh, whilst they're sharp and peppery - or store the sprigs in a paper bag, drying them so they grow more concentrated and earthy in flavour.",
+        "He'll die back each winter and grow again in spring. Cut his woody stems down to their bases each March, just 2-3cm tall, then leave them to it.",
+      ]},
+    ],
+    progress: ['Poking up.', 'Establishing himself.', 'Bushing, spreading, thriving.'],
+  },
+  spinach: {
+    facts: {planted:'June - Aug', indoors:'No', watering:'Keep moist', repot:'No', outside:'Always', munch:'July - Oct'},
+    phases: [
+      {num:1, title:'Get Him Going', range:'June to August', points:[
+        "Fill one of the big black pots up to the top with compost, breaking up any clumpy bits as you go. Then smooth out the surface so it's nice and flat.",
+        "Place the seeds about 5cm apart across the compost - not too close together or there will be too much competition for light and water.",
+        "Scatter around 1cm of compost on top, then pop him outside in a spot that gets good sunlight. He doesn't mind a bit of shade if that's all you've got.",
+        "Give his compost a water so it's slightly moist. You'll need to water most days so he doesn't dry out.",
+        "You'll have a few spare seeds - keep these safe and plant them in late September for autumn harvests. He's able to keep growing through the cooler months. Tough lad.",
+      ]},
+      {num:2, title:'Get Him Shooting', range:'June to August', points:[
+        "Try to put him in a spot with a mix of sun and shade. Keep his compost constantly moist, watering most days through summer. Don't let it dry out or he'll never show his handsome face.",
+        "After a week or two, your first shoots should start appearing - teeny and bright green. Buzzing. When they get to around 3cm tall, remove all but the strongest 4 shoots.",
+        "Remove any that are spindly and falling over. We only want the strongest left.",
+        "This creates loads more space for each plant to spread its roots, plus way less competition for light, water and nutrients. It feels cruel, we know, but trust us - it'll lead to bigger plants, which means hellllla spinach.",
+        "Fill a spare pot with compost and make four holes, leaving 10-15cm between them. Drop your plants in, support their little stems with compost, then give them a good water. They'll perk up after a day or so.",
+      ]},
+      {num:3, title:'Munch Him', range:'July to October', points:[
+        "Keep that compost moist, particularly if the weather's scorching. You'll need to water every day in summer. He'll taste bitter if you let him dry out, so stay on it.",
+        "If any flowers appear, chop them off. This usually happens when he gets too dry and hot.",
+        "After about 5-6 weeks, he should be really expanding, with lots of lovely, lush, large green leaves. Beauuutiful.",
+        "Snip these off with scissors at this point, starting with the outer ones, as they're the oldest. The more you harvest, the more he'll grow back.",
+        "If the plants run out of steam or keep producing white flowers, don't worry - you can plant a new batch with your spare seeds. Happy days.",
+        "Once they've run their course, pull the plants up, roots included. Add a layer of fresh compost to the pot's surface, smooth it over and give it a real good water. Head back to the start of this guide and repeat.",
+        "He's super sturdy and good in colder weather, so he'll keep growing well into autumn. Spinach factory - you might turn into Popeye.",
+      ]},
+    ],
+    progress: ['Little sproutlings.', 'Remove the weaker shoots, and he starts ballooning...', '...with masssssive leaves.'],
+  },
+  squash: {
+    facts: {planted:'June', indoors:'Yes', watering:'Keep moist', repot:'Once', outside:'July - Aug', munch:'Aug - Sept'},
+    phases: [
+      {num:1, title:'Wake Her Up', range:'June', points:[
+        "Before we start - yep, Patty Pans are also known as Sunburst Squash. Twins.",
+        "Fill all of the pods on her side of the seed tray to the top with compost. With your little finger, make a 2cm hole in each pod.",
+        "Place one seed in each of the six holes, around 1-2cm deep. Lay them flat, cover with a layer of compost and splash each pod with water. They need moisture to wake up, thinking it's the right conditions to get growing.",
+        "Pop the seed tray inside the drip tray and place it in a warm spot, like directly on top of a radiator or boiler.",
+        "Heat is essential for sprouting, so check out our Seed Sauna if you're struggling.",
+        "Keep the compost constantly moist, watering every day or two. It's vvv important she doesn't get too dry. Moisture + warmth is the secret sauce - no wakey wakey without them.",
+        "Pop your spare compost to the side for now, somewhere cool and sheltered. You'll be using it for re-potting in a few weeks.",
+      ]},
+      {num:2, title:'Get Her Shooting', range:'June to August', points:[
+        "Her first shoots will appear after a week or so. The warmer the conditions, the quicker she'll sprout. No better feeling than seeing a baby shoot poke up.",
+        "As soon as one of them's up, move the whole tray onto your brightest windowsill.",
+        "Get her as close to the light as poss - if we make her stretch for light, her stem will be weaker and less supportive.",
+        "Don't worry if the other pods haven't sprouted - move her onto the windowsill anyway. Try to keep the tray warm so the rest catch up. Hot water bottles help here. Princess treatment.",
+        "Keep watering her compost every day or two. Little and often's best, as she needs to be kept slightly moist. She needs to put on a bit of growth before she moves into her forever home.",
+      ]},
+      {num:3, title:'Get Her Grooving', range:'July to August', points:[
+        "After 2 to 3 weeks, when she has 4 to 5 leaves, we need to move her out of the seed tray. No small pot here - straight to the big pot and outside.",
+        "Fill one of the big pots with compost, moisten it with warm water and make a hole in the middle, big enough to fit her.",
+        "Pick the strongest-looking plant, ideally one that's sturdy and standing upright.",
+        "Ease her out of the pod with the compost still intact. Pop her out from beneath, just like an ice cube. Holding her by the compost, not the stem, gently lower her into the hole. Bury her nice and deep, so the compost's piled right up to her lowest leaves. Add some more if you need to.",
+        "Pop her outside in your sunniest spot, bringing her back in at night. After a week, she can stay out there for good.",
+        "Remember to give her a thorough water every day, keeping her compost constantly moist. This is mega important through the height of summer - or she'll wither up.",
+        "You'll have a few other plants, so pot them up separately if you have spares. If you need more, we have them on our website. Patty Pan party.",
+      ]},
+      {num:4, title:'Munch Her', range:'August to September', points:[
+        "She's going to be growing FAST. Stay on the case with her watering, always keeping the compost moist.",
+        "Big leaves will start spilling over the sides of the pot. Let them grow naturally - but chop off any that turn brown and dry.",
+        "When she starts producing yellow flowers, take extra care to water each day. Try to do this directly onto the compost, rather than onto her leaves.",
+        "Her flowers will be little and golden. The patty pans grow from them, so don't remove them - just leave them be.",
+        "With time, they'll swell out of the flowers, looking like little flying saucers. Harvest them when they're 6-8cm across. Cut them at their base, or snip them off with sharp scissors.",
+        "Harvest them as often as you can, as it encourages loaaads to grow back.",
+        "If you leave them on the plant too long, they'll turn a bit tough and discourage more from growing. Chop chop.",
+      ]},
+    ],
+    progress: ['Ready to move into a big pot.', 'Flowering and fruiting.', 'Flying saucers.'],
+  },
+  lettuce: {
+    facts: {planted:'July - Aug', indoors:'No', watering:'Keep moist', repot:'No', outside:'Always', munch:'Aug - Sept'},
+    phases: [
+      {num:1, title:'Get Her Going', range:'July to August', points:[
+        "Fill one of the medium pots up with compost, breaking up any clumps as you go. Then smoooooth the surface so it's even.",
+        "Take half of the seeds and plant them 5cm apart across the compost. They mustn't be too close together, as they need space to grow - otherwise there ends up being too much competition for light, water and nutrients, so they all end up growing weak and puny. Sad times.",
+        "Scatter about 1cm of compost on top of the seeds, then pop her pot outside in a slightly shaded spot. She doesn't need to get baking hot.",
+        "With your spare seeds, you can plant these in September when you've eaten through all your current crops. Keep them safe for now.",
+      ]},
+      {num:2, title:'Get Her Grooving', range:'July to August', points:[
+        "Keep the compost constantly moist, gently watering most days. She'll take a week or two to start poking her head up through the surface.",
+        "When she's 3cm tall, pull out all but the three strongest plants from the pot. This feels cruel but it gives those three more space to grow, meaning more lettuce to harvest.",
+        "When you pull the baby plants up, try to keep their roots intact, as you can re-plant them. Fill a spare, similar pot with compost and dig three holes, support their bases using compost, then give them a good water. Bingo.",
+        "Keep watering her pot most days through summer. She'll wither up or start flowering if she dries out, which makes for bitter lettuce.",
+      ]},
+      {num:3, title:'Munch Her', range:'August onwards', points:[
+        "Keep that compost moist, particularly if the weather's piping hot. You'll need to water every day in summer. She'll taste bitter if you let her dry out.",
+        "After about 5 weeks, she'll be ready to start eating. Her leaves should be lovely and crisp and fresh.",
+        "They grow out the middle of the plant, so cut the outer leaves off first from their base, leaving the younger ones on the plant. Oh so fresh.",
+        "More leaves will grow back from the plant's centre. Keep her compost moist and she'll keep them coming.",
+        "It's lettuce. You know the drill - burgers, salads, BLTs, sarnies.",
+        "Once her plants start dying out, pull them up and plant your spare seeds in the same compost. Head back to the top of this guide and repeat.",
+      ]},
+    ],
+    progress: ['The strongest shoots remain.', 'Bushing out to fill the pot.', 'Outer leaves snipped off.'],
+  },
+  carrot: {
+    facts: {planted:'July - Aug', indoors:'No', watering:'Keep moist', repot:'No', outside:'Always', munch:'Aug - Oct'},
+    phases: [
+      {num:1, title:'Get Him Shooting', range:'July to August', points:[
+        "Fill one of the medium pots up to the top with compost, breaking up any clumps as you go. Then smoooooth the surface so it's nice and even.",
+        "Tip the seeds out into your hands and place them at 5cm intervals in a grid pattern across the compost. Voila.",
+        "It's important that they're this far apart, as each carrot needs space to swell up. They'll grow small and weak if you don't.",
+        "Cover the seeds with around 1cm of compost. Tucked up nice and cosy.",
+        "Give him a gentle water and put him outside in the sunniest spot you can find. Keep his compost slightly moist until he pops up, probably watering most days in summer. You'll have some seeds left over - keep these safe, we'll plant more later in the year.",
+      ]},
+      {num:2, title:'Get Him Swelling', range:'July to August', points:[
+        "Don't worry if he doesn't pop up immediately - it can take a couple of weeks. We move at nature's pace.",
+        "Little green shoots will start sneaking up through the compost. His leaves are feathery and fine, particularly in the early days - they'll really bush out.",
+        "Most of the action happens underground here. Carrots don't hang from branches - they swell up, both downwards and outwards, under the surface. You won't be able to keep a close eye on them, so it'll be a surprise when they're pulled up.",
+        "Make sure his compost stays slightly moist - no need to drench it, but you'll need to be watering most days in summer.",
+        "Try not to brush or break any of his leaves, as this can attract pests. Other than that, let him do his thing.",
+      ]},
+      {num:3, title:'Pull Him Up', range:'August to October', points:[
+        "About 6-8 weeks after you planted, rub the compost away around the top of the carrots to check their size.",
+        "If they're about 2-3cm wide, give them a wiggle and gently ease them up. If they're still a little puny, give them a touch longer in your sunniest spot.",
+        "They're mega sweet and tender, so generally it's better to munch them when they're younger, as they get tougher with time.",
+        "Be sure to keep his greenery (or 'tops'), as it can be used in homemade pesto.",
+        "Once you pull a carrot up, pop another seed in its place in the same compost. Repeat the process for a second crop - re-using the same compost gives you a revolving door of carrots.",
+      ]},
+    ],
+    progress: ['Fine and feathery shoots.', 'Everything thickening up.', 'Pulllllll up.'],
+  },
+  radish: {
+    facts: {planted:'July - Sept', indoors:'No', watering:'Keep moist', repot:'No', outside:'Always', munch:'Aug - Oct'},
+    phases: [
+      {num:1, title:'Kick Her Off', range:'July to September', points:[
+        "Fill one of the medium pots up with compost, breaking up any clumps as you go. Then smoooooth the surface so it's even.",
+        "Tip the seeds out onto your palm. You've got enough for two rounds of planting. Radishes galore.",
+        "Take half of the seeds and place each one about 4cm apart across the pot. This feels reaaal spaced out, but remember they're going to swell up lovely and plump - it's best to give her space at this age.",
+        "Cover the seeds with a thin layer of compost, around 1/2 a centimetre. Give the compost another gentle water, so it's slightly moist to touch.",
+        "Stick her pot outside in the sun and keep the compost moist, watering almost every day.",
+        "Keep the other 50% of your seeds safe for now - we'll plant them once this first batch are pulled up. Now it's a waiting game. Simples.",
+      ]},
+      {num:2, title:'Get Her Swelling', range:'July to September', points:[
+        "Radishes are super simple to grow - one of the lowest maintenance, fastest growing vegetables you can have in your pot collection. And one of the tastiest in our humble opinion.",
+        "Always keep her compost moist, watering pretty much every day. Little shoots should start poking their heads up after a week or so.",
+        "Try to water her fairly consistently, little and often, rather than the odd soaking. Inconsistent floods of water will make her skin split.",
+        "Over time, with the sunny weather and plenty of water, the bases of her shoots will swell up into plump, tender bright pink radishes.",
+        "Check her leaves for green bugs. If you find any, pick them off with your hands. Don't be scared.",
+      ]},
+      {num:3, title:'Munch Her', range:'August to October', points:[
+        "She'll be ready to harvest after 3-4 weeks. Mega quick. Her shoots will have swollen into plump little ovals.",
+        "Gently hold her tops and twiiiist. You'll hear a little crunch with her roots snapping, then pull her up.",
+        "She adds a peppery crunch to salads. Not bad on her own either.",
+        "Try to eat her fairly quickly after harvesting - she's better fresh.",
+        "Remove her leaves as soon as you pull her up. They're vvv tasty too and can be eaten like spinach, raw or sautéed.",
+        "Once the first harvest's done, get your spare seeds planted in the exact same spots, re-using the same compost - it's got more than enough nutrients.",
+        "Just head back to Phase 01 of this guide and repeat the process. Godspeed.",
+      ]},
+    ],
+    progress: ['Sprouting.', 'Swelling.', 'Pulling.'],
+  },
+};
+/* alternate names that should still resolve to a guide above - e.g. a plant logged as just
+   "Squash" or "Patty Pan" rather than the exact "Patty Pan Squash" */
+const PLANT_GUIDE_ALIASES = {
+  oregano: 'oregano',
+  spinach: 'spinach',
+  squash: 'squash', 'patty pan': 'squash', 'patty pan squash': 'squash', 'sunburst squash': 'squash',
+  lettuce: 'lettuce',
+  carrot: 'carrot', carrots: 'carrot',
+  radish: 'radish', radishes: 'radish',
+};
+function plantGuideFor(p){
+  const key = PLANT_GUIDE_ALIASES[((p&&p.name)||'').trim().toLowerCase()];
+  return key ? PLANT_GROWING_GUIDES[key] : null;
+}
+/* Planted/Outside/Munch are the guide's own generic month ranges ("June - July") - real
+   planting rarely lines up exactly with a printed booklet's timing, so these (and each phase's
+   own date range below) are editable, saved as a per-plant override rather than changing the
+   shared guide itself. Indoors/Watering/Repot aren't month ranges, so those stay plain text. */
+function plantGrowFactValue(p, guide, key){
+  const override = p.growOverrides && p.growOverrides.facts && p.growOverrides.facts[key];
+  return override != null ? override : guide.facts[key];
+}
+function plantGrowFactsHTML(p, guide){
+  const editable = ['planted','outside','munch'];
+  const rows = [['Planted','planted'],['Indoors',null],['Watering',null],
+    ['Repot',null],['Outside','outside'],['Munch','munch']];
+  return `<div class="grow-facts">${rows.map(([label,key])=>{
+    const value = key ? plantGrowFactValue(p, guide, key) : guide.facts[label.toLowerCase()];
+    return `
+    <div class="grow-fact"><div class="grow-fact-label">${esc(label)}</div>${key
+      ? `<input type="text" class="grow-editable grow-fact-value" value="${esc(value)}"
+           onchange="App.plantGrowFactEdit('${esc(p.id)}','${key}',this.value)">`
+      : `<div class="grow-fact-value">${esc(value)}</div>`}</div>`;
+  }).join('')}</div>`;
+}
+function plantGrowPhaseRange(p, phase){
+  const override = p.growOverrides && p.growOverrides.ranges && p.growOverrides.ranges[phase.num];
+  return override != null ? override : phase.range;
+}
+function plantGrowPhaseHTML(p, phase, isOpen){
+  return `
+    <details class="grow-phase"${isOpen?' open':''}>
+      <summary class="grow-phase-head">
+        <span class="grow-phase-title"><span class="grow-phase-num">PHASE ${String(phase.num).padStart(2,'0')}</span>${esc(phase.title)}</span>
+        <input type="text" class="grow-editable grow-phase-range" value="${esc(plantGrowPhaseRange(p, phase))}"
+          onclick="event.stopPropagation()" onmousedown="event.stopPropagation()"
+          onchange="App.plantGrowRangeEdit('${esc(p.id)}',${phase.num},this.value)">
+        <span class="grow-phase-chevron" aria-hidden="true">${fa('chevron-down')}</span>
+      </summary>
+      <div class="grow-phase-body">${phase.points.map(pt=>`<p>${esc(pt)}</p>`).join('')}</div>
+    </details>`;
+}
+function plantGrowProgressHTML(p, guide){
+  const photos = p.growPhotos||[];
+  return `<div class="grow-progress">${guide.progress.map((caption,i)=>{
+    const photo = photos[i];
+    return `
+    <div class="grow-progress-slot">
+      <label class="grow-progress-photo${photo?' has-photo':''}"${photo?` style="background-image:url('${esc(photo)}')"`:''} aria-label="${photo?'Change':'Add'} photo for ${esc(caption)}">
+        ${photo?'':ICONS.camera}
+        <input type="file" accept="image/*" style="display:none" onchange="App.plantGrowPhotoUpload('${esc(p.id)}',${i},this)">
+      </label>
+      ${photo?`<button type="button" class="grow-progress-remove" onclick="App.plantGrowPhotoRemove('${esc(p.id)}',${i})">Remove</button>`:''}
+      <div class="grow-progress-caption">${esc(caption)}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+function plantGrowingGuideHTML(p){
+  const guide = plantGuideFor(p);
+  if(!guide) return '';
+  return `
+    <div class="grow-guide" id="plant-grow-guide">
+      <h3 class="plant-timeline-heading">Growing Guide</h3>
+      ${plantGrowFactsHTML(p, guide)}
+      ${guide.phases.map((phase,i)=>plantGrowPhaseHTML(p, phase, i===0)).join('')}
+      ${plantGrowProgressHTML(p, guide)}
+    </div>`;
+}
+function drawPlantGrowGuide(id){
+  const root = $('#plant-grow-guide'); if(!root) return;
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  root.outerHTML = plantGrowingGuideHTML(p);
+}
+function plantGrowPhotoUploadImpl(id, idx, input){
+  const file = input.files[0]; input.value=''; if(!file) return;
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  downscaleToDataURLPng(file, 500, dataUrl => {
+    if(!dataUrl) return;
+    p.growPhotos = Array.isArray(p.growPhotos) ? p.growPhotos : [];
+    p.growPhotos[idx] = dataUrl;
+    savePlants();
+    drawPlantGrowGuide(id);
+  });
+}
+function plantGrowPhotoRemoveImpl(id, idx){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p || !Array.isArray(p.growPhotos)) return;
+  p.growPhotos[idx] = null;
+  savePlants();
+  drawPlantGrowGuide(id);
+}
+/* both edits save straight into the input the user's already looking at, so there's nothing to
+   redraw here - re-rendering the whole guide section would also collapse every accordion back to
+   its default open/closed state right as they finish typing, which is worse than just leaving it. */
+function plantGrowFactEditImpl(id, key, value){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  p.growOverrides = p.growOverrides || {};
+  p.growOverrides.facts = p.growOverrides.facts || {};
+  p.growOverrides.facts[key] = value;
+  savePlants();
+}
+function plantGrowRangeEditImpl(id, num, value){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  p.growOverrides = p.growOverrides || {};
+  p.growOverrides.ranges = p.growOverrides.ranges || {};
+  p.growOverrides.ranges[num] = value;
+  savePlants();
+}
 function renderPlantDetail(id){
   const p = (DB.plants||[]).find(x=>x.id===id);
   if(!p){ location.hash = '#/plants'; return; }
@@ -6353,6 +6717,7 @@ function renderPlantDetail(id){
       <div id="plant-detail-stage">${plantDetailStageHTML(p)}</div>
       <div id="plant-detail-water">${plantDetailWaterHTML(p)}</div>
     </div>
+    ${plantGrowingGuideHTML(p)}
     <h3 class="plant-timeline-heading">Timeline</h3>
     <div id="plant-timeline">${plantTimelineHTML(p)}</div>`;
 }
@@ -6680,6 +7045,10 @@ App.plantWater = plantWaterImpl;
 App.plantUndoWater = plantUndoWaterImpl;
 App.plantSetStage = plantSetStageImpl;
 App.plantDeleteLogEntry = plantDeleteLogEntryImpl;
+App.plantGrowPhotoUpload = plantGrowPhotoUploadImpl;
+App.plantGrowPhotoRemove = plantGrowPhotoRemoveImpl;
+App.plantGrowFactEdit = plantGrowFactEditImpl;
+App.plantGrowRangeEdit = plantGrowRangeEditImpl;
 App.plantPickEmoji = plantPickEmojiImpl;
 App.plantAttachIcon = plantAttachIconImpl;
 App.plantClearIcon = plantClearIconImpl;
