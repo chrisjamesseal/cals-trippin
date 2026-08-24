@@ -31,6 +31,11 @@
   --ink:#3A281F; --body-c:#5C463A; --muted:#8C7568;
   --line:#EDE0D3; --line-strong:#D9C4AE;
   --paper:#FFFBF6; --bg:#FBF2E8;
+  /* red/amber/green completion scale - same three colours Plants' own watering status
+     already uses (plant-water-status.red/.yellow/.green), reused here for any other
+     "how far along is this" percentage the app shows, so the same colour always means
+     the same thing wherever it shows up */
+  --rag-red:#C0392B; --rag-yellow:#8A6402; --rag-green:#1F7A3D;
   --radius:4px; --radius-sm:4px;
   --page-top:12px; /* the gap above every page title, on top of .wrap's own top padding */
   --shadow:0 2px 4px rgba(58,40,31,.06), 0 10px 26px rgba(58,40,31,.09);
@@ -191,9 +196,6 @@ a{color:var(--brand-dark);}
 .game-cover{display:block; width:100%; height:100%; object-fit:cover;}
 .game-cover-fallback{display:flex; align-items:center; justify-content:center; width:100%; height:100%;
   color:var(--muted); font-size:2.2rem; background:var(--bg);}
-/* sits below the % Complete line now, not overlaid on the cover art itself */
-.game-hide-btn{align-self:center; margin-top:2px; background:var(--paper); border:1px solid var(--line); box-shadow:var(--shadow);}
-.game-hide-btn:hover{background:var(--brand-ghost);}
 /* a Wishlist card sitting in the owned-games grid (see wishlistGameCardHTML) - faded like a
    hidden game is, but dashed rather than solid-bordered and never grayscale, since "not owned
    yet" and "deprioritised" are opposite reasons to look muted, not the same one */
@@ -208,8 +210,15 @@ a{color:var(--brand-dark);}
 .game-name{font-family:var(--font-head); font-weight:700; font-size:.82rem; overflow-wrap:anywhere;
   line-height:1.25; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; height:2.5em;}
 .game-progress{position:relative; overflow:hidden; height:6px; border-radius:999px; background:var(--bg);}
-.game-progress-bar{position:absolute; inset:0 auto 0 0; background:var(--brand); border-radius:999px; transition:width .2s;}
+.game-progress-bar{position:absolute; inset:0 auto 0 0; border-radius:999px; transition:width .2s, background .2s;}
 .game-meta{overflow-wrap:anywhere;}
+/* shared red/amber/green completion scale - see --rag-* in :root and ragClass() */
+.rag-red{color:var(--rag-red);}
+.rag-yellow{color:var(--rag-yellow);}
+.rag-green{color:var(--rag-green);}
+.game-progress-bar.rag-red{background:var(--rag-red);}
+.game-progress-bar.rag-yellow{background:var(--rag-yellow);}
+.game-progress-bar.rag-green{background:var(--rag-green);}
 /* ---------- individual game page ---------- */
 .game-detail-card{display:flex; flex-direction:column; align-items:center; text-align:center;}
 .game-detail-icon{width:min(220px,58vw); aspect-ratio:2/3; height:auto; border-radius:var(--radius); object-fit:cover;
@@ -427,12 +436,12 @@ a{color:var(--brand-dark);}
 /* Watch Next keeps its poster above the title instead of beside it, unlike its row-layout
    neighbours above - half the card's width, centred, so there's still room for the title/sub/
    provider-logos underneath without the tile growing as tall as a full-width poster would make it */
-.dash-watchnext-poster{display:block; width:50%; margin:0 auto 12px; aspect-ratio:2/3; object-fit:cover; border-radius:var(--radius-sm);}
+.dash-watchnext-poster{display:block; width:50%; margin:0 0 12px; aspect-ratio:2/3; object-fit:cover; border-radius:var(--radius-sm);}
 .dash-item-row .dash-item-flags{font-size:1.5rem; margin-bottom:0; flex-shrink:0;}
-/* Watch Next's provider logos sit under the title/sub in the text column now (there's no side
-   column next to a 38px-wide poster to put them in any more) - same small-logo-row look the
-   Watchlist grid's own cards already use below their poster, see .film-providers-badge. */
-.dash-item-row-text .film-providers-badge{display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;}
+/* Watch Next's provider logos sit below the title/sub, with a bit more breathing room above
+   them than the tight 4px gap Watchlist's own cards use below their poster, see .film-providers-badge */
+.dash-watchnext-providers{margin-top:10px;}
+.dash-watchnext-providers .film-providers-badge{display:flex; flex-wrap:wrap; gap:4px;}
 /* sits next to the "Home" crumb via .crumb-titlerow's own space-between, the same slot Music's
    "+ Add Gig" button uses - top right, not inside any one masonry tile. The wrapper clips its
    own rounded corners so nothing (a stray native select shadow on some mobile browsers) can
@@ -604,7 +613,6 @@ a{color:var(--brand-dark);}
 .plant-sticky-info{min-width:0; flex:1;}
 .plant-sticky-name{font-family:var(--font-head); font-weight:800; font-size:1.2rem; color:var(--ink); overflow-wrap:anywhere;}
 .plant-sticky-line{font-size:.8rem; color:var(--ink); margin-top:2px;}
-.plant-sticky-info .plant-water-action-btn{margin-top:10px;}
 /* "What Happens Next?" (plantWhatsNextHTML) - a distinct softly-tinted card so it reads as the
    one thing worth reading in full, not another stat sitting flush against the page background */
 .plant-next-card{background:var(--brand-tint); border-radius:var(--radius); padding:16px 18px; margin-bottom:22px;}
@@ -1048,7 +1056,7 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .accom-body > *{margin-top:0!important;}
 .accom-addr{color:var(--ink); overflow-wrap:anywhere;}
 .flight-body.loc-stack{display:flex; flex-direction:column; gap:10px;}
-.flight-apt{font-size:1.5rem; font-weight:800; letter-spacing:.02em; color:var(--ink);}
+.flight-apt{font-family:var(--font-head); font-size:1.5rem; font-weight:700; letter-spacing:.02em; color:var(--ink);}
 .apt-name{font-size:.72rem; color:var(--muted); margin-top:1px; line-height:1.2;}
 .loc-addr{font-size:1.05rem; font-weight:800; letter-spacing:.01em; color:var(--ink); line-height:1.3; overflow-wrap:break-word;}
 .flight-arrow{align-self:center; color:var(--g3,#c9d5d5);}
@@ -1244,7 +1252,7 @@ body.kb-open .tabbar.on{display:none;}
 /* "Day N" carries the weight - it's the number you actually navigate by while scrolling - the
    date beside it is just a cross-reference, so it stays small and quiet in comparison */
 .plan-day-num{font-family:var(--font-head); font-size:1.3rem; font-weight:700; color:var(--brand-dark); line-height:1;}
-.plan-day-date{font-size:.72rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+.plan-day-date{font-family:var(--font-body); font-size:.72rem; font-weight:700; color:var(--muted); letter-spacing:.02em;}
 .wx-chip{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
 .wx-emoji{font-size:.9rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
@@ -1310,12 +1318,17 @@ body.kb-open .tabbar.on{display:none;}
 .plan-meta-line{display:flex; align-items:flex-start; gap:7px;}
 .plan-meta-line .sec-emoji{margin-top:1px; flex-shrink:0;}
 .plan-auto{margin-bottom:20px;}
-.plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--brand-dark);}
+.plan-auto-tag{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; font-weight:700; letter-spacing:.02em; color:var(--brand-dark);}
 .plan-auto-tag .icon{font-size:.95rem;}
 .plan-auto-tag .sec-emoji{font-size:.95rem;}
 .plan-auto .flight-strip,.plan-auto .card{margin-bottom:0;}
 .plan-click{cursor:pointer;}
-.plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,.card.plan-click:hover{border-color:var(--brand);}
+/* hover:hover-gated, same reasoning as the touch-quirk reset block above (@media(hover:none)) -
+   without this guard, a tap on a touch screen leaves the card wearing this border-colour until
+   something else is tapped, reading as a stray outline stuck on a "random" itinerary card */
+@media (hover:hover){
+  .plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,.card.plan-click:hover{border-color:var(--brand);}
+}
 .plan-auto.plan-click:focus-visible .flight-strip,.plan-auto.plan-click:focus-visible .card,.card.plan-click:focus-visible{outline:none; border-color:var(--brand);}
 .plan-travel-icon{font-size:1.1rem; color:var(--brand); flex-shrink:0; display:inline-flex;}
 .plan-travel-icon .sec-emoji{font-size:1.05rem;}
@@ -1395,8 +1408,15 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.32';
+const APP_VERSION = '2.29.33';
 const CHANGELOG = [
+  {version:'2.29.33', notes:[
+    "Home Dashboard: Next Gig is no longer a link, since it didn't go anywhere useful. Currently Playing dropped its own \"Currently Playing\" caption - the name's already there. Watch Next's poster is left-aligned now, with a bit more breathing room above the streaming logos below it.",
+    "Games: % Complete is colour-coded now - red, amber or green depending on how far in you are, both on the grid and a game's own page. The hide-game icon is gone from the grid (still there on a game's own page, under Hide This Game).",
+    "Plants: the top of a vegetable's own page now shows its light and water needs, and the germination countdown, right alongside its name and status - no more digging into the Information tab for it, and no more seeing the same countdown twice on the page. Also down to one Watered button instead of two.",
+    "Itinerary: fixed a stray coloured outline that could stick to a card after tapping it on a touch screen. Cleaned up the page's typography - one serif font for headings (airport codes included) and one sans-serif for everything else, no more shouting in capitals except where it's an actual status.",
+    "Itinerary: a stop's address no longer shows as plain text underneath it once you've added a real Google Maps link for it - the Map button already covers that.",
+  ]},
   {version:'2.29.32', notes:[
     "Home Dashboard: Watch Next's poster sits above the title again instead of beside it - Last Seen and Theatre Watch Next are unchanged.",
     "Home Dashboard: Currently Playing shows the game's name again, next to its cover art.",
@@ -3565,15 +3585,6 @@ function dashNextGig(){
   upcoming.sort((a,b)=>a.date.localeCompare(b.date));
   return upcoming[0]||null;
 }
-/* the app doesn't store a ticket/event link anywhere - a gig is just artist/location/date - so
-   the honest best-effort destination is a Songkick search for the artist, the same fallback
-   pattern as Letterboxd search for a film with no stored URL. Not the exact event page, but one
-   tap from finding it. Biased to London in the query text itself (Songkick's search matches
-   across event/venue/city, not just artist) since that's where a show is most likely to actually
-   be findable for this app's use. */
-function gigEventUrl(g){
-  return 'https://www.songkick.com/search?query='+encodeURIComponent((g.artist||'')+' London');
-}
 function dashGigWidgetHTML(){
   const g = dashNextGig();
   if(!g) return `
@@ -3582,9 +3593,8 @@ function dashGigWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🎤</div>
       <div class="dash-item-title">No Upcoming Gigs</div>
     </div>`;
-  const url = gigEventUrl(g);
   return `
-    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
+    <div class="dash-widget dash-widget-item">
       <div class="dash-item-row">
         ${g.image ? `<img class="dash-item-img-sm round" src="${esc(g.image)}" alt="" loading="lazy">`
                    : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
@@ -3593,7 +3603,7 @@ function dashGigWidgetHTML(){
           <div class="dash-item-sub">Next Gig</div>
         </div>
       </div>
-    </a>`;
+    </div>`;
 }
 /* mirrors Songs' own time-range picker (SONGS_TIME_RANGES / SONGS_CACHE, defined further down
    with the rest of the Music tab) so switching range here doesn't refetch if Songs already has
@@ -3685,7 +3695,6 @@ function dashCurrentlyPlayingWidgetHTML(g){
                      : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
         <div class="dash-item-row-text">
           <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
-          <div class="dash-item-sub">Currently Playing</div>
         </div>
       </div>
     </div>`;
@@ -3821,7 +3830,7 @@ function dashWatchNextFilmHTML(f, providersData){
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">Watch Next</div>
-      <div id="dash-watchnext-providers">${providersData ? filmProvidersHTML(providersData) : ''}</div>
+      <div id="dash-watchnext-providers" class="dash-watchnext-providers">${providersData ? filmProvidersHTML(providersData) : ''}</div>
     </a>`;
 }
 function dashTheatreWatchNextWidgetHTML(){
@@ -4555,6 +4564,13 @@ function drawGamesList(){
       <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
     </div>`;
 }
+/* red/amber/green completion band, shared by anything showing a "how far along" percentage
+   (Games' own % Complete first, more can opt in later) - see --rag-* in :root */
+function ragClass(pct){
+  if(pct>=67) return 'rag-green';
+  if(pct>=34) return 'rag-yellow';
+  return 'rag-red';
+}
 /* progress (Sony's own trophy-percentage number, which is what the PS5's UI itself shows as a
    game's "% complete" too) plus when it was last played - not a trophy count. Trophy tallies are
    still one tap away on the game's own page for anyone who wants them, but the grid's job now is
@@ -4562,7 +4578,7 @@ function drawGamesList(){
    directly and a bronze/silver/gold/platinum breakdown doesn't. */
 function gameCardHTML(g, isHidden){
   const pct = Math.max(0, Math.min(100, g.progress||0));
-  const hideLabel = (isHidden?'Unhide ':'Hide ') + (g.name||'this game');
+  const rag = ragClass(pct);
   const href = '#/game/'+encodeURIComponent(g.id);
   return `
     <div class="game-card${isHidden?' hidden-game':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
@@ -4573,10 +4589,8 @@ function gameCardHTML(g, isHidden){
       </div>
       <div class="game-info">
         <div class="game-name">${esc(g.name||'Untitled')}</div>
-        <div class="game-progress"><div class="game-progress-bar" style="width:${pct}%"></div></div>
-        <div class="game-meta muted small">${pct}% Complete</div>
-        <button type="button" class="iconbtn game-hide-btn" aria-label="${esc(hideLabel)}" title="${isHidden?'Unhide':'Hide'}"
-          onclick="event.stopPropagation();App.psnToggleHidden('${esc(g.id)}')">${fa(isHidden?'eye':'eye-slash')}</button>
+        <div class="game-progress"><div class="game-progress-bar ${rag}" style="width:${pct}%"></div></div>
+        <div class="game-meta small ${rag}">${pct}% Complete</div>
       </div>
     </div>`;
 }
@@ -4621,6 +4635,7 @@ function renderGameDetail(id){
   const g = PSN_TITLES.find(x=>x.id===id);
   if(!g){ location.hash = '#/games'; return; }
   const pct = Math.max(0, Math.min(100, g.progress||0));
+  const rag = ragClass(pct);
   const e = g.earnedTrophies||{}, d = g.definedTrophies||{};
   const hidden = psnHidden().has(g.id);
   const tierRow = (label, emoji, earnedN, totalN) => `
@@ -4642,8 +4657,8 @@ function renderGameDetail(id){
                    : `<span class="game-detail-icon game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
       <div class="game-detail-name">${esc(g.name||'Untitled')}</div>
       <div class="small muted game-detail-meta">${esc(g.platform||'')}${g.lastPlayed?' &middot; Last played '+esc(fmtDate(g.lastPlayed.slice(0,10))):''}</div>
-      <div class="game-progress"><div class="game-progress-bar" style="width:${pct}%"></div></div>
-      <div class="small muted game-detail-pct">${pct}% Complete &middot; ${e.total||0}/${d.total||0} Trophies</div>
+      <div class="game-progress"><div class="game-progress-bar ${rag}" style="width:${pct}%"></div></div>
+      <div class="small game-detail-pct ${rag}">${pct}% Complete &middot; ${e.total||0}/${d.total||0} Trophies</div>
       <div class="game-tiers">
         ${tierRow('Platinum','🏆',e.platinum,d.platinum)}
         ${tierRow('Gold','🥇',e.gold,d.gold)}
@@ -6974,10 +6989,11 @@ function plantJourneyStepDescription(i, p){
    vertical line of stops rather than either a horizontal stepper or oversized cards. Every node
    (not just the current one) can jump the plant straight to that stage - the same jump-to-any-
    stage behaviour the flat button list (plantStagePickerHTML) gives, just presented as a
-   progression instead. The current node also carries the germination day count/expected range
-   where there is one - the one bit of the old separate text block worth keeping front and centre.
-   While still unplanted there's nothing to progress through yet, so this falls back to the plain
-   stage picker so there's still a way to mark it planted. */
+   progression instead. The current node carries a plain-English description of that stage; the
+   germination day count/expected range itself lives in the sticky header up top (plantStickyLines)
+   rather than here too, so it's not the same numbers twice on one page. While still unplanted
+   there's nothing to progress through yet, so this falls back to the plain stage picker so there's
+   still a way to mark it planted. */
 /* now folded into the combined Timeline below (see plantCombinedTimelineHTML) - kept as its own
    function since plantJourneyStepDescription/plantJourneyStepIdx are still used to build the
    current-stage card there, just no longer wrapped in four separate accordion nodes of their
@@ -7039,9 +7055,18 @@ function plantStickyLines(p){
   const stage = plantStageKey(p.stage);
   const state = plantHealthState(p);
   const lines = [plantStickyStatusLine(p, state)];
+  // light + water requirements live here now too, alongside the name and status - one glance
+  // at the top of the page instead of a trip to the Information tab for what this vegetable needs
+  const care = plantCareDataFor(p);
+  if(care){
+    const bits = [];
+    if(care.sun) bits.push('☀️ '+care.sun);
+    if(care.water) bits.push('💧 '+care.water);
+    if(bits.length) lines.push(bits.join(' · '));
+  }
   if(stage==='seed'){
     const g = plantGerminationInfo(p);
-    if(g){ lines.push(`📅 Day ${g.day}`); lines.push(`⏳ ${g.min} to ${g.max} days until expected sprouts`); }
+    if(g) lines.push(`📅 Day ${g.day} · expected ${g.min} to ${g.max} days until sprouts`);
     else lines.push(plantStickyWaterHint(p, state));
   } else if(stage==='sprout'){
     const days = plantDaysSinceStageEntered(p, 'sprout');
@@ -7087,7 +7112,6 @@ function plantStickyHeaderHTML(p){
         <div class="plant-sticky-info">
           <div class="plant-sticky-name">${esc(p.name||'Untitled')}</div>
           ${lines.map(l=>`<div class="plant-sticky-line">${esc(l)}</div>`).join('')}
-          ${unplanted ? '' : plantWaterButtonHTML(p)}
         </div>
       </div>
       <div class="plant-sticky-collapsed">
@@ -7340,14 +7364,15 @@ function plantTimelineHTML(p){
   // card of its own above the log
   const currentStageEvent = events.find(ev => ev.type==='stage');
   const idx = plantJourneyStepIdx(p);
-  const g = plantGerminationInfo(p);
   return `<div class="plant-timeline">${events.map(ev=>{
     const stageInfo = PLANT_STAGES[plantStageIdx(ev.stage)]||{};
     const label = ev.type==='water' ? 'Watered' : 'Set to '+esc(stageInfo.label||ev.stage);
     const emoji = ev.type==='water' ? '💧' : (stageInfo.emoji||'🌱');
     const deleteLabel = 'Delete "'+label+'" logged '+fmtDate(ev.ts.slice(0,10));
+    // the germination day count/range lives in the sticky header up top now (see
+    // plantStickyLines) - just the plain-English description here, not the same numbers twice
     const detail = ev===currentStageEvent
-      ? `${g?`Day ${g.day} &middot; expected ${g.min} to ${g.max} days until sprouts. `:''}${esc(plantJourneyStepDescription(idx, p))}`
+      ? esc(plantJourneyStepDescription(idx, p))
       : '';
     return `
       <div class="plant-timeline-item">
@@ -10220,7 +10245,7 @@ function tabPlan(t, ro){
           <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}</h3>
         </div>
       </div>
-      ${s.location ? `<div class="small accom-addr plan-meta-line" style="margin-bottom:10px">${secEmoji('📍')}<span>${esc(s.location)}</span></div>` : ''}
+      ${s.location && !s.mapsUrl ? `<div class="small accom-addr plan-meta-line" style="margin-bottom:10px">${secEmoji('📍')}<span>${esc(s.location)}</span></div>` : ''}
       ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${hasImage ? `<div class="plan-img-wrap">
         <img class="plan-img" src="${s.image}" alt="${esc(s.name)}">
