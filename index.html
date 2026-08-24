@@ -31,7 +31,7 @@
   --ink:#3A281F; --body-c:#5C463A; --muted:#8C7568;
   --line:#EDE0D3; --line-strong:#D9C4AE;
   --paper:#FFFBF6; --bg:#FBF2E8;
-  --radius:22px; --radius-sm:16px;
+  --radius:4px; --radius-sm:4px;
   --page-top:12px; /* the gap above every page title, on top of .wrap's own top padding */
   --shadow:0 2px 4px rgba(58,40,31,.06), 0 10px 26px rgba(58,40,31,.09);
   --shadow-lift:0 14px 32px rgba(58,40,31,.2);
@@ -521,7 +521,6 @@ a{color:var(--brand-dark);}
 .plant-water-status.yellow{color:#8A6402;}
 .plant-water-status.red{color:#C0392B;}
 .plant-germ-label{color:var(--muted); font-size:.68rem; margin-top:1px;}
-.plant-water-footer{color:var(--muted); font-size:.68rem; margin-top:6px;}
 /* the full Plants page card's own button - a name plus the water drop underneath it, rather
    than an icon-only circle, since there's room here and it reads more clearly than an emoji
    alone. Filled rather than outlined once there's something to actually do (overdue), so the
@@ -539,6 +538,10 @@ a{color:var(--brand-dark);}
 .plant-water-action-btn.plant-mark-planted{padding:9px 6px; gap:5px; font-size:.7rem;}
 .plant-water-btn-emoji{font-size:1.05rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+/* the relative "last watered" time used to sit in its own line above/below this button - now it
+   sits inside it, right under the label, since it's context for this exact button's action */
+.plant-water-btn-text{display:flex; flex-direction:column; align-items:flex-start; line-height:1.3;}
+.plant-water-btn-time{font-size:.66rem; font-weight:600; opacity:.7;}
 .plant-water-action-btn.overdue{background:#2E86DE; border-color:#2E86DE; color:#fff;}
 .plant-water-action-btn.done{background:var(--brand-tint);}
 /* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
@@ -614,7 +617,6 @@ a{color:var(--brand-dark);}
    into one) plus the button, per the "reduce visual noise" brief. */
 .plant-water-card{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
   padding:16px 18px; margin-bottom:22px;}
-.plant-water-card-row{font-size:.82rem; color:var(--muted); margin-bottom:4px;}
 .plant-water-card-action{font-weight:700; font-size:.86rem; margin-bottom:12px;}
 .plant-water-card-action.green{color:#1F7A3D;}
 .plant-water-card-action.yellow{color:#8A6402;}
@@ -1391,8 +1393,17 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.30';
+const APP_VERSION = '2.29.31';
 const CHANGELOG = [
+  {version:'2.29.31', notes:[
+    "Corners are much less rounded throughout the app - 4px instead of the old 16-22px.",
+    "Currently Playing no longer repeats the game's name next to its own cover art.",
+    "Plants: a plant watered today never shows a stale \"Check Today\" heads-up any more - it was possible right after watering, which made no sense.",
+    "Plants: the \"X ago\" time now sits inside the Watered button itself instead of as a separate line next to it.",
+    "Films: the Log/Add to Watchlist buttons on a search result are the same style now, each with its own icon (🎬 Log, ❤️ Add).",
+    "Every search box across the app now shows a clear (×) button once you've typed something, not just the ones inside a form.",
+    "Home Dashboard: Plants widget's empty state is now \"🌱 Completed\" instead of \"✅ All Done for Today\".",
+  ]},
   {version:'2.29.30', notes:[
     "Plants: removed Today's Checklist entirely - Seed Sown's germination countdown now sits inside the Timeline itself, on the log entry for when it was actually sown, so everything reads in one chronological order. Change Stage moved up, right under the Timeline heading.",
     "Games: Wishlist renamed to Play List throughout (tab, badges, buttons) - Wishlist as a word was doing double duty with Films' own Watchlist, this splits them apart.",
@@ -3662,10 +3673,9 @@ function dashCurrentlyPlayingWidgetHTML(g){
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/game/${encodeURIComponent(g.id)}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/game/${encodeURIComponent(g.id)}'}">
       <div class="dash-item-row">
-        ${g.iconUrl ? `<img class="dash-item-img-sm" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+        ${g.iconUrl ? `<img class="dash-item-img-sm" src="${esc(g.iconUrl)}" alt="${esc(g.name||'')}" loading="lazy">`
                      : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
         <div class="dash-item-row-text">
-          <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
           <div class="dash-item-sub">Currently Playing</div>
         </div>
       </div>
@@ -4081,6 +4091,7 @@ function renderPlaces(view){
       <input type="text" id="places-filter" placeholder="Search countries…" oninput="drawPlacesGrid()">
     </div>
     <div id="places-grid"></div>`;
+  attachFieldClears($('#app'));
   drawBeenSubtabs();
   drawPlacesGrid();
   loadPlacesCloud(cloud => {
@@ -4511,6 +4522,7 @@ function renderGamesList(titles){
       <input type="text" id="games-search" placeholder="Search games…" oninput="drawGamesList()">
     </div>
     <div id="games-grid"></div>`;
+  attachFieldClears(body);
   drawGamesList();
 }
 /* re-filters/re-sorts the already-fetched list; leaves the search box and its cursor alone,
@@ -4721,6 +4733,7 @@ function renderBoardGames(){
       <input type="text" id="bg-search" placeholder="Search board games…" oninput="App.bgSearchInput()">
     </div>
     <div id="bg-grid"><div class="empty">Loading board games…</div></div>`;
+  attachFieldClears(body);
   drawBgFilters();
   loadBoardGames('');
 }
@@ -4873,6 +4886,7 @@ function renderWishlist(){
       <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
     </div>
     <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>`;
+  attachFieldClears(body);
   drawWishlistMine();
   loadGameSearch('');
 }
@@ -5144,6 +5158,7 @@ function drawGigsArtists(){
     <div class="btn-row" style="justify-content:center; margin-top:6px">
       <button class="btn sm ghost" onclick="App.spotifyDisconnect()">Disconnect Spotify</button>
     </div>`;
+  attachFieldClears(body);
   drawGigArtistsGrid();
 }
 /* re-filters the already-fetched list; leaves the search box and its cursor alone, same
@@ -5512,6 +5527,7 @@ function renderFilmsDiary(){
       <input type="text" id="films-diary-filter" placeholder="Search your films…" oninput="drawFilmsGrid()">
     </div>
     <div id="films-grid"></div>`;
+  attachFieldClears(body);
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
     DB.films = Array.isArray(cloud) ? cloud : [];
@@ -5979,6 +5995,7 @@ function renderFilmsWatchlist(){
       <input type="text" id="fw-filter" placeholder="Search your watchlist…" oninput="drawFwMine()">
     </div>
     <div id="fw-my"></div>`;
+  attachFieldClears(body);
   drawFwMine();
   loadFilmsWatchlistCloud(cloud => {
     DB.filmsWatchlist = Array.isArray(cloud) ? cloud : [];
@@ -6123,9 +6140,9 @@ function fwResultCardHTML(f){
       <div class="film-title">${esc(f.title)}</div>
       ${f.year?`<div class="film-meta">${esc(f.year)}</div>`:''}
       <div class="btn-row" style="margin-top:8px">
-        <button type="button" class="btn sm" onclick="App.fwLogFilm('${esc(f.id)}')">Log</button>
-        <button type="button" class="btn sm ghost fw-mark${on?' on':''}"
-          onclick="App.fwToggle('${esc(f.id)}')" aria-pressed="${on}">${on?'✓ On Watchlist':'+ Add'}</button>
+        <button type="button" class="btn sm" onclick="App.fwLogFilm('${esc(f.id)}')">🎬 Log</button>
+        <button type="button" class="btn sm fw-mark${on?' on':''}"
+          onclick="App.fwToggle('${esc(f.id)}')" aria-pressed="${on}">${on?'❤️ On Watchlist':'❤️ Add'}</button>
       </div>
     </div>`;
 }
@@ -6806,7 +6823,9 @@ function plantHealthState(p){
   if(p.stage===PLANT_STAGE_DEFAULT) return null;
   if(plantOverdue(p)) return 'red';
   const days = daysSinceTs(plantLastWateredTs(p));
-  if(days===(p.wateringFrequencyDays||3)-1) return 'yellow';
+  // days>0 guard: watered today (days=0) is never a "check today" heads-up, whatever the
+  // frequency math says - it was just watered, there's nothing to check yet
+  if(days>0 && days===(p.wateringFrequencyDays||3)-1) return 'yellow';
   return 'green';
 }
 const PLANT_HEALTH_META = {
@@ -6883,10 +6902,6 @@ function plantWaterRelativeLabel(p){
   if(hrs < 24) return hrs+'h ago';
   const days = daysSinceTs(ts);
   return days===1 ? 'Yesterday' : days+'d ago';
-}
-function plantWaterFooterHTML(p){
-  if(p.stage===PLANT_STAGE_DEFAULT) return '';
-  return `<div class="plant-water-footer">🕒 ${esc(plantWaterRelativeLabel(p))}</div>`;
 }
 /* ---- the detail page's "friendly coach" layer ----
    Everything below reads the exact same underlying state (plantHealthState, plantGerminationInfo,
@@ -6981,7 +6996,6 @@ function plantWateringCardHTML(p){
   return `
     <div class="plant-water-card">
       ${plantSectionHeadingHTML('droplet','Watering')}
-      <div class="plant-water-card-row">Last watered ${esc(plantWaterRelativeLabel(p))}</div>
       <div class="plant-water-card-action ${state}">${PLANT_HEALTH_META[state].emoji} ${esc(plantWateringNextAction(state))}</div>
       ${plantWaterButtonHTML(p)}
     </div>`;
@@ -7238,11 +7252,12 @@ function plantWaterButtonHTML(p, sm){
   // doing all the work. Splitting the wording by state fixes that without a colour/fill read:
   // the live button says what tapping it will do (log a watering), the done one says what
   // already happened, in the past tense a completed state actually reads as.
+  const timeLabel = plantWaterRelativeLabel(p);
   return notDue
     ? `<button type="button" class="plant-water-action-btn${state}" disabled
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered Today<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">Watered Today<span class="plant-water-btn-time">${esc(timeLabel)}</span></span><span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`
     : `<button type="button" class="plant-water-action-btn${state}"
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">I've Watered It<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">I've Watered It<span class="plant-water-btn-time">${esc(timeLabel)}</span></span><span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
 }
 /* the card, top to bottom: icon, name, the health badge (the most prominent thing here after
    the name, per the redesign brief), then three short icon-led status lines - growth stage,
@@ -7272,7 +7287,6 @@ function plantCardHTML(p){
         ${g ? `<div class="plant-germ-label">⏳ Day ${g.day} &middot; ${g.min} to ${g.max} days to sprout</div>` : ''}
       </div>` : ''}
       ${plantWaterButtonHTML(p)}
-      ${plantWaterFooterHTML(p)}
       ${tips.length ? `<ul class="plant-card-wide-tips">${tips.map(t=>`<li><span aria-hidden="true">${t.icon}</span>${esc(t.text)}</li>`).join('')}</ul>` : ''}
     </div>`;
 }
@@ -8031,8 +8045,8 @@ function dashPlantsWidgetHTML(){
   if(!due.length) return `
     <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlants()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
-      <div class="dash-item-flags" aria-hidden="true">✅</div>
-      <div class="dash-item-title">All Done for Today</div>
+      <div class="dash-item-flags" aria-hidden="true">🌱</div>
+      <div class="dash-item-title">Completed</div>
     </div>`;
   return `
     <div class="dash-widget plant-home-widget">
