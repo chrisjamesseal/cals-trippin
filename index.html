@@ -329,16 +329,10 @@ a{color:var(--brand-dark);}
   -webkit-line-clamp:2; overflow:hidden; height:2.5em;}
 .film-rewatch-badge{color:var(--muted); font-weight:400;}
 .film-meta{margin-top:2px; font-size:.68rem; color:var(--muted);}
-/* UK streaming logos - see fetchFilmProviders/filmProvidersHTML, shared by two contexts with two
-   different layouts:
-   - Home's Watch Next widget: a column beside the poster (.dash-poster-row sits the poster frame
-     and the logo column side by side, top-aligned - see that class's own comment)
-   - Watchlist grid cards: the grid's columns are too narrow to fit a poster and a side column
-     both, so here it's a plain row directly under the poster instead (the year that used to sit
-     there is gone - see fwMineCardHTML's own comment), wrapping onto a second line if more logos
-     show up than fit one. The margin-top is deliberately generous since this is the card's only
-     spacing between the poster and whatever comes next now that the year's gone. */
-.dash-poster-row .film-providers-badge{display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;}
+/* UK streaming logos - see fetchFilmProviders/filmProvidersHTML. A plain wrapping row under
+   whatever film they belong to (a poster in the Watchlist grid, the title/sub text on Home's
+   Watch Next tile), same look in both places now that Watch Next's own poster shrank too small
+   to fit a side column of logos next to it. */
 .film-card > [data-fw-providers] .film-providers-badge{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;}
 /* text-indent/white-space/overflow hides a broken image's alt text instead of letting it spill
    out of this tiny 22px box */
@@ -420,27 +414,23 @@ a{color:var(--brand-dark);}
 .dash-branch-card{display:flex; cursor:pointer; margin-bottom:12px;}
 .dash-branch-stat{flex:1; text-align:center; padding:4px 0;}
 .dash-branch-stat + .dash-branch-stat{border-left:1px solid var(--line); margin-left:4px; padding-left:4px;}
-/* Most Played and Currently Playing share this - a half-width image sitting inside the card's
-   own padding (no negative-margin bleed needed), left-aligned rather than centred so it lines up
-   with the title/caption below it instead of floating in the middle of the card */
-.dash-item-img-half{display:block; width:50%; aspect-ratio:1/1; object-fit:cover;
-  margin:0 0 10px; border-radius:var(--radius-sm);}
-/* Last Seen and the Watchlist pick are posters, not box art/album art - same half-width/left-
-   aligned treatment but their own 2:3 shape instead of a square, so it doesn't crop the poster's
-   actual proportions */
-.dash-item-img-half-poster{aspect-ratio:2/3;}
-/* Watch Next's own poster row - the poster sits in a flex row next to the provider logo column
-   (Watchlist grid cards put the same logos in a plain row below the poster instead, too narrow
-   for a side column - see .film-providers-badge's own comment) rather than a plain half-width
-   img on its own. */
-.dash-poster-row{display:flex; align-items:flex-start; gap:6px; margin:0 0 10px;}
-.dash-poster-frame{position:relative; flex:1; min-width:0; aspect-ratio:2/3;
-  border-radius:var(--radius-sm); overflow:hidden;}
-.dash-poster-frame img{display:block; width:100%; height:100%; object-fit:cover;}
-/* an artist has one photo, not a background banner, so it reads as a face/avatar - a small
-   circle inside the card's own padding rather than another full-bleed strip */
-.dash-item-avatar{display:block; width:56px; height:56px; object-fit:cover;
-  margin:0 0 10px; border-radius:50%;}
+/* Most Played, Currently Playing, Next Gig, Last Seen and Watch Next all use this compact
+   left-image/right-text row now, rather than a half-width image stacked above the title - a
+   noticeably shorter card, since the point of a dashboard tile is "what is it" at a glance, not
+   a poster gallery. */
+.dash-item-row{display:flex; align-items:center; gap:12px;}
+.dash-item-row-text{flex:1; min-width:0;}
+.dash-item-row .dash-item-title{overflow-wrap:anywhere;}
+.dash-item-img-sm{display:block; width:44px; height:44px; object-fit:cover; border-radius:var(--radius-sm); flex-shrink:0;}
+.dash-item-img-sm.round{border-radius:50%;}
+/* Last Seen and the Watch Next pick are posters, not box art/album art - narrower and taller
+   (their own 2:3 shape) rather than square, so it doesn't crop the poster's actual proportions */
+.dash-item-img-sm.poster{width:38px; height:57px;}
+.dash-item-row .dash-item-flags{font-size:1.5rem; margin-bottom:0; flex-shrink:0;}
+/* Watch Next's provider logos sit under the title/sub in the text column now (there's no side
+   column next to a 38px-wide poster to put them in any more) - same small-logo-row look the
+   Watchlist grid's own cards already use below their poster, see .film-providers-badge. */
+.dash-item-row-text .film-providers-badge{display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;}
 /* sits next to the "Home" crumb via .crumb-titlerow's own space-between, the same slot Music's
    "+ Add Gig" button uses - top right, not inside any one masonry tile. The wrapper clips its
    own rounded corners so nothing (a stray native select shadow on some mobile browsers) can
@@ -458,7 +448,7 @@ a{color:var(--brand-dark);}
    filled the width) - wraps onto a second line in the rare case of more flags than fit one row,
    rather than shrinking them all down to squeeze in. */
 .dash-item-flags-boxed{display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start;
-  gap:8px; padding:6px 0; margin:0 0 10px;}
+  gap:8px; padding:0; margin:0 0 4px;}
 .dash-item-flags-boxed .flag-cell{display:flex; align-items:center; justify-content:center;}
 .dash-item-flags-boxed .flag-cell span{font-size:2.6rem; line-height:1;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
@@ -616,19 +606,6 @@ a{color:var(--brand-dark);}
 .plant-next-card .plant-section-heading{color:var(--brand-dark);}
 .plant-next-card .plant-section-heading .icon{color:var(--brand-dark);}
 .plant-next-card p{font-size:.84rem; line-height:1.5; margin:0; color:var(--ink);}
-/* the current-stage card at the top of the combined Timeline (plantCombinedTimelineHTML) - what
-   used to be the "current" node's own expanded content in a 4-stop accordion (Progress Timeline),
-   now just always visible since it's the one node anyone actually needed open every visit. Past
-   stages don't get one of these any more - their dates already show in the log right below. */
-.plant-current-stage-card{background:var(--bg); border-radius:var(--radius); padding:14px 16px; margin-bottom:16px;}
-.plant-current-stage-head{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
-.plant-current-stage-emoji{font-size:1.1rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-current-stage-label{font-weight:700; font-size:.88rem; color:var(--ink); flex:1; min-width:0;}
-.plant-current-stage-meta{font-size:.7rem; color:var(--muted); white-space:nowrap; flex-shrink:0;}
-.plant-current-stage-detail{font-weight:700; font-size:.82rem; margin:0 0 6px; color:var(--ink);}
-.plant-current-stage-card p{font-size:.82rem; line-height:1.5; margin:0; color:var(--ink);}
-.plant-current-stage-card p + p{margin-top:6px;}
 .plant-journey-change{margin:14px 0 22px;}
 .plant-journey-change summary{color:var(--brand); font-weight:700; font-size:.8rem; cursor:pointer; list-style:none;}
 .plant-journey-change summary::-webkit-details-marker{display:none;}
@@ -650,33 +627,6 @@ a{color:var(--brand-dark);}
 .plant-info-row:last-child{border-bottom:none;}
 .plant-info-label{color:var(--muted); flex:1;}
 .plant-info-value{font-weight:700; color:var(--ink); text-align:right;}
-/* Today's Checklist (plantChecklistHTML) - the most valuable, most-tapped section on the page, so
-   its rows borrow the trip area's own Packing List look (see .pack-row/.pack-check) rather than a
-   plain icon+text line: a full-width tap target and a filled, checkmarked square instead of a bare
-   ☑/☐ glyph. Split into "Needs Your Check" (manual, tappable) and "Already Tracked" (read-only,
-   this app's own derived state) so it's obvious at a glance which is which, with Today's Tips
-   folded in underneath as the section's one non-checkable group. */
-.plant-checklist-group{margin-bottom:14px;}
-.plant-checklist-group-label{font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
-  font-weight:700; color:var(--muted); margin-bottom:6px;}
-.plant-checklist-rows{display:flex; flex-direction:column;}
-.plant-checklist-row{display:flex; align-items:center; gap:12px; padding:11px 2px; border-bottom:1px solid var(--line); min-height:44px; cursor:pointer;}
-.plant-checklist-row:last-child{border-bottom:none;}
-.plant-checklist-check{flex-shrink:0; width:21px; height:21px; border:2px solid var(--line-strong); border-radius:6px;
-  display:inline-flex; align-items:center; justify-content:center; font-size:.66rem; color:#fff; background:var(--paper);}
-.plant-checklist-row:hover .plant-checklist-check,
-.plant-checklist-row:focus-visible .plant-checklist-check{border-color:var(--brand); outline:none;}
-.plant-checklist-check.on{background:var(--brand); border-color:var(--brand);}
-.plant-checklist-label{font-size:.88rem; overflow-wrap:anywhere;}
-/* Already Tracked rows (plantChecklistAutoRowHTML) - a plain status line, not a checkbox: no
-   pointer cursor, no hover state, no border between rows the way the tappable group above has
-   one, so nothing here invites a tap that wouldn't do anything. */
-.plant-checklist-status-row{display:flex; align-items:center; gap:12px; padding:6px 2px; min-height:32px;}
-.plant-checklist-status-dot{flex-shrink:0; width:9px; height:9px; border-radius:50%; background:var(--line-strong);}
-.plant-checklist-status-dot.on{background:var(--brand);}
-.plant-checklist-row.done .plant-checklist-label{text-decoration:line-through; color:var(--muted);}
-.plant-care-tips{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
-.plant-care-tips li{display:flex; align-items:flex-start; gap:10px; font-size:.84rem; line-height:1.4;}
 .plant-timeline{display:flex; flex-direction:column;}
 .plant-timeline-item{display:flex; gap:12px; position:relative; padding-bottom:14px;}
 .plant-timeline-item:not(:last-child)::before{content:''; position:absolute; left:11px; top:26px; bottom:0; width:2px; background:var(--line);}
@@ -684,11 +634,16 @@ a{color:var(--brand-dark);}
   display:flex; align-items:center; justify-content:center; font-size:.9rem; line-height:1;
   background:var(--paper); border:1px solid var(--line-strong);
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-timeline-body{flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between;
-  gap:8px; padding-top:3px;}
+.plant-timeline-body{flex:1; min-width:0; padding-top:3px;}
+.plant-timeline-row{display:flex; align-items:center; justify-content:space-between; gap:8px;}
 .plant-timeline-text{font-size:.82rem; overflow-wrap:anywhere;}
 .plant-timeline-text strong{display:block; font-weight:700; color:var(--ink);}
 .plant-timeline-text span{color:var(--muted); font-size:.74rem;}
+/* the stage-change entry that's still current (plantTimelineHTML) carries the same description
+   and germination window the old separate "current stage" card used to show above the log -
+   right at the point in the log it actually happened, in chronological order like everything
+   else, rather than floating above it as its own thing. */
+.plant-timeline-detail{font-size:.82rem; line-height:1.5; color:var(--ink); margin:4px 0 0;}
 /* the delete action sits right on the row now (plantTimelineHTML) - it used to live behind a
    tap-to-reveal menu so the row read as content first, a manageable log second, but that made
    deleting a mis-tapped entry a two-tap hunt rather than the one obvious tap it should be. */
@@ -1436,8 +1391,16 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.29';
+const APP_VERSION = '2.29.30';
 const CHANGELOG = [
+  {version:'2.29.30', notes:[
+    "Plants: removed Today's Checklist entirely - Seed Sown's germination countdown now sits inside the Timeline itself, on the log entry for when it was actually sown, so everything reads in one chronological order. Change Stage moved up, right under the Timeline heading.",
+    "Games: Wishlist renamed to Play List throughout (tab, badges, buttons) - Wishlist as a word was doing double duty with Films' own Watchlist, this splits them apart.",
+    "Home Dashboard: Most Played, Currently Playing, Next Gig, Watch Next and Last Seen are all smaller now - album art/poster/icon left-aligned next to the text instead of stacked above it. Next Trip's flags sit with less empty space above and below them too, same flag size.",
+    "Home Dashboard: new Theatre Watch Next widget for the next show on your Watchlist.",
+    "Home Dashboard: the Plants widget only shows vegetables actually due for water now, not every one you're growing - \"All Done for Today\" with a ✅ when nothing needs it.",
+    "Films: + Log Film replaced with + Add Film, a search-first flow - find a film, then either Log it (opens the usual form, pre-filled) or add it straight to the Watchlist, no form needed. A \"Log it manually\" link still covers anything the search can't find.",
+  ]},
   {version:'2.29.29', notes:[
     "PS5/PS4 tab renamed to just PlayStation, and switched to a 3-column grid.",
     "Owned games now show progress % and when you last played instead of a trophy count - true official box art turned out not to exist behind any PSN API (verified against the library this app's own proxy is built on; every image field resolves to the same square icon0.png, whichever endpoint it comes from), so the covers stay the box-art-shaped crop of that icon added last version.",
@@ -3603,10 +3566,14 @@ function dashGigWidgetHTML(){
   const url = gigEventUrl(g);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
-      ${g.image ? `<img class="dash-item-avatar" src="${esc(g.image)}" alt="" loading="lazy">`
-                 : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
-      <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
-      <div class="dash-item-sub">Next Gig</div>
+      <div class="dash-item-row">
+        ${g.image ? `<img class="dash-item-img-sm round" src="${esc(g.image)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
+        <div class="dash-item-row-text">
+          <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
+          <div class="dash-item-sub">Next Gig</div>
+        </div>
+      </div>
     </a>`;
 }
 /* mirrors Songs' own time-range picker (SONGS_TIME_RANGES / SONGS_CACHE, defined further down
@@ -3635,17 +3602,25 @@ function dashSongWidgetHTML(t){
   if(!t.spotifyUrl) return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goSongs()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goSongs()}">
-      ${t.image ? `<img class="dash-item-img-half" src="${esc(t.image)}" alt="" loading="lazy">`
-                 : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
-      <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
-      <div class="dash-item-sub">Most Played</div>
+      <div class="dash-item-row">
+        ${t.image ? `<img class="dash-item-img-sm" src="${esc(t.image)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
+        <div class="dash-item-row-text">
+          <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
+          <div class="dash-item-sub">Most Played</div>
+        </div>
+      </div>
     </div>`;
   return `
     <a class="dash-widget dash-widget-item" href="${esc(t.spotifyUrl)}" target="_blank" rel="noopener">
-      ${t.image ? `<img class="dash-item-img-half" src="${esc(t.image)}" alt="" loading="lazy">`
-                 : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
-      <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
-      <div class="dash-item-sub">Most Played</div>
+      <div class="dash-item-row">
+        ${t.image ? `<img class="dash-item-img-sm" src="${esc(t.image)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
+        <div class="dash-item-row-text">
+          <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
+          <div class="dash-item-sub">Most Played</div>
+        </div>
+      </div>
     </a>`;
 }
 /* lives in the page header next to the "Home" crumb, not inside the song tile itself - a
@@ -3686,10 +3661,14 @@ function dashCurrentlyPlayingWidgetHTML(g){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/game/${encodeURIComponent(g.id)}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/game/${encodeURIComponent(g.id)}'}">
-      ${g.iconUrl ? `<img class="dash-item-img-half" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
-                   : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
-      <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
-      <div class="dash-item-sub">Currently Playing</div>
+      <div class="dash-item-row">
+        ${g.iconUrl ? `<img class="dash-item-img-sm" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+                     : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
+        <div class="dash-item-row-text">
+          <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
+          <div class="dash-item-sub">Currently Playing</div>
+        </div>
+      </div>
     </div>`;
 }
 /* PlayStation needs a live fetch, unlike the other three stat tiles which read straight from
@@ -3761,10 +3740,14 @@ function dashLastSeenFilmWidgetHTML(){
   const url = filmLetterboxdUrl(f);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
-      ${f.image ? `<img class="dash-item-img-half dash-item-img-half-poster" src="${esc(f.image)}" alt="" loading="lazy">`
-                 : `<div class="dash-item-flags" aria-hidden="true">🎬</div>`}
-      <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
-      <div class="dash-item-sub">Last Seen</div>
+      <div class="dash-item-row">
+        ${f.image ? `<img class="dash-item-img-sm poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🎬</div>`}
+        <div class="dash-item-row-text">
+          <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
+          <div class="dash-item-sub">Last Seen</div>
+        </div>
+      </div>
     </a>`;
 }
 /* re-picked on every Home visit rather than stored anywhere - "what should I watch" is more
@@ -3815,14 +3798,37 @@ function dashWatchNextFilmHTML(f, providersData){
   const url = filmLetterboxdUrl(f);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
-      ${f.image ? `<div class="dash-poster-row">
-          <div class="dash-poster-frame"><img src="${esc(f.image)}" alt="" loading="lazy"></div>
+      <div class="dash-item-row">
+        ${f.image ? `<img class="dash-item-img-sm poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
+        <div class="dash-item-row-text">
+          <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
+          <div class="dash-item-sub">Watch Next</div>
           <div id="dash-watchnext-providers">${providersData ? filmProvidersHTML(providersData) : ''}</div>
-        </div>`
-                 : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
-      <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
-      <div class="dash-item-sub">Watch Next</div>
+        </div>
+      </div>
     </a>`;
+}
+function dashTheatreWatchNextWidgetHTML(){
+  const t = (DB.theatreWatchlist||[])[0];
+  if(!t) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goTheatreWatchlist()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goTheatreWatchlist()}">
+      <div class="dash-item-flags" aria-hidden="true">🎭</div>
+      <div class="dash-item-title">Nothing on Watchlist</div>
+    </div>`;
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goTheatreWatchlist()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goTheatreWatchlist()}">
+      <div class="dash-item-row">
+        ${t.image ? `<img class="dash-item-img-sm poster" src="${esc(t.image)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🎭</div>`}
+        <div class="dash-item-row-text">
+          <div class="dash-item-title">${esc(t.title||'Untitled')}</div>
+          <div class="dash-item-sub">Watch Next</div>
+        </div>
+      </div>
+    </div>`;
 }
 function dashRandomWatchlistWidgetHTML(){
   const list = DB.filmsWatchlist||[];
@@ -3939,6 +3945,7 @@ const DASH_WIDGET_DEFS = [
   {key:'game', label:'Currently Playing'},
   {key:'song', label:'Most Played'},
   {key:'watchnext', label:'Watch Next'},
+  {key:'theatrenext', label:'Theatre Watch Next'},
   {key:'lastseen', label:'Last Seen'},
   {key:'plants', label:'Plants'},
 ];
@@ -3967,6 +3974,7 @@ function dashWidgetHTML(key){
   if(key==='game') return `<div id="dash-games-current-slot" class="dash-slot"></div>`;
   if(key==='song') return `<div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
   if(key==='watchnext') return `<div id="dash-watchnext-slot">${dashRandomWatchlistWidgetHTML()}</div>`;
+  if(key==='theatrenext') return dashTheatreWatchNextWidgetHTML();
   if(key==='lastseen') return dashLastSeenFilmWidgetHTML();
   if(key==='plants') return `<div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   return '';
@@ -4450,7 +4458,7 @@ function renderGames(){
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
-    <div class="subtabs">${tab('psn','🎮 PlayStation')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}${tab('wishlist','🕹️ Wishlist')}</div>
+    <div class="subtabs">${tab('psn','🎮 PlayStation')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}${tab('wishlist','🕹️ Play List')}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
   if(CUR_GAMES_TAB==='wishlist'){ renderWishlist(); return; }
@@ -4568,7 +4576,7 @@ function wishlistGameCardHTML(w){
       <div class="game-cover-wrap">
         ${w.image ? `<img class="game-cover" src="${esc(w.image)}" alt="" loading="lazy">`
                    : `<span class="game-cover game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
-        <span class="game-wishlist-badge">${w.pinned ? '🎯 Play Next' : '🕹️ Wishlist'}</span>
+        <span class="game-wishlist-badge">${w.pinned ? '🎯 Play Next' : '🕹️ Play List'}</span>
       </div>
       <div class="game-info">
         <div class="game-name">${esc(w.name||'Untitled')}</div>
@@ -4873,7 +4881,7 @@ function drawWishlistMine(){
   const mine = wishlistSorted();
   if(!mine.length){ el.innerHTML = ''; return; }
   el.innerHTML = `
-    <h3 style="margin-bottom:10px">My Wishlist</h3>
+    <h3 style="margin-bottom:10px">My Play List</h3>
     <div class="wl-list" style="margin-bottom:22px">${mine.map(g=>wlCardHTML(g, true)).join('')}</div>`;
 }
 /* one network call per distinct search; the RAWG function itself decides what "coming up"
@@ -4926,7 +4934,7 @@ function wlCardHTML(g, mine){
         ${mine ? `<button type="button" class="btn sm wl-pin${g.pinned?' on':''}" onclick="App.wlPin('${esc(g.id)}')" aria-pressed="${!!g.pinned}">
           <span aria-hidden="true">🎯</span>${g.pinned?'Playing Next':'Play This Next'}</button>` : ''}
         <button type="button" class="btn sm wl-mark${on?' on':''}" onclick="App.wlToggle('${esc(g.id)}')" aria-pressed="${on}">
-          <span aria-hidden="true">${on?'✓':'⭐'}</span>${on?'On Wishlist':'Add to Wishlist'}</button>
+          <span aria-hidden="true">${on?'✓':'⭐'}</span>${on?'On Play List':'Add to Play List'}</button>
       </div>
     </div>`;
 }
@@ -5488,8 +5496,7 @@ function renderFilms(){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        ${CUR_FILMS_TAB==='diary'?`<button class="btn sm primary" onclick="App.filmForm(-1)">+ Log Film</button>`
-          :CUR_FILMS_TAB==='watchlist'?`<button class="btn sm primary" onclick="App.fwAddFilm()">+ Add Film</button>`:''}
+        ${(CUR_FILMS_TAB==='diary'||CUR_FILMS_TAB==='watchlist')?`<button class="btn sm primary" onclick="App.fwAddFilm()">+ Add Film</button>`:''}
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','📊 Stats')}</div>
@@ -5560,7 +5567,7 @@ function drawFilmsGrid(){
   const grid = $('#films-grid'); if(!grid) return;
   const ordered = filmsSorted();
   if(!ordered.length){
-    grid.innerHTML = `<div class="empty">No films logged yet.<br>Tap + Log Film, or connect Letterboxd above.</div>`;
+    grid.innerHTML = `<div class="empty">No films logged yet.<br>Tap + Add Film, or connect Letterboxd above.</div>`;
     return;
   }
   const q = (($('#films-diary-filter')||{}).value||'').trim().toLowerCase();
@@ -6133,7 +6140,8 @@ function fwAddFilmImpl(){
     <h2>Find a Film</h2>
     <div class="field"><input type="text" id="fw-search" placeholder="Search for a film…"
       autocomplete="off" oninput="App.fwSearchInput()"></div>
-    <div id="fw-results"></div>`);
+    <div id="fw-results"></div>
+    <p class="small muted" style="margin-top:14px">Can't find it? <a href="#" onclick="event.preventDefault();App.filmForm(-1)">Log it manually</a></p>`);
 }
 function fwSearchInputImpl(){
   clearTimeout(FW_SEARCH_TIMER);
@@ -7308,32 +7316,44 @@ function plantTimelineHTML(p){
   const stages = (Array.isArray(p.stageChanges)?p.stageChanges:[]).map(e=>({type:'stage', ts:e.ts, stage:e.stage}));
   const events = [...waterings, ...stages].sort((a,b)=>new Date(b.ts)-new Date(a.ts));
   if(!events.length) return `<p class="small muted">Nothing logged yet.</p>`;
+  // the most recent stage-change event is the one that's still in effect - it gets the same
+  // description and germination window the old separate "current stage" card used to carry,
+  // right where it belongs chronologically (when that stage actually started) instead of on a
+  // card of its own above the log
+  const currentStageEvent = events.find(ev => ev.type==='stage');
+  const idx = plantJourneyStepIdx(p);
+  const g = plantGerminationInfo(p);
   return `<div class="plant-timeline">${events.map(ev=>{
     const stageInfo = PLANT_STAGES[plantStageIdx(ev.stage)]||{};
     const label = ev.type==='water' ? 'Watered' : 'Set to '+esc(stageInfo.label||ev.stage);
     const emoji = ev.type==='water' ? '💧' : (stageInfo.emoji||'🌱');
     const deleteLabel = 'Delete "'+label+'" logged '+fmtDate(ev.ts.slice(0,10));
+    const detail = ev===currentStageEvent
+      ? `${g?`Day ${g.day} &middot; expected ${g.min} to ${g.max} days until sprouts. `:''}${esc(plantJourneyStepDescription(idx, p))}`
+      : '';
     return `
       <div class="plant-timeline-item">
         <span class="plant-timeline-dot" aria-hidden="true">${emoji}</span>
         <div class="plant-timeline-body">
-          <span class="plant-timeline-text"><strong>${label}</strong><span>${esc(fmtDate(ev.ts.slice(0,10)))} &middot; ${esc(hhmm(ev.ts))}</span></span>
-          <button type="button" class="iconbtn plant-timeline-delete" aria-label="${esc(deleteLabel)}" title="Delete"
-            onclick="App.plantDeleteLogEntry('${esc(p.id)}','${ev.type}','${esc(ev.ts)}')">${fa('trash')}</button>
+          <div class="plant-timeline-row">
+            <span class="plant-timeline-text"><strong>${label}</strong><span>${esc(fmtDate(ev.ts.slice(0,10)))} &middot; ${esc(hhmm(ev.ts))}</span></span>
+            <button type="button" class="iconbtn plant-timeline-delete" aria-label="${esc(deleteLabel)}" title="Delete"
+              onclick="App.plantDeleteLogEntry('${esc(p.id)}','${ev.type}','${esc(ev.ts)}')">${fa('trash')}</button>
+          </div>
+          ${detail ? `<p class="plant-timeline-detail">${detail}</p>` : ''}
         </div>
       </div>`;
   }).join('')}</div>`;
 }
 /* Progress Timeline and Activity Timeline used to be two separate sections (a 4-stage journey
    map, then the real chronological log below it) - combined into one so where the plant is now
-   and what's actually happened to it read together rather than in two places you'd have to
-   flip between. The current stage keeps its own short card up top (description text plus the
-   germination day-count where there is one, the two things the old journey map's "current" node
-   used to open to show) instead of four accordion stops most of which were either "already done"
-   or "not reached yet" - that's what the log right below it already answers for past stages, and
-   there's nothing useful to say about a future one before it happens. Jumping to a different
-   stage by hand (a correction, not something done every visit) moved into one collapsed picker
-   at the bottom rather than a button living inside each of the four old stops. */
+   and what's actually happened to it read together rather than in two places you'd have to flip
+   between. The current stage's own description/germination-window content used to sit in a card
+   of its own above the log; it's now folded straight into that stage's own log entry (see
+   plantTimelineHTML) so everything reads in one chronological run instead of "now" and "history"
+   being two different things on the page. Jumping to a different stage by hand (a correction, not
+   something done every visit) is a collapsed picker right under the heading - high enough to find
+   without scrolling past the whole log, but still out of the way until it's actually needed. */
 function plantCombinedTimelineHTML(p){
   if(p.stage===PLANT_STAGE_DEFAULT){
     return `
@@ -7343,25 +7363,13 @@ function plantCombinedTimelineHTML(p){
         ${plantStagePickerHTML(p)}
       </details>`;
   }
-  const idx = plantJourneyStepIdx(p);
-  const step = PLANT_JOURNEY_STEPS[idx];
-  const g = plantGerminationInfo(p);
   return `
     ${plantSectionHeadingHTML('route','Timeline')}
-    <div class="plant-current-stage-card">
-      <div class="plant-current-stage-head">
-        <span class="plant-current-stage-emoji" aria-hidden="true">${step.emoji}</span>
-        <span class="plant-current-stage-label">${esc(step.label)}</span>
-        ${g ? `<span class="plant-current-stage-meta">Day ${g.day}</span>` : ''}
-      </div>
-      ${g ? `<p class="plant-current-stage-detail">Expected ${g.min} to ${g.max} days until sprouts</p>` : ''}
-      <p>${esc(plantJourneyStepDescription(idx, p))}</p>
-    </div>
-    ${plantTimelineHTML(p)}
     <details class="plant-journey-change">
       <summary>Change Stage</summary>
       ${plantStagePickerHTML(p)}
-    </details>`;
+    </details>
+    ${plantTimelineHTML(p)}`;
 }
 /* the card keeps this to a single icon+word chip (plantWaterStatusHTML) - full sentences live
    here instead, one labelled row per known growing condition, only for a vegetable this app
@@ -7401,67 +7409,6 @@ function plantCareTips(care){
   tips.push({icon:'🐌', text:'Watch for slugs on young seedlings'});
   tips.push({icon:'✂️', text:'Thin out crowded seedlings for room'});
   return tips.slice(0,4);
-}
-/* one plain per-plant flip, no confirmation needed either way since ticking either of these
-   wrong costs nothing and is just as easy to untick. Kept as simple persistent booleans (same as
-   every other manual flag in this app) rather than resetting nightly - a proper daily-reset habit
-   tracker is a bigger feature than this checklist is trying to be. The whole row is the tap
-   target and the check itself is a filled square with a checkmark rather than a bare ☑/☐ glyph -
-   the same prominent, packing-list-style row this app already uses for the trip Packing List
-   (see packRowHTML), reused here since it's proven to read as clearly tappable at a glance. */
-function plantChecklistRowHTML(p, key, label, on){
-  return `
-    <div class="plant-checklist-row${on?' done':''}" role="checkbox" aria-checked="${on}" tabindex="0"
-      onclick="App.plantToggleChecklist('${esc(p.id)}','${key}')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.plantToggleChecklist('${esc(p.id)}','${key}')}">
-      <span class="plant-checklist-check${on?' on':''}" aria-hidden="true">${on?fa('check'):''}</span>
-      <span class="plant-checklist-label">${esc(label)}</span>
-    </div>`;
-}
-/* the auto-tracked rows used to share the exact same big-checkbox look as the manual ones above,
-   just with the tap target quietly dropped - which read as a checklist you could tick, right up
-   until tapping one did nothing. These reflect state the app already knows (today's watering,
-   whether germination's currently active) rather than anything to tick off by hand, so now they
-   look like what they are: a plain status line, dot instead of a checkbox, no hover/tap styling
-   at all. */
-function plantChecklistAutoRowHTML(it){
-  return `
-    <div class="plant-checklist-status-row">
-      <span class="plant-checklist-status-dot${it.on?' on':''}" aria-hidden="true"></span>
-      <span class="plant-checklist-label">${esc(it.label)}</span>
-    </div>`;
-}
-/* the most valuable section on the page, per the CRM redesign brief - Today's Tips folded in
-   underneath rather than kept as its own separate section, since it's the same "what do I need to
-   know for today" purpose, just advice instead of a checkbox. The checklist itself stays split so
-   it's obvious at a glance which rows are this app's own read on things (auto-tracked, read-only)
-   and which are the grower's own honest yes/no (manually tapped). */
-function plantChecklistHTML(p){
-  if(p.stage===PLANT_STAGE_DEFAULT) return '';
-  const g = plantGerminationInfo(p);
-  const auto = [
-    {on: daysSinceTs(plantLastWateredTs(p))===0, label:'Watered recently'},
-  ];
-  if(g) auto.push({on:true, label:'Germination active'});
-  const tips = plantCareTips(plantCareDataFor(p));
-  return `
-    ${plantSectionHeadingHTML('list-check',"Today's Checklist")}
-    <div class="plant-checklist-group">
-      <div class="plant-checklist-group-label">Needs Your Check</div>
-      <div class="plant-checklist-rows">
-        ${plantChecklistRowHTML(p, 'soil', 'Soil feels moist', !!p.soilMoistOk)}
-        ${plantChecklistRowHTML(p, 'sun', 'Pot gets enough sun', !!p.locationOk)}
-      </div>
-    </div>
-    <div class="plant-checklist-group">
-      <div class="plant-checklist-group-label">Already Tracked</div>
-      <div class="plant-checklist-rows">${auto.map(plantChecklistAutoRowHTML).join('')}</div>
-    </div>
-    ${tips.length ? `
-      <div class="plant-checklist-group">
-        <div class="plant-checklist-group-label">Tips</div>
-        <ul class="plant-care-tips">${tips.map(t=>`<li><span aria-hidden="true">${t.icon}</span>${esc(t.text)}</li>`).join('')}</ul>
-      </div>` : ''}`;
 }
 /* transcribed from our physical seed-kit's own growing guide booklet - only the 6 vegetables it
    actually covers get one, matched by the plant's name (see PLANT_GUIDE_ALIASES for the handful
@@ -7837,7 +7784,6 @@ function plantDetailTabsHTML(){
 }
 function plantDetailOverviewHTML(p){
   return `
-    <div id="plant-detail-tracker">${plantChecklistHTML(p)}</div>
     <div id="plant-detail-water">${plantWateringCardHTML(p)}</div>
     <div id="plant-detail-next">${plantWhatsNextHTML(p)}</div>
     <div id="plant-detail-timeline">${plantCombinedTimelineHTML(p)}</div>`;
@@ -7859,34 +7805,19 @@ function renderPlantDetail(id){
     <div id="plant-detail-content">${plantDetailOverviewHTML(p)}</div>`;
   plantBindStickyScroll();
 }
-/* refreshes just the live bits of the detail page in place (sticky header, checklist, what's
-   next, watering, the combined timeline) rather than a full re-render - a no-op
-   if some other page is actually showing right now, same guard-on-the-DOM-node pattern
-   drawPlantsGrid/drawDashPlantsSlot already use. Each target is also a no-op if the Information
-   tab is showing instead of Overview, since none of these ids exist in that tab's markup - fine,
-   there's nothing on Information for any of these actions to update anyway. Today's Tips isn't
-   included since it never changes from anything this function's callers do (watering, stage
-   changes, undo) - only a name edit could change which one applies, and that goes through a full
-   renderPlantDetail instead (see App.savePlant). */
+/* refreshes just the live bits of the detail page in place (sticky header, what's next, watering,
+   the combined timeline) rather than a full re-render - a no-op if some other page is actually
+   showing right now, same guard-on-the-DOM-node pattern drawPlantsGrid/drawDashPlantsSlot already
+   use. Each target is also a no-op if the Information tab is showing instead of Overview, since
+   none of these ids exist in that tab's markup - fine, there's nothing on Information for any of
+   these actions to update anyway. */
 function drawPlantDetail(id){
   const stickyRoot = $('#plant-detail-sticky'); if(!stickyRoot) return;
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
   stickyRoot.outerHTML = plantStickyHeaderHTML(p);
-  const trackerRoot = $('#plant-detail-tracker'); if(trackerRoot) trackerRoot.innerHTML = plantChecklistHTML(p);
   const nextRoot = $('#plant-detail-next'); if(nextRoot) nextRoot.innerHTML = plantWhatsNextHTML(p);
   const waterRoot = $('#plant-detail-water'); if(waterRoot) waterRoot.innerHTML = plantWateringCardHTML(p);
   const timelineRoot = $('#plant-detail-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantCombinedTimelineHTML(p);
-}
-/* Today's Checklist's two manually-set rows (see plantChecklistHTML) - just a plain per-plant
-   flip, no confirmation needed either way since ticking either wrong costs nothing and is just as
-   easy to untick. */
-function plantToggleChecklistImpl(id, key){
-  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  if(key==='soil') p.soilMoistOk = !p.soilMoistOk;
-  else if(key==='sun') p.locationOk = !p.locationOk;
-  savePlants();
-  const trackerRoot = $('#plant-detail-tracker');
-  if(trackerRoot) trackerRoot.innerHTML = plantChecklistHTML(p);
 }
 function plantDeleteLogEntryImpl(id, type, ts){
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
@@ -8094,9 +8025,18 @@ function dashPlantsWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🥕</div>
       <div class="dash-item-title">Start Growing</div>
     </div>`;
+  // only the ones actually due right now - a full re-list of every vegetable regardless of
+  // whether it needs anything defeats the point of a Home widget you check at a glance
+  const due = plantsSorted().filter(p => p.stage!==PLANT_STAGE_DEFAULT && plantOverdue(p));
+  if(!due.length) return `
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlants()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
+      <div class="dash-item-flags" aria-hidden="true">✅</div>
+      <div class="dash-item-title">All Done for Today</div>
+    </div>`;
   return `
     <div class="dash-widget plant-home-widget">
-      <div class="plant-home-grid">${plantsSorted().map(plantHomeChipHTML).join('')}</div>
+      <div class="plant-home-grid">${due.map(plantHomeChipHTML).join('')}</div>
     </div>`;
 }
 function drawDashPlantsSlot(){
@@ -8217,7 +8157,6 @@ App.plantSetStage = plantSetStageImpl;
 App.plantDeleteLogEntry = plantDeleteLogEntryImpl;
 App.plantGrowFactEdit = plantGrowFactEditImpl;
 App.plantGrowRangeEdit = plantGrowRangeEditImpl;
-App.plantToggleChecklist = plantToggleChecklistImpl;
 App.plantDetailTab = k => {
   CUR_PLANT_DETAIL_TAB = k;
   const p = (DB.plants||[]).find(x=>x.id===CUR_PLANT_DETAIL_ID); if(!p) return;
@@ -8273,6 +8212,7 @@ App.fwImportCsvFile = filmsWatchlistImportCsvFileImpl;
 App.filmsGenreFilter = v => { CUR_FILMS_GENRE = v; drawFilmsGrid(); };
 App.fwGenreFilter = v => { CUR_FW_GENRE = v; drawFwMine(); };
 App.goTheatre = () => { location.hash = '#/theatre'; };
+App.goTheatreWatchlist = () => { CUR_THEATRE_TAB = 'watchlist'; location.hash = '#/theatre'; };
 App.theatreTab = k => { CUR_THEATRE_TAB = k; renderTheatre(); window.scrollTo(0,0); };
 App.theatreForm = theatreFormImpl;
 App.saveTheatre = saveTheatreImpl;
