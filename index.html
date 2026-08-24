@@ -1408,8 +1408,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.33';
+const APP_VERSION = '2.29.34';
 const CHANGELOG = [
+  {version:'2.29.34', notes:[
+    "Home Dashboard: Last Seen now links straight to that film's Reviews on Letterboxd instead of its main page - opens right in the Letterboxd app if it's installed, same as every other Letterboxd link in the app.",
+  ]},
   {version:'2.29.33', notes:[
     "Home Dashboard: Next Gig is no longer a link, since it didn't go anywhere useful. Currently Playing dropped its own \"Currently Playing\" caption - the name's already there. Watch Next's poster is left-aligned now, with a bit more breathing room above the streaming logos below it.",
     "Games: % Complete is colour-coded now - red, amber or green depending on how far in you are, both on the grid and a game's own page. The hide-game icon is gone from the grid (still there on a game's own page, under Hide This Game).",
@@ -3765,7 +3768,7 @@ function dashLastSeenFilmWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🎬</div>
       <div class="dash-item-title">No Films Yet</div>
     </div>`;
-  const url = filmLetterboxdUrl(f);
+  const url = filmLetterboxdReviewsUrl(f);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       <div class="dash-item-row">
@@ -6048,6 +6051,15 @@ function drawFwMine(){
    from it, and the best this app can do without its own Letterboxd film-id lookup */
 function filmLetterboxdUrl(f){
   return f.link || ('https://letterboxd.com/search/films/'+encodeURIComponent(f.title||'')+'/');
+}
+/* Last Seen's own link - straight to that film's Reviews tab rather than its main page, since
+   "what did people make of the thing I just watched" is exactly what you tap this for. Only
+   possible with the exact film URI (see filmLetterboxdUrl's own comment on why a hand-logged
+   film doesn't have one) - a search-results URL has no reviews page to append to, so that case
+   falls back to the plain film/search link instead. No app-specific scheme needed: Letterboxd's
+   own https links already open straight into the Letterboxd app when it's installed. */
+function filmLetterboxdReviewsUrl(f){
+  return f.link ? f.link.replace(/\/+$/,'')+'/reviews/' : filmLetterboxdUrl(f);
 }
 /* UK streaming availability (Watch Next widget, Watchlist cards) - via api/film-providers.js,
    a Vercel function alongside this app rather than the psn-proxy Worker (same TMDB_API_KEY the
