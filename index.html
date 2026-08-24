@@ -177,8 +177,9 @@ a{color:var(--brand-dark);}
 
 /* ---------- games (PSN progress) ---------- */
 /* a poster grid, same shape as Films' .film-grid, rather than the old thumbnail-and-text row -
-   Sony's trophy icon art is worth showing at real size, not cropped down to 52px */
-.games-cover-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:16px;}
+   Sony's trophy icon art is worth showing at real size, not cropped down to 52px. Same minmax
+   Films' own grid uses, which is what lands it on 3 columns rather than 2 at phone widths. */
+.games-cover-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:14px;}
 .game-card{display:block; width:100%; text-align:left; cursor:pointer; border:none; background:none;
   padding:0; font:inherit; color:inherit; transition:opacity .15s, filter .15s;}
 /* hidden games stay in the grid rather than vanishing (easy to bring back), just pushed to the
@@ -195,6 +196,14 @@ a{color:var(--brand-dark);}
   color:var(--muted); font-size:2.2rem; background:var(--bg);}
 .game-hide-btn{position:absolute; top:6px; right:6px; background:var(--paper); box-shadow:var(--shadow);}
 .game-hide-btn:hover{background:var(--brand-ghost);}
+/* a Wishlist card sitting in the owned-games grid (see wishlistGameCardHTML) - faded like a
+   hidden game is, but dashed rather than solid-bordered and never grayscale, since "not owned
+   yet" and "deprioritised" are opposite reasons to look muted, not the same one */
+.game-card-wishlist{opacity:.68;}
+.game-card-wishlist .game-cover-wrap{border-style:dashed; border-color:var(--line-strong);}
+.game-wishlist-badge{position:absolute; top:6px; left:6px; background:var(--brand); color:#fff;
+  font-size:.62rem; font-weight:800; letter-spacing:.02em; padding:3px 8px; border-radius:999px;
+  box-shadow:var(--shadow); white-space:nowrap;}
 .game-info{padding-top:8px; display:flex; flex-direction:column; gap:5px; min-width:0;}
 /* clamped to 2 lines, same reasoning as Films' .film-title - so every card's text block takes
    the same room whichever title lands in it and the covers below stay in a strict grid */
@@ -472,27 +481,38 @@ a{color:var(--brand-dark);}
 .plants-stat-text{font-size:.82rem; font-weight:700; color:var(--ink);}
 .plants-sort-row{margin-bottom:14px;}
 .plants-sort-row select{width:auto; padding:8px 30px 8px 12px; font-size:.8rem;}
-.plants-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:14px;}
-.plant-card{display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px;
-  padding:24px 12px 16px; cursor:pointer; margin-bottom:0;}
+/* one card per row (plantCardHTML) rather than a multi-column grid, now that each one carries
+   enough (water status, day/sprout estimate, the Watered button, a few care tips) that most
+   visits shouldn't need a tap into the detail page at all - a narrow grid column had no room for
+   any of that. */
+.plants-list{display:flex; flex-direction:column; gap:12px;}
+.plant-card-wide{cursor:pointer; padding:16px 18px;}
 /* a vegetable still on "Not Planted" isn't actually being grown yet - fading the whole card
-   (rather than just its stage label) makes that read at a glance across a grid of several,
-   without needing to open each one to check */
-.plant-card.plant-unplanted{opacity:.55;}
-.plant-emoji{font-size:2rem; line-height:1;
+   makes that read at a glance down the list, without needing to open it to check */
+.plant-card-wide.plant-unplanted{opacity:.55;}
+.plant-card-wide-head{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+.plant-card-wide-title{flex:1; min-width:0;}
+.plant-emoji{font-size:2rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-emoji.plant-icon-img{width:32px; height:32px; object-fit:cover; border-radius:8px;}
+.plant-emoji.plant-icon-img{width:40px; height:40px; object-fit:cover; border-radius:8px;}
 .plant-name{font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--ink); overflow-wrap:anywhere;}
 /* the single most prominent thing on the card after the name (plantHealthBadgeHTML) - a filled
    pill rather than plain coloured text, since this is meant to be read before anything else
    below it, not just skimmed along with the rest. Same three colours the water-status chip and
-   button below it use, so nothing on the card can disagree about which state it's in. */
-.plant-health-badge{display:inline-block; padding:4px 12px; border-radius:20px; font-weight:700;
-  font-size:.72rem; margin:2px 0 4px;}
+   button below it use, so nothing on the card can disagree about which state it's in. Sits at
+   the head row's right edge now there's a whole row to itself rather than stacked under the
+   name, so it's the first thing the eye lands on beside the name itself. */
+.plant-health-badge{display:inline-block; flex-shrink:0; padding:4px 12px; border-radius:20px; font-weight:700; font-size:.72rem;}
 .plant-health-badge.green{background:var(--brand-tint); color:#1F7A3D;}
 .plant-health-badge.yellow{background:#FDF2D9; color:#8A6402;}
 .plant-health-badge.red{background:#FCEBE9; color:#C0392B;}
-.plant-stage-label{color:var(--muted); font-size:.7rem;}
+.plant-stage-label{color:var(--muted); font-size:.7rem; margin-top:1px;}
+/* water status + the sprout estimate side by side, wrapping to their own line on a narrow phone
+   rather than the card's forced-centered single column the old grid tile used */
+.plant-card-wide-stats{display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; margin-bottom:10px;}
+.plant-card-wide-tips{list-style:none; margin:10px 0 0; padding:10px 0 0; border-top:1px solid var(--line);
+  display:flex; flex-direction:column; gap:6px;}
+.plant-card-wide-tips li{display:flex; align-items:flex-start; gap:8px; font-size:.78rem; line-height:1.4; color:var(--ink);}
 /* the detail page's own picker (plantStagePickerHTML) - every stage gets its own labelled,
    full-width button, one per row, since this page has the room the compact grid card
    doesn't. Only the current stage is highlighted; the rest read as plain, equally tappable
@@ -596,28 +616,19 @@ a{color:var(--brand-dark);}
 .plant-next-card .plant-section-heading{color:var(--brand-dark);}
 .plant-next-card .plant-section-heading .icon{color:var(--brand-dark);}
 .plant-next-card p{font-size:.84rem; line-height:1.5; margin:0; color:var(--ink);}
-/* the Progress Timeline (plantProgressTimelineHTML) - one connected vertical line of stops
-   (folds what used to be a separate day-count text block and a gap-between-cards accordion list
-   into a single component) rather than either a horizontal stepper or oversized cards. Each node
-   is a plain <details> - overflow is explicitly visible (overriding the app's own global
-   details{overflow:hidden} card styling) so the connecting line and the mark's absolute position
-   aren't clipped at the row's own edge. */
-.plant-progress-timeline{display:flex; flex-direction:column; margin-bottom:22px;}
-.plant-progress-node{position:relative; border:none; background:none; margin:0; border-radius:0; overflow:visible;}
-.plant-progress-node:not(:last-child)::before{content:''; position:absolute; left:11px; top:28px; bottom:-2px; width:2px; background:var(--line);}
-.plant-progress-node summary{display:flex; align-items:center; gap:10px; cursor:pointer; list-style:none;
-  padding:6px 0 6px 34px; position:relative;}
-.plant-progress-node summary::-webkit-details-marker{display:none;}
-.plant-progress-mark{position:absolute; left:0; top:6px; width:24px; height:24px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center; font-size:.68rem; flex-shrink:0;
-  background:var(--bg); border:1px solid var(--line-strong); color:var(--muted);}
-.plant-progress-node.done .plant-progress-mark{border-color:var(--brand); background:var(--brand-tint); color:var(--brand-dark);}
-.plant-progress-node.current .plant-progress-mark{border-color:var(--brand); background:var(--brand); color:#fff;}
-.plant-progress-label{font-weight:700; font-size:.88rem; color:var(--ink); flex:1; min-width:0;}
-.plant-progress-meta{font-size:.7rem; color:var(--muted); white-space:nowrap; flex-shrink:0;}
-.plant-progress-body{padding:0 0 14px 34px;}
-.plant-progress-body p{font-size:.82rem; line-height:1.5; margin:0 0 8px; color:var(--ink);}
-.plant-progress-detail{font-weight:700;}
+/* the current-stage card at the top of the combined Timeline (plantCombinedTimelineHTML) - what
+   used to be the "current" node's own expanded content in a 4-stop accordion (Progress Timeline),
+   now just always visible since it's the one node anyone actually needed open every visit. Past
+   stages don't get one of these any more - their dates already show in the log right below. */
+.plant-current-stage-card{background:var(--bg); border-radius:var(--radius); padding:14px 16px; margin-bottom:16px;}
+.plant-current-stage-head{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+.plant-current-stage-emoji{font-size:1.1rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plant-current-stage-label{font-weight:700; font-size:.88rem; color:var(--ink); flex:1; min-width:0;}
+.plant-current-stage-meta{font-size:.7rem; color:var(--muted); white-space:nowrap; flex-shrink:0;}
+.plant-current-stage-detail{font-weight:700; font-size:.82rem; margin:0 0 6px; color:var(--ink);}
+.plant-current-stage-card p{font-size:.82rem; line-height:1.5; margin:0; color:var(--ink);}
+.plant-current-stage-card p + p{margin-top:6px;}
 .plant-journey-change{margin:14px 0 22px;}
 .plant-journey-change summary{color:var(--brand); font-weight:700; font-size:.8rem; cursor:pointer; list-style:none;}
 .plant-journey-change summary::-webkit-details-marker{display:none;}
@@ -651,13 +662,18 @@ a{color:var(--brand-dark);}
 .plant-checklist-rows{display:flex; flex-direction:column;}
 .plant-checklist-row{display:flex; align-items:center; gap:12px; padding:11px 2px; border-bottom:1px solid var(--line); min-height:44px; cursor:pointer;}
 .plant-checklist-row:last-child{border-bottom:none;}
-.plant-checklist-row.auto{cursor:default;}
 .plant-checklist-check{flex-shrink:0; width:21px; height:21px; border:2px solid var(--line-strong); border-radius:6px;
   display:inline-flex; align-items:center; justify-content:center; font-size:.66rem; color:#fff; background:var(--paper);}
-.plant-checklist-row:not(.auto):hover .plant-checklist-check,
-.plant-checklist-row:not(.auto):focus-visible .plant-checklist-check{border-color:var(--brand); outline:none;}
+.plant-checklist-row:hover .plant-checklist-check,
+.plant-checklist-row:focus-visible .plant-checklist-check{border-color:var(--brand); outline:none;}
 .plant-checklist-check.on{background:var(--brand); border-color:var(--brand);}
 .plant-checklist-label{font-size:.88rem; overflow-wrap:anywhere;}
+/* Already Tracked rows (plantChecklistAutoRowHTML) - a plain status line, not a checkbox: no
+   pointer cursor, no hover state, no border between rows the way the tappable group above has
+   one, so nothing here invites a tap that wouldn't do anything. */
+.plant-checklist-status-row{display:flex; align-items:center; gap:12px; padding:6px 2px; min-height:32px;}
+.plant-checklist-status-dot{flex-shrink:0; width:9px; height:9px; border-radius:50%; background:var(--line-strong);}
+.plant-checklist-status-dot.on{background:var(--brand);}
 .plant-checklist-row.done .plant-checklist-label{text-decoration:line-through; color:var(--muted);}
 .plant-care-tips{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
 .plant-care-tips li{display:flex; align-items:flex-start; gap:10px; font-size:.84rem; line-height:1.4;}
@@ -673,18 +689,10 @@ a{color:var(--brand-dark);}
 .plant-timeline-text{font-size:.82rem; overflow-wrap:anywhere;}
 .plant-timeline-text strong{display:block; font-weight:700; color:var(--ink);}
 .plant-timeline-text span{color:var(--muted); font-size:.74rem;}
-/* the delete action's own tap-to-reveal menu (plantTimelineHTML) - a plain small icon button
-   until opened, rather than a permanently-visible trash icon competing with the log entry's own
-   text for attention. */
-.plant-timeline-menu{position:relative; flex-shrink:0; border:none; background:none; margin:0; border-radius:0; overflow:visible;}
-.plant-timeline-menu summary{display:flex; align-items:center; justify-content:center; width:28px; height:28px;
-  border-radius:50%; cursor:pointer; list-style:none; color:var(--muted); font-size:.8rem;}
-.plant-timeline-menu summary::-webkit-details-marker{display:none;}
-.plant-timeline-menu summary:hover,.plant-timeline-menu[open] summary{background:var(--bg); color:var(--ink);}
-.plant-timeline-delete{position:absolute; right:0; top:calc(100% + 2px); z-index:2; white-space:nowrap;
-  background:var(--paper); border:1px solid var(--line-strong); border-radius:var(--radius-sm);
-  box-shadow:var(--shadow-lift); padding:8px 14px; font:inherit; font-weight:700; font-size:.78rem;
-  color:#C0392B; cursor:pointer;}
+/* the delete action sits right on the row now (plantTimelineHTML) - it used to live behind a
+   tap-to-reveal menu so the row read as content first, a manageable log second, but that made
+   deleting a mis-tapped entry a two-tap hunt rather than the one obvious tap it should be. */
+.plant-timeline-delete{flex-shrink:0;}
 /* Home shows every vegetable as its own small chip - emoji, its own water button (see
    plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
    one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
@@ -1428,8 +1436,18 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.28';
+const APP_VERSION = '2.29.29';
 const CHANGELOG = [
+  {version:'2.29.29', notes:[
+    "PS5/PS4 tab renamed to just PlayStation, and switched to a 3-column grid.",
+    "Owned games now show progress % and when you last played instead of a trophy count - true official box art turned out not to exist behind any PSN API (verified against the library this app's own proxy is built on; every image field resolves to the same square icon0.png, whichever endpoint it comes from), so the covers stay the box-art-shaped crop of that icon added last version.",
+    "Games you've added to the Wishlist now also show up in the PlayStation grid itself, faded and dashed-bordered with a Wishlist or 🎯 Play Next badge, instead of only living on the separate Wishlist tab - tapping one takes you there.",
+    "Plants: the grid is one card per row now instead of a multi-column grid, and each card carries everything a quick check needs - water status, day/sprout estimate, the Watered button, and a few care tips - without tapping into the plant's own page.",
+    "Plants detail: Progress Timeline and Activity Timeline are one Timeline now - a short current-stage card up top (what used to be the old journey map's expanded \"current\" stop) followed directly by the real watering/stage-change log, rather than two sections to flip between. Jumping to a different stage by hand moved into one collapsed picker at the bottom.",
+    "Plants: the Watered button now says what tapping it will do (\"I've Watered It\") rather than reading as a status either way - \"Watered Today\" once it's actually done, greyed out, for today.",
+    "Plants: the timeline's delete icon sits right on each entry now, not behind a tap-to-reveal menu.",
+    "Plants: Today's Checklist's auto-tracked rows (watered recently, germination active) no longer look like tappable checkboxes - they're derived from the app's own data, not something to tick off by hand, so now they read as a plain status line instead of inviting a tap that did nothing.",
+  ]},
   {version:'2.29.28', notes:[
     "Fixed Home Dashboard reorder for real this time: the previous fix kept each widget in the right order within its own column, but a widget could still be assigned to the wrong column entirely by the height-balancing pass, so the first thing Settings said to show didn't always end up the first thing you saw. Widgets now get walked in Settings order and each one goes to whichever column is shortest at that point, rather than sorted by size first - the sequence you see now traces Settings order left-to-right, top-to-bottom.",
     "PS5/PS4 game covers are box-art shaped now (a portrait 2:3, same ratio Films' posters use), not square - the source art is square, so this crops in on the middle rather than showing the whole icon, but it reads much more like an actual game cover.",
@@ -4432,7 +4450,7 @@ function renderGames(){
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
-    <div class="subtabs">${tab('psn','🎮 PS5/PS4')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}${tab('wishlist','🕹️ Wishlist')}</div>
+    <div class="subtabs">${tab('psn','🎮 PlayStation')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}${tab('wishlist','🕹️ Wishlist')}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
   if(CUR_GAMES_TAB==='wishlist'){ renderWishlist(); return; }
@@ -4479,7 +4497,7 @@ function renderGamesConnect(body){
 function renderGamesList(titles){
   const body = $('#games-body'); if(!body) return;
   PSN_TITLES = titles;
-  if(!titles.length){ body.innerHTML = `<div class="empty">No games found on this account yet.</div>`; return; }
+  if(!titles.length && !wishlistGames().length){ body.innerHTML = `<div class="empty">No games found on this account yet.</div>`; return; }
   body.innerHTML = `
     <div class="games-search">
       <input type="text" id="games-search" placeholder="Search games…" oninput="drawGamesList()">
@@ -4488,25 +4506,38 @@ function renderGamesList(titles){
   drawGamesList();
 }
 /* re-filters/re-sorts the already-fetched list; leaves the search box and its cursor alone,
-   same pattern as Places' drawPlacesGrid() */
+   same pattern as Places' drawPlacesGrid(). Wishlist games not yet owned are appended after the
+   real PSN library, faded and dashed-bordered rather than left to a separate tab only - "what
+   I'll play next" belongs right alongside "what I'm playing now", not a tab switch away. Matched
+   to what's owned by plain name equality: good enough to skip the obvious case (you bought the
+   thing you wishlisted) without needing a real product-id link between two APIs that don't share
+   one. A false miss just means a harmless duplicate card, never a wrongly-hidden real entry. */
 function drawGamesList(){
   const grid = $('#games-grid'); if(!grid) return;
   const q = (($('#games-search')||{}).value||'').trim().toLowerCase();
   const hidden = psnHidden();
   let list = PSN_TITLES;
   if(q) list = list.filter(g => (g.name||'').toLowerCase().includes(q));
-  if(!list.length){ grid.innerHTML = `<div class="empty">No games match "${esc(q)}"</div>`; return; }
-  // hidden games sink to the bottom (faded, not removed) rather than disappearing outright
+  const ownedNames = new Set(PSN_TITLES.map(g => (g.name||'').trim().toLowerCase()));
+  let wishlistExtra = wishlistSorted().filter(w => !ownedNames.has((w.name||'').trim().toLowerCase()));
+  if(q) wishlistExtra = wishlistExtra.filter(w => (w.name||'').toLowerCase().includes(q));
+  if(!list.length && !wishlistExtra.length){ grid.innerHTML = `<div class="empty">No games match "${esc(q)}"</div>`; return; }
+  // hidden games sink to the end (faded, not removed) rather than disappearing outright; wishlist
+  // cards go after those - they're not owned yet, so they read last of all
   const ordered = list.filter(g=>!hidden.has(g.id)).concat(list.filter(g=>hidden.has(g.id)));
-  grid.innerHTML = `<div class="games-cover-grid">${ordered.map(g=>gameCardHTML(g, hidden.has(g.id))).join('')}</div>
+  grid.innerHTML = `<div class="games-cover-grid">${ordered.map(g=>gameCardHTML(g, hidden.has(g.id))).join('')}${wishlistExtra.map(wishlistGameCardHTML).join('')}</div>
     <div class="btn-row" style="justify-content:center; margin-top:6px">
       <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
     </div>`;
 }
+/* progress (Sony's own trophy-percentage number, which is what the PS5's UI itself shows as a
+   game's "% complete" too) plus when it was last played - not a trophy count. Trophy tallies are
+   still one tap away on the game's own page for anyone who wants them, but the grid's job now is
+   "how far in am I and when did I last touch this", which progress % and last-played answer
+   directly and a bronze/silver/gold/platinum breakdown doesn't. */
 function gameCardHTML(g, isHidden){
   const pct = Math.max(0, Math.min(100, g.progress||0));
-  const earned = (g.earnedTrophies&&g.earnedTrophies.total) || 0;
-  const total  = (g.definedTrophies&&g.definedTrophies.total) || 0;
+  const lastPlayed = g.lastPlayed ? timeAgo(new Date(g.lastPlayed).getTime()) : '';
   const hideLabel = (isHidden?'Unhide ':'Hide ') + (g.name||'this game');
   const href = '#/game/'+encodeURIComponent(g.id);
   return `
@@ -4521,7 +4552,27 @@ function gameCardHTML(g, isHidden){
       <div class="game-info">
         <div class="game-name">${esc(g.name||'Untitled')}</div>
         <div class="game-progress"><div class="game-progress-bar" style="width:${pct}%"></div></div>
-        <div class="game-meta muted small">${pct}% &middot; ${earned}/${total} trophies${g.platform?' &middot; '+esc(g.platform):''}</div>
+        <div class="game-meta muted small">${pct}% Complete${lastPlayed?' &middot; '+esc(lastPlayed):''}</div>
+      </div>
+    </div>`;
+}
+/* a Wishlist game not yet in the real PSN library - same card shape as an owned one so the grid
+   reads as one continuous thing, just faded and dash-bordered to mark it as "not owned yet", and
+   a badge instead of the progress bar/meta line neither of which mean anything for something
+   that hasn't been played. Tapping one goes to the Wishlist itself (where it can be un-pinned,
+   removed, etc.) rather than a game page there's no PSN data to fill in. */
+function wishlistGameCardHTML(w){
+  return `
+    <div class="game-card game-card-wishlist" role="button" tabindex="0" onclick="App.gamesTab('wishlist')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.gamesTab('wishlist')}">
+      <div class="game-cover-wrap">
+        ${w.image ? `<img class="game-cover" src="${esc(w.image)}" alt="" loading="lazy">`
+                   : `<span class="game-cover game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
+        <span class="game-wishlist-badge">${w.pinned ? '🎯 Play Next' : '🕹️ Wishlist'}</span>
+      </div>
+      <div class="game-info">
+        <div class="game-name">${esc(w.name||'Untitled')}</div>
+        <div class="game-meta muted small">Not Owned Yet</div>
       </div>
     </div>`;
 }
@@ -6793,10 +6844,6 @@ function plantGerminationInfo(p){
   const days = plantDaysSinceSown(p); if(days===null) return null;
   return {day: days+1, min: care.germDays[0], max: care.germDays[1]};
 }
-function plantGerminationRowHTML(p){
-  const g = plantGerminationInfo(p); if(!g) return '';
-  return `<div class="plant-germ-label">⏳ ${g.min} to ${g.max}d</div>`;
-}
 /* how many whole days since the plant last actually entered a given stage (its most recent
    stageChanges entry for that stage) - every stage transition gets logged (see
    plantSetStageImpl/plantLogStageChange), so this works for any stage a plant has actually
@@ -6895,12 +6942,6 @@ function plantJourneyStepDescription(i, p){
   if(i===2) return "Actively growing. Keep the water and sunlight coming - nothing else needed.";
   return "Ready to pick. Harvest whenever suits you - it won't spoil by waiting a day or two.";
 }
-function plantJourneyStepCompletedOn(p, step){
-  const entries = (Array.isArray(p.stageChanges)?p.stageChanges:[]).filter(e=>step.stages.includes(plantStageKey(e.stage)));
-  if(!entries.length) return '';
-  const latest = entries.reduce((a,b) => new Date(b.ts) > new Date(a.ts) ? b : a);
-  return fmtDate(latest.ts.slice(0,10));
-}
 /* the page's one visual timeline (folds the old separate "day count" text block and "Growing
    Journey" accordion list into a single component, per the CRM redesign brief) - a connected
    vertical line of stops rather than either a horizontal stepper or oversized cards. Every node
@@ -6910,38 +6951,10 @@ function plantJourneyStepCompletedOn(p, step){
    where there is one - the one bit of the old separate text block worth keeping front and centre.
    While still unplanted there's nothing to progress through yet, so this falls back to the plain
    stage picker so there's still a way to mark it planted. */
-function plantProgressTimelineHTML(p){
-  if(p.stage===PLANT_STAGE_DEFAULT){
-    return `
-      ${plantSectionHeadingHTML('route','Progress Timeline')}
-      <details class="plant-journey-change" open>
-        <summary>Change Stage</summary>
-        ${plantStagePickerHTML(p)}
-      </details>`;
-  }
-  const idx = plantJourneyStepIdx(p);
-  const g = plantGerminationInfo(p);
-  return `
-    ${plantSectionHeadingHTML('route','Progress Timeline')}
-    <div class="plant-progress-timeline">${PLANT_JOURNEY_STEPS.map((s,i) => {
-      const done = i<idx, current = i===idx;
-      const completedOn = done ? plantJourneyStepCompletedOn(p, s) : '';
-      const meta = current ? 'Current' : done ? ('Done' + (completedOn ? ' · '+completedOn : '')) : '';
-      return `
-      <details class="plant-progress-node${current?' current':''}${done?' done':''}"${current?' open':''}>
-        <summary>
-          <span class="plant-progress-mark" aria-hidden="true">${done?fa('check'):current?fa('circle-dot'):''}</span>
-          <span class="plant-progress-label">${esc(s.label)}</span>
-          <span class="plant-progress-meta">${esc(meta)}</span>
-        </summary>
-        <div class="plant-progress-body">
-          ${current && g ? `<p class="plant-progress-detail">Day ${g.day} · expected ${g.min} to ${g.max} days</p>` : ''}
-          <p>${esc(plantJourneyStepDescription(i, p))}</p>
-          ${current?'':`<button type="button" class="btn sm ghost" onclick="App.plantSetStage('${esc(p.id)}','${s.stages[0]}')">Set as current stage</button>`}
-        </div>
-      </details>`;
-    }).join('')}</div>`;
-}
+/* now folded into the combined Timeline below (see plantCombinedTimelineHTML) - kept as its own
+   function since plantJourneyStepDescription/plantJourneyStepIdx are still used to build the
+   current-stage card there, just no longer wrapped in four separate accordion nodes of their
+   own. */
 /* the dedicated Watering card - last watered, a plain-English status sentence, and one concrete
    next action, ending with the actual Watered button. Deliberately never recommends watering
    just because a fixed number of days has passed if the plant isn't actually due (see
@@ -7210,40 +7223,56 @@ function plantWaterButtonHTML(p, sm){
   // reading as a normal tappable action for a watering it doesn't need
   const notDue = !showUndo && !plantOverdue(p);
   const state = showUndo ? ' undo' : notDue ? ' done' : ' overdue';
-  return showUndo
-    ? `<button type="button" class="plant-water-action-btn${state}"
-        onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">Undo Watering<span class="plant-water-btn-emoji" aria-hidden="true">↩</span></button>`
-    : `<button type="button" class="plant-water-action-btn${state}"${notDue?' disabled':''}
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
+  if(showUndo) return `<button type="button" class="plant-water-action-btn${state}"
+        onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">Undo Watering<span class="plant-water-btn-emoji" aria-hidden="true">↩</span></button>`;
+  // "Watered" alone read as a status ("this one's already watered") rather than something to
+  // tap, in both its states - which one just happened to depend on fill colour and disabled-ness
+  // doing all the work. Splitting the wording by state fixes that without a colour/fill read:
+  // the live button says what tapping it will do (log a watering), the done one says what
+  // already happened, in the past tense a completed state actually reads as.
+  return notDue
+    ? `<button type="button" class="plant-water-action-btn${state}" disabled
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered Today<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`
+    : `<button type="button" class="plant-water-action-btn${state}"
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">I've Watered It<span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
 }
 /* the card, top to bottom: icon, name, the health badge (the most prominent thing here after
    the name, per the redesign brief), then three short icon-led status lines - growth stage,
    water status, and (seed/sprout stage only) a germination countdown - the CTA button, then a
-   compact "last watered" footer. Deliberately no long sentences anywhere on this card: that's
-   what the detail page's Watering card/Today's Checklist are for now (see plantWateringCardHTML/
-   plantChecklistHTML) - the card's job is "what's this vegetable's status, what do I do next",
-   not "how do I grow it". */
+   compact "last watered" footer, and (per request) a few of the same care tips the detail
+   page's own checklist shows - enough that most visits shouldn't need a tap into the detail
+   page at all, just glance down the list. One per row now rather than a multi-column grid, since
+   a card carrying this much wants the full width to lay it out in, not a narrow column. */
 function plantCardHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
-  const unplanted = p.stage===PLANT_STAGE_DEFAULT ? ' plant-unplanted' : '';
+  const unplanted = p.stage===PLANT_STAGE_DEFAULT;
+  const g = plantGerminationInfo(p);
+  const tips = unplanted ? [] : plantCareTips(plantCareDataFor(p)).slice(0,3);
   return `
-    <div class="card plant-card${unplanted}" role="button" tabindex="0" onclick="location.hash='${href}'"
+    <div class="card plant-card-wide${unplanted?' plant-unplanted':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
-      ${plantIconHTML(p, 'plant-emoji')}
-      <div class="plant-name">${esc(p.name||'Untitled')}</div>
-      ${plantHealthBadgeHTML(p)}
-      <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
-      ${plantWaterStatusHTML(p)}
-      ${plantGerminationRowHTML(p)}
+      <div class="plant-card-wide-head">
+        ${plantIconHTML(p, 'plant-emoji')}
+        <div class="plant-card-wide-title">
+          <div class="plant-name">${esc(p.name||'Untitled')}</div>
+          <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
+        </div>
+        ${plantHealthBadgeHTML(p)}
+      </div>
+      ${!unplanted ? `<div class="plant-card-wide-stats">
+        ${plantWaterStatusHTML(p)}
+        ${g ? `<div class="plant-germ-label">⏳ Day ${g.day} &middot; ${g.min} to ${g.max} days to sprout</div>` : ''}
+      </div>` : ''}
       ${plantWaterButtonHTML(p)}
       ${plantWaterFooterHTML(p)}
+      ${tips.length ? `<ul class="plant-card-wide-tips">${tips.map(t=>`<li><span aria-hidden="true">${t.icon}</span>${esc(t.text)}</li>`).join('')}</ul>` : ''}
     </div>`;
 }
 function drawPlantsGrid(){
   const grid = $('#plants-grid'); if(!grid) return;
   const list = plantsSorted();
   grid.innerHTML = list.length
-    ? `<div class="plants-grid">${list.map(plantCardHTML).join('')}</div>`
+    ? `<div class="plants-list">${list.map(plantCardHTML).join('')}</div>`
     : `<div class="empty" style="margin-top:40px">No Vegetables Yet<br><span class="muted small">Add one to start tracking its growth and watering.</span></div>`;
   const statsRoot = $('#plants-stats'); if(statsRoot) statsRoot.innerHTML = plantsDashboardStatsHTML();
 }
@@ -7283,24 +7312,56 @@ function plantTimelineHTML(p){
     const stageInfo = PLANT_STAGES[plantStageIdx(ev.stage)]||{};
     const label = ev.type==='water' ? 'Watered' : 'Set to '+esc(stageInfo.label||ev.stage);
     const emoji = ev.type==='water' ? '💧' : (stageInfo.emoji||'🌱');
+    const deleteLabel = 'Delete "'+label+'" logged '+fmtDate(ev.ts.slice(0,10));
     return `
       <div class="plant-timeline-item">
         <span class="plant-timeline-dot" aria-hidden="true">${emoji}</span>
         <div class="plant-timeline-body">
           <span class="plant-timeline-text"><strong>${label}</strong><span>${esc(fmtDate(ev.ts.slice(0,10)))} &middot; ${esc(hhmm(ev.ts))}</span></span>
-          <details class="plant-timeline-menu" name="plant-timeline-menu">
-            <summary aria-label="More actions">${fa('ellipsis-vertical')}</summary>
-            <button type="button" class="plant-timeline-delete"
-              onclick="App.plantDeleteLogEntry('${esc(p.id)}','${ev.type}','${esc(ev.ts)}')">Delete</button>
-          </details>
+          <button type="button" class="iconbtn plant-timeline-delete" aria-label="${esc(deleteLabel)}" title="Delete"
+            onclick="App.plantDeleteLogEntry('${esc(p.id)}','${ev.type}','${esc(ev.ts)}')">${fa('trash')}</button>
         </div>
       </div>`;
   }).join('')}</div>`;
 }
-function plantActivityTimelineHTML(p){
+/* Progress Timeline and Activity Timeline used to be two separate sections (a 4-stage journey
+   map, then the real chronological log below it) - combined into one so where the plant is now
+   and what's actually happened to it read together rather than in two places you'd have to
+   flip between. The current stage keeps its own short card up top (description text plus the
+   germination day-count where there is one, the two things the old journey map's "current" node
+   used to open to show) instead of four accordion stops most of which were either "already done"
+   or "not reached yet" - that's what the log right below it already answers for past stages, and
+   there's nothing useful to say about a future one before it happens. Jumping to a different
+   stage by hand (a correction, not something done every visit) moved into one collapsed picker
+   at the bottom rather than a button living inside each of the four old stops. */
+function plantCombinedTimelineHTML(p){
+  if(p.stage===PLANT_STAGE_DEFAULT){
+    return `
+      ${plantSectionHeadingHTML('route','Timeline')}
+      <details class="plant-journey-change" open>
+        <summary>Change Stage</summary>
+        ${plantStagePickerHTML(p)}
+      </details>`;
+  }
+  const idx = plantJourneyStepIdx(p);
+  const step = PLANT_JOURNEY_STEPS[idx];
+  const g = plantGerminationInfo(p);
   return `
-    ${plantSectionHeadingHTML('clock-rotate-left','Activity Timeline')}
-    ${plantTimelineHTML(p)}`;
+    ${plantSectionHeadingHTML('route','Timeline')}
+    <div class="plant-current-stage-card">
+      <div class="plant-current-stage-head">
+        <span class="plant-current-stage-emoji" aria-hidden="true">${step.emoji}</span>
+        <span class="plant-current-stage-label">${esc(step.label)}</span>
+        ${g ? `<span class="plant-current-stage-meta">Day ${g.day}</span>` : ''}
+      </div>
+      ${g ? `<p class="plant-current-stage-detail">Expected ${g.min} to ${g.max} days until sprouts</p>` : ''}
+      <p>${esc(plantJourneyStepDescription(idx, p))}</p>
+    </div>
+    ${plantTimelineHTML(p)}
+    <details class="plant-journey-change">
+      <summary>Change Stage</summary>
+      ${plantStagePickerHTML(p)}
+    </details>`;
 }
 /* the card keeps this to a single icon+word chip (plantWaterStatusHTML) - full sentences live
    here instead, one labelled row per known growing condition, only for a vegetable this app
@@ -7357,14 +7418,16 @@ function plantChecklistRowHTML(p, key, label, on){
       <span class="plant-checklist-label">${esc(label)}</span>
     </div>`;
 }
-/* the auto-tracked rows share the exact same big-checkbox visual as the manual ones above (so the
-   whole checklist reads as one consistent list), just without the tap target - role="checkbox" is
-   dropped and there's no click handler, since these reflect state the app already knows rather
-   than something the grower sets. */
+/* the auto-tracked rows used to share the exact same big-checkbox look as the manual ones above,
+   just with the tap target quietly dropped - which read as a checklist you could tick, right up
+   until tapping one did nothing. These reflect state the app already knows (today's watering,
+   whether germination's currently active) rather than anything to tick off by hand, so now they
+   look like what they are: a plain status line, dot instead of a checkbox, no hover/tap styling
+   at all. */
 function plantChecklistAutoRowHTML(it){
   return `
-    <div class="plant-checklist-row auto${it.on?' done':''}">
-      <span class="plant-checklist-check${it.on?' on':''}" aria-hidden="true">${it.on?fa('check'):''}</span>
+    <div class="plant-checklist-status-row">
+      <span class="plant-checklist-status-dot${it.on?' on':''}" aria-hidden="true"></span>
       <span class="plant-checklist-label">${esc(it.label)}</span>
     </div>`;
 }
@@ -7777,8 +7840,7 @@ function plantDetailOverviewHTML(p){
     <div id="plant-detail-tracker">${plantChecklistHTML(p)}</div>
     <div id="plant-detail-water">${plantWateringCardHTML(p)}</div>
     <div id="plant-detail-next">${plantWhatsNextHTML(p)}</div>
-    <div id="plant-detail-progress">${plantProgressTimelineHTML(p)}</div>
-    <div id="plant-detail-timeline">${plantActivityTimelineHTML(p)}</div>`;
+    <div id="plant-detail-timeline">${plantCombinedTimelineHTML(p)}</div>`;
 }
 function renderPlantDetail(id){
   const p = (DB.plants||[]).find(x=>x.id===id);
@@ -7798,7 +7860,7 @@ function renderPlantDetail(id){
   plantBindStickyScroll();
 }
 /* refreshes just the live bits of the detail page in place (sticky header, checklist, what's
-   next, watering, progress timeline, activity timeline) rather than a full re-render - a no-op
+   next, watering, the combined timeline) rather than a full re-render - a no-op
    if some other page is actually showing right now, same guard-on-the-DOM-node pattern
    drawPlantsGrid/drawDashPlantsSlot already use. Each target is also a no-op if the Information
    tab is showing instead of Overview, since none of these ids exist in that tab's markup - fine,
@@ -7813,8 +7875,7 @@ function drawPlantDetail(id){
   const trackerRoot = $('#plant-detail-tracker'); if(trackerRoot) trackerRoot.innerHTML = plantChecklistHTML(p);
   const nextRoot = $('#plant-detail-next'); if(nextRoot) nextRoot.innerHTML = plantWhatsNextHTML(p);
   const waterRoot = $('#plant-detail-water'); if(waterRoot) waterRoot.innerHTML = plantWateringCardHTML(p);
-  const progressRoot = $('#plant-detail-progress'); if(progressRoot) progressRoot.innerHTML = plantProgressTimelineHTML(p);
-  const timelineRoot = $('#plant-detail-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantActivityTimelineHTML(p);
+  const timelineRoot = $('#plant-detail-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantCombinedTimelineHTML(p);
 }
 /* Today's Checklist's two manually-set rows (see plantChecklistHTML) - just a plain per-plant
    flip, no confirmation needed either way since ticking either wrong costs nothing and is just as
