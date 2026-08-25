@@ -94,11 +94,14 @@ async function bggIds(path){
   if(!res.ok) throw await bggError(res);
   return itemBlocks(await res.text()).map(itemId).filter(Boolean).slice(0, BGG_MAX);
 }
-async function bggDetails(ids){
-  if(!ids.length) return [];
+/* BGG's /thing endpoint hard-caps a single request at 20 ids ("Cannot load more than 20
+   items" - confirmed from its own error body), well under BGG_MAX, so a full hot/search
+   list has to go in more than one request */
+const BGG_THING_CHUNK = 20;
+
+async function bggThingChunk(ids, byId){
   const res = await fetch(`${BGG}/thing?id=${ids.join(',')}&stats=1`, {headers: bggHeaders()});
   if(!res.ok) throw await bggError(res);
-  const byId = {};
   itemBlocks(await res.text()).forEach(b => {
     const id = itemId(b);
     if(!id) return;
@@ -127,6 +130,13 @@ async function bggDetails(ids){
       description
     };
   });
+}
+async function bggDetails(ids){
+  if(!ids.length) return [];
+  const byId = {};
+  const chunks = [];
+  for(let i=0; i<ids.length; i+=BGG_THING_CHUNK) chunks.push(ids.slice(i, i+BGG_THING_CHUNK));
+  await Promise.all(chunks.map(chunk => bggThingChunk(chunk, byId)));
   // back into the order the list endpoint gave them, which is the ranking we asked for
   return ids.map(id => byId[id]).filter(g => g && g.name);
 }

@@ -40,6 +40,9 @@ async function fetchGames(q){
   const url = new URL(RAWG);
   url.searchParams.set('key', key);
   url.searchParams.set('page_size', String(PAGE_SIZE));
+  // this app only tracks a PlayStation library, so upcoming/search results stay PlayStation-only
+  // too - RAWG's parent platform id 2 covers the whole PS1-PS5 family in one filter
+  url.searchParams.set('parent_platforms', '2');
   if(q){
     // a plain name search, newest/most relevant first - the "gta vi" case
     url.searchParams.set('search', q);
