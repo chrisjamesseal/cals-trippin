@@ -1408,8 +1408,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.37';
+const APP_VERSION = '2.29.38';
 const CHANGELOG = [
+  {version:'2.29.38', notes:[
+    "Games: Play List folded into the PlayStation tab - My Play List and the game search now live on the same page as your owned games, instead of a separate tab.",
+    "Games: new/upcoming game search now only shows PlayStation titles.",
+  ]},
   {version:'2.29.37', notes:[
     "Board Games: fixed a bad-request error from BoardGameGeek that was blocking the grid from loading.",
   ]},
@@ -4491,14 +4495,15 @@ async function psnApi(path){
 const BOARD_GAMES_ENABLED = true;
 let CUR_GAMES_TAB = 'psn';
 function renderGames(){
-  if(CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) CUR_GAMES_TAB = 'psn';
+  // 'wishlist' was its own subtab before Play List folded into PlayStation - fall back for
+  // anything still holding that value (e.g. a stale in-memory reference)
+  if((CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) || CUR_GAMES_TAB==='wishlist') CUR_GAMES_TAB = 'psn';
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
-    <div class="subtabs">${tab('psn','🎮 PlayStation')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}${tab('wishlist','🕹️ Play List')}</div>
+    <div class="subtabs">${tab('psn','🎮 PlayStation')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
-  if(CUR_GAMES_TAB==='wishlist'){ renderWishlist(); return; }
   renderPsnGames();
 }
 function renderPsnGames(){
@@ -4542,14 +4547,21 @@ function renderGamesConnect(body){
 function renderGamesList(titles){
   const body = $('#games-body'); if(!body) return;
   PSN_TITLES = titles;
-  if(!titles.length && !wishlistGames().length){ body.innerHTML = `<div class="empty">No games found on this account yet.</div>`; return; }
   body.innerHTML = `
     <div class="games-search">
       <input type="text" id="games-search" placeholder="Search games…" oninput="drawGamesList()">
     </div>
-    <div id="games-grid"></div>`;
+    <div id="games-grid"></div>
+    <div id="wl-my"></div>
+    <h3 style="margin:24px 0 10px">Find Something New</h3>
+    <div class="games-search">
+      <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
+    </div>
+    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>`;
   attachFieldClears(body);
   drawGamesList();
+  drawWishlistMine();
+  loadGameSearch('');
 }
 /* re-filters/re-sorts the already-fetched list; leaves the search box and its cursor alone,
    same pattern as Places' drawPlacesGrid(). Wishlist games not yet owned are appended after the
@@ -4609,12 +4621,13 @@ function gameCardHTML(g, isHidden){
 /* a Wishlist game not yet in the real PSN library - same card shape as an owned one so the grid
    reads as one continuous thing, just faded and dash-bordered to mark it as "not owned yet", and
    a badge instead of the progress bar/meta line neither of which mean anything for something
-   that hasn't been played. Tapping one goes to the Wishlist itself (where it can be un-pinned,
-   removed, etc.) rather than a game page there's no PSN data to fill in. */
+   that hasn't been played. Tapping one scrolls down to My Play List (where it can be un-pinned,
+   removed, etc. - it lives on this same PlayStation page now) rather than a game page there's no
+   PSN data to fill in. */
 function wishlistGameCardHTML(w){
   return `
-    <div class="game-card game-card-wishlist" role="button" tabindex="0" onclick="App.gamesTab('wishlist')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.gamesTab('wishlist')}">
+    <div class="game-card game-card-wishlist" role="button" tabindex="0" onclick="App.goPlayList()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlayList()}">
       <div class="game-cover-wrap">
         ${w.image ? `<img class="game-cover" src="${esc(w.image)}" alt="" loading="lazy">`
                    : `<span class="game-cover game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
@@ -4909,18 +4922,6 @@ function wishlistSorted(){
     return wlUrgencyKey(a) - wlUrgencyKey(b);
   });
 }
-function renderWishlist(){
-  const body = $('#games-body'); if(!body) return;
-  body.innerHTML = `
-    <div id="wl-my"></div>
-    <div class="games-search">
-      <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
-    </div>
-    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>`;
-  attachFieldClears(body);
-  drawWishlistMine();
-  loadGameSearch('');
-}
 function drawWishlistMine(){
   const el = $('#wl-my'); if(!el) return;
   const mine = wishlistSorted();
@@ -4943,7 +4944,7 @@ function loadGameSearch(q){
       return r.json();
     })
     .then(data => {
-      if(CUR_GAMES_TAB!=='wishlist' || !$('#wl-grid')) return;   // moved on while it was in flight
+      if(CUR_GAMES_TAB!=='psn' || !$('#wl-grid')) return;   // moved on while it was in flight
       WL_LAST_GAMES = data.games||[];
       const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
       $('#wl-grid').innerHTML = games.length
@@ -4951,7 +4952,7 @@ function loadGameSearch(q){
         : `<div class="empty">${q?`No games match "${esc(q)}"`:'Nothing new to show right now.'}</div>`;
     })
     .catch(e => {
-      if(CUR_GAMES_TAB!=='wishlist' || !$('#wl-grid')) return;
+      if(CUR_GAMES_TAB!=='psn' || !$('#wl-grid')) return;
       $('#wl-grid').innerHTML = `<div class="empty">Couldn't load games.<br>${esc(e.message||'')}
         <div class="btn-row" style="justify-content:center; margin-top:14px">
           <button class="btn sm" onclick="App.wlReload()">Try Again</button>
@@ -8301,6 +8302,8 @@ App.dashSongRange = k => {
   balanceDashboardColumns();
 };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
+// My Play List lives further down the PlayStation page now, not its own tab - scroll to it
+App.goPlayList = () => { const el = $('#wl-my'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); };
 App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
 App.bgReload = () => loadBoardGames((($('#bg-search')||{}).value||'').trim());
