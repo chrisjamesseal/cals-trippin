@@ -89,10 +89,10 @@ async function bggError(res){
   const body = (await res.text().catch(()=>'')).slice(0,200).replace(/\s+/g,' ').trim();
   return new Error('BoardGameGeek returned '+res.status+(body ? ' ('+body+')' : ''));
 }
-async function bggIds(path){
+async function bggIds(path, limit){
   const res = await fetch(BGG+path, {headers: bggHeaders()});
   if(!res.ok) throw await bggError(res);
-  return itemBlocks(await res.text()).map(itemId).filter(Boolean).slice(0, BGG_MAX);
+  return itemBlocks(await res.text()).map(itemId).filter(Boolean).slice(0, limit==null ? BGG_MAX : limit);
 }
 /* BGG's /thing endpoint hard-caps a single request at 20 ids ("Cannot load more than 20
    items" - confirmed from its own error body), well under BGG_MAX, so a full hot/search
@@ -125,6 +125,10 @@ async function bggThingChunk(ids, byId){
       playTime: numAttr(b,'playingtime'),
       weight: round2(numAttr(b,'averageweight')),   // BGG's complexity, 1-5
       rating: round2(numAttr(b,'average')),
+      // BGG's own vote-count-weighted rating - a truer "how good/well-known is this" signal
+      // than the raw average (which a single 10/10 vote can skew for an obscure game), used to
+      // rank search results by popularity rather than BGG's own fairly arbitrary search order
+      bayesRating: round2(numAttr(b,'bayesaverage')),
       categories: linkValues(b,'boardgamecategory'),
       mechanics: linkValues(b,'boardgamemechanic'),
       description
@@ -140,11 +144,30 @@ async function bggDetails(ids){
   // back into the order the list endpoint gave them, which is the ranking we asked for
   return ids.map(id => byId[id]).filter(g => g && g.name);
 }
+/* BGG's plain /search returns matches in whatever order its own database happens to hold them
+   in - hunting for "Monopoly" surfaces a wall of regional/licensed editions before the actual
+   base game, because none of them outrank each other on title match alone. Two things fix
+   that: BGG's own &exact=1 flag (a real "this literal title" match, always floated to the very
+   top), and - for everything else - sorting by bayesRating, BGG's own vote-weighted popularity
+   score, so a well-known game like Herd Mentality or Connect 4 ranks above an obscure reskin
+   that happens to share a word with the query. */
+const BGG_SEARCH_POOL = 60;   // wider net than BGG_MAX before re-ranking narrows it back down
+function popularityScore(g){ return g.bayesRating!=null ? g.bayesRating : (g.rating||0) * 0.1; }
 async function fetchBoardGames(q){
-  const ids = q
-    ? await bggIds('/search?type=boardgame&query='+encodeURIComponent(q))
-    : await bggIds('/hot?type=boardgame');
-  return {games: await bggDetails(ids)};
+  if(!q) return {games: await bggDetails(await bggIds('/hot?type=boardgame'))};
+  const [exactIds, fuzzyIds] = await Promise.all([
+    bggIds('/search?type=boardgame&exact=1&query='+encodeURIComponent(q), BGG_MAX).catch(()=>[]),
+    bggIds('/search?type=boardgame&query='+encodeURIComponent(q), BGG_SEARCH_POOL),
+  ]);
+  const orderedIds = [...new Set([...exactIds, ...fuzzyIds])].slice(0, BGG_SEARCH_POOL);
+  const games = await bggDetails(orderedIds);
+  const exactSet = new Set(exactIds);
+  games.sort((a, b) => {
+    const aExact = exactSet.has(a.id) ? 1 : 0, bExact = exactSet.has(b.id) ? 1 : 0;
+    if(aExact !== bExact) return bExact - aExact;
+    return popularityScore(b) - popularityScore(a);
+  });
+  return {games: games.slice(0, BGG_MAX)};
 }
 
 export default async function handler(request){

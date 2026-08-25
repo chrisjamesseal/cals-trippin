@@ -1414,8 +1414,14 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.39';
+const APP_VERSION = '2.29.40';
 const CHANGELOG = [
+  {version:'2.29.40', notes:[
+    "Games: PS5 and PS4 are now separate subtabs instead of one combined PlayStation library.",
+    "Board Games: Want to Play and Played are each their own page now, not a shelf above Search - a marked game's page no longer depends on what's currently browsed/searched.",
+    "Board Games: search now surfaces the actual game you searched for first (e.g. \"Monopoly\" surfaces the base game, not just spin-off editions), then ranks the rest by BoardGameGeek's own popularity rating instead of its fairly arbitrary search order.",
+    "Home: added a Play Next widget for your top Board Games Want to Play pick, plus new Board Games Played and Theatre Shows Seen counter cards.",
+  ]},
   {version:'2.29.39', notes:[
     "Games: Play List cards on the PlayStation grid now sort newest-release-first and sit ahead of your owned games, showing the release date instead of % Complete - no console/pin info, and the \"Play This Next\" pin is gone (ordering is automatic now).",
     "Games: added a Not Interested button to Play List cards - fades and sinks a game to the bottom instead of deleting it, same idea as hiding an owned game.",
@@ -3788,6 +3794,32 @@ function dashFilmsSeenWidgetHTML(){
       <div class="dash-item-title">${dashFilmsSeenCount(CUR_DASH_SONG_RANGE)} Films Seen</div>
     </div>`;
 }
+function dashTheatreSeenCount(range){
+  const cutoff = dashRangeCutoffStr(range);
+  return (DB.theatre||[]).filter(t=>t.date && t.date<=todayStr() && (!cutoff || t.date>=cutoff)).length;
+}
+function dashTheatreSeenWidgetHTML(){
+  return `
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goTheatre()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goTheatre()}">
+      <div class="dash-item-flags" aria-hidden="true">🎭</div>
+      <div class="dash-item-title">${dashTheatreSeenCount(CUR_DASH_SONG_RANGE)} Shows Seen</div>
+    </div>`;
+}
+/* Board Games marks (bgMarks) carry no date, unlike the diary-backed stat tiles above, so this
+   one has no time-range filter to apply - it's just a straight count of everything marked
+   Played, regardless of when. */
+function dashBoardGamesPlayedCount(){
+  return Object.values(bgMarks()).filter(v=>v==='played').length;
+}
+function dashBoardGamesPlayedWidgetHTML(){
+  return `
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goBoardGamesPlayed()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goBoardGamesPlayed()}">
+      <div class="dash-item-flags" aria-hidden="true">🎲</div>
+      <div class="dash-item-title">${dashBoardGamesPlayedCount()} Played</div>
+    </div>`;
+}
 function dashLastSeenFilmWidgetHTML(){
   const f = (DB.films||[]).filter(f=>f.watchedDate).sort((a,b)=>b.watchedDate.localeCompare(a.watchedDate))[0];
   if(!f) return `
@@ -3884,6 +3916,53 @@ function dashTheatreWatchNextWidgetHTML(){
         </div>
       </div>
     </div>`;
+}
+/* Board Games' Want to Play list doesn't carry its own cover/name the way theatreWatchlist
+   does - that data only exists on BGG, so unlike the widget above this one needs a real fetch
+   (see loadDashBoardGameNext) before it has anything but a game's bare id to show. "First
+   marked" (plain object key order = insertion order) rather than any fancier pick - Board
+   Games itself has no manual "play this one next" override to defer to, the way the old PSN
+   Play List pin used to before it was replaced by release-date sorting. */
+function dashBoardGameNextWidgetHTML(){
+  const marks = bgMarks();
+  const wantId = Object.keys(marks).find(id => marks[id]==='want');
+  if(!wantId) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goBoardGamesWant()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goBoardGamesWant()}">
+      <div class="dash-item-flags" aria-hidden="true">🎲</div>
+      <div class="dash-item-title">Nothing on Want to Play</div>
+    </div>`;
+  const g = BG_MARKED_CACHE[wantId];
+  if(!g) return `
+    <div class="dash-widget dash-widget-item">
+      <div class="dash-item-flags" aria-hidden="true">🎲</div>
+      <div class="dash-item-title">Loading…</div>
+    </div>`;
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goBoardGamesWant()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goBoardGamesWant()}">
+      <div class="dash-item-row">
+        ${g.thumb ? `<img class="dash-item-img-sm" src="${esc(g.thumb)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🎲</div>`}
+        <div class="dash-item-row-text">
+          <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
+          <div class="dash-item-sub">Play Next</div>
+        </div>
+      </div>
+    </div>`;
+}
+function loadDashBoardGameNext(){
+  const marks = bgMarks();
+  const wantId = Object.keys(marks).find(id => marks[id]==='want');
+  if(!wantId || BG_MARKED_CACHE[wantId]) return;   // nothing marked, or already cached from a Board Games visit
+  fetch('/api/board-games?ids='+encodeURIComponent(wantId))
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      const g = (data.games||[])[0]; if(!g) return;
+      BG_MARKED_CACHE[wantId] = g;
+      const slot = $('#dash-boardgame-slot'); if(slot){ slot.innerHTML = dashBoardGameNextWidgetHTML(); balanceDashboardColumns(); }
+    })
+    .catch(()=>{});   // the widget just stays on "Loading…" until a retry (next Home visit) works
 }
 function dashRandomWatchlistWidgetHTML(){
   const list = DB.filmsWatchlist||[];
@@ -4001,6 +4080,7 @@ const DASH_WIDGET_DEFS = [
   {key:'song', label:'Most Played'},
   {key:'watchnext', label:'Watch Next'},
   {key:'theatrenext', label:'Theatre See Next'},
+  {key:'boardgamenext', label:'Board Game Play Next'},
   {key:'lastseen', label:'Last Seen'},
   {key:'plants', label:'Plants'},
 ];
@@ -4030,6 +4110,7 @@ function dashWidgetHTML(key){
   if(key==='song') return `<div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
   if(key==='watchnext') return `<div id="dash-watchnext-slot">${dashRandomWatchlistWidgetHTML()}</div>`;
   if(key==='theatrenext') return dashTheatreWatchNextWidgetHTML();
+  if(key==='boardgamenext') return `<div id="dash-boardgame-slot">${dashBoardGameNextWidgetHTML()}</div>`;
   if(key==='lastseen') return dashLastSeenFilmWidgetHTML();
   if(key==='plants') return `<div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   return '';
@@ -4061,6 +4142,8 @@ function renderDashboard(){
       <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
       <div id="dash-films-slot">${dashFilmsSeenWidgetHTML()}</div>
       <div id="dash-games-stat-slot">${dashGamesStatPlaceholderHTML()}</div>
+      <div id="dash-boardgames-stat-slot">${dashBoardGamesPlayedWidgetHTML()}</div>
+      <div id="dash-theatre-stat-slot">${dashTheatreSeenWidgetHTML()}</div>
     </div>
     <div class="dash-masonry">
       <div class="dash-col" id="dash-col-a">${widgets}</div>
@@ -4077,6 +4160,7 @@ function renderDashboard(){
   loadDashboardSong();
   loadDashboardBranch();
   loadDashWatchNextProviders();
+  loadDashBoardGameNext();
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
@@ -4507,19 +4591,27 @@ async function psnApi(path){
    a registered app token on every request - see psn-proxy/README.md); now that it's set up,
    the subtab is back. */
 const BOARD_GAMES_ENABLED = true;
-let CUR_GAMES_TAB = 'psn';
+let CUR_GAMES_TAB = 'ps5';
 function renderGames(){
-  // 'wishlist' was its own subtab before Play List folded into PlayStation - fall back for
-  // anything still holding that value (e.g. a stale in-memory reference)
-  if((CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) || CUR_GAMES_TAB==='wishlist') CUR_GAMES_TAB = 'psn';
+  // 'psn' (the old single combined tab) and 'wishlist' (its own subtab before Play List folded
+  // in) were both replaced - fall back for anything still holding one of those values
+  if((CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) || CUR_GAMES_TAB==='psn' || CUR_GAMES_TAB==='wishlist') CUR_GAMES_TAB = 'ps5';
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
-    <div class="subtabs">${tab('psn','🎮 PlayStation')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
+    <div class="subtabs">${tab('ps5','🎮 PS5')}${tab('ps4','🎮 PS4')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
   renderPsnGames();
 }
+/* PSN's own trophyTitlePlatform comes back as a comma list ("PS4,PS5" for a cross-buy title,
+   just "PS3"/"PSVITA" for older ones) - PS5 tab is anything that lists PS5, PS4 tab is
+   everything else, so a PS3/Vita title still has a home instead of silently vanishing. */
+function psnTitleOnTab(g, tab){
+  const onPs5 = /ps5/i.test(g.platform||'');
+  return tab==='ps5' ? onPs5 : !onPs5;
+}
+let PSN_TITLES_LOADED = false;
 function renderPsnGames(){
   const body = $('#games-body');
   if(!psnConfigured()){
@@ -4529,9 +4621,13 @@ function renderPsnGames(){
     return;
   }
   if(!psnTokens()){ renderGamesConnect(body); return; }
+  // already fetched (e.g. switching between the PS5/PS4 tabs) - redraw from memory rather than
+  // hitting the proxy again for data that hasn't changed
+  if(PSN_TITLES_LOADED){ renderGamesList(PSN_TITLES); return; }
   body.innerHTML = `<div class="empty">Loading your games…</div>`;
   psnApi('/titles?limit=200').then(data => {
     if(!$('#games-body')) return;   // navigated away while this was in flight
+    PSN_TITLES_LOADED = true;
     renderGamesList(data.titles||[]);
   }).catch(e => {
     if(!$('#games-body')) return;
@@ -4561,37 +4657,44 @@ function renderGamesConnect(body){
 function renderGamesList(titles){
   const body = $('#games-body'); if(!body) return;
   PSN_TITLES = titles;
+  // Play List/Find Something New only make sense once, not duplicated on both console tabs -
+  // it lives on PS5 (this app's primary console) rather than being platform-specific itself
+  const onPs5Tab = CUR_GAMES_TAB==='ps5';
   body.innerHTML = `
     <div class="games-search">
       <input type="text" id="games-search" placeholder="Search games…" oninput="drawGamesList()">
     </div>
     <div id="games-grid"></div>
+    ${onPs5Tab ? `
     <h3 style="margin:24px 0 10px">Find Something New</h3>
     <div class="games-search">
       <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
     </div>
-    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>`;
+    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>` : ''}`;
   attachFieldClears(body);
   drawGamesList();
-  loadGameSearch('');
+  if(onPs5Tab) loadGameSearch('');
 }
 /* re-filters/re-sorts the already-fetched list; leaves the search box and its cursor alone,
-   same pattern as Places' drawPlacesGrid(). Play List games not yet owned sit at the very top,
-   newest release first - this is the only place the Play List lives now, not a separate list -
-   then the real PSN library, then hidden/dismissed games faded at the bottom (hidden owned
-   games first, dismissed Play List games last). Matched to what's owned by plain name equality:
-   good enough to skip the obvious case (you bought the thing you wishlisted) without needing a
-   real product-id link between two APIs that don't share one. A false miss just means a
-   harmless duplicate card, never a wrongly-hidden real entry. */
+   same pattern as Places' drawPlacesGrid(). Play List games not yet owned sit at the very top
+   of the PS5 tab, newest release first - this is the only place the Play List lives now, not a
+   separate list - then the real PS5/PS4 library (whichever tab is active, see psnTitleOnTab),
+   then hidden/dismissed games faded at the bottom (hidden owned games first, dismissed Play
+   List games last). Matched to what's owned by plain name equality: good enough to skip the
+   obvious case (you bought the thing you wishlisted) without needing a real product-id link
+   between two APIs that don't share one. A false miss just means a harmless duplicate card,
+   never a wrongly-hidden real entry. */
 function drawGamesList(){
   const grid = $('#games-grid'); if(!grid) return;
   const q = (($('#games-search')||{}).value||'').trim().toLowerCase();
   const hidden = psnHidden();
   const dismissed = wlDismissed();
-  let list = PSN_TITLES;
+  let list = PSN_TITLES.filter(g=>psnTitleOnTab(g, CUR_GAMES_TAB));
   if(q) list = list.filter(g => (g.name||'').toLowerCase().includes(q));
   const ownedNames = new Set(PSN_TITLES.map(g => (g.name||'').trim().toLowerCase()));
-  let wishlistExtra = wishlistSorted().filter(w => !ownedNames.has((w.name||'').trim().toLowerCase()));
+  let wishlistExtra = CUR_GAMES_TAB==='ps5'
+    ? wishlistSorted().filter(w => !ownedNames.has((w.name||'').trim().toLowerCase()))
+    : [];
   if(q) wishlistExtra = wishlistExtra.filter(w => (w.name||'').toLowerCase().includes(q));
   if(!list.length && !wishlistExtra.length){ grid.innerHTML = `<div class="empty">No games match "${esc(q)}"</div>`; return; }
   const wlInterested = wishlistExtra.filter(w=>!dismissed.has(w.id));
@@ -4734,7 +4837,7 @@ async function psnConnectImpl(){
     if(btn){ btn.disabled = false; btn.textContent = 'Connect'; }
   }
 }
-function psnDisconnectImpl(){ clearPsnTokens(); renderGames(); }
+function psnDisconnectImpl(){ clearPsnTokens(); PSN_TITLES_LOADED = false; renderGames(); }
 function psnToggleHiddenImpl(id){
   const hidden = psnHidden();
   if(hidden.has(id)) hidden.delete(id); else hidden.add(id);
@@ -4795,19 +4898,57 @@ function bgTimeLabel(g){
   if(!lo || lo===hi) return `${hi} min`;
   return `${lo}-${hi} min`;
 }
+let BG_SUBTAB = 'want';   // 'want' | 'played' | 'search'
 function renderBoardGames(){
   const body = $('#games-body'); if(!body) return;
+  const tab = (k, label) => `<button class="subtab${BG_SUBTAB===k?' on':''}" onclick="App.bgSubtab('${k}')">${label}</button>`;
   body.innerHTML = `
-    <div id="bg-shelf"></div>
+    <div class="subtabs">${tab('want','⭐ Want to Play')}${tab('played','✅ Played')}${tab('search','🔍 Search')}</div>
+    <div id="bg-body"></div>`;
+  if(BG_SUBTAB==='search'){ renderBgSearch(); return; }
+  renderBgShelfPage();
+}
+/* Want to Play/Played are each their own page now, not filter chips living alongside the
+   search grid - putting a marked game at the mercy of whatever's currently browsed/searched is
+   exactly the bug (#146) that shelf approach caused. Fetches full details for exactly the
+   marked ids via ?ids=, independent of the search page's hot list/results, so a marked game
+   never depends on still being part of some other list. Only fetches ids not already cached. */
+function renderBgShelfPage(){
+  const el = $('#bg-body'); if(!el) return;
+  el.innerHTML = `<div id="bg-shelf"><div class="empty">Loading…</div></div>`;
+  drawBgShelf();
+  loadBgShelf();
+}
+function loadBgShelf(){
+  const ids = Object.keys(bgMarks()).filter(id => !BG_MARKED_CACHE[id]);
+  if(!ids.length) return;
+  fetch('/api/board-games?ids='+ids.map(encodeURIComponent).join(','))
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      (data.games||[]).forEach(g => { BG_MARKED_CACHE[g.id] = g; });
+      if(CUR_GAMES_TAB==='board' && BG_SUBTAB!=='search') drawBgShelf();
+    })
+    .catch(()=>{});   // the shelf just stays without that game's card until a retry works
+}
+function drawBgShelf(){
+  const el = $('#bg-shelf'); if(!el) return;
+  const marks = bgMarks();
+  const shelfGame = id => BG_GAMES.find(g=>g.id===id) || BG_MARKED_CACHE[id] || null;
+  const games = Object.keys(marks).filter(id => marks[id]===BG_SUBTAB).map(shelfGame).filter(Boolean);
+  el.innerHTML = games.length
+    ? `<div class="bg-list">${games.map(bgCardHTML).join('')}</div>`
+    : `<div class="empty">${BG_SUBTAB==='want' ? "Nothing marked Want to Play yet - find something in Search." : 'Nothing marked Played yet.'}</div>`;
+}
+function renderBgSearch(){
+  const el = $('#bg-body'); if(!el) return;
+  el.innerHTML = `
     <div id="bg-filters"></div>
     <div class="games-search">
       <input type="text" id="bg-search" placeholder="Search board games…" oninput="App.bgSearchInput()">
     </div>
     <div id="bg-grid"><div class="empty">Loading board games…</div></div>`;
-  attachFieldClears(body);
+  attachFieldClears(el);
   drawBgFilters();
-  drawBgShelf();
-  loadBgShelf();
   loadBoardGames('');
 }
 /* one network call per distinct search; every filter after that works on the held list */
@@ -4827,47 +4968,19 @@ function loadBoardGames(q){
       return r.json();
     })
     .then(data => {
-      if(CUR_GAMES_TAB!=='board' || !$('#bg-grid')) return;   // moved on while it was in flight
+      if(CUR_GAMES_TAB!=='board' || BG_SUBTAB!=='search' || !$('#bg-grid')) return;   // moved on while it was in flight
       BG_GAMES = data.games||[];
       // whatever's marked among what we just fetched is already full data - free shelf entries
       BG_GAMES.forEach(g => { if(bgMarkOf(g.id)) BG_MARKED_CACHE[g.id] = g; });
       drawBgGrid();
-      drawBgShelf();
     })
     .catch(e => {
-      if(CUR_GAMES_TAB!=='board' || !$('#bg-grid')) return;
+      if(CUR_GAMES_TAB!=='board' || BG_SUBTAB!=='search' || !$('#bg-grid')) return;
       $('#bg-grid').innerHTML = `<div class="empty">Couldn't load board games.<br>${esc(e.message||'')}
         <div class="btn-row" style="justify-content:center; margin-top:14px">
           <button class="btn sm" onclick="App.bgReload()">Try Again</button>
         </div></div>`;
     });
-}
-/* Want to Play/Played is a shelf, not a filter (see bg-shelf's own comment) - fetches full
-   details for exactly the marked ids, independent of whatever's currently searched/browsed, so
-   a marked game never drops out of view just because it isn't on the current hot list or
-   doesn't match the last search. Only fetches ids not already cached. */
-function loadBgShelf(){
-  const ids = Object.keys(bgMarks()).filter(id => !BG_MARKED_CACHE[id]);
-  if(!ids.length) return;
-  fetch('/api/board-games?ids='+ids.map(encodeURIComponent).join(','))
-    .then(r => r.ok ? r.json() : Promise.reject())
-    .then(data => {
-      (data.games||[]).forEach(g => { BG_MARKED_CACHE[g.id] = g; });
-      if(CUR_GAMES_TAB==='board') drawBgShelf();
-    })
-    .catch(()=>{});   // the shelf just stays without that game's card until a retry works
-}
-function drawBgShelf(){
-  const el = $('#bg-shelf'); if(!el) return;
-  const marks = bgMarks();
-  const shelfGame = id => BG_GAMES.find(g=>g.id===id) || BG_MARKED_CACHE[id] || null;
-  const section = (k, label) => {
-    const games = Object.keys(marks).filter(id => marks[id]===k).map(shelfGame).filter(Boolean);
-    if(!games.length) return '';
-    return `<h3 style="margin-bottom:10px">${esc(label)}</h3>
-      <div class="bg-list" style="margin-bottom:22px">${games.map(bgCardHTML).join('')}</div>`;
-  };
-  el.innerHTML = BG_MARK_FILTERS.map(m => section(m.k, m.label)).join('');
 }
 function drawBgFilters(){
   const el = $('#bg-filters'); if(!el) return;
@@ -5064,7 +5177,7 @@ function loadGameSearch(q){
       return r.json();
     })
     .then(data => {
-      if(CUR_GAMES_TAB!=='psn' || !$('#wl-grid')) return;   // moved on while it was in flight
+      if(CUR_GAMES_TAB!=='ps5' || !$('#wl-grid')) return;   // moved on while it was in flight
       WL_LAST_GAMES = data.games||[];
       const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
       $('#wl-grid').innerHTML = games.length
@@ -5072,7 +5185,7 @@ function loadGameSearch(q){
         : `<div class="empty">${q?`No games match "${esc(q)}"`:'Nothing new to show right now.'}</div>`;
     })
     .catch(e => {
-      if(CUR_GAMES_TAB!=='psn' || !$('#wl-grid')) return;
+      if(CUR_GAMES_TAB!=='ps5' || !$('#wl-grid')) return;
       $('#wl-grid').innerHTML = `<div class="empty">Couldn't load games.<br>${esc(e.message||'')}
         <div class="btn-row" style="justify-content:center; margin-top:14px">
           <button class="btn sm" onclick="App.wlReload()">Try Again</button>
@@ -8420,9 +8533,12 @@ App.dashSongRange = k => {
   const gigsSlot = $('#dash-gigs-slot'); if(gigsSlot) gigsSlot.innerHTML = dashGigsStatWidgetHTML();
   const placesSlot = $('#dash-places-slot'); if(placesSlot) placesSlot.innerHTML = dashPlacesBeenWidgetHTML();
   const filmsSlot = $('#dash-films-slot'); if(filmsSlot) filmsSlot.innerHTML = dashFilmsSeenWidgetHTML();
+  const theatreSlot = $('#dash-theatre-stat-slot'); if(theatreSlot) theatreSlot.innerHTML = dashTheatreSeenWidgetHTML();
   balanceDashboardColumns();
 };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
+App.goBoardGamesWant = () => { CUR_GAMES_TAB = 'board'; BG_SUBTAB = 'want'; location.hash = '#/games'; };
+App.goBoardGamesPlayed = () => { CUR_GAMES_TAB = 'board'; BG_SUBTAB = 'played'; location.hash = '#/games'; };
 /* switching category clears whatever's typed in the search box and goes back to the plain hot
    list - a leftover search term silently narrowing a new category felt like it was missing
    games */
@@ -8439,13 +8555,15 @@ App.bgSearchInput = () => {
   clearTimeout(BG_SEARCH_TIMER);
   BG_SEARCH_TIMER = setTimeout(App.bgReload, 400);
 };
+App.bgSubtab = k => { BG_SUBTAB = k; renderBoardGames(); };
 App.bgMark = (id, k) => {
   const marks = bgMarks();
   if(marks[id]===k) delete marks[id]; else marks[id] = k;   // tapping the same one again clears it
   saveBgMarks(marks);
   const g = BG_GAMES.find(x=>x.id===id); if(g) BG_MARKED_CACHE[id] = g;
-  drawBgGrid();
-  drawBgShelf();
+  // Want to Play/Played are their own pages now, not a filter chip alongside the search grid -
+  // whichever one is showing is the one that needs to reflect the new mark
+  if(BG_SUBTAB==='search') drawBgGrid(); else drawBgShelf();
 };
 App.wlReload = () => loadGameSearch((($('#wl-search')||{}).value||'').trim());
 /* each search is a real RAWG call, so wait for a pause in typing rather than firing per key */
