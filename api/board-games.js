@@ -30,8 +30,12 @@ const BGG = 'https://boardgamegeek.com/xmlapi2';
    at module load, the same way env vars are read elsewhere in this app, since Vercel can swap
    the value without a full redeploy. */
 function bggHeaders(){
-  const token = process.env.BGG_API_TOKEN;
+  let token = process.env.BGG_API_TOKEN;
   if(!token) throw Object.assign(new Error("Board Games isn't configured - add BGG_API_TOKEN as a Vercel environment variable"), {status:503});
+  /* defends against the token having been pasted into Vercel's env var field with a leading
+     "Bearer " (giving "Bearer Bearer xxx" below, which BGG rejects as a 400 rather than a 401)
+     or with wrapping quotes/whitespace picked up in the copy-paste */
+  token = token.trim().replace(/^["']|["']$/g,'').replace(/^Bearer\s+/i,'');
   return {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Accept': 'text/xml,application/xml,text/html,*/*',
@@ -79,15 +83,21 @@ function itemId(block){
 }
 const round2 = n => n==null ? null : Math.round(n*100)/100;
 
+/* wraps a failed BGG response with a snippet of its body - a bare status code (e.g. "400")
+   isn't enough to tell a bad request shape apart from a bad token apart from a BGG-side outage */
+async function bggError(res){
+  const body = (await res.text().catch(()=>'')).slice(0,200).replace(/\s+/g,' ').trim();
+  return new Error('BoardGameGeek returned '+res.status+(body ? ' ('+body+')' : ''));
+}
 async function bggIds(path){
   const res = await fetch(BGG+path, {headers: bggHeaders()});
-  if(!res.ok) throw new Error('BoardGameGeek returned '+res.status);
+  if(!res.ok) throw await bggError(res);
   return itemBlocks(await res.text()).map(itemId).filter(Boolean).slice(0, BGG_MAX);
 }
 async function bggDetails(ids){
   if(!ids.length) return [];
   const res = await fetch(`${BGG}/thing?id=${ids.join(',')}&stats=1`, {headers: bggHeaders()});
-  if(!res.ok) throw new Error('BoardGameGeek returned '+res.status);
+  if(!res.ok) throw await bggError(res);
   const byId = {};
   itemBlocks(await res.text()).forEach(b => {
     const id = itemId(b);
