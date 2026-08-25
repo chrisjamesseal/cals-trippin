@@ -129,6 +129,15 @@ a{color:var(--brand-dark);}
 .iconbtn.edit:hover{color:var(--brand-dark); background:var(--brand-ghost);}
 .iconbtn.del{color:#C0392B;}
 .iconbtn.del:hover{color:#A93226; background:#FCEBE9;}
+/* Watchlist's pin-to-top star, same fixed square as .edit/.del above so all three sit evenly
+   in the same button row regardless of which are showing */
+.iconbtn.pin{
+  width:36px; height:36px; padding:0; flex-shrink:0; background:none;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.iconbtn.pin .icon{font-size:1.05rem;}
+.iconbtn.pin:hover{color:var(--brand-dark); background:var(--brand-ghost);}
+.iconbtn.pin.on{color:var(--brand); background:var(--brand-ghost);}
 .iconbtn:disabled{opacity:.3; cursor:default;}
 .iconbtn:disabled:hover{background:none; color:var(--muted);}
 .icon{line-height:1;}
@@ -325,6 +334,10 @@ a{color:var(--brand-dark);}
 
 /* ---------- films (Letterboxd-style diary) - a poster shelf, not a list ---------- */
 .film-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(100px,1fr)); gap:12px; align-items:start;}
+/* Watchlist's own cards and the Find a Film search results both carry an action button whose
+   label needs more room than a 3-up grid leaves it (see fwMineCardHTML/fwResultCardHTML) - the
+   Diary's plain poster grid keeps the tighter default above */
+.film-grid.film-grid-2col{grid-template-columns:repeat(2,1fr);}
 .film-card{display:block; width:100%; text-align:left; cursor:pointer; border:none; background:none;
   padding:0; font:inherit; color:inherit;}
 /* Watchlist's own cards are a plain div, not the button Diary's are - the poster+title portion
@@ -1419,8 +1432,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.41';
+const APP_VERSION = '2.29.42';
 const CHANGELOG = [
+  {version:'2.29.42', notes:[
+    "Films: removed the \"Search your films\"/\"Search your watchlist\" boxes from Diary and Watchlist - use + Add Film to find a film in either.",
+    "Films: the Find a Film search results are 2 columns now instead of 3, so the Log/Add buttons have more room.",
+    "Watchlist: now sorted by what's currently streaming (newest-added first), then everything else (also newest-added first). Also 2 columns now, so the button reads \"Mark as Watched\", and there's a new star to pin a film to the very top, overriding the rest of the sort.",
+  ]},
   {version:'2.29.41', notes:[
     "Countries map: Been is green and Going is orange now (Want to Go unchanged); removed the map data credit text at the bottom.",
     "Watch Next: NOW's logo now shows its plain mark instead of the Cinema-branded one.",
@@ -5793,11 +5811,7 @@ function renderFilms(){
 }
 function renderFilmsDiary(){
   const body = $('#films-body'); if(!body) return;
-  body.innerHTML = `
-    <div class="games-search">
-      <input type="text" id="films-diary-filter" placeholder="Search your films…" oninput="drawFilmsGrid()">
-    </div>
-    <div id="films-grid"></div>`;
+  body.innerHTML = `<div id="films-grid"></div>`;
   attachFieldClears(body);
   drawFilmsGrid();
   loadFilmsCloud(cloud => {
@@ -5857,9 +5871,7 @@ function drawFilmsGrid(){
     grid.innerHTML = `<div class="empty">No films logged yet.<br>Tap + Add Film, or connect Letterboxd above.</div>`;
     return;
   }
-  const q = (($('#films-diary-filter')||{}).value||'').trim().toLowerCase();
-  const byQuery = q ? ordered.filter(o=>(o.f.title||'').toLowerCase().includes(q)) : ordered;
-  const filtered = CUR_FILMS_GENRE ? byQuery.filter(o=>(o.f.genres||[]).includes(CUR_FILMS_GENRE)) : byQuery;
+  const filtered = CUR_FILMS_GENRE ? ordered.filter(o=>(o.f.genres||[]).includes(CUR_FILMS_GENRE)) : ordered;
   grid.innerHTML = filmsGenreSelectHTML('films-genre-select', DB.films, CUR_FILMS_GENRE, 'App.filmsGenreFilter')
     + (filtered.length ? `<div class="film-grid">${filtered.map(o=>filmCardHTML(o.f,o.i)).join('')}</div>` : `<div class="empty">No films match.</div>`);
 }
@@ -6261,11 +6273,7 @@ let FW_SEARCH_TIMER = null;
 let FW_LAST_RESULTS = [];
 function renderFilmsWatchlist(){
   const body = $('#films-body'); if(!body) return;
-  body.innerHTML = `
-    <div class="games-search">
-      <input type="text" id="fw-filter" placeholder="Search your watchlist…" oninput="drawFwMine()">
-    </div>
-    <div id="fw-my"></div>`;
+  body.innerHTML = `<div id="fw-my"></div>`;
   attachFieldClears(body);
   drawFwMine();
   loadFilmsWatchlistCloud(cloud => {
@@ -6279,18 +6287,49 @@ function renderFilmsWatchlist(){
     });
   });
 }
+/* every drawFwMine() call gets its own token; the streaming lookups it kicks off are async and
+   can easily still be in flight when a newer call (genre filter changed, a film added/removed)
+   replaces the grid - only the most recent call's lookups are allowed to touch the DOM when
+   they land */
+let FW_MINE_TOKEN = null;
 function drawFwMine(){
   const el = $('#fw-my'); if(!el) return;
   const mine = DB.filmsWatchlist||[];
   if(!mine.length){ el.innerHTML = `<div class="empty">Nothing on your watchlist yet - tap + Add Film above to add one.</div>`; return; }
-  const q = (($('#fw-filter')||{}).value||'').trim().toLowerCase();
-  const byQuery = q ? mine.filter(f=>(f.title||'').toLowerCase().includes(q)) : mine;
-  const filtered = CUR_FW_GENRE ? byQuery.filter(f=>(f.genres||[]).includes(CUR_FW_GENRE)) : byQuery;
+  const filtered = CUR_FW_GENRE ? mine.filter(f=>(f.genres||[]).includes(CUR_FW_GENRE)) : mine;
   el.innerHTML = filmsGenreSelectHTML('fw-genre-select', mine, CUR_FW_GENRE, 'App.fwGenreFilter')
     + (filtered.length
-      ? `<div class="film-grid" style="margin-bottom:20px">${filtered.map(f=>fwMineCardHTML(f)).join('')}</div>`
+      ? `<div class="film-grid film-grid-2col" id="fw-mine-grid" style="margin-bottom:20px">${filtered.map(f=>fwMineCardHTML(f)).join('')}</div>`
       : `<div class="empty" style="margin-bottom:20px">No films match.</div>`);
   loadFwProviders(filtered);
+  reorderFwByAvailability(filtered);
+}
+/* pinned (the star) always wins regardless of anything else; otherwise streaming-available
+   films come first, then everything else - both groups keep the list's own relative order,
+   which is already newest-added-first (App.fwToggle unshifts a new add to the front) */
+function fwOrdered(list, availSet){
+  const pinned = list.filter(f=>f.pinned);
+  const rest = list.filter(f=>!f.pinned);
+  const avail = rest.filter(f=>availSet.has(f.id));
+  const notAvail = rest.filter(f=>!availSet.has(f.id));
+  return [...pinned, ...avail, ...notAvail];
+}
+/* streaming availability decides sort order, but that's async - each film needs its own
+   provider lookup - so the grid first renders in plain recency order (already the list's
+   natural order) and re-sorts once every lookup is back, rather than jittering as each one
+   trickles in individually the way the provider badges themselves still do (loadFwProviders). */
+function reorderFwByAvailability(list){
+  const token = {}; FW_MINE_TOKEN = token;
+  Promise.all(list.map(f => new Promise(resolve => {
+    fetchFilmProviders(f.title, f.year, data => resolve(filterProvidersToOwned(data.providers||[]).length > 0));
+  }))).then(flags => {
+    if(FW_MINE_TOKEN !== token) return;   // a newer draw already replaced this grid
+    const grid = $('#fw-mine-grid'); if(!grid) return;
+    const availSet = new Set(list.filter((f,i)=>flags[i]).map(f=>f.id));
+    const ordered = fwOrdered(list, availSet);
+    grid.innerHTML = ordered.map(f=>fwMineCardHTML(f)).join('');
+    loadFwProviders(ordered);   // re-fill badges for the freshly re-rendered cards
+  });
 }
 /* shared by every "open this film on Letterboxd" link app-wide (Watchlist cards, and the Home
    dashboard's Last Seen/Watchlist-pick widgets) - a Diary entry synced from Letterboxd or a
@@ -6387,7 +6426,9 @@ function fwMineCardHTML(f){
       </a>
       <div data-fw-providers="${esc(f.id)}"></div>
       <div class="btn-row fw-actions">
-        <button type="button" class="btn sm" onclick="App.fwMarkWatched('${esc(f.id)}')">Watched</button>
+        <button type="button" class="btn sm" onclick="App.fwMarkWatched('${esc(f.id)}')">Mark as Watched</button>
+        <button type="button" class="iconbtn pin${f.pinned?' on':''}" aria-label="${f.pinned?'Unpin':'Pin to top'}" aria-pressed="${!!f.pinned}"
+          title="${f.pinned?'Unpin':'Pin to top'}" onclick="App.fwPin('${esc(f.id)}')">${fa('star')}</button>
         <button type="button" class="iconbtn del" aria-label="Remove from watchlist" title="Remove" onclick="App.fwRemove('${esc(f.id)}')">${ICONS.trash}</button>
       </div>
     </div>`;
@@ -6451,7 +6492,7 @@ function fwSearch(q){
       const cur = $('#fw-results'); if(!cur) return;
       FW_LAST_RESULTS = data.films||[];
       cur.innerHTML = FW_LAST_RESULTS.length
-        ? `<div class="film-grid">${FW_LAST_RESULTS.map(f=>fwResultCardHTML(f)).join('')}</div>`
+        ? `<div class="film-grid film-grid-2col">${FW_LAST_RESULTS.map(f=>fwResultCardHTML(f)).join('')}</div>`
         : `<div class="empty">No films match "${esc(q)}"</div>`;
     })
     .catch(e => {
@@ -8484,7 +8525,7 @@ App.fwToggle = id => {
   saveFilmsWatchlist();
   drawFwMine();
   const results = $('#fw-results');
-  if(results && FW_LAST_RESULTS.length) results.innerHTML = `<div class="film-grid">${FW_LAST_RESULTS.map(f=>fwResultCardHTML(f)).join('')}</div>`;
+  if(results && FW_LAST_RESULTS.length) results.innerHTML = `<div class="film-grid film-grid-2col">${FW_LAST_RESULTS.map(f=>fwResultCardHTML(f)).join('')}</div>`;
 };
 App.fwMarkWatched = id => {
   const f = (DB.filmsWatchlist||[]).find(x=>x.id===id); if(!f) return;
@@ -8492,6 +8533,14 @@ App.fwMarkWatched = id => {
 };
 App.fwRemove = id => {
   DB.filmsWatchlist = (DB.filmsWatchlist||[]).filter(f=>f.id!==id);
+  saveFilmsWatchlist();
+  drawFwMine();
+};
+/* the one manual override on top of the automatic streaming-availability sort (see fwOrdered) -
+   a plain per-film flip, same as every other pin/mark in this app */
+App.fwPin = id => {
+  const f = (DB.filmsWatchlist||[]).find(x=>x.id===id); if(!f) return;
+  f.pinned = !f.pinned;
   saveFilmsWatchlist();
   drawFwMine();
 };
