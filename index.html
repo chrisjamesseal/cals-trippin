@@ -1408,8 +1408,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.35';
+const APP_VERSION = '2.29.36';
 const CHANGELOG = [
+  {version:'2.29.36', notes:[
+    "Home Dashboard: the Theatre widget now says \"See Next\" instead of \"Watch Next\".",
+    "Home Dashboard: Last Seen links to the film's own Letterboxd page again, not its Reviews sub-page.",
+  ]},
   {version:'2.29.35', notes:[
     "Games: Board Games is back as its own tab now that BGG's app token is set up.",
   ]},
@@ -3771,7 +3775,7 @@ function dashLastSeenFilmWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🎬</div>
       <div class="dash-item-title">No Films Yet</div>
     </div>`;
-  const url = filmLetterboxdReviewsUrl(f);
+  const url = filmLetterboxdUrl(f);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       <div class="dash-item-row">
@@ -3855,7 +3859,7 @@ function dashTheatreWatchNextWidgetHTML(){
                    : `<div class="dash-item-flags" aria-hidden="true">🎭</div>`}
         <div class="dash-item-row-text">
           <div class="dash-item-title">${esc(t.title||'Untitled')}</div>
-          <div class="dash-item-sub">Watch Next</div>
+          <div class="dash-item-sub">See Next</div>
         </div>
       </div>
     </div>`;
@@ -3975,7 +3979,7 @@ const DASH_WIDGET_DEFS = [
   {key:'game', label:'Currently Playing'},
   {key:'song', label:'Most Played'},
   {key:'watchnext', label:'Watch Next'},
-  {key:'theatrenext', label:'Theatre Watch Next'},
+  {key:'theatrenext', label:'Theatre See Next'},
   {key:'lastseen', label:'Last Seen'},
   {key:'plants', label:'Plants'},
 ];
@@ -6053,15 +6057,6 @@ function drawFwMine(){
    from it, and the best this app can do without its own Letterboxd film-id lookup */
 function filmLetterboxdUrl(f){
   return f.link || ('https://letterboxd.com/search/films/'+encodeURIComponent(f.title||'')+'/');
-}
-/* Last Seen's own link - straight to that film's Reviews tab rather than its main page, since
-   "what did people make of the thing I just watched" is exactly what you tap this for. Only
-   possible with the exact film URI (see filmLetterboxdUrl's own comment on why a hand-logged
-   film doesn't have one) - a search-results URL has no reviews page to append to, so that case
-   falls back to the plain film/search link instead. No app-specific scheme needed: Letterboxd's
-   own https links already open straight into the Letterboxd app when it's installed. */
-function filmLetterboxdReviewsUrl(f){
-  return f.link ? f.link.replace(/\/+$/,'')+'/reviews/' : filmLetterboxdUrl(f);
 }
 /* UK streaming availability (Watch Next widget, Watchlist cards) - via api/film-providers.js,
    a Vercel function alongside this app rather than the psn-proxy Worker (same TMDB_API_KEY the
