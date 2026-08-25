@@ -30,7 +30,6 @@ function simplify(game){
     image: game.background_image || '',
     released: game.released || '',
     tba: !!game.tba,
-    platforms: (game.platforms||[]).map(p => p.platform && p.platform.name).filter(Boolean),
     rating: game.rating || null,
   };
 }
@@ -40,9 +39,10 @@ async function fetchGames(q){
   const url = new URL(RAWG);
   url.searchParams.set('key', key);
   url.searchParams.set('page_size', String(PAGE_SIZE));
-  // this app only tracks a PlayStation library, so upcoming/search results stay PlayStation-only
-  // too - RAWG's parent platform id 2 covers the whole PS1-PS5 family in one filter
-  url.searchParams.set('parent_platforms', '2');
+  // this app only tracks a PS5 library, so upcoming/search results stay PS5-only too - RAWG's
+  // platform id 187 is PS5 specifically (parent_platforms=2 would pull in the whole PS1-PS5
+  // family, PC/Xbox cross-releases included, neither of which the Add Game modal shows)
+  url.searchParams.set('platforms', '187');
   if(q){
     // a plain name search, newest/most relevant first - the "gta vi" case
     url.searchParams.set('search', q);

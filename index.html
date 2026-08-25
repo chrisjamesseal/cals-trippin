@@ -203,6 +203,10 @@ a{color:var(--brand-dark);}
 .game-card.hidden-game{opacity:.45; filter:grayscale(.5);}
 .game-cover-wrap{position:relative; width:100%; aspect-ratio:1; border-radius:var(--radius); overflow:hidden;
   border:1px solid var(--line); background:var(--paper); box-shadow:var(--shadow);}
+/* PS4 trophy icons come back from Sony's own API as portrait box art rather than PS5's square
+   trophy-set icon, so forcing them into the square wrap above crops them oddly - see
+   psnTitleOnTab's own platform regex, reused here per-card in gameCardHTML */
+.game-cover-wrap.portrait{aspect-ratio:2/3;}
 .game-cover{display:block; width:100%; height:100%; object-fit:cover;}
 .game-cover-fallback{display:flex; align-items:center; justify-content:center; width:100%; height:100%;
   color:var(--muted); font-size:2.2rem; background:var(--bg);}
@@ -309,7 +313,10 @@ a{color:var(--brand-dark);}
 .bg-highlights li{margin-top:3px;}
 .bg-actions{margin-top:12px; flex-wrap:nowrap;}
 .bg-mark{flex:1; min-width:0; gap:5px;}
-.bg-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
+/* a solid fill rather than the light tint most other ".on" toggles use - Played's own ✅ emoji
+   already reads as "done" even unmarked, so a subtle background shift was easy to miss; this
+   reads as a definite state change at a glance */
+.bg-mark.on{background:var(--brand); border-color:var(--brand); color:#fff;}
 
 /* ---------- wishlist (new & upcoming video games) - same shape as board game cards ---------- */
 .wl-list{display:flex; flex-direction:column; gap:12px;}
@@ -500,8 +507,6 @@ a{color:var(--brand-dark);}
 .plants-stat-icon{font-size:1.3rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plants-stat-text{font-size:.82rem; font-weight:700; color:var(--ink);}
-.plants-sort-row{margin-bottom:14px;}
-.plants-sort-row select{width:auto; padding:8px 30px 8px 12px; font-size:.8rem;}
 /* one card per row (plantCardHTML) rather than a multi-column grid, now that each one carries
    enough (water status, day/sprout estimate, the Watered button, a few care tips) that most
    visits shouldn't need a tap into the detail page at all - a narrow grid column had no room for
@@ -872,9 +877,12 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .combo-opt:hover,.combo-opt.active{background:var(--brand-ghost); color:var(--brand-dark);}
 
 .field-clearwrap{position:relative; display:block;}
-.field-clearwrap input,.field-clearwrap textarea{padding-right:34px;}
-.field-clear{position:absolute; right:4px; top:8px; display:none; align-items:center; justify-content:center;
-  width:26px; height:26px; border:none; background:none; color:var(--muted); cursor:pointer; border-radius:50%; padding:0; font-size:.8rem;}
+.field-clearwrap input,.field-clearwrap textarea{padding-right:38px;}
+/* centred on the input's own height (rather than a fixed top offset) so the tap target stays
+   accurate regardless of the field's padding/font-size, and sized to a real touch target -
+   the icon itself stays the same visual size via font-size, just more room around it to tap */
+.field-clear{position:absolute; right:0; top:50%; transform:translateY(-50%); display:none; align-items:center; justify-content:center;
+  width:40px; height:40px; border:none; background:none; color:var(--muted); cursor:pointer; border-radius:50%; padding:0; font-size:.8rem;}
 .field-clear:hover{background:var(--brand-ghost); color:var(--brand-dark);}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
 .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
@@ -1432,8 +1440,16 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.42';
+const APP_VERSION = '2.29.43';
 const CHANGELOG = [
+  {version:'2.29.43', notes:[
+    "Games: PS4 covers use a portrait box-art ratio now instead of being forced square (PS5's own trophy icons are already square, so those are unaffected).",
+    "Games: \"Find Something New\" is a + Add Game button next to the title now instead of a permanent section under your library - opens straight to a PS5-only search (no more PC/Xbox platform text, since everything in it already is one).",
+    "Board Games: typing a search now clears any category/players/playtime filter still set, instead of it silently hiding the exact game you're searching for.",
+    "Board Games: fixed a real bug behind reports that tapping Played didn't seem to register - blurring the search box (which tapping a result button does) was reflowing the whole page mid-tap, so the tap's release could land somewhere else entirely. Also made the Played/Want to Play \"on\" state a solid fill so it's unmistakable either way.",
+    "Made the × clear button on every search box a bigger, easier tap target.",
+    "Plants: removed the sort dropdown above the grid.",
+  ]},
   {version:'2.29.42', notes:[
     "Films: removed the \"Search your films\"/\"Search your watchlist\" boxes from Diary and Watchlist - use + Add Film to find a film in either.",
     "Films: the Find a Film search results are 2 columns now instead of 3, so the Log/Add buttons have more room.",
@@ -3452,10 +3468,24 @@ function renderPinGate(){
 /* keeps the title clear of the status bar only while the keyboard is actually up - see the
    .wrap comment in the stylesheet for why this needs a live toggle rather than a permanent
    floor. Delegated on document so it covers inputs that don't exist yet at load time. */
-document.addEventListener('focusin', e => { if(e.target.matches('input,textarea')) document.body.classList.add('kb-open'); });
+let KB_OPEN_TIMER = null;
+document.addEventListener('focusin', e => {
+  if(!e.target.matches('input,textarea')) return;
+  clearTimeout(KB_OPEN_TIMER);
+  document.body.classList.add('kb-open');
+});
+/* deferred rather than instant - removing kb-open synchronously reflows the page (the tab bar
+   reappears, .wrap's top padding shrinks), and tapping a button right after typing blurs the
+   field on mousedown, before that same tap's mouseup lands. If the reflow happens in that gap,
+   the content the tap was aiming for has physically moved by mouseup, so the click can land on
+   whatever the shifted layout now has at that screen point instead - a board game's Played
+   button, most reported, but really any tap right after leaving a text field. A short delay
+   (cancelled by a new focusin, so tabbing between two fields doesn't flash the bar) lets that
+   click finish landing on its real target first. */
 document.addEventListener('focusout', e => {
   if(!e.target.matches('input,textarea')) return;
-  document.body.classList.remove('kb-open');
+  clearTimeout(KB_OPEN_TIMER);
+  KB_OPEN_TIMER = setTimeout(() => document.body.classList.remove('kb-open'), 250);
 });
 /* ================= router ================= */
 window.addEventListener('hashchange', route);
@@ -4625,7 +4655,10 @@ function renderGames(){
   if((CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) || CUR_GAMES_TAB==='psn' || CUR_GAMES_TAB==='wishlist') CUR_GAMES_TAB = 'ps5';
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
   $('#app').innerHTML = `
-    <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">Games</span></div></div>
+    <div class="crumb"><div class="crumb-titlerow">
+      <span class="crumb-here">Games</span>
+      ${CUR_GAMES_TAB!=='board'?`<button class="btn sm primary" onclick="App.wlAddOpen()">+ Add Game</button>`:''}
+    </div></div>
     <div class="subtabs">${tab('ps5','🎮 PS5')}${tab('ps4','🎮 PS4')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
@@ -4684,23 +4717,13 @@ function renderGamesConnect(body){
 function renderGamesList(titles){
   const body = $('#games-body'); if(!body) return;
   PSN_TITLES = titles;
-  // Play List/Find Something New only make sense once, not duplicated on both console tabs -
-  // it lives on PS5 (this app's primary console) rather than being platform-specific itself
-  const onPs5Tab = CUR_GAMES_TAB==='ps5';
   body.innerHTML = `
     <div class="games-search">
       <input type="text" id="games-search" placeholder="Search games…" oninput="drawGamesList()">
     </div>
-    <div id="games-grid"></div>
-    ${onPs5Tab ? `
-    <h3 style="margin:24px 0 10px">Find Something New</h3>
-    <div class="games-search">
-      <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
-    </div>
-    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>` : ''}`;
+    <div id="games-grid"></div>`;
   attachFieldClears(body);
   drawGamesList();
-  if(onPs5Tab) loadGameSearch('');
 }
 /* re-filters/re-sorts the already-fetched list; leaves the search box and its cursor alone,
    same pattern as Places' drawPlacesGrid(). Play List games not yet owned sit at the very top
@@ -4751,10 +4774,11 @@ function gameCardHTML(g, isHidden){
   const pct = Math.max(0, Math.min(100, g.progress||0));
   const rag = ragClass(pct);
   const href = '#/game/'+encodeURIComponent(g.id);
+  const portrait = !/ps5/i.test(g.platform||'');
   return `
     <div class="game-card${isHidden?' hidden-game':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
-      <div class="game-cover-wrap">
+      <div class="game-cover-wrap${portrait?' portrait':''}">
         ${g.iconUrl ? `<img class="game-cover" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                      : `<span class="game-cover game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
       </div>
@@ -4767,9 +4791,9 @@ function gameCardHTML(g, isHidden){
 }
 /* a Wishlist game not yet in the real PSN library - same card shape as an owned one so the grid
    reads as one continuous thing, just faded and dash-bordered to mark it as "not owned yet" -
-   no console/platform text (this app only ever tracks PlayStation titles now, see
-   api/game-search.js's parent_platforms filter, so it'd never say anything else), and the
-   release date stands in for the progress bar/% complete an unplayed game doesn't have. Sorted
+   no console/platform text (this app only ever tracks PS5 titles now, see api/game-search.js's
+   platforms filter, so it'd never say anything else), and the release date stands in for the
+   progress bar/% complete an unplayed game doesn't have. Sorted
    newest-release-first and placed ahead of the owned library (see drawGamesList) rather than a
    tab switch away. The dismiss (×) button is "not interested" - fades the card and sinks it to
    the very bottom of the grid, same idea as psnToggleHiddenImpl for owned games; tapping it
@@ -4978,10 +5002,15 @@ function renderBgSearch(){
   drawBgFilters();
   loadBoardGames('');
 }
-/* one network call per distinct search; every filter after that works on the held list */
+/* one network call per distinct search; every filter after that works on the held list. Leaves
+   whatever's already showing in place while a reload is in flight rather than blanking the grid
+   to a loading placeholder - typing a search re-triggers this on a debounce, and wiping the
+   cards mid-fetch meant a tap on a mark button landing in that window (a real, easy-to-hit
+   window against BGG's own network latency) hit nothing, since the button it was aiming for
+   had just been torn out from under it. */
 function loadBoardGames(q){
   const grid = $('#bg-grid'); if(!grid) return;
-  grid.innerHTML = `<div class="empty">Loading board games…</div>`;
+  if(!BG_GAMES.length) grid.innerHTML = `<div class="empty">Loading board games…</div>`;
   /* same-origin Vercel function (api/board-games.js), not the Cloudflare Worker the rest of
      this proxy's endpoints go through - see that file for why */
   fetch('/api/board-games' + (q ? '?q='+encodeURIComponent(q) : ''))
@@ -5179,7 +5208,6 @@ function saveWishlist(list){ try{ localStorage.setItem(WL_KEY, JSON.stringify(li
 function isWishlisted(id){ return wishlistGames().some(g=>g.id===id); }
 function wlDismissed(){ try{ return new Set(JSON.parse(localStorage.getItem(WL_DISMISSED_KEY)||'[]')); }catch(e){ return new Set(); } }
 function saveWlDismissed(set){ try{ localStorage.setItem(WL_DISMISSED_KEY, JSON.stringify([...set])); }catch(e){} }
-function wlPlatformsLabel(g){ return (g.platforms||[]).slice(0,3).join(' · '); }
 function wlReleaseLabel(g){
   if(g.tba || !g.released) return 'To be announced';
   return g.released > todayStr() ? 'Releases '+fmtDate(g.released) : fmtDate(g.released);
@@ -5191,10 +5219,15 @@ function wishlistSorted(){
   return wishlistGames().slice().sort((a,b) => wlReleaseSortKey(b) - wlReleaseSortKey(a));
 }
 /* one network call per distinct search; the RAWG function itself decides what "coming up"
-   means when there's no query - see api/game-search.js */
+   means when there's no query - see api/game-search.js. Lives in the + Add Game modal now
+   (see App.wlAddOpen), not a console-tab-specific section, so the guard is just "the modal's
+   still open" rather than which of the PS5/PS4 tabs is showing underneath it. Leaves whatever's
+   already showing in place while a reload is in flight instead of blanking to a loading message
+   - see loadBoardGames' own comment for why (a tap landing in that window would otherwise hit
+   nothing, since the button it was aiming for had just been torn out from under it). */
 function loadGameSearch(q){
   const grid = $('#wl-grid'); if(!grid) return;
-  grid.innerHTML = `<div class="empty">Loading new &amp; upcoming games…</div>`;
+  if(!WL_LAST_GAMES.length) grid.innerHTML = `<div class="empty">Loading new &amp; upcoming games…</div>`;
   fetch('/api/game-search' + (q ? '?q='+encodeURIComponent(q) : ''))
     .then(async r => {
       if(!r.ok){
@@ -5204,7 +5237,7 @@ function loadGameSearch(q){
       return r.json();
     })
     .then(data => {
-      if(CUR_GAMES_TAB!=='ps5' || !$('#wl-grid')) return;   // moved on while it was in flight
+      if(!$('#wl-grid')) return;   // modal closed while it was in flight
       WL_LAST_GAMES = data.games||[];
       const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
       $('#wl-grid').innerHTML = games.length
@@ -5212,19 +5245,21 @@ function loadGameSearch(q){
         : `<div class="empty">${q?`No games match "${esc(q)}"`:'Nothing new to show right now.'}</div>`;
     })
     .catch(e => {
-      if(CUR_GAMES_TAB!=='ps5' || !$('#wl-grid')) return;
+      if(!$('#wl-grid')) return;
       $('#wl-grid').innerHTML = `<div class="empty">Couldn't load games.<br>${esc(e.message||'')}
         <div class="btn-row" style="justify-content:center; margin-top:14px">
           <button class="btn sm" onclick="App.wlReload()">Try Again</button>
         </div></div>`;
     });
 }
-/* the "Find Something New" search/browse grid - a game already on the Play List shows up here
-   too (only when it matches the current search), still marked "On Play List" so tapping again
-   removes it; the Play List itself is just the PlayStation grid now, not a separate list here. */
+/* the + Add Game search/browse grid - a game already on the Play List shows up here too (only
+   when it matches the current search), still marked "On Play List" so tapping again removes
+   it; the Play List itself is just the PlayStation grid now, not a separate list here. No
+   platform text - api/game-search.js's RAWG query is filtered to PS5 alone, so every result
+   here already is one, nothing left to distinguish. */
 function wlCardHTML(g){
   const on = isWishlisted(g.id);
-  const facts = [wlPlatformsLabel(g), wlReleaseLabel(g)].filter(Boolean).join(' · ');
+  const facts = wlReleaseLabel(g);
   return `
     <div class="wl-card${on?' wl-marked':''}">
       <div class="wl-top">
@@ -7476,43 +7511,16 @@ function plantStagePickerHTML(p){
       onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${s.k}')">
       ${s.emoji?`<span aria-hidden="true">${s.emoji}</span> `:''}${esc(s.label)}</button>`).join('')}</div>`;
 }
-const PLANTS_SORT_OPTIONS = [
-  ['attention','Needs Attention'],
-  ['watered','Recently Watered'],
-  ['name','Plant Name'],
-  ['sown','Date Sown'],
-];
-let CUR_PLANTS_SORT = 'attention';
-/* the default (and only) ordering used to be "Needs Attention" - overdue-watering plants float
-   to the top (the thing most worth noticing at a glance), harvested ones sink to the bottom
-   (done, least worth the eye), everything else by name. Now one of four, picked via the sort
-   select above the grid (see plantsSortSelectHTML/App.plantsSortChange). */
+/* overdue-watering plants float to the top (the thing most worth noticing at a glance),
+   harvested ones sink to the bottom (done, least worth the eye), everything else by name */
 function plantsSorted(){
   const list = [...(DB.plants||[])];
-  if(CUR_PLANTS_SORT==='name') return list.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-  if(CUR_PLANTS_SORT==='watered') return list.sort((a,b) => {
-    const ta = plantLastWateredTs(a), tb = plantLastWateredTs(b);
-    if(!ta && !tb) return 0;
-    if(!ta) return 1; if(!tb) return -1;   // never-watered sinks to the bottom either way
-    return new Date(tb) - new Date(ta);   // most recently watered first
-  });
-  if(CUR_PLANTS_SORT==='sown') return list.sort((a,b) => {
-    const da = plantDaysSinceSown(a), db = plantDaysSinceSown(b);
-    if(da===null && db===null) return 0;
-    if(da===null) return 1; if(db===null) return -1;   // never-sown sinks to the bottom
-    return da - db;   // most recently sown (fewest days ago) first
-  });
   return list.sort((a,b) => {
     if((a.stage==='harvested') !== (b.stage==='harvested')) return a.stage==='harvested' ? 1 : -1;
     const oa = plantOverdue(a), ob = plantOverdue(b);
     if(oa !== ob) return oa ? -1 : 1;
     return (a.name||'').localeCompare(b.name||'');
   });
-}
-function plantsSortSelectHTML(){
-  return `<select id="plants-sort-select" aria-label="Sort vegetables" onchange="App.plantsSortChange(this.value)">
-    ${PLANTS_SORT_OPTIONS.map(([k,label]) => `<option value="${k}"${CUR_PLANTS_SORT===k?' selected':''}>${esc(label)}</option>`).join('')}
-  </select>`;
 }
 /* the four counts above the grid - purely informational (no destination to tap through to, it's
    all the exact same list right below), so plain tiles rather than the app's usual clickable
@@ -7632,7 +7640,6 @@ function renderPlants(){
       </div>
     </div>
     <div id="plants-stats"></div>
-    <div class="plants-sort-row">${plantsSortSelectHTML()}</div>
     <div id="plants-grid"></div>`;
   drawPlantsGrid();
   loadPlantsCloud(cloud => {
@@ -8504,7 +8511,6 @@ App.plantDetailTab = k => {
   const contentRoot = $('#plant-detail-content'); if(!contentRoot) return;
   contentRoot.innerHTML = k==='info' ? plantDetailInfoHTML(p) : plantDetailOverviewHTML(p);
 };
-App.plantsSortChange = v => { CUR_PLANTS_SORT = v; drawPlantsGrid(); };
 App.plantPickEmoji = plantPickEmojiImpl;
 App.plantAttachIcon = plantAttachIconImpl;
 App.plantClearIcon = plantClearIconImpl;
@@ -8608,8 +8614,16 @@ App.bgCat = k => {
 };
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
 App.bgReload = () => loadBoardGames((($('#bg-search')||{}).value||'').trim());
-/* each search is a real BGG call, so wait for a pause in typing rather than firing per key */
+/* each search is a real BGG call, so wait for a pause in typing rather than firing per key -
+   the reverse of App.bgCat above: typing a search term clears whatever category/players/time
+   filter was still set, since a leftover narrow filter was hiding the exact game being searched
+   for (e.g. Monopoly filtered out by a stale "Strategy" chip) */
 App.bgSearchInput = () => {
+  const q = (($('#bg-search')||{}).value||'').trim();
+  if(q && (BG_FILTER.cat!=='all' || BG_FILTER.players || BG_FILTER.time)){
+    BG_FILTER = {cat:'all', players:0, time:0};
+    drawBgFilters();
+  }
   clearTimeout(BG_SEARCH_TIMER);
   BG_SEARCH_TIMER = setTimeout(App.bgReload, 400);
 };
@@ -8622,6 +8636,19 @@ App.bgMark = (id, k) => {
   // Want to Play/Played are their own pages now, not a filter chip alongside the search grid -
   // whichever one is showing is the one that needs to reflect the new mark
   if(BG_SUBTAB==='search') drawBgGrid(); else drawBgShelf();
+};
+/* the + Add Game button next to the Games title - what used to be a permanent "Find Something
+   New" section sitting below the whole PS5 library is now a modal you open on demand, reached
+   from either console tab (see renderGames' crumb-titlerow) since it's always the same PS5-only
+   search regardless of which tab you happened to be browsing */
+App.wlAddOpen = () => {
+  openModal(`
+    <h2 style="margin-bottom:14px">Add Game</h2>
+    <div class="games-search">
+      <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
+    </div>
+    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>`);
+  loadGameSearch('');
 };
 App.wlReload = () => loadGameSearch((($('#wl-search')||{}).value||'').trim());
 /* each search is a real RAWG call, so wait for a pause in typing rather than firing per key */
