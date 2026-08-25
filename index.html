@@ -1408,8 +1408,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.34';
+const APP_VERSION = '2.29.35';
 const CHANGELOG = [
+  {version:'2.29.35', notes:[
+    "Games: Board Games is back as its own tab now that BGG's app token is set up.",
+  ]},
   {version:'2.29.34', notes:[
     "Home Dashboard: Last Seen now links straight to that film's Reviews on Letterboxd instead of its main page - opens right in the Letterboxd app if it's installed, same as every other Letterboxd link in the app.",
   ]},
@@ -4476,10 +4479,9 @@ async function psnApi(path){
 /* Games holds two unrelated collections - what you're playing on the PlayStation, and board
    games you might get to the table - so it splits into sub-tabs rather than one mixed list.
    Board Games needs its own BGG_API_TOKEN Vercel environment variable (BoardGameGeek requires
-   a registered app token on every request - see psn-proxy/README.md) that hasn't been set up
-   yet, so its subtab is hidden until it has been - the feature itself is untouched underneath,
-   just not linked to, and flipping this back to true is the whole job of turning it back on. */
-const BOARD_GAMES_ENABLED = false;
+   a registered app token on every request - see psn-proxy/README.md); now that it's set up,
+   the subtab is back. */
+const BOARD_GAMES_ENABLED = true;
 let CUR_GAMES_TAB = 'psn';
 function renderGames(){
   if(CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) CUR_GAMES_TAB = 'psn';
