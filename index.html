@@ -203,10 +203,13 @@ a{color:var(--brand-dark);}
 .game-card.hidden-game{opacity:.45; filter:grayscale(.5);}
 .game-cover-wrap{position:relative; width:100%; aspect-ratio:1; border-radius:var(--radius); overflow:hidden;
   border:1px solid var(--line); background:var(--paper); box-shadow:var(--shadow);}
-/* PS4 trophy icons come back from Sony's own API as portrait box art rather than PS5's square
-   trophy-set icon, so forcing them into the square wrap above crops them oddly - see
-   psnTitleOnTab's own platform regex, reused here per-card in gameCardHTML */
-.game-cover-wrap.portrait{aspect-ratio:2/3;}
+/* PS4 trophy icons come back from Sony's own API as wide (roughly 16:9) banner art rather than
+   PS5's square trophy-set icon, so forcing them into the square wrap above crops the sides off
+   - see psnTitleOnTab's own platform regex, reused here per-card in gameCardHTML. object-fit
+   switches to contain rather than guessing the exact source ratio right and still cropping -
+   letterboxed on the wrap's own paper background beats cutting the art off again. */
+.game-cover-wrap.wide{aspect-ratio:16/9;}
+.game-cover-wrap.wide .game-cover{object-fit:contain;}
 .game-cover{display:block; width:100%; height:100%; object-fit:cover;}
 .game-cover-fallback{display:flex; align-items:center; justify-content:center; width:100%; height:100%;
   color:var(--muted); font-size:2.2rem; background:var(--bg);}
@@ -240,6 +243,10 @@ a{color:var(--brand-dark);}
 .game-detail-icon{width:min(220px,58vw); aspect-ratio:2/3; height:auto; border-radius:var(--radius); object-fit:cover;
   background:var(--bg); margin-bottom:14px; font-size:3rem; box-shadow:var(--shadow);}
 .game-detail-icon.game-cover-fallback{width:min(220px,58vw); height:calc(min(220px,58vw) * 3 / 2);}
+/* PS4 titles get wide (roughly 16:9) trophy art from Sony, not the portrait shape PS5's own
+   detail icon assumes above - same reasoning as .game-cover-wrap.wide in the grid */
+.game-detail-icon.wide{width:min(360px,84vw); aspect-ratio:16/9; object-fit:contain;}
+.game-detail-icon.wide.game-cover-fallback{height:calc(min(360px,84vw) * 9 / 16);}
 .game-detail-name{font-family:var(--font-head); font-weight:700; font-size:1.15rem; overflow-wrap:anywhere;}
 .game-detail-meta{margin:4px 0 14px;}
 .game-detail-card .game-progress{width:100%;}
@@ -1440,8 +1447,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.43';
+const APP_VERSION = '2.29.44';
 const CHANGELOG = [
+  {version:'2.29.44', notes:[
+    "Games: fixed PS4 covers actually being wide (roughly 16:9) trophy art, not the tall portrait shape the last fix assumed - they were getting their sides cropped off either way. Now shown in full, letterboxed rather than cropped, on both the PS4 grid and a game's own detail page. PS5 unaffected.",
+  ]},
   {version:'2.29.43', notes:[
     "Games: PS4 covers use a portrait box-art ratio now instead of being forced square (PS5's own trophy icons are already square, so those are unaffected).",
     "Games: \"Find Something New\" is a + Add Game button next to the title now instead of a permanent section under your library - opens straight to a PS5-only search (no more PC/Xbox platform text, since everything in it already is one).",
@@ -4774,11 +4784,11 @@ function gameCardHTML(g, isHidden){
   const pct = Math.max(0, Math.min(100, g.progress||0));
   const rag = ragClass(pct);
   const href = '#/game/'+encodeURIComponent(g.id);
-  const portrait = !/ps5/i.test(g.platform||'');
+  const wide = !/ps5/i.test(g.platform||'');
   return `
     <div class="game-card${isHidden?' hidden-game':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
-      <div class="game-cover-wrap${portrait?' portrait':''}">
+      <div class="game-cover-wrap${wide?' wide':''}">
         ${g.iconUrl ? `<img class="game-cover" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
                      : `<span class="game-cover game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
       </div>
@@ -4837,6 +4847,7 @@ function renderGameDetail(id){
   const rag = ragClass(pct);
   const e = g.earnedTrophies||{}, d = g.definedTrophies||{};
   const hidden = psnHidden().has(g.id);
+  const wide = !/ps5/i.test(g.platform||'');
   const tierRow = (label, emoji, earnedN, totalN) => `
     <div class="game-tier-row">
       <span class="game-tier-emoji" aria-hidden="true">${emoji}</span>
@@ -4852,8 +4863,8 @@ function renderGameDetail(id){
       </div>
     </div>
     <div class="card game-detail-card">
-      ${g.iconUrl ? `<img class="game-detail-icon" src="${esc(g.iconUrl)}" alt="">`
-                   : `<span class="game-detail-icon game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
+      ${g.iconUrl ? `<img class="game-detail-icon${wide?' wide':''}" src="${esc(g.iconUrl)}" alt="">`
+                   : `<span class="game-detail-icon game-cover-fallback${wide?' wide':''}" aria-hidden="true">${fa('gamepad')}</span>`}
       <div class="game-detail-name">${esc(g.name||'Untitled')}</div>
       <div class="small muted game-detail-meta">${esc(g.platform||'')}${g.lastPlayed?' &middot; Last played '+esc(fmtDate(g.lastPlayed.slice(0,10))):''}</div>
       <div class="game-progress"><div class="game-progress-bar ${rag}" style="width:${pct}%"></div></div>
