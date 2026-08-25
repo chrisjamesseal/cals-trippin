@@ -213,16 +213,16 @@ a{color:var(--brand-dark);}
 .game-cover{display:block; width:100%; height:100%; object-fit:cover;}
 .game-cover-fallback{display:flex; align-items:center; justify-content:center; width:100%; height:100%;
   color:var(--muted); font-size:2.2rem; background:var(--bg);}
-/* a Wishlist card sitting in the owned-games grid (see wishlistGameCardHTML) - faded like a
-   hidden game is, but dashed rather than solid-bordered and never grayscale, since "not owned
-   yet" and "deprioritised" are opposite reasons to look muted, not the same one */
-.game-card-wishlist{opacity:.68;}
+/* a Wishlist card sitting in the owned-games grid (see wishlistGameCardHTML) - dashed rather
+   than solid-bordered, since "not owned yet" is worth a visual cue, but full brightness (not
+   faded like a hidden owned game) since it's still something to act on, not deprioritised */
 .game-card-wishlist .game-cover-wrap{border-style:dashed; border-color:var(--line-strong);}
-/* "not interested" - the round × sitting over a Play List card's cover, see wishlistGameCardHTML */
-.game-wishlist-dismiss{position:absolute; top:5px; right:5px; display:flex; align-items:center; justify-content:center;
+/* removes the game from the Play List outright (after a confirm) - the round × sitting over a
+   Play List card's cover, see wishlistGameCardHTML */
+.game-wishlist-remove{position:absolute; top:5px; right:5px; display:flex; align-items:center; justify-content:center;
   width:24px; height:24px; border:none; border-radius:50%; background:rgba(0,0,0,.45); color:#fff;
   cursor:pointer; padding:0; font-size:.7rem; box-shadow:var(--shadow);}
-.game-wishlist-dismiss:hover{background:rgba(0,0,0,.65);}
+.game-wishlist-remove:hover{background:rgba(0,0,0,.65);}
 .game-info{padding-top:8px; display:flex; flex-direction:column; gap:5px; min-width:0;}
 /* clamped to 2 lines, same reasoning as Films' .film-title - so every card's text block takes
    the same room whichever title lands in it and the covers below stay in a strict grid */
@@ -1447,8 +1447,14 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.44';
+const APP_VERSION = '2.29.45';
 const CHANGELOG = [
+  {version:'2.29.45', notes:[
+    "Films: Watchlist button reads \"Watched\" again instead of \"Mark as Watched\".",
+    "Games: the × on a Play List game removes it from the list outright now (after a confirm), instead of just fading it and sinking it to the bottom - tapping it again used to be the only way to undo something that looked like nothing happened.",
+    "Games: Play List entries in the PlayStation grid are full brightness now instead of faded - still dash-bordered to mark them as not-owned-yet.",
+    "Places: fixed Australia (a trip with only a rough month/year, no confirmed dates) jumping ahead of countries you've actually already been to in the Been list's numbered order - only a trip with real dates counts as \"next up\" there now.",
+  ]},
   {version:'2.29.44', notes:[
     "Games: fixed PS4 covers actually being wide (roughly 16:9) trophy art, not the tall portrait shape the last fix assumed - they were getting their sides cropped off either way. Now shown in full, letterboxed rather than cropped, on both the PS4 grid and a game's own detail page. PS5 unaffected.",
   ]},
@@ -4509,19 +4515,27 @@ function beenOrderedCountries(trips){
 }
 function beenUpcomingCountries(trips){
   // earliest upcoming trip's start date per country, so a country you're going to sooner
-  // (Australia in 2027) sorts ahead of one further out (Japan in 2028), not in whatever order
-  // COUNTRY_CODES happens to list them
-  const startOf = {};
+  // (Australia in 2027) sorts ahead of one further out (Japan in 2028); ties (two countries
+  // on the same trip) fall back to that trip's own country order rather than whatever order
+  // COUNTRY_CODES happens to list them in
+  const startOf = {}, orderOf = {};
   DB.trips.forEach(t=>{
     const start = upcomingStartDate(t);
     if(!start) return;
-    (t.countries||[]).forEach(c=>{ if(!startOf[c] || start < startOf[c]) startOf[c] = start; });
+    (t.countries||[]).forEach((c,idx)=>{
+      if(!startOf[c] || start < startOf[c]){ startOf[c] = start; orderOf[c] = idx; }
+    });
   });
-  return COUNTRY_CODES
+  /* only a trip with a real, confirmed start date counts as "next up" here - a still-rough
+     "Being Planned" trip (see hasRoughWhen/tripStatus) has nothing to actually be soonest
+     about, so its countries shouldn't jump ahead of countries you've genuinely already been
+     to just for existing as an idea. placesStatusOf still counts them as Going everywhere
+     else (the home stat, Country Finder's pill); this is only about leading this one list. */
+  return Object.keys(startOf)
     .filter(code => placesStatusOf(code, trips[code])==='going')
     .map(code => COUNTRIES.find(c=>c.code===code))
     .filter(Boolean)
-    .sort((a,b) => (startOf[a.code]||'9999-99-99').localeCompare(startOf[b.code]||'9999-99-99'));
+    .sort((a,b) => startOf[a.code].localeCompare(startOf[b.code]) || orderOf[a.code]-orderOf[b.code]);
 }
 function drawPlacesGrid(){
   const el = $('#places-grid'); if(!el) return;
@@ -4739,16 +4753,14 @@ function renderGamesList(titles){
    same pattern as Places' drawPlacesGrid(). Play List games not yet owned sit at the very top
    of the PS5 tab, newest release first - this is the only place the Play List lives now, not a
    separate list - then the real PS5/PS4 library (whichever tab is active, see psnTitleOnTab),
-   then hidden/dismissed games faded at the bottom (hidden owned games first, dismissed Play
-   List games last). Matched to what's owned by plain name equality: good enough to skip the
-   obvious case (you bought the thing you wishlisted) without needing a real product-id link
-   between two APIs that don't share one. A false miss just means a harmless duplicate card,
-   never a wrongly-hidden real entry. */
+   then hidden owned games faded at the bottom. Matched to what's owned by plain name equality:
+   good enough to skip the obvious case (you bought the thing you wishlisted) without needing a
+   real product-id link between two APIs that don't share one. A false miss just means a
+   harmless duplicate card, never a wrongly-hidden real entry. */
 function drawGamesList(){
   const grid = $('#games-grid'); if(!grid) return;
   const q = (($('#games-search')||{}).value||'').trim().toLowerCase();
   const hidden = psnHidden();
-  const dismissed = wlDismissed();
   let list = PSN_TITLES.filter(g=>psnTitleOnTab(g, CUR_GAMES_TAB));
   if(q) list = list.filter(g => (g.name||'').toLowerCase().includes(q));
   const ownedNames = new Set(PSN_TITLES.map(g => (g.name||'').trim().toLowerCase()));
@@ -4757,12 +4769,9 @@ function drawGamesList(){
     : [];
   if(q) wishlistExtra = wishlistExtra.filter(w => (w.name||'').toLowerCase().includes(q));
   if(!list.length && !wishlistExtra.length){ grid.innerHTML = `<div class="empty">No games match "${esc(q)}"</div>`; return; }
-  const wlInterested = wishlistExtra.filter(w=>!dismissed.has(w.id));
-  const wlDismissedList = wishlistExtra.filter(w=>dismissed.has(w.id));
   const ordered = list.filter(g=>!hidden.has(g.id)).concat(list.filter(g=>hidden.has(g.id)));
-  const cards = wlInterested.map(w=>wishlistGameCardHTML(w, false))
-    .concat(ordered.map(g=>gameCardHTML(g, hidden.has(g.id))))
-    .concat(wlDismissedList.map(w=>wishlistGameCardHTML(w, true)));
+  const cards = wishlistExtra.map(wishlistGameCardHTML)
+    .concat(ordered.map(g=>gameCardHTML(g, hidden.has(g.id))));
   grid.innerHTML = `<div class="games-cover-grid">${cards.join('')}</div>
     <div class="btn-row" style="justify-content:center; margin-top:6px">
       <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
@@ -4800,22 +4809,22 @@ function gameCardHTML(g, isHidden){
     </div>`;
 }
 /* a Wishlist game not yet in the real PSN library - same card shape as an owned one so the grid
-   reads as one continuous thing, just faded and dash-bordered to mark it as "not owned yet" -
-   no console/platform text (this app only ever tracks PS5 titles now, see api/game-search.js's
-   platforms filter, so it'd never say anything else), and the release date stands in for the
-   progress bar/% complete an unplayed game doesn't have. Sorted
+   reads as one continuous thing, just dash-bordered (not faded - still something to act on) to
+   mark it as "not owned yet" - no console/platform text (this app only ever tracks PS5 titles
+   now, see api/game-search.js's platforms filter, so it'd never say anything else), and the
+   release date stands in for the progress bar/% complete an unplayed game doesn't have. Sorted
    newest-release-first and placed ahead of the owned library (see drawGamesList) rather than a
-   tab switch away. The dismiss (×) button is "not interested" - fades the card and sinks it to
-   the very bottom of the grid, same idea as psnToggleHiddenImpl for owned games; tapping it
-   again brings the card back. */
-function wishlistGameCardHTML(w, dismissed){
+   tab switch away. The × button removes it from the Play List outright (after a confirm, see
+   App.wlRemove) - it used to just fade/sink the card ("not interested") but that read as
+   pointless busywork once tapping it didn't actually take the game off the list. */
+function wishlistGameCardHTML(w){
   return `
-    <div class="game-card game-card-wishlist${dismissed?' hidden-game':''}">
+    <div class="game-card game-card-wishlist">
       <div class="game-cover-wrap">
         ${w.image ? `<img class="game-cover" src="${esc(w.image)}" alt="" loading="lazy">`
                    : `<span class="game-cover game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
-        <button type="button" class="game-wishlist-dismiss" onclick="App.wlDismiss('${esc(w.id)}')"
-          aria-label="${dismissed?'Bring back':'Not interested'} - ${esc(w.name||'this game')}">${fa('xmark')}</button>
+        <button type="button" class="game-wishlist-remove" onclick="App.wlRemove('${esc(w.id)}')"
+          aria-label="Remove ${esc(w.name||'this game')} from Play List">${fa('xmark')}</button>
       </div>
       <div class="game-info">
         <div class="game-name">${esc(w.name||'Untitled')}</div>
@@ -5208,17 +5217,11 @@ function renderBoardGameDetail(id){
    by RAWG (rawg.io), and a locally-saved shelf of what you've marked, the same way Board
    Games' Want to Play/Played marks stay on-device. */
 const WL_KEY = 'calstrippin_game_wishlist';
-/* a soft dismiss, same idea as PSN_HIDDEN_KEY for owned games - "not interested" fades a Play
-   List card and sinks it to the bottom of the PlayStation grid rather than deleting it outright,
-   easy to bring back if you change your mind */
-const WL_DISMISSED_KEY = 'calstrippin_wl_dismissed';
 let WL_LAST_GAMES = [];   // the last fetch, so App.wlToggle can find a game's full data by id
 let WL_SEARCH_TIMER = null;
 function wishlistGames(){ try{ return JSON.parse(localStorage.getItem(WL_KEY)||'[]'); }catch(e){ return []; } }
 function saveWishlist(list){ try{ localStorage.setItem(WL_KEY, JSON.stringify(list)); }catch(e){} }
 function isWishlisted(id){ return wishlistGames().some(g=>g.id===id); }
-function wlDismissed(){ try{ return new Set(JSON.parse(localStorage.getItem(WL_DISMISSED_KEY)||'[]')); }catch(e){ return new Set(); } }
-function saveWlDismissed(set){ try{ localStorage.setItem(WL_DISMISSED_KEY, JSON.stringify([...set])); }catch(e){} }
 function wlReleaseLabel(g){
   if(g.tba || !g.released) return 'To be announced';
   return g.released > todayStr() ? 'Releases '+fmtDate(g.released) : fmtDate(g.released);
@@ -6472,7 +6475,7 @@ function fwMineCardHTML(f){
       </a>
       <div data-fw-providers="${esc(f.id)}"></div>
       <div class="btn-row fw-actions">
-        <button type="button" class="btn sm" onclick="App.fwMarkWatched('${esc(f.id)}')">Mark as Watched</button>
+        <button type="button" class="btn sm" onclick="App.fwMarkWatched('${esc(f.id)}')">Watched</button>
         <button type="button" class="iconbtn pin${f.pinned?' on':''}" aria-label="${f.pinned?'Unpin':'Pin to top'}" aria-pressed="${!!f.pinned}"
           title="${f.pinned?'Unpin':'Pin to top'}" onclick="App.fwPin('${esc(f.id)}')">${fa('star')}</button>
         <button type="button" class="iconbtn del" aria-label="Remove from watchlist" title="Remove" onclick="App.fwRemove('${esc(f.id)}')">${ICONS.trash}</button>
@@ -8683,14 +8686,14 @@ App.wlToggle = id => {
     ? `<div class="wl-list">${games.map(wlCardHTML).join('')}</div>`
     : `<div class="empty">Nothing new to show right now.</div>`;
 };
-/* "not interested" fades a Play List card and sinks it to the bottom of the grid (mirroring
-   psnToggleHiddenImpl for owned games) rather than deleting it - tapping it again on an already
-   dismissed card brings it back */
-App.wlDismiss = id => {
-  const set = wlDismissed();
-  if(set.has(id)) set.delete(id); else set.add(id);
-  saveWlDismissed(set);
-  drawGamesList();
+/* takes the game off the Play List outright, once confirmed - same App.wlToggle removal path
+   the + Add Game search's own "On Play List" toggle uses */
+App.wlRemove = id => {
+  const g = wishlistGames().find(x=>x.id===id);
+  confirmModal('Remove From Play List?', `"${g?g.name:'This game'}" will be removed from your Play List.`, 'Remove', () => {
+    saveWishlist(wishlistGames().filter(x=>x.id!==id));
+    drawGamesList();
+  });
 };
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};
