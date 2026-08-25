@@ -150,14 +150,18 @@ async function fetchBoardGames(q){
 export default async function handler(request){
   const url = new URL(request.url);
   const q = (url.searchParams.get('q')||'').trim();
+  /* explicit ids - the app's own Want to Play/Played shelf, which needs full details for
+     exactly those games regardless of what the current hot list or search happens to contain */
+  const ids = (url.searchParams.get('ids')||'').split(',').map(s=>s.trim()).filter(Boolean);
   try{
-    const data = await fetchBoardGames(q);
+    const data = ids.length ? {games: await bggDetails(ids)} : await fetchBoardGames(q);
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        // BGG's hot list barely moves day to day; a search is worth re-checking sooner
-        'Cache-Control': 'public, max-age=' + (q ? 3600 : 21600),
+        // BGG's hot list barely moves day to day; a search (or a shelf lookup) is worth
+        // re-checking sooner
+        'Cache-Control': 'public, max-age=' + ((q || ids.length) ? 3600 : 21600),
       },
     });
   }catch(e){
