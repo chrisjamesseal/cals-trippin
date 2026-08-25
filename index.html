@@ -1408,8 +1408,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.36';
+const APP_VERSION = '2.29.37';
 const CHANGELOG = [
+  {version:'2.29.37', notes:[
+    "Board Games: fixed a bad-request error from BoardGameGeek that was blocking the grid from loading.",
+  ]},
   {version:'2.29.36', notes:[
     "Home Dashboard: the Theatre widget now says \"See Next\" instead of \"Watch Next\".",
     "Home Dashboard: Last Seen links to the film's own Letterboxd page again, not its Reviews sub-page.",
