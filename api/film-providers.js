@@ -74,6 +74,14 @@ function providerBrandKey(name){
     .trim()
     .toLowerCase();
 }
+/* true when providerBrandKey didn't have to strip anything off this name - i.e. it's already
+   the brand's own plain, unqualified listing ("NOW", "Netflix"), not one of its sub-tiers
+   ("Now Cinema", "Netflix with Ads"). Preferring this over a shortest-name guess is what keeps
+   the logo actually shown as, say, NOW's own plain logo rather than the Cinema-branded one,
+   which a shorter Cinema-tier name (or a longer plain one) could otherwise win on length alone. */
+function isUnqualifiedName(name){
+  return providerBrandKey(name) === name.trim().toLowerCase().replace(/\s{2,}/g, ' ');
+}
 function dedupeProviders(list){
   const seenIds = new Set();
   const byBrand = new Map();
@@ -82,7 +90,10 @@ function dedupeProviders(list){
     seenIds.add(p.provider_id);
     const key = providerBrandKey(p.provider_name);
     const existing = byBrand.get(key);
-    if(!existing || p.provider_name.length < existing.provider_name.length) byBrand.set(key, p);
+    if(!existing){ byBrand.set(key, p); return; }
+    const pPlain = isUnqualifiedName(p.provider_name), exPlain = isUnqualifiedName(existing.provider_name);
+    if(pPlain !== exPlain){ if(pPlain) byBrand.set(key, p); return; }
+    if(p.provider_name.length < existing.provider_name.length) byBrand.set(key, p);
   });
   return [...byBrand.values()]
     .sort((a,b) => (a.display_priority||0) - (b.display_priority||0))
