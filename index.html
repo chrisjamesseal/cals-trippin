@@ -119,6 +119,7 @@ a{color:var(--brand-dark);}
 .btn-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
 .iconbtn{border:none; background:none; cursor:pointer; font-size:1rem; padding:4px 8px; line-height:1; color:var(--muted); border-radius:8px;}
 .iconbtn:hover{color:var(--ink); background:var(--bg);}
+.iconbtn:focus-visible{outline:2px solid var(--brand); outline-offset:-2px;}
 .iconbtn.edit, .iconbtn.del{
   width:36px; height:36px; padding:0; flex-shrink:0; background:none;
   display:inline-flex; align-items:center; justify-content:center;
@@ -883,6 +884,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .chip button:hover{color:var(--accent-dark);}
 .chip.pick{cursor:pointer; color:var(--muted); user-select:none;}
 .chip.pick.on{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint); font-weight:700;}
+/* role="button" with no native button underneath - without this it falls back to the browser's
+   own default focus ring, which reads as a stray reddish outline stuck on a Places card long
+   after you've tapped its Been/Want-to-Go icon and moved on (focus, unlike hover, doesn't clear
+   itself on a touch screen) */
+.chip.pick:focus-visible{outline:none; border-color:var(--brand);}
 .mode-picker{display:flex; flex-wrap:wrap; gap:8px;}
 .mode-pick{padding:8px 10px; font-size:1rem; line-height:1;}
 .chip.country{padding:5px 12px;}
@@ -933,16 +939,15 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .wm-country:hover,.wm-country:focus-visible{opacity:.75; outline:none;}
 .wm-country.wm-none{fill:var(--line-strong);}
 .wm-country.wm-want{fill:var(--brand-tint);}
-.wm-country.wm-going{fill:var(--accent);}
-.wm-country.wm-been{fill:var(--brand);}
+.wm-country.wm-going{fill:var(--brand);}
+.wm-country.wm-been{fill:var(--rag-green);}
 .been-map-legend{display:flex; flex-wrap:wrap; justify-content:center; gap:14px;}
 .been-map-legend-item{display:flex; align-items:center; gap:6px; font-size:.78rem; color:var(--muted); font-weight:700;}
 .been-map-swatch{width:12px; height:12px; border-radius:3px; flex-shrink:0;}
 .been-map-swatch.wm-none{background:var(--line-strong);}
 .been-map-swatch.wm-want{background:var(--brand-tint);}
-.been-map-swatch.wm-going{background:var(--accent);}
-.been-map-swatch.wm-been{background:var(--brand);}
-.been-map-credit{text-align:center;}
+.been-map-swatch.wm-going{background:var(--brand);}
+.been-map-swatch.wm-been{background:var(--rag-green);}
 /* one country per row: side by side, a long name and its capital and language had nowhere to
    go and the card grew a paragraph tall. Two columns once the screen is wide enough to give
    each of them a sensible width. */
@@ -1414,8 +1419,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.40';
+const APP_VERSION = '2.29.41';
 const CHANGELOG = [
+  {version:'2.29.41', notes:[
+    "Countries map: Been is green and Going is orange now (Want to Go unchanged); removed the map data credit text at the bottom.",
+    "Watch Next: NOW's logo now shows its plain mark instead of the Cinema-branded one.",
+    "Places: fixed a stray outline sticking to a country's Been/Want to Go icon after tapping it on a touch screen.",
+  ]},
   {version:'2.29.40', notes:[
     "Games: PS5 and PS4 are now separate subtabs instead of one combined PlayStation library.",
     "Board Games: Want to Play and Played are each their own page now, not a shelf above Search - a marked game's page no longer depends on what's currently browsed/searched.",
@@ -4339,7 +4349,6 @@ function beenMapHTML(trips){
       <span class="been-map-legend-item"><span class="been-map-swatch wm-going" aria-hidden="true"></span>Going</span>
       <span class="been-map-legend-item"><span class="been-map-swatch wm-want" aria-hidden="true"></span>Want to Go</span>
     </div>
-    <div class="been-map-credit muted small">Map data: <a href="https://github.com/flekschas/simple-world-map" target="_blank" rel="noopener" onclick="return App.openExternal(event, 'https://github.com/flekschas/simple-world-map')">simple-world-map</a> (CC BY-SA 3.0) - a simplified map, so a handful of small nations aren't shown</div>
   </div>`;
 }
 
