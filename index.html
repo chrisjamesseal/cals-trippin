@@ -201,9 +201,11 @@ a{color:var(--brand-dark);}
    yet" and "deprioritised" are opposite reasons to look muted, not the same one */
 .game-card-wishlist{opacity:.68;}
 .game-card-wishlist .game-cover-wrap{border-style:dashed; border-color:var(--line-strong);}
-.game-wishlist-badge{position:absolute; top:6px; left:6px; background:var(--brand); color:#fff;
-  font-size:.62rem; font-weight:800; letter-spacing:.02em; padding:3px 8px; border-radius:999px;
-  box-shadow:var(--shadow); white-space:nowrap;}
+/* "not interested" - the round × sitting over a Play List card's cover, see wishlistGameCardHTML */
+.game-wishlist-dismiss{position:absolute; top:5px; right:5px; display:flex; align-items:center; justify-content:center;
+  width:24px; height:24px; border:none; border-radius:50%; background:rgba(0,0,0,.45); color:#fff;
+  cursor:pointer; padding:0; font-size:.7rem; box-shadow:var(--shadow);}
+.game-wishlist-dismiss:hover{background:rgba(0,0,0,.65);}
 .game-info{padding-top:8px; display:flex; flex-direction:column; gap:5px; min-width:0;}
 /* clamped to 2 lines, same reasoning as Films' .film-title - so every card's text block takes
    the same room whichever title lands in it and the covers below stay in a strict grid */
@@ -232,6 +234,15 @@ a{color:var(--brand-dark);}
 .game-tier-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line);}
 .game-tier-emoji{font-size:1.2rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+/* ---------- individual board game page ---------- */
+.bg-detail-card{display:flex; flex-direction:column; align-items:center; text-align:center;}
+.bg-detail-cover{width:min(220px,58vw); aspect-ratio:1/1; height:auto; border-radius:var(--radius); object-fit:cover;
+  background:var(--bg); margin-bottom:14px; font-size:3rem; box-shadow:var(--shadow);}
+.bg-detail-cover.bg-cover-fallback{width:min(220px,58vw); height:min(220px,58vw);}
+.bg-detail-facts{margin:10px 0 4px;}
+.bg-detail-section{width:100%; text-align:left; margin-top:18px;}
+.bg-detail-section h3{font-size:.9rem; margin-bottom:6px;}
+.bg-detail-desc{color:var(--ink); opacity:.8; line-height:1.5;}
 .game-tier-label{flex:1; text-align:left; font-weight:700; font-size:.85rem;}
 .game-tier-count{color:var(--muted); font-size:.85rem;}
 
@@ -271,7 +282,7 @@ a{color:var(--brand-dark);}
 .bg-sel select{width:100%; font-size:.82rem; padding:8px 6px;}
 .bg-list{display:flex; flex-direction:column; gap:12px;}
 .bg-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
-  box-shadow:var(--shadow); padding:14px;}
+  box-shadow:var(--shadow); padding:14px; cursor:pointer;}
 .bg-marked{border-color:var(--brand);}
 .bg-top{display:flex; gap:12px; align-items:flex-start;}
 .bg-cover{width:64px; height:64px; flex-shrink:0; border-radius:var(--radius-sm); object-fit:cover;
@@ -284,7 +295,8 @@ a{color:var(--brand-dark);}
 .bg-tags{display:flex; flex-wrap:wrap; gap:5px; margin-top:7px;}
 .bg-tag{display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:700;
   padding:3px 8px; border-radius:999px; background:var(--brand-tint); color:var(--brand-dark);}
-.bg-desc{margin-top:10px; color:var(--ink); opacity:.75;}
+.bg-highlights{margin:10px 0 0; padding-left:18px; color:var(--ink); opacity:.75;}
+.bg-highlights li{margin-top:3px;}
 .bg-actions{margin-top:12px; flex-wrap:nowrap;}
 .bg-mark{flex:1; min-width:0; gap:5px;}
 .bg-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
@@ -304,12 +316,6 @@ a{color:var(--brand-dark);}
 .wl-facts{margin-top:2px;}
 .wl-actions{margin-top:12px;}
 .wl-mark.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
-/* the manual "get this next" override (App.wlPin) - same on/off treatment as the wishlist mark
-   button next to it, plus a small badge up top on the card itself once pinned, so it stands out
-   even before reading either button's own label. */
-.wl-pin.on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark);}
-.wl-pin-badge{display:inline-block; background:var(--brand); color:#fff; font-weight:700;
-  font-size:.68rem; padding:3px 10px; border-radius:20px; margin-bottom:10px;}
 
 /* Settings ends right where .wrap's own bottom padding starts, no closing section below it the
    way Home's foot bar gives every other page - a little extra room of its own so the last card
@@ -1408,8 +1414,16 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.38';
+const APP_VERSION = '2.29.39';
 const CHANGELOG = [
+  {version:'2.29.39', notes:[
+    "Games: Play List cards on the PlayStation grid now sort newest-release-first and sit ahead of your owned games, showing the release date instead of % Complete - no console/pin info, and the \"Play This Next\" pin is gone (ordering is automatic now).",
+    "Games: added a Not Interested button to Play List cards - fades and sinks a game to the bottom instead of deleting it, same idea as hiding an owned game.",
+    "Board Games: Want to Play/Played are now a persistent shelf above the browse grid, not filter chips - a marked game no longer disappears just because it's not on the current hot list or search.",
+    "Board Games: switching category now clears the search box instead of narrowing an old search term.",
+    "Board Games: tap a card for a full detail page - description, categories, mechanics, and a link out to BoardGameGeek. Cards themselves now show quick highlight bullets instead of the full description.",
+    "Watch Next: fixed NOW and NOW Cinema showing as two separate logos for the same provider.",
+  ]},
   {version:'2.29.38', notes:[
     "Games: Play List folded into the PlayStation tab - My Play List and the game search now live on the same page as your owned games, instead of a separate tab.",
     "Games: new/upcoming game search now only shows PlayStation titles.",
@@ -4552,7 +4566,6 @@ function renderGamesList(titles){
       <input type="text" id="games-search" placeholder="Search games…" oninput="drawGamesList()">
     </div>
     <div id="games-grid"></div>
-    <div id="wl-my"></div>
     <h3 style="margin:24px 0 10px">Find Something New</h3>
     <div class="games-search">
       <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
@@ -4560,30 +4573,34 @@ function renderGamesList(titles){
     <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>`;
   attachFieldClears(body);
   drawGamesList();
-  drawWishlistMine();
   loadGameSearch('');
 }
 /* re-filters/re-sorts the already-fetched list; leaves the search box and its cursor alone,
-   same pattern as Places' drawPlacesGrid(). Wishlist games not yet owned are appended after the
-   real PSN library, faded and dashed-bordered rather than left to a separate tab only - "what
-   I'll play next" belongs right alongside "what I'm playing now", not a tab switch away. Matched
-   to what's owned by plain name equality: good enough to skip the obvious case (you bought the
-   thing you wishlisted) without needing a real product-id link between two APIs that don't share
-   one. A false miss just means a harmless duplicate card, never a wrongly-hidden real entry. */
+   same pattern as Places' drawPlacesGrid(). Play List games not yet owned sit at the very top,
+   newest release first - this is the only place the Play List lives now, not a separate list -
+   then the real PSN library, then hidden/dismissed games faded at the bottom (hidden owned
+   games first, dismissed Play List games last). Matched to what's owned by plain name equality:
+   good enough to skip the obvious case (you bought the thing you wishlisted) without needing a
+   real product-id link between two APIs that don't share one. A false miss just means a
+   harmless duplicate card, never a wrongly-hidden real entry. */
 function drawGamesList(){
   const grid = $('#games-grid'); if(!grid) return;
   const q = (($('#games-search')||{}).value||'').trim().toLowerCase();
   const hidden = psnHidden();
+  const dismissed = wlDismissed();
   let list = PSN_TITLES;
   if(q) list = list.filter(g => (g.name||'').toLowerCase().includes(q));
   const ownedNames = new Set(PSN_TITLES.map(g => (g.name||'').trim().toLowerCase()));
   let wishlistExtra = wishlistSorted().filter(w => !ownedNames.has((w.name||'').trim().toLowerCase()));
   if(q) wishlistExtra = wishlistExtra.filter(w => (w.name||'').toLowerCase().includes(q));
   if(!list.length && !wishlistExtra.length){ grid.innerHTML = `<div class="empty">No games match "${esc(q)}"</div>`; return; }
-  // hidden games sink to the end (faded, not removed) rather than disappearing outright; wishlist
-  // cards go after those - they're not owned yet, so they read last of all
+  const wlInterested = wishlistExtra.filter(w=>!dismissed.has(w.id));
+  const wlDismissedList = wishlistExtra.filter(w=>dismissed.has(w.id));
   const ordered = list.filter(g=>!hidden.has(g.id)).concat(list.filter(g=>hidden.has(g.id)));
-  grid.innerHTML = `<div class="games-cover-grid">${ordered.map(g=>gameCardHTML(g, hidden.has(g.id))).join('')}${wishlistExtra.map(wishlistGameCardHTML).join('')}</div>
+  const cards = wlInterested.map(w=>wishlistGameCardHTML(w, false))
+    .concat(ordered.map(g=>gameCardHTML(g, hidden.has(g.id))))
+    .concat(wlDismissedList.map(w=>wishlistGameCardHTML(w, true)));
+  grid.innerHTML = `<div class="games-cover-grid">${cards.join('')}</div>
     <div class="btn-row" style="justify-content:center; margin-top:6px">
       <button class="btn sm ghost" onclick="App.psnDisconnect()">Disconnect</button>
     </div>`;
@@ -4619,23 +4636,26 @@ function gameCardHTML(g, isHidden){
     </div>`;
 }
 /* a Wishlist game not yet in the real PSN library - same card shape as an owned one so the grid
-   reads as one continuous thing, just faded and dash-bordered to mark it as "not owned yet", and
-   a badge instead of the progress bar/meta line neither of which mean anything for something
-   that hasn't been played. Tapping one scrolls down to My Play List (where it can be un-pinned,
-   removed, etc. - it lives on this same PlayStation page now) rather than a game page there's no
-   PSN data to fill in. */
-function wishlistGameCardHTML(w){
+   reads as one continuous thing, just faded and dash-bordered to mark it as "not owned yet" -
+   no console/platform text (this app only ever tracks PlayStation titles now, see
+   api/game-search.js's parent_platforms filter, so it'd never say anything else), and the
+   release date stands in for the progress bar/% complete an unplayed game doesn't have. Sorted
+   newest-release-first and placed ahead of the owned library (see drawGamesList) rather than a
+   tab switch away. The dismiss (×) button is "not interested" - fades the card and sinks it to
+   the very bottom of the grid, same idea as psnToggleHiddenImpl for owned games; tapping it
+   again brings the card back. */
+function wishlistGameCardHTML(w, dismissed){
   return `
-    <div class="game-card game-card-wishlist" role="button" tabindex="0" onclick="App.goPlayList()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlayList()}">
+    <div class="game-card game-card-wishlist${dismissed?' hidden-game':''}">
       <div class="game-cover-wrap">
         ${w.image ? `<img class="game-cover" src="${esc(w.image)}" alt="" loading="lazy">`
                    : `<span class="game-cover game-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
-        <span class="game-wishlist-badge">${w.pinned ? '🎯 Play Next' : '🕹️ Play List'}</span>
+        <button type="button" class="game-wishlist-dismiss" onclick="App.wlDismiss('${esc(w.id)}')"
+          aria-label="${dismissed?'Bring back':'Not interested'} - ${esc(w.name||'this game')}">${fa('xmark')}</button>
       </div>
       <div class="game-info">
         <div class="game-name">${esc(w.name||'Untitled')}</div>
-        <div class="game-meta muted small">Not Owned Yet</div>
+        <div class="game-meta muted small">${esc(wlReleaseLabel(w))}</div>
       </div>
     </div>`;
 }
@@ -4729,7 +4749,11 @@ function psnToggleHiddenImpl(id){
    the list is the same for everyone - so what's yours is just which games you've marked, and
    that stays on this device the way the PSN connection does. */
 const BG_MARKS_KEY = 'calstrippin_boardgames';
-let BG_GAMES = [];          // the last fetch, held so the filters re-run without refetching
+let BG_GAMES = [];          // the last fetch (hot list or search), held so filters re-run without refetching
+/* Want to Play/Played games, keyed by id, fetched independently of whatever's currently
+   searched/browsed (via /api/board-games?ids=...) so the shelf never loses a marked game just
+   because it scrolled off the hot list or isn't the thing you last searched for */
+let BG_MARKED_CACHE = {};
 let BG_FILTER = {cat:'all', players:0, time:0};
 let BG_SEARCH_TIMER = null;
 function bgMarks(){ try{ return JSON.parse(localStorage.getItem(BG_MARKS_KEY)||'{}'); }catch(e){ return {}; } }
@@ -4752,7 +4776,9 @@ const BG_CATS = [
   {k:'fighting', emoji:'⚔️', label:'Fighting', test:g => g.categories.some(c=>/wargame|fighting|miniatures/i.test(c))},
   {k:'words',    emoji:'🔤', label:'Words',    test:g => g.categories.some(c=>/word game|trivia/i.test(c))},
 ];
-/* the two that aren't categories at all: your own shelf */
+/* the two mark buttons every card carries - not filter chips (that put a marked game at the
+   mercy of whatever's currently searched/browsed, see bg-shelf below), just the labels for
+   bgCardHTML's own mark buttons */
 const BG_MARK_FILTERS = [
   {k:'want',   emoji:'⭐', label:'Want to Play'},
   {k:'played', emoji:'✅', label:'Played'},
@@ -4772,6 +4798,7 @@ function bgTimeLabel(g){
 function renderBoardGames(){
   const body = $('#games-body'); if(!body) return;
   body.innerHTML = `
+    <div id="bg-shelf"></div>
     <div id="bg-filters"></div>
     <div class="games-search">
       <input type="text" id="bg-search" placeholder="Search board games…" oninput="App.bgSearchInput()">
@@ -4779,6 +4806,8 @@ function renderBoardGames(){
     <div id="bg-grid"><div class="empty">Loading board games…</div></div>`;
   attachFieldClears(body);
   drawBgFilters();
+  drawBgShelf();
+  loadBgShelf();
   loadBoardGames('');
 }
 /* one network call per distinct search; every filter after that works on the held list */
@@ -4800,7 +4829,10 @@ function loadBoardGames(q){
     .then(data => {
       if(CUR_GAMES_TAB!=='board' || !$('#bg-grid')) return;   // moved on while it was in flight
       BG_GAMES = data.games||[];
+      // whatever's marked among what we just fetched is already full data - free shelf entries
+      BG_GAMES.forEach(g => { if(bgMarkOf(g.id)) BG_MARKED_CACHE[g.id] = g; });
       drawBgGrid();
+      drawBgShelf();
     })
     .catch(e => {
       if(CUR_GAMES_TAB!=='board' || !$('#bg-grid')) return;
@@ -4809,6 +4841,33 @@ function loadBoardGames(q){
           <button class="btn sm" onclick="App.bgReload()">Try Again</button>
         </div></div>`;
     });
+}
+/* Want to Play/Played is a shelf, not a filter (see bg-shelf's own comment) - fetches full
+   details for exactly the marked ids, independent of whatever's currently searched/browsed, so
+   a marked game never drops out of view just because it isn't on the current hot list or
+   doesn't match the last search. Only fetches ids not already cached. */
+function loadBgShelf(){
+  const ids = Object.keys(bgMarks()).filter(id => !BG_MARKED_CACHE[id]);
+  if(!ids.length) return;
+  fetch('/api/board-games?ids='+ids.map(encodeURIComponent).join(','))
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      (data.games||[]).forEach(g => { BG_MARKED_CACHE[g.id] = g; });
+      if(CUR_GAMES_TAB==='board') drawBgShelf();
+    })
+    .catch(()=>{});   // the shelf just stays without that game's card until a retry works
+}
+function drawBgShelf(){
+  const el = $('#bg-shelf'); if(!el) return;
+  const marks = bgMarks();
+  const shelfGame = id => BG_GAMES.find(g=>g.id===id) || BG_MARKED_CACHE[id] || null;
+  const section = (k, label) => {
+    const games = Object.keys(marks).filter(id => marks[id]===k).map(shelfGame).filter(Boolean);
+    if(!games.length) return '';
+    return `<h3 style="margin-bottom:10px">${esc(label)}</h3>
+      <div class="bg-list" style="margin-bottom:22px">${games.map(bgCardHTML).join('')}</div>`;
+  };
+  el.innerHTML = BG_MARK_FILTERS.map(m => section(m.k, m.label)).join('');
 }
 function drawBgFilters(){
   const el = $('#bg-filters'); if(!el) return;
@@ -4823,7 +4882,6 @@ function drawBgFilters(){
   el.innerHTML = `
     <div class="bg-chips">
       ${chip('all','🎲','All')}
-      ${BG_MARK_FILTERS.map(m=>chip(m.k, m.emoji, m.label)).join('')}
       ${BG_CATS.map(c=>chip(c.k, c.emoji, c.label)).join('')}
     </div>
     <div class="bg-selects">
@@ -4834,8 +4892,7 @@ function drawBgFilters(){
 function bgMatches(g){
   const f = BG_FILTER;
   if(f.cat!=='all'){
-    if(f.cat==='want' || f.cat==='played'){ if(bgMarkOf(g.id)!==f.cat) return false; }
-    else{ const c = BG_CATS.find(x=>x.k===f.cat); if(c && !c.test(g)) return false; }
+    const c = BG_CATS.find(x=>x.k===f.cat); if(c && !c.test(g)) return false;
   }
   /* "plays 6" means a group of 6 fits between the game's two ends, not that 6 is its maximum */
   if(f.players){
@@ -4858,17 +4915,36 @@ function drawBgGrid(){
   }
   grid.innerHTML = `<div class="bg-list">${list.map(bgCardHTML).join('')}</div>`;
 }
+/* short, scannable highlights instead of BGG's own (often dry, catalog-copy) description -
+   built entirely from data /api/board-games already returns, so no extra fetch */
+function bgHighlights(g){
+  const out = [];
+  if(g.weight!=null){
+    out.push(g.weight<1.8 ? 'Easy to learn, quick to teach'
+      : g.weight<2.8 ? 'Light-to-medium strategy'
+      : g.weight<3.6 ? 'Solid strategic depth'
+      : 'Heavy, deeply strategic ruleset');
+  }
+  if(g.mechanics && g.mechanics.length) out.push('Mechanics: '+g.mechanics.slice(0,3).join(', '));
+  if(g.categories && g.categories.length) out.push('Themes: '+g.categories.slice(0,2).join(', '));
+  return out.slice(0,3);
+}
 function bgCardHTML(g){
   const mark = bgMarkOf(g.id);
   const tags = bgCatsOf(g).slice(0,3)
     .map(c=>`<span class="bg-tag"><span aria-hidden="true">${c.emoji}</span>${esc(c.label)}</span>`).join('');
   const facts = [bgPlayersLabel(g), bgTimeLabel(g)].filter(Boolean).join(' · ');
+  const highlights = bgHighlights(g);
+  // stopPropagation - these buttons sit inside the now-clickable card, and marking a game
+  // shouldn't also navigate to its detail page
   const markBtn = (k, emoji, label) => `
     <button type="button" class="btn sm bg-mark${mark===k?' on':''}"
-      onclick="App.bgMark('${esc(g.id)}','${k}')" aria-pressed="${mark===k}">
+      onclick="event.stopPropagation();App.bgMark('${esc(g.id)}','${k}')" aria-pressed="${mark===k}">
       <span aria-hidden="true">${emoji}</span>${esc(label)}</button>`;
+  const href = '#/boardgame/'+encodeURIComponent(g.id);
   return `
-    <div class="bg-card${mark?' bg-marked':''}">
+    <div class="bg-card${mark?' bg-marked':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
       <div class="bg-top">
         ${g.thumb ? `<img class="bg-cover" src="${esc(g.thumb)}" alt="" loading="lazy">`
                   : `<span class="bg-cover bg-cover-fallback" aria-hidden="true">🎲</span>`}
@@ -4879,11 +4955,70 @@ function bgCardHTML(g){
           ${tags?`<div class="bg-tags">${tags}</div>`:''}
         </div>
       </div>
-      ${g.description?`<p class="small bg-desc">${esc(g.description)}</p>`:''}
+      ${highlights.length?`<ul class="bg-highlights small">${highlights.map(h=>`<li>${esc(h)}</li>`).join('')}</ul>`:''}
       <div class="btn-row bg-actions">
         ${markBtn('want','⭐','Want to Play')}
         ${markBtn('played','✅','Played')}
       </div>
+    </div>`;
+}
+/* full write-up for one game - BGG's own description (which the grid card drops in favour of
+   bgHighlights' short bullets), every category/mechanic, and a link out to BGG itself for
+   reviews/rules/expansions this app doesn't carry. BG_GAMES and BG_MARKED_CACHE only live in
+   memory for the session, so a direct link (a reload, a shared URL) fetches it fresh first -
+   same pattern renderGameDetail uses for a PSN title. */
+function renderBoardGameDetail(id){
+  const g = BG_GAMES.find(x=>x.id===id) || BG_MARKED_CACHE[id];
+  if(!g){
+    $('#app').innerHTML = `
+      <div class="crumb"><div class="crumb-titlerow"><span class="crumb-here">
+        <button class="crumb-backbtn" onclick="App.goGames()" aria-label="Back to Games">${ICONS.back}</button>
+        Board Game</span></div></div>
+      <div class="empty">Loading…</div>`;
+    fetch('/api/board-games?ids='+encodeURIComponent(id))
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        const found = (data.games||[])[0];
+        if(!found){ location.hash = '#/games'; return; }
+        BG_MARKED_CACHE[id] = found;
+        if(location.hash==='#/boardgame/'+encodeURIComponent(id)) renderBoardGameDetail(id);
+      })
+      .catch(()=>{ location.hash = '#/games'; });
+    return;
+  }
+  const mark = bgMarkOf(g.id);
+  const facts = [bgPlayersLabel(g), bgTimeLabel(g)].filter(Boolean).join(' · ');
+  const markBtn = (k, emoji, label) => `
+    <button type="button" class="btn sm bg-mark${mark===k?' on':''}"
+      onclick="App.bgMark('${esc(g.id)}','${k}');renderBoardGameDetail('${esc(g.id)}')" aria-pressed="${mark===k}">
+      <span aria-hidden="true">${emoji}</span>${esc(label)}</button>`;
+  const list = (label, items) => items && items.length
+    ? `<div class="bg-detail-section"><h3>${esc(label)}</h3><div class="bg-tags">${
+        items.map(i=>`<span class="bg-tag">${esc(i)}</span>`).join('')}</div></div>` : '';
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="App.goGames()" aria-label="Back to Games">${ICONS.back}</button>
+          ${esc(g.name||'Board Game')}</span>
+      </div>
+    </div>
+    <div class="card bg-detail-card">
+      ${g.image ? `<img class="bg-detail-cover" src="${esc(g.image)}" alt="">`
+                 : `<span class="bg-detail-cover bg-cover-fallback" aria-hidden="true">🎲</span>`}
+      <div class="game-detail-name">${esc(g.name||'Untitled')}${g.year?` <span class="muted">(${g.year})</span>`:''}</div>
+      <div class="small muted bg-detail-facts">${esc(facts)}</div>
+      ${g.rating?`<div class="small muted">★ ${g.rating.toFixed(1)} on BoardGameGeek</div>`:''}
+      ${g.description?`<div class="bg-detail-section"><p class="small bg-detail-desc">${esc(g.description)}</p></div>`:''}
+      ${list('Categories', g.categories)}
+      ${list('Mechanics', g.mechanics)}
+      <div class="btn-row" style="margin-top:18px; width:100%">
+        ${markBtn('want','⭐','Want to Play')}
+        ${markBtn('played','✅','Played')}
+      </div>
+      <a class="btn sm ghost" style="margin-top:10px; width:100%; justify-content:center"
+        href="https://boardgamegeek.com/boardgame/${encodeURIComponent(g.id)}" target="_blank" rel="noopener">
+        View on BoardGameGeek</a>
     </div>`;
 }
 
@@ -4893,42 +5028,27 @@ function bgCardHTML(g){
    by RAWG (rawg.io), and a locally-saved shelf of what you've marked, the same way Board
    Games' Want to Play/Played marks stay on-device. */
 const WL_KEY = 'calstrippin_game_wishlist';
+/* a soft dismiss, same idea as PSN_HIDDEN_KEY for owned games - "not interested" fades a Play
+   List card and sinks it to the bottom of the PlayStation grid rather than deleting it outright,
+   easy to bring back if you change your mind */
+const WL_DISMISSED_KEY = 'calstrippin_wl_dismissed';
 let WL_LAST_GAMES = [];   // the last fetch, so App.wlToggle can find a game's full data by id
 let WL_SEARCH_TIMER = null;
 function wishlistGames(){ try{ return JSON.parse(localStorage.getItem(WL_KEY)||'[]'); }catch(e){ return []; } }
 function saveWishlist(list){ try{ localStorage.setItem(WL_KEY, JSON.stringify(list)); }catch(e){} }
 function isWishlisted(id){ return wishlistGames().some(g=>g.id===id); }
+function wlDismissed(){ try{ return new Set(JSON.parse(localStorage.getItem(WL_DISMISSED_KEY)||'[]')); }catch(e){ return new Set(); } }
+function saveWlDismissed(set){ try{ localStorage.setItem(WL_DISMISSED_KEY, JSON.stringify([...set])); }catch(e){} }
 function wlPlatformsLabel(g){ return (g.platforms||[]).slice(0,3).join(' · '); }
 function wlReleaseLabel(g){
   if(g.tba || !g.released) return 'To be announced';
   return g.released > todayStr() ? 'Releases '+fmtDate(g.released) : fmtDate(g.released);
 }
-/* "what should I get next" - a game with no known release date can't be acted on yet, so it
-   sinks to the bottom regardless of anything else; everything with a real date sorts by how
-   close that date is to today in either direction, closest first. That puts an about-to-release
-   game and one that just came out at the top together (both genuinely "get this soon"), and
-   something years off (or long since out and still not bought) further down - a plainer, more
-   useful ordering than a straight ascending date sort would give. */
-function wlUrgencyKey(g){
-  if(g.tba || !g.released) return Infinity;
-  return Math.abs(new Date(g.released) - new Date(todayStr()));
-}
-/* the one manual override on top of that automatic ordering - "Play This Next" always wins
-   regardless of release date, for the case where the auto sort doesn't match what you actually
-   want next. Both pinned and unpinned groups still sort by urgency within themselves. */
+/* newest release first - a game with no known release date can't be placed on that axis at
+   all, so it sinks to the bottom rather than winning by default */
+function wlReleaseSortKey(g){ return (g.tba || !g.released) ? -Infinity : new Date(g.released).getTime(); }
 function wishlistSorted(){
-  return wishlistGames().slice().sort((a,b) => {
-    if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-    return wlUrgencyKey(a) - wlUrgencyKey(b);
-  });
-}
-function drawWishlistMine(){
-  const el = $('#wl-my'); if(!el) return;
-  const mine = wishlistSorted();
-  if(!mine.length){ el.innerHTML = ''; return; }
-  el.innerHTML = `
-    <h3 style="margin-bottom:10px">My Play List</h3>
-    <div class="wl-list" style="margin-bottom:22px">${mine.map(g=>wlCardHTML(g, true)).join('')}</div>`;
+  return wishlistGames().slice().sort((a,b) => wlReleaseSortKey(b) - wlReleaseSortKey(a));
 }
 /* one network call per distinct search; the RAWG function itself decides what "coming up"
    means when there's no query - see api/game-search.js */
@@ -4948,7 +5068,7 @@ function loadGameSearch(q){
       WL_LAST_GAMES = data.games||[];
       const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
       $('#wl-grid').innerHTML = games.length
-        ? `<div class="wl-list">${games.map(g=>wlCardHTML(g, false)).join('')}</div>`
+        ? `<div class="wl-list">${games.map(wlCardHTML).join('')}</div>`
         : `<div class="empty">${q?`No games match "${esc(q)}"`:'Nothing new to show right now.'}</div>`;
     })
     .catch(e => {
@@ -4959,15 +5079,14 @@ function loadGameSearch(q){
         </div></div>`;
     });
 }
-/* mine=true only inside My Wishlist itself (see drawWishlistMine) - the Play This Next pin only
-   makes sense for something already saved, so the browse/search grid below it (still just RAWG
-   results, not yet on the shelf) never shows that button. */
-function wlCardHTML(g, mine){
+/* the "Find Something New" search/browse grid - a game already on the Play List shows up here
+   too (only when it matches the current search), still marked "On Play List" so tapping again
+   removes it; the Play List itself is just the PlayStation grid now, not a separate list here. */
+function wlCardHTML(g){
   const on = isWishlisted(g.id);
   const facts = [wlPlatformsLabel(g), wlReleaseLabel(g)].filter(Boolean).join(' · ');
   return `
     <div class="wl-card${on?' wl-marked':''}">
-      ${mine && g.pinned ? `<div class="wl-pin-badge">🎯 Play Next</div>` : ''}
       <div class="wl-top">
         ${g.image ? `<img class="wl-cover" src="${esc(g.image)}" alt="" loading="lazy">`
                   : `<span class="wl-cover wl-cover-fallback" aria-hidden="true">🕹️</span>`}
@@ -4977,8 +5096,6 @@ function wlCardHTML(g, mine){
         </div>
       </div>
       <div class="btn-row wl-actions">
-        ${mine ? `<button type="button" class="btn sm wl-pin${g.pinned?' on':''}" onclick="App.wlPin('${esc(g.id)}')" aria-pressed="${!!g.pinned}">
-          <span aria-hidden="true">🎯</span>${g.pinned?'Playing Next':'Play This Next'}</button>` : ''}
         <button type="button" class="btn sm wl-mark${on?' on':''}" onclick="App.wlToggle('${esc(g.id)}')" aria-pressed="${on}">
           <span aria-hidden="true">${on?'✓':'⭐'}</span>${on?'On Play List':'Add to Play List'}</button>
       </div>
@@ -6693,6 +6810,10 @@ function route(){
     CUR_TRIP_ID = null; stopSub();
     renderGameDetail(decodeURIComponent(h.slice('#/game/'.length))); window.scrollTo(0,0); return;
   }
+  if(h.startsWith('#/boardgame/')){
+    CUR_TRIP_ID = null; stopSub();
+    renderBoardGameDetail(decodeURIComponent(h.slice('#/boardgame/'.length))); window.scrollTo(0,0); return;
+  }
   if(h === '#/settings'){
     CUR_TRIP_ID = null; stopSub();
     renderSettings(); window.scrollTo(0,0); return;
@@ -8302,9 +8423,15 @@ App.dashSongRange = k => {
   balanceDashboardColumns();
 };
 App.gamesTab = k => { CUR_GAMES_TAB = k; renderGames(); window.scrollTo(0,0); };
-// My Play List lives further down the PlayStation page now, not its own tab - scroll to it
-App.goPlayList = () => { const el = $('#wl-my'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); };
-App.bgCat = k => { BG_FILTER.cat = k; drawBgFilters(); drawBgGrid(); };
+/* switching category clears whatever's typed in the search box and goes back to the plain hot
+   list - a leftover search term silently narrowing a new category felt like it was missing
+   games */
+App.bgCat = k => {
+  BG_FILTER.cat = k;
+  const input = $('#bg-search'); if(input) input.value = '';
+  drawBgFilters();
+  loadBoardGames('');
+};
 App.bgFilter = (id, v) => { BG_FILTER[id] = +v; drawBgGrid(); };
 App.bgReload = () => loadBoardGames((($('#bg-search')||{}).value||'').trim());
 /* each search is a real BGG call, so wait for a pause in typing rather than firing per key */
@@ -8316,7 +8443,9 @@ App.bgMark = (id, k) => {
   const marks = bgMarks();
   if(marks[id]===k) delete marks[id]; else marks[id] = k;   // tapping the same one again clears it
   saveBgMarks(marks);
+  const g = BG_GAMES.find(x=>x.id===id); if(g) BG_MARKED_CACHE[id] = g;
   drawBgGrid();
+  drawBgShelf();
 };
 App.wlReload = () => loadGameSearch((($('#wl-search')||{}).value||'').trim());
 /* each search is a real RAWG call, so wait for a pause in typing rather than firing per key */
@@ -8333,22 +8462,21 @@ App.wlToggle = id => {
     if(g) list.unshift(g);
   }
   saveWishlist(list);
-  drawWishlistMine();
+  drawGamesList();   // the Play List lives in the owned-games grid now, not a list of its own
   const grid = $('#wl-grid'); if(!grid) return;
   const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
   grid.innerHTML = games.length
-    ? `<div class="wl-list">${games.map(g=>wlCardHTML(g, false)).join('')}</div>`
+    ? `<div class="wl-list">${games.map(wlCardHTML).join('')}</div>`
     : `<div class="empty">Nothing new to show right now.</div>`;
 };
-/* the one manual override on top of the automatic release-urgency sort (see wishlistSorted) -
-   just a plain per-game flip, same as every other manual flag in this app. Only ever meaningful
-   on My Wishlist itself, so nothing needs to redraw the browse grid below it. */
-App.wlPin = id => {
-  const list = wishlistGames();
-  const g = list.find(x=>x.id===id); if(!g) return;
-  g.pinned = !g.pinned;
-  saveWishlist(list);
-  drawWishlistMine();
+/* "not interested" fades a Play List card and sinks it to the bottom of the grid (mirroring
+   psnToggleHiddenImpl for owned games) rather than deleting it - tapping it again on an already
+   dismissed card brings it back */
+App.wlDismiss = id => {
+  const set = wlDismissed();
+  if(set.has(id)) set.delete(id); else set.add(id);
+  saveWlDismissed(set);
+  drawGamesList();
 };
 App.setPlaceStatus = (code, status) => {
   if(!DB.places) DB.places = {};

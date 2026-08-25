@@ -53,6 +53,10 @@ async function resolveId(key, title, year){
    a plain Prime one even though it's bought through Amazon's storefront. */
 function providerBrandKey(name){
   return name
+    // NOW sells separate Cinema/Sports/Entertainment passes under one "NOW" brand - distinct
+    // purchases, but they read as the same app's icon shown twice, the exact thing this whole
+    // function exists to collapse for every other multi-tier brand below
+    .replace(/^now\s+(cinema|sports|entertainment|kids|boost)\b/i, 'now')
     .replace(/\s*(Apple TV|Amazon|Roku|Google Play|Sky Store)\s*Channel\s*$/i, '')
     // billing-tier qualifiers, wherever they land in the name - not just at the very end. TMDb
     // inserts these mid-string too ("Netflix Standard with Ads", not just "Netflix with Ads"),
