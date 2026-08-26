@@ -17,8 +17,6 @@ function apiKey(){
   if(!key) throw Object.assign(new Error("Game search isn't configured - add RAWG_API_KEY as a Vercel environment variable"), {status:503});
   return key;
 }
-function isoDate(d){ return d.toISOString().slice(0,10); }
-
 /* trims RAWG's much larger payload down to what the Wishlist card actually shows. id is cast
    to a string - RAWG returns it as a number, but every id elsewhere in this app (Board Games'
    BGG ids included) is a string, and onclick handlers round-trip ids through HTML attributes
@@ -48,12 +46,9 @@ async function fetchGames(q){
     url.searchParams.set('search', q);
     url.searchParams.set('ordering', '-released');
   }else{
-    // no query: what's coming - unreleased or released in roughly the last month, ranked by
-    // how much attention RAWG's own community is giving it right now
-    const today = new Date();
-    const from = new Date(today); from.setMonth(from.getMonth()-1);
-    const to = new Date(today); to.setFullYear(to.getFullYear()+2);
-    url.searchParams.set('dates', isoDate(from)+','+isoDate(to));
+    // no query: a general "what's worth adding" browse, not just new/upcoming - no date window,
+    // so an already-released game (a classic you never got around to, not just this month's
+    // releases) shows up too, ranked by RAWG's own all-time library-add count
     url.searchParams.set('ordering', '-added');
   }
   const res = await fetch(url.toString());
@@ -71,7 +66,7 @@ export default async function handler(request){
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        // the coming-soon list barely moves hour to hour; a search is worth re-checking sooner
+        // the default browse barely moves hour to hour; a search is worth re-checking sooner
         'Cache-Control': 'public, max-age=' + (q ? 3600 : 21600),
       },
     });
