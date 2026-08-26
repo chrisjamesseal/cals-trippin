@@ -1447,8 +1447,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.45';
+const APP_VERSION = '2.29.46';
 const CHANGELOG = [
+  {version:'2.29.46', notes:[
+    "Films: a Find a Film result already in your Diary now says \"Relog\" instead of \"Log\", and one already on your Watchlist says \"Added\" instead of \"On Watchlist\".",
+    "Games: + Add Game's default browse (before you type a search) now includes games that are already out, not just new and upcoming ones.",
+  ]},
   {version:'2.29.45', notes:[
     "Films: Watchlist button reads \"Watched\" again instead of \"Mark as Watched\".",
     "Games: the × on a Play List game removes it from the list outright now (after a confirm), instead of just fading it and sinking it to the bottom - tapping it again used to be the only way to undo something that looked like nothing happened.",
@@ -5241,7 +5245,7 @@ function wishlistSorted(){
    nothing, since the button it was aiming for had just been torn out from under it). */
 function loadGameSearch(q){
   const grid = $('#wl-grid'); if(!grid) return;
-  if(!WL_LAST_GAMES.length) grid.innerHTML = `<div class="empty">Loading new &amp; upcoming games…</div>`;
+  if(!WL_LAST_GAMES.length) grid.innerHTML = `<div class="empty">Loading games…</div>`;
   fetch('/api/game-search' + (q ? '?q='+encodeURIComponent(q) : ''))
     .then(async r => {
       if(!r.ok){
@@ -5256,7 +5260,7 @@ function loadGameSearch(q){
       const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
       $('#wl-grid').innerHTML = games.length
         ? `<div class="wl-list">${games.map(wlCardHTML).join('')}</div>`
-        : `<div class="empty">${q?`No games match "${esc(q)}"`:'Nothing new to show right now.'}</div>`;
+        : `<div class="empty">${q?`No games match "${esc(q)}"`:'No games to show right now.'}</div>`;
     })
     .catch(e => {
       if(!$('#wl-grid')) return;
@@ -6317,6 +6321,14 @@ function pushFilmsWatchlist(){
 }
 function saveFilmsWatchlist(){ saveLocal(); pushFilmsWatchlist(); }
 function isOnFilmsWatchlist(id){ return (DB.filmsWatchlist||[]).some(f=>f.id===id); }
+/* a Find a Film result and a Diary entry never share an id (TMDb's vs. whatever the entry was
+   logged with), so this matches the same way the CSV import's own dedupe does - title+year -
+   just without watchedDate in the key, since the point here is "have I logged this at all",
+   not "is this the exact same viewing" */
+function isFilmLogged(f){
+  const title = (f.title||'').trim().toLowerCase(), year = String(f.year||'');
+  return (DB.films||[]).some(x => (x.title||'').trim().toLowerCase()===title && String(x.year||'')===year);
+}
 
 let FW_SEARCH_TIMER = null;
 let FW_LAST_RESULTS = [];
@@ -6494,6 +6506,7 @@ function loadFwProviders(list){
 }
 function fwResultCardHTML(f){
   const on = isOnFilmsWatchlist(f.id);
+  const logged = isFilmLogged(f);
   return `
     <div class="film-card">
       ${f.image ? `<img class="film-poster" src="${esc(f.image)}" alt="" loading="lazy">`
@@ -6501,9 +6514,9 @@ function fwResultCardHTML(f){
       <div class="film-title">${esc(f.title)}</div>
       ${f.year?`<div class="film-meta">${esc(f.year)}</div>`:''}
       <div class="btn-row" style="margin-top:8px">
-        <button type="button" class="btn sm" onclick="App.fwLogFilm('${esc(f.id)}')">🎬 Log</button>
+        <button type="button" class="btn sm" onclick="App.fwLogFilm('${esc(f.id)}')">${logged?'🎬 Relog':'🎬 Log'}</button>
         <button type="button" class="btn sm fw-mark${on?' on':''}"
-          onclick="App.fwToggle('${esc(f.id)}')" aria-pressed="${on}">${on?'❤️ On Watchlist':'❤️ Add'}</button>
+          onclick="App.fwToggle('${esc(f.id)}')" aria-pressed="${on}">${on?'❤️ Added':'❤️ Add'}</button>
       </div>
     </div>`;
 }
@@ -8661,7 +8674,7 @@ App.wlAddOpen = () => {
     <div class="games-search">
       <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
     </div>
-    <div id="wl-grid"><div class="empty">Loading new &amp; upcoming games…</div></div>`);
+    <div id="wl-grid"><div class="empty">Loading games…</div></div>`);
   loadGameSearch('');
 };
 App.wlReload = () => loadGameSearch((($('#wl-search')||{}).value||'').trim());
@@ -8684,7 +8697,7 @@ App.wlToggle = id => {
   const games = WL_LAST_GAMES.filter(g=>!isWishlisted(g.id));
   grid.innerHTML = games.length
     ? `<div class="wl-list">${games.map(wlCardHTML).join('')}</div>`
-    : `<div class="empty">Nothing new to show right now.</div>`;
+    : `<div class="empty">No games to show right now.</div>`;
 };
 /* takes the game off the Play List outright, once confirmed - same App.wlToggle removal path
    the + Add Game search's own "On Play List" toggle uses */
