@@ -1447,8 +1447,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.46';
+const APP_VERSION = '2.29.47';
 const CHANGELOG = [
+  {version:'2.29.47', notes:[
+    "Games: + Add Game has an \"Add it manually\" fallback now, for a game RAWG's own database hasn't caught up with yet - just a name and an optional release date.",
+  ]},
   {version:'2.29.46', notes:[
     "Films: a Find a Film result already in your Diary now says \"Relog\" instead of \"Log\", and one already on your Watchlist says \"Added\" instead of \"On Watchlist\".",
     "Games: + Add Game's default browse (before you type a search) now includes games that are already out, not just new and upcoming ones.",
@@ -5227,7 +5230,11 @@ function wishlistGames(){ try{ return JSON.parse(localStorage.getItem(WL_KEY)||'
 function saveWishlist(list){ try{ localStorage.setItem(WL_KEY, JSON.stringify(list)); }catch(e){} }
 function isWishlisted(id){ return wishlistGames().some(g=>g.id===id); }
 function wlReleaseLabel(g){
-  if(g.tba || !g.released) return 'To be announced';
+  // a manual entry with no date given isn't necessarily unannounced - the date just wasn't
+  // filled in - so it says nothing rather than claiming "To be announced" when it might
+  // already be out
+  if(!g.released) return g.manual ? '' : 'To be announced';
+  if(g.tba) return 'To be announced';
   return g.released > todayStr() ? 'Releases '+fmtDate(g.released) : fmtDate(g.released);
 }
 /* newest release first - a game with no known release date can't be placed on that axis at
@@ -8674,8 +8681,33 @@ App.wlAddOpen = () => {
     <div class="games-search">
       <input type="text" id="wl-search" placeholder="Search for a game, e.g. GTA VI…" oninput="App.wlSearchInput()">
     </div>
-    <div id="wl-grid"><div class="empty">Loading games…</div></div>`);
+    <div id="wl-grid"><div class="empty">Loading games…</div></div>
+    <p class="small muted" style="margin-top:14px">Can't find it? <a href="#" onclick="event.preventDefault();App.wlAddManual()">Add it manually</a></p>`);
   loadGameSearch('');
+};
+/* RAWG's own coverage has gaps - a newer or smaller release can be on the PlayStation Store
+   without being in RAWG's database yet, and no search wording works around a game that just
+   isn't there. Same fallback Films' own search-first flow has (see fwAddFilmImpl's "Log it
+   manually" link) - just a title, saved straight to the Play List. */
+App.wlAddManual = () => {
+  openModal(`
+    <h2 style="margin-bottom:14px">Add Game Manually</h2>
+    <div class="field"><label class="label" for="wl-manual-name">Game name</label>
+      <input type="text" id="wl-manual-name" placeholder="e.g. No Law" autocomplete="off"></div>
+    <div class="field"><label class="label" for="wl-manual-released">Release date <span class="muted">(optional, if it's already out)</span></label>
+      <input type="date" id="wl-manual-released"></div>
+    <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.wlSaveManual()">Add to Play List</button></div>`);
+};
+App.wlSaveManual = () => {
+  const name = ($('#wl-manual-name').value||'').trim();
+  if(!name) return markErr('#wl-manual-name','Enter a game name');
+  const released = $('#wl-manual-released').value || '';
+  const list = wishlistGames();
+  list.unshift({id:'manual-'+(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),
+    name, image:'', released, tba:false, rating:null, manual:true});
+  saveWishlist(list);
+  drawGamesList();
+  closeModal();
 };
 App.wlReload = () => loadGameSearch((($('#wl-search')||{}).value||'').trim());
 /* each search is a real RAWG call, so wait for a pause in typing rather than firing per key */
