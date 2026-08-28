@@ -1404,8 +1404,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.55';
+const APP_VERSION = '2.29.56';
 const CHANGELOG = [
+  {version:'2.29.56', notes:[
+    "Added Brisbane, Perth, Adelaide, Gold Coast, Cairns, Canberra, Hobart, Darwin, Wellington and Christchurch to the airport picker - Brisbane specifically wasn't in the list at all, so it could never come up while typing a flight's From/To.",
+  ]},
   {version:'2.29.55', notes:[
     "A rough-idea trip's Day 1 is now the earliest flight/ferry/car hire/accommodation date actually added, not the trip's own \"Rough Idea\" month - a booked date is a better answer to \"when does this trip start\" than a rough guess made before anything was known, and it was leaving real dated items stuck in Anytime whenever they fell before that guess.",
   ]},
@@ -3309,7 +3312,10 @@ const AIRPORTS = {
   JFK:'New York JFK', EWR:'Newark', LGA:'New York LaGuardia', LAX:'Los Angeles', SFO:'San Francisco',
   MIA:'Miami', ORD:'Chicago O\'Hare', BOS:'Boston', LAS:'Las Vegas', MCO:'Orlando',
   YYZ:'Toronto', YVR:'Vancouver', BKK:'Bangkok', SIN:'Singapore', HKG:'Hong Kong', NRT:'Tokyo Narita',
-  HND:'Tokyo Haneda', DPS:'Bali Denpasar', SYD:'Sydney', MEL:'Melbourne', AKL:'Auckland'
+  HND:'Tokyo Haneda', DPS:'Bali Denpasar',
+  SYD:'Sydney', MEL:'Melbourne', BNE:'Brisbane', PER:'Perth', ADL:'Adelaide', OOL:'Gold Coast',
+  CNS:'Cairns', CBR:'Canberra', HBA:'Hobart', DRW:'Darwin',
+  AKL:'Auckland', WLG:'Wellington', CHC:'Christchurch'
 };
 const airportName = code => AIRPORTS[String(code||'').toUpperCase()] || '';
 function airportDatalist(){
