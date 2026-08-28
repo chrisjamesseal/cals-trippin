@@ -1393,8 +1393,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.50';
+const APP_VERSION = '2.29.51';
 const CHANGELOG = [
+  {version:'2.29.51', notes:[
+    "Games' Play List and Board Games' Want to Play/Played marks now sync to the cloud, the same way Trips/Places/Gigs/Films/Plants already do - a device that loses its local storage (an iOS 'Add to Home Screen' quirk that gives a new icon its own empty storage) gets them back automatically just by opening the app while online, instead of losing them for good.",
+  ]},
   {version:'2.29.50', notes:[
     "Updated the iOS Home Screen app icon.",
   ]},
@@ -4660,6 +4663,10 @@ function psnTitleOnTab(g, tab){
 let PSN_TITLES_LOADED = false;
 function renderPsnGames(){
   const body = $('#games-body');
+  loadWishlistCloud(cloud => {
+    try{ localStorage.setItem(WL_KEY, JSON.stringify(Array.isArray(cloud)?cloud:[])); }catch(e){}
+    if(PSN_TITLES_LOADED) renderGamesList(PSN_TITLES);
+  });
   if(!psnConfigured()){
     body.innerHTML = `<div class="empty">No PlayStation proxy is set up yet.<br>Deploy the one in
       <code>psn-proxy/</code> (its README walks through it), then paste your proxy's URL into
@@ -4882,8 +4889,8 @@ function psnToggleHiddenImpl(id){
    Talks to /api/board-games (see api/board-games.js), a Vercel function rather than the PSN
    proxy - BGG 401s every request that comes from the proxy's Cloudflare network no matter what
    headers are sent, so this one endpoint lives on different infrastructure instead. No login -
-   the list is the same for everyone - so what's yours is just which games you've marked, and
-   that stays on this device the way the PSN connection does. */
+   the list is the same for everyone - so what's yours is just which games you've marked, synced
+   to the cloud the same way Places/Gigs/Films are so those marks show up on every device. */
 const BG_MARKS_KEY = 'calstrippin_boardgames';
 let BG_GAMES = [];          // the last fetch (hot list or search), held so filters re-run without refetching
 /* Want to Play/Played games, keyed by id, fetched independently of whatever's currently
@@ -4893,8 +4900,19 @@ let BG_MARKED_CACHE = {};
 let BG_FILTER = {cat:'all', players:0, time:0};
 let BG_SEARCH_TIMER = null;
 function bgMarks(){ try{ return JSON.parse(localStorage.getItem(BG_MARKS_KEY)||'{}'); }catch(e){ return {}; } }
-function saveBgMarks(m){ try{ localStorage.setItem(BG_MARKS_KEY, JSON.stringify(m)); }catch(e){} }
+function saveBgMarks(m){ try{ localStorage.setItem(BG_MARKS_KEY, JSON.stringify(m)); }catch(e){} pushBgMarks(); }
 function bgMarkOf(id){ return bgMarks()[id] || ''; }
+function loadBgMarksCloud(cb){
+  if(!fbRoot){ cb(bgMarks()); return; }
+  fbRoot.ref('boardGameMarks').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : bgMarks()))
+    .catch(() => cb(bgMarks()));
+}
+function pushBgMarks(){
+  if(!fbRoot) return;
+  fbRoot.ref('boardGameMarks').set(bgMarks())
+    .catch(err => console.error("My Trips, couldn't save board game marks:", err));
+}
 
 /* BGG returns dozens of categories and mechanics; these are the handful of shelves people
    actually choose between, matched off the category/mechanic names (and weight rating) it
@@ -4934,6 +4952,10 @@ function bgTimeLabel(g){
 let BG_SUBTAB = 'want';   // 'want' | 'played' | 'search'
 function renderBoardGames(){
   const body = $('#games-body'); if(!body) return;
+  loadBgMarksCloud(cloud => {
+    try{ localStorage.setItem(BG_MARKS_KEY, JSON.stringify(cloud && typeof cloud==='object' ? cloud : {})); }catch(e){}
+    if(BG_SUBTAB!=='search'){ drawBgShelf(); loadBgShelf(); }
+  });
   const tab = (k, label) => `<button class="subtab${BG_SUBTAB===k?' on':''}" onclick="App.bgSubtab('${k}')">${label}</button>`;
   body.innerHTML = `
     <div class="subtabs">${tab('want','⭐ Want to Play')}${tab('played','✅ Played')}${tab('search','🔍 Search')}</div>
@@ -5176,14 +5198,25 @@ function renderBoardGameDetail(id){
 /* ================= Wishlist (new & upcoming video games) =================
    Same proxy pattern as Board Games: a Vercel function (api/game-search.js) rather than the
    Cloudflare Worker, same-origin, no CORS header to add. No login - just a search box, backed
-   by RAWG (rawg.io), and a locally-saved shelf of what you've marked, the same way Board
-   Games' Want to Play/Played marks stay on-device. */
+   by RAWG (rawg.io), and a shelf of what you've marked - synced to the cloud the same way
+   Places/Gigs/Films are, so a Play List built on one device shows up on every other. */
 const WL_KEY = 'calstrippin_game_wishlist';
 let WL_LAST_GAMES = [];   // the last fetch, so App.wlToggle can find a game's full data by id
 let WL_SEARCH_TIMER = null;
 function wishlistGames(){ try{ return JSON.parse(localStorage.getItem(WL_KEY)||'[]'); }catch(e){ return []; } }
-function saveWishlist(list){ try{ localStorage.setItem(WL_KEY, JSON.stringify(list)); }catch(e){} }
+function saveWishlist(list){ try{ localStorage.setItem(WL_KEY, JSON.stringify(list)); }catch(e){} pushWishlist(); }
 function isWishlisted(id){ return wishlistGames().some(g=>g.id===id); }
+function loadWishlistCloud(cb){
+  if(!fbRoot){ cb(wishlistGames()); return; }
+  fbRoot.ref('gameWishlist').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : wishlistGames()))
+    .catch(() => cb(wishlistGames()));
+}
+function pushWishlist(){
+  if(!fbRoot) return;
+  fbRoot.ref('gameWishlist').set(wishlistGames())
+    .catch(err => console.error("My Trips, couldn't save Play List:", err));
+}
 function wlReleaseLabel(g){
   // a manual entry with no date given isn't necessarily unannounced - the date just wasn't
   // filled in - so it says nothing rather than claiming "To be announced" when it might
