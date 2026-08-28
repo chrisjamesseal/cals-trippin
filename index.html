@@ -631,43 +631,30 @@ a{color:var(--brand-dark);}
 @media(max-width:560px){.plant-sticky-header{margin-left:-12px; margin-right:-12px; padding-left:12px; padding-right:12px;}}
 @media(min-width:768px){.plant-sticky-header{margin-left:-32px; margin-right:-40px; padding-left:32px; padding-right:40px;}}
 .plant-sticky-header.plant-unplanted{opacity:.8;}
-.plant-sticky-expanded{display:flex; align-items:flex-start; gap:12px;}
+.plant-sticky-expanded{display:flex; flex-direction:column; align-items:flex-start; gap:10px;}
 .plant-sticky-header.collapsed{padding-top:10px; padding-bottom:10px;}
 .plant-sticky-header.collapsed .plant-sticky-expanded{display:none;}
 .plant-sticky-collapsed{display:none; align-items:center; gap:8px;}
 .plant-sticky-header.collapsed .plant-sticky-collapsed{display:flex;}
 .plant-sticky-collapsed span{font-family:var(--font-head); font-weight:700; font-size:.86rem; color:var(--ink); overflow-wrap:anywhere;}
-.plant-sticky-emoji{font-size:2rem; line-height:1; flex-shrink:0;
+.plant-sticky-emoji{font-size:2.4rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-sticky-emoji.plant-icon-img{width:36px; height:36px; object-fit:cover; border-radius:8px;}
+.plant-sticky-emoji.plant-icon-img{width:44px; height:44px; object-fit:cover; border-radius:8px;}
 .plant-sticky-collapsed-emoji{font-size:1.05rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-sticky-collapsed-emoji.plant-icon-img{width:18px; height:18px; object-fit:cover; border-radius:4px;}
-.plant-sticky-info{min-width:0; flex:1;}
+.plant-sticky-info{min-width:0; width:100%;}
 .plant-sticky-name{font-family:var(--font-head); font-weight:800; font-size:1.2rem; color:var(--ink); overflow-wrap:anywhere;}
 .plant-sticky-line{font-size:.8rem; color:var(--ink); margin-top:2px;}
-/* "What Happens Next?" (plantWhatsNextHTML) - a distinct softly-tinted card so it reads as the
-   one thing worth reading in full, not another stat sitting flush against the page background */
-.plant-next-card{background:var(--brand-tint); border-radius:var(--radius); padding:16px 18px; margin-bottom:22px;}
-.plant-next-card .plant-section-heading{color:var(--brand-dark);}
-.plant-next-card .plant-section-heading .icon{color:var(--brand-dark);}
-.plant-next-card p{font-size:.84rem; line-height:1.5; margin:0; color:var(--ink);}
+/* the watering button, moved up into the sticky header itself (see plantStickyHeaderHTML) rather
+   than living further down the page - full width, same as everywhere else this button appears. */
+.plant-sticky-water{width:100%;}
 .plant-journey-change{margin:14px 0 22px;}
 .plant-journey-change summary{color:var(--brand); font-weight:700; font-size:.8rem; cursor:pointer; list-style:none;}
 .plant-journey-change summary::-webkit-details-marker{display:none;}
-/* the Watering card (plantWateringCardHTML) - simplified to one last-watered line and one
-   colour-coded action line (folding what used to be a separate status pill and next-action line
-   into one) plus the button, per the "reduce visual noise" brief. */
-.plant-water-card{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
-  padding:16px 18px; margin-bottom:22px;}
-.plant-water-card-action{font-weight:700; font-size:.86rem; margin-bottom:12px;}
-.plant-water-card-action.green{color:#1F7A3D;}
-.plant-water-card-action.yellow{color:#8A6402;}
-.plant-water-card-action.red{color:#C0392B;}
-/* Plant Information tab (plantDetailInfoHTML) - light/water/temperature/harvest-season as plain
-   rows, plus (where one exists) the full booklet-sourced growing guide. Its own tab rather than a
-   section on Overview, so none of it competes for space above the fold. */
-.plant-info-rows{margin-bottom:8px;}
+/* Growing Conditions (plantDetailInfoHTML) - light/water/temperature/harvest-season as plain
+   rows, shown inline on the page rather than behind a separate tab. */
+.plant-info-rows{margin-bottom:22px;}
 .plant-info-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:.84rem;}
 .plant-info-row:last-child{border-bottom:none;}
 .plant-info-label{color:var(--muted); flex:1;}
@@ -707,48 +694,6 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-home-emoji.plant-icon-img{width:24px; height:24px; object-fit:cover; border-radius:6px;}
 .plant-home-ts{font-size:.62rem; color:var(--muted); white-space:nowrap;}
-/* the Plant Information section's own reference material for the handful of vegetables this app
-   actually has published growing instructions for (see PLANT_GROWING_GUIDES) - purely
-   informational, doesn't feed the watering/stage tracking above it. Every month-range value (the
-   facts row's Sow/Move Outside/Harvest, and each phase's own date range) is an editable input
-   rather than plain text - the booklet's timing is generic, real planting rarely lines up with it
-   exactly, see plantGrowFactEdit/plantGrowRangeEdit for where the per-plant override is saved. */
-.grow-facts{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:4px 0 18px;}
-.grow-fact{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 12px;}
-.grow-fact-label{color:var(--muted); font-size:.62rem; text-transform:uppercase; letter-spacing:.04em; font-weight:700;}
-.grow-fact-value{font-weight:700; font-size:.84rem; margin-top:2px; color:var(--ink);}
-/* the shared look for every editable month field, fact or phase-range alike - blends in as
-   plain text until you actually interact with it, so the page doesn't read as one big form.
-   Doubled up as .grow-editable.grow-fact-value/.grow-phase-range (rather than plain
-   .grow-editable) so this beats the app's own global input[type=text] styling on specificity -
-   a single class alone ties with that attribute selector and loses on source order. */
-.grow-editable.grow-fact-value,.grow-editable.grow-phase-range{border:none; background:none;
-  font:inherit; color:inherit; padding:0; border-bottom:1px dashed transparent; border-radius:0;
-  -webkit-appearance:none; appearance:none;}
-.grow-editable.grow-fact-value:hover,.grow-editable.grow-phase-range:hover{border-bottom-color:var(--line-strong);}
-.grow-editable.grow-fact-value:focus,.grow-editable.grow-phase-range:focus{outline:none; border-bottom-color:var(--brand);}
-.grow-editable.grow-fact-value{width:100%; margin-top:2px;}
-/* phases as <details>/<summary> - collapsed by default past the first one, since six paragraphs
-   times three-or-four phases is a lot of scrolling to land on when all you want is which phase
-   you're up to. The date-range input sits inside the tappable summary, so its own clicks are
-   stopped from bubbling up and toggling the accordion (see plantGrowPhaseHTML). */
-.grow-phase{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm); margin-bottom:12px; overflow:hidden;}
-.grow-phase-head{display:flex; justify-content:space-between; align-items:center; gap:8px 10px;
-  flex-wrap:wrap; padding:14px 16px; cursor:pointer; list-style:none;}
-.grow-phase-head::-webkit-details-marker{display:none;}
-.grow-phase-title{font-family:var(--font-head); font-weight:700; font-size:.92rem; flex:1; min-width:0;}
-.grow-phase-num{display:inline-block; background:var(--brand-tint); color:var(--brand-dark);
-  font-weight:700; font-size:.64rem; padding:3px 9px; border-radius:20px; margin-right:8px; white-space:nowrap;}
-.grow-editable.grow-phase-range{color:var(--muted); font-size:.7rem; white-space:nowrap; text-align:right; flex-shrink:0; width:112px;}
-.grow-phase-chevron{color:var(--muted); font-size:.72rem; flex-shrink:0; transition:transform .15s;}
-.grow-phase[open] .grow-phase-chevron{transform:rotate(180deg);}
-.grow-phase-body{padding:0 16px 14px;}
-.grow-phase-body p{font-size:.82rem; line-height:1.5; margin:0 0 8px; color:var(--ink);}
-.grow-phase-body p:last-child{margin-bottom:0;}
-/* the short imperative summary (phase.tldr) - bold and set apart from the fuller booklet
-   paragraphs underneath, so a glance at the open phase gives the one-line version first */
-.grow-phase-tldr{font-weight:700;}
-
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:4px;}
 .gig-card{padding:14px;}
@@ -1448,8 +1393,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.48';
+const APP_VERSION = '2.29.49';
 const CHANGELOG = [
+  {version:'2.29.49', notes:[
+    "Plants detail page: the icon now sits above the name, the watering button lives in the sticky header alongside a plain watered/not-watered status, and the header goes quiet about watering once there's nothing due rather than saying so explicitly. Dropped the separate Watering card, the Overview/Information tab split (Growing Conditions just shows inline now), the Growing Guide accordion, and the What Happens Next blurb - all folded into or replaced by the header and Growing Conditions/Timeline below it.",
+  ]},
   {version:'2.29.48', notes:[
     "Renamed the app to \"Hobi\" and gave it a new icon - a tiled grid of six pictograms (film, controller, music note, mask, sprout, dice) for the app's actual range these days: films, games, gigs, theatre, plants and board games, not just trips.",
   ]},
@@ -7303,33 +7251,6 @@ function plantWaterRelativeLabel(p){
 function plantSectionHeadingHTML(icon, label){
   return `<h2 class="plant-section-heading">${fa(icon)}<span>${esc(label)}</span></h2>`;
 }
-/* the beginner-facing "what do I actually do" card - the thing this whole redesign is for. One
-   short paragraph, changes with the stage (and, during germination, whether it's still early or
-   getting close to the expected window), never assumes any gardening knowledge. */
-function plantWhatsNextText(p){
-  const stage = plantStageKey(p.stage);
-  const g = plantGerminationInfo(p);
-  const care = plantCareDataFor(p);
-  if(stage===PLANT_STAGE_DEFAULT) return "Once you've got seeds in the pot, tap Mark as Planted below to start tracking it.";
-  if(stage==='seed'){
-    const window = (g && `Most seeds like this take ${g.min} to ${g.max} days to sprout.`)
-      || (care && care.germDays && `Most seeds like this take ${care.germDays[0]} to ${care.germDays[1]} days to sprout.`)
-      || "Every seed's a little different, so there's no exact day to expect it by.";
-    return `You're waiting for the first shoots. ${window} Nothing visible yet is normal.`;
-  }
-  if(stage==='sprout') return "Your seedling's up. It needs plenty of light now to grow strong rather than tall and floppy.";
-  if(stage==='growing') return "Keep the water and sunlight coming. There's nothing else to do but let it get on with growing.";
-  if(stage==='ready') return "This one's ready. Harvest it whenever suits you - it won't spoil by waiting a day or two.";
-  if(stage==='harvested') return "This one's done. If you're growing another batch, tap a stage below to start tracking it.";
-  return '';
-}
-function plantWhatsNextHTML(p){
-  return `
-    <div class="plant-next-card">
-      ${plantSectionHeadingHTML('signs-post',"What Happens Next?")}
-      <p>${esc(plantWhatsNextText(p))}</p>
-    </div>`;
-}
 /* the four generic stages the visual journey steps through - unplanted has no step of its own
    (nothing to show yet), and Ready/Harvested share the last step since "harvest" is the
    destination whether it's freshly ready or already picked. */
@@ -7368,43 +7289,25 @@ function plantJourneyStepDescription(i, p){
    function since plantJourneyStepDescription/plantJourneyStepIdx are still used to build the
    current-stage card there, just no longer wrapped in four separate accordion nodes of their
    own. */
-/* the dedicated Watering card - last watered, a plain-English status sentence, and one concrete
-   next action, ending with the actual Watered button. Deliberately never recommends watering
-   just because a fixed number of days has passed if the plant isn't actually due (see
-   plantHealthState) - "touch the soil" is the honest middle state for "probably fine, but check". */
-function plantWateringNextAction(state){
-  if(state==='red') return 'Water needed today';
-  if(state==='yellow') return 'Check soil today';
-  return 'Nothing to do today';
-}
-/* simplified per the CRM redesign brief - one "last watered" line, one colour-coded action line
-   combining what used to be two separate elements (a status pill plus a next-action line), then
-   the button. Fewer visual pieces doing the same job. */
-function plantWateringCardHTML(p){
-  if(p.stage===PLANT_STAGE_DEFAULT) return '';
-  const state = plantHealthState(p);
-  return `
-    <div class="plant-water-card">
-      ${plantSectionHeadingHTML('droplet','Watering')}
-      <div class="plant-water-card-action ${state}">${PLANT_HEALTH_META[state].emoji} ${esc(plantWateringNextAction(state))}</div>
-      ${plantWaterButtonHTML(p)}
-    </div>`;
-}
 /* the sticky header's own watering hint - short enough to sit on one line next to the status and
-   (for a growing plant) a harvest-timing line, so it's phrased as a single word or two rather
-   than the fuller sentence the Watering card below gets. */
+   (for a growing plant) a harvest-timing line. Returns null rather than a "nothing to do today"
+   reassurance once nothing's actually due - the header's own status line already covers that via
+   plantStickyStatusLine's watered/not-watered wording, so a second line saying the same thing a
+   different way is just noise; this line is worth showing only once there's an actual heads-up. */
 function plantStickyWaterHint(p, state){
   if(state==='red') return '💧 Water today';
   if(state==='yellow') return '💧 Check soil today';
   const until = plantDaysUntilWaterDue(p);
   if(until===1) return '💧 Water tomorrow';
   if(until>1) return `💧 Water in ${until} days`;
-  return '✅ Nothing to do today';
+  return null;
 }
 /* the header's own status line - urgency (needing water) always wins over the stage-flavoured
    "going well" phrasing, since "growing strong" reads oddly next to a plant that's actually
    overdue a drink. Otherwise each stage gets its own upbeat label rather than reusing the plain
-   health-badge wording everywhere. */
+   health-badge wording everywhere. The seed-stage fallback reports today's actual watered/
+   not-watered state rather than a vague "Looking Good", since that's the one stage without a
+   more specific stage-flavoured label of its own. */
 function plantStickyStatusLine(p, state){
   const stage = plantStageKey(p.stage);
   if(state==='red') return `${PLANT_HEALTH_META.red.emoji} Needs Water`;
@@ -7413,7 +7316,7 @@ function plantStickyStatusLine(p, state){
   if(stage==='growing') return '🪴 Growing Strong';
   if(stage==='ready') return '🧺 Ready to Harvest';
   if(stage==='harvested') return '✅ All Done';
-  return '🟢 Looking Good';
+  return daysSinceTs(plantLastWateredTs(p))===0 ? '✅ Watered' : '💧 Not Watered';
 }
 /* the sticky header's own three-line dashboard - deliberately different content per stage rather
    than reusing the same fields everywhere, since "what's worth knowing right now" genuinely
@@ -7436,14 +7339,17 @@ function plantStickyLines(p){
   }
   if(stage==='seed'){
     const g = plantGerminationInfo(p);
+    const hint = plantStickyWaterHint(p, state);
     if(g) lines.push(`📅 Day ${g.day} · expected ${g.min} to ${g.max} days until sprouts`);
-    else lines.push(plantStickyWaterHint(p, state));
+    else if(hint) lines.push(hint);
   } else if(stage==='sprout'){
     const days = plantDaysSinceStageEntered(p, 'sprout');
     lines.push(days!=null ? `🌿 Sprouted ${days===0?'today':days===1?'yesterday':days+' days ago'}` : '🌿 Sprouted');
-    lines.push(plantStickyWaterHint(p, state));
+    const hint = plantStickyWaterHint(p, state);
+    if(hint) lines.push(hint);
   } else if(stage==='growing'){
-    lines.push(plantStickyWaterHint(p, state));
+    const hint = plantStickyWaterHint(p, state);
+    if(hint) lines.push(hint);
     const guide = plantGuideFor(p);
     const munch = guide && guide.facts && guide.facts.munch;
     if(munch) lines.push(`🥦 Harvest ${munch}`);
@@ -7483,6 +7389,7 @@ function plantStickyHeaderHTML(p){
           <div class="plant-sticky-name">${esc(p.name||'Untitled')}</div>
           ${lines.map(l=>`<div class="plant-sticky-line">${esc(l)}</div>`).join('')}
         </div>
+        <div class="plant-sticky-water">${plantWaterButtonHTML(p)}</div>
       </div>
       <div class="plant-sticky-collapsed">
         ${plantIconHTML(p, 'plant-sticky-collapsed-emoji')}
@@ -7691,7 +7598,7 @@ function renderPlants(){
    point of a timeline, not which kind of thing it was. Each entry can be deleted on its own
    (see plantDeleteLogEntryImpl) for a mis-tap on either the water button or a stage dot. */
 /* the delete action lives behind a tap-to-reveal overflow menu (a plain <details> - the app's own
-   disclosure-widget idiom, see .grow-phase) rather than a permanently-visible icon, so the row
+   disclosure-widget idiom) rather than a permanently-visible icon, so the row
    reads as activity content first and a manageable log second, per the CRM redesign brief. A
    shared `name` groups every row's menu on the page into one exclusive accordion, so opening one
    closes any other that was left open. */
@@ -8077,107 +7984,24 @@ function plantCareDataFor(p){
   const key = PLANT_GUIDE_ALIASES[((p&&p.name)||'').trim().toLowerCase()];
   return key ? PLANT_CARE_DATA[key] : null;
 }
-/* Planted/Outside/Munch are the guide's own generic month ranges ("June - July") - real
-   planting rarely lines up exactly with a printed booklet's timing, so these (and each phase's
-   own date range below) are editable, saved as a per-plant override rather than changing the
-   shared guide itself. Indoors/Watering/Repot aren't month ranges, so those stay plain text. */
-function plantGrowFactValue(p, guide, key){
-  const override = p.growOverrides && p.growOverrides.facts && p.growOverrides.facts[key];
-  return override != null ? override : guide.facts[key];
-}
-function plantGrowFactsHTML(p, guide){
-  const rows = [
-    ['🌱 Sow','planted','planted'],
-    ['🏠 Start Indoors',null,'indoors'],
-    ['🌤 Move Outside','outside','outside'],
-    ['✂️ Thin Out',null,'repot'],
-    ['🥦 Harvest','munch','munch'],
-  ];
-  return `<div class="grow-facts">${rows.map(([label,editKey,factsKey])=>{
-    const value = editKey ? plantGrowFactValue(p, guide, editKey) : guide.facts[factsKey];
-    return `
-    <div class="grow-fact"><div class="grow-fact-label">${esc(label)}</div>${editKey
-      ? `<input type="text" class="grow-editable grow-fact-value" value="${esc(value)}"
-           onchange="App.plantGrowFactEdit('${esc(p.id)}','${editKey}',this.value)">`
-      : `<div class="grow-fact-value">${esc(value)}</div>`}</div>`;
-  }).join('')}</div>`;
-}
-function plantGrowPhaseRange(p, phase){
-  const override = p.growOverrides && p.growOverrides.ranges && p.growOverrides.ranges[phase.num];
-  return override != null ? override : phase.range;
-}
-function plantGrowPhaseHTML(p, phase, isOpen){
-  return `
-    <details class="grow-phase"${isOpen?' open':''}>
-      <summary class="grow-phase-head">
-        <span class="grow-phase-title"><span class="grow-phase-num">Step ${phase.num}:</span>${esc(phase.title)}</span>
-        <input type="text" class="grow-editable grow-phase-range" value="${esc(plantGrowPhaseRange(p, phase))}"
-          onclick="event.stopPropagation()" onmousedown="event.stopPropagation()"
-          onchange="App.plantGrowRangeEdit('${esc(p.id)}',${phase.num},this.value)">
-        <span class="grow-phase-chevron" aria-hidden="true">${fa('chevron-down')}</span>
-      </summary>
-      <div class="grow-phase-body">
-        ${phase.tldr ? `<p class="grow-phase-tldr">${esc(phase.tldr)}</p>` : ''}
-        ${phase.points.map(pt=>`<p>${esc(pt)}</p>`).join('')}
-      </div>
-    </details>`;
-}
 /* everything a beginner needed once, at setup, but doesn't need read back to them every day -
-   light/water/temperature/harvest-season plus (for the handful of vegetables with one) the full
-   booklet-sourced growing guide, calendar facts included. Its own Information tab rather than a
-   collapsed section on Overview, per the CRM redesign brief's CARE NOW vs PLANT INFO split -
-   nothing in here changes what to actually do today, so it's a deliberate tap away rather than
-   competing for space above the fold. */
+   just light/water/temperature/harvest-season, shown inline on the page rather than behind a
+   separate Information tab, since there's nothing else left on the page competing for the space. */
 function plantDetailInfoHTML(p){
   const conditions = plantInfoConditionRows(p);
-  const guide = plantGuideFor(p);
-  if(!conditions && !guide) return `<p class="small muted">No reference information for this vegetable yet.</p>`;
-  return `
-    ${conditions ? `${plantSectionHeadingHTML('circle-info','Growing Conditions')}${conditions}` : ''}
-    ${guide ? `
-      ${plantSectionHeadingHTML('book-open','Growing Guide')}
-      ${plantGrowFactsHTML(p, guide)}
-      ${guide.phases.map(phase=>plantGrowPhaseHTML(p, phase, false)).join('')}` : ''}`;
+  if(!conditions) return '';
+  return `${plantSectionHeadingHTML('circle-info','Growing Conditions')}${conditions}`;
 }
-/* both edits save straight into the input the user's already looking at, so there's nothing to
-   redraw here - re-rendering the whole guide section would also collapse every accordion back to
-   its default open/closed state right as they finish typing, which is worse than just leaving it. */
-function plantGrowFactEditImpl(id, key, value){
-  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  p.growOverrides = p.growOverrides || {};
-  p.growOverrides.facts = p.growOverrides.facts || {};
-  p.growOverrides.facts[key] = value;
-  savePlants();
-}
-function plantGrowRangeEditImpl(id, num, value){
-  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  p.growOverrides = p.growOverrides || {};
-  p.growOverrides.ranges = p.growOverrides.ranges || {};
-  p.growOverrides.ranges[num] = value;
-  savePlants();
-}
-/* Overview vs Information (plantDetailTabsHTML/App.plantDetailTab) - CARE NOW vs PLANT INFO, per
-   the CRM redesign brief. One plant detail page is ever open at a time, so a single module-level
-   pair (which tab, which plant) is enough state - same convention every other subtab in this app
-   (Films/Games/Gigs/Theatre) already uses. Always resets to Overview on a fresh visit; switching
-   tabs on an already-open page doesn't re-fetch or reset anything else. */
-let CUR_PLANT_DETAIL_TAB = 'overview';
 let CUR_PLANT_DETAIL_ID = null;
-function plantDetailTabsHTML(){
-  const tab = (k, label) => `<button class="subtab${CUR_PLANT_DETAIL_TAB===k?' on':''}" onclick="App.plantDetailTab('${k}')">${label}</button>`;
-  return `<div class="subtabs">${tab('overview','Overview')}${tab('info','Information')}</div>`;
-}
-function plantDetailOverviewHTML(p){
+function plantDetailContentHTML(p){
   return `
-    <div id="plant-detail-water">${plantWateringCardHTML(p)}</div>
-    <div id="plant-detail-next">${plantWhatsNextHTML(p)}</div>
+    <div id="plant-detail-info">${plantDetailInfoHTML(p)}</div>
     <div id="plant-detail-timeline">${plantCombinedTimelineHTML(p)}</div>`;
 }
 function renderPlantDetail(id){
   const p = (DB.plants||[]).find(x=>x.id===id);
   if(!p){ location.hash = '#/plants'; return; }
   CUR_PLANT_DETAIL_ID = id;
-  CUR_PLANT_DETAIL_TAB = 'overview';
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
@@ -8186,22 +8010,17 @@ function renderPlantDetail(id){
       </div>
     </div>
     ${plantStickyHeaderHTML(p)}
-    <div id="plant-detail-tabs">${plantDetailTabsHTML()}</div>
-    <div id="plant-detail-content">${plantDetailOverviewHTML(p)}</div>`;
+    <div id="plant-detail-content">${plantDetailContentHTML(p)}</div>`;
   plantBindStickyScroll();
 }
-/* refreshes just the live bits of the detail page in place (sticky header, what's next, watering,
-   the combined timeline) rather than a full re-render - a no-op if some other page is actually
-   showing right now, same guard-on-the-DOM-node pattern drawPlantsGrid/drawDashPlantsSlot already
-   use. Each target is also a no-op if the Information tab is showing instead of Overview, since
-   none of these ids exist in that tab's markup - fine, there's nothing on Information for any of
-   these actions to update anyway. */
+/* refreshes just the live bits of the detail page in place (sticky header, the combined timeline)
+   rather than a full re-render - a no-op if some other page is actually showing right now, same
+   guard-on-the-DOM-node pattern drawPlantsGrid/drawDashPlantsSlot already use. Growing Conditions
+   isn't refreshed here since it's static per vegetable, not affected by watering or stage. */
 function drawPlantDetail(id){
   const stickyRoot = $('#plant-detail-sticky'); if(!stickyRoot) return;
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
   stickyRoot.outerHTML = plantStickyHeaderHTML(p);
-  const nextRoot = $('#plant-detail-next'); if(nextRoot) nextRoot.innerHTML = plantWhatsNextHTML(p);
-  const waterRoot = $('#plant-detail-water'); if(waterRoot) waterRoot.innerHTML = plantWateringCardHTML(p);
   const timelineRoot = $('#plant-detail-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantCombinedTimelineHTML(p);
 }
 function plantDeleteLogEntryImpl(id, type, ts){
@@ -8540,15 +8359,6 @@ App.plantWater = plantWaterImpl;
 App.plantUndoWater = plantUndoWaterImpl;
 App.plantSetStage = plantSetStageImpl;
 App.plantDeleteLogEntry = plantDeleteLogEntryImpl;
-App.plantGrowFactEdit = plantGrowFactEditImpl;
-App.plantGrowRangeEdit = plantGrowRangeEditImpl;
-App.plantDetailTab = k => {
-  CUR_PLANT_DETAIL_TAB = k;
-  const p = (DB.plants||[]).find(x=>x.id===CUR_PLANT_DETAIL_ID); if(!p) return;
-  const tabsRoot = $('#plant-detail-tabs'); if(tabsRoot) tabsRoot.innerHTML = plantDetailTabsHTML();
-  const contentRoot = $('#plant-detail-content'); if(!contentRoot) return;
-  contentRoot.innerHTML = k==='info' ? plantDetailInfoHTML(p) : plantDetailOverviewHTML(p);
-};
 App.plantPickEmoji = plantPickEmojiImpl;
 App.plantAttachIcon = plantAttachIconImpl;
 App.plantClearIcon = plantClearIconImpl;
