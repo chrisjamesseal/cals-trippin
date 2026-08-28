@@ -1404,8 +1404,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.53';
+const APP_VERSION = '2.29.54';
 const CHANGELOG = [
+  {version:'2.29.54', notes:[
+    "Fixed flights/ferries/car hire/accommodation with a real date always landing in the Itinerary's Anytime bucket on a trip that's only a rough idea so far (\"August 2027\" rather than exact dates) - they now land on the actual day they fall on, worked out from the rough idea's own start month, the same way a real trip's dates already did.",
+  ]},
   {version:'2.29.53', notes:[
     "Accommodation's Check-in/Check-out date fields no longer silently default to today - they start blank, so a stay you haven't nailed down dates for yet just says so (a \"Not Booked\" placeholder) instead of quietly saving today's date for both.",
     "Fixed a Not Booked flight/ferry/car hire/accommodation card showing as two separate dashed boxes stacked on top of each other instead of one - a redundant divider line under the header, plus its title floating stranded between two wrapped lines when the header ran out of room. Both now read as the single card they are.",
@@ -2671,6 +2674,19 @@ function tripSortDate(t){
    a week (a day/weekend/long weekend, see SHORT_WHEN_OPTS) times 7 lands a hair either side
    of a whole number in floating point, and this is used as an array length elsewhere. */
 const roughTripDays = t => hasRoughWhen(t) && t.when.weeks ? Math.round(t.when.weeks*7) : 0;
+/* a flight/ferry/car hire/stay still carries a real calendar date even on a trip that's only a
+   rough idea so far - this turns that date into the same "d3" day-number key the itinerary runs
+   on for a rough trip, anchored to the rough idea's own start (tripSortDate's first-of-the-month
+   guess), so it lands on the right day instead of always falling into Anytime just because the
+   trip itself has no exact dates yet. A date that lands before that anchor has no sensible day
+   number to sit under, so it falls back to Anytime same as before. */
+function roughDayKey(t, dateStr){
+  if(!dateStr) return '';
+  const anchor = tripSortDate(t);
+  if(!anchor) return '';
+  const n = Math.round((new Date(dateStr+'T00:00:00') - new Date(anchor+'T00:00:00'))/DAY_MS) + 1;
+  return n > 0 ? 'd'+n : '';
+}
 /* the one line that says when a trip is, whichever way it's been pinned down */
 function tripWhenLine(t){
   if(hasRoughWhen(t)){
@@ -10270,8 +10286,9 @@ function planDayGroups(t){
   const groups = {};
   /* A trip that's only pencilled in for "next summer" has no calendar to hang things off, so
      its plan runs on day numbers instead: Day 1, Day 2. Same grouping machinery, the key is
-     just "d3" rather than a date. Anything booked with a real date (a flight, a stay) has no
-     day number to sit under, so it falls into Anytime until the trip gets real dates. */
+     just "d3" rather than a date. A flight/ferry/car hire/stay still carries a real calendar
+     date though, so that gets converted to the day number it falls on (see roughDayKey) rather
+     than always landing in Anytime - only something with no date at all falls back to Anytime. */
   const rough = hasRoughWhen(t);
   items.forEach((s,i)=>{
     const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
@@ -10280,7 +10297,7 @@ function planDayGroups(t){
   // fold travel + accommodation into the schedule, with their full detail, so the whole trip
   // reads in one place, each still lives and is edited in its own section
   (t.flights||[]).forEach((f,fi)=>{
-    const k = rough ? '' : (f.date||'');
+    const k = rough ? roughDayKey(t, f.date) : (f.date||'');
     // a lightweight reminder to get to the airport, it's a real Add Travel card (same
     // rendering, same edit form) rather than a bespoke one, just suggested rather than
     // stored until you actually save it, so once you do it behaves exactly like any travel
@@ -10297,11 +10314,11 @@ function planDayGroups(t){
     (groups[k]=groups[k]||[]).push({_autoFlight:1, time:f.depTime||'', f, fi});
   });
   (t.ferries||[]).forEach((f,fi)=>{
-    const k = rough ? '' : (f.date||'');
+    const k = rough ? roughDayKey(t, f.date) : (f.date||'');
     (groups[k]=groups[k]||[]).push({_autoFerry:1, time:f.depTime||'', f, fi});
   });
   (t.carHire||[]).forEach((c,ci)=>{
-    const pk = rough ? '' : c.pickupDate, dk = rough ? '' : c.dropoffDate;
+    const pk = rough ? roughDayKey(t, c.pickupDate) : c.pickupDate, dk = rough ? roughDayKey(t, c.dropoffDate) : c.dropoffDate;
     // undecided and neither date set yet: still has to land somewhere, same Anytime bucket
     // an unscheduled Task would use, rather than vanishing until a pick-up date exists
     if(!c.pickupDate && !c.dropoffDate){
@@ -10314,7 +10331,7 @@ function planDayGroups(t){
   (t.accommodations||[]).forEach((ac,aci)=>{
     // your actual arrival time, when you've set one, is what the day should sort by, not
     // the property's generic check-in time
-    const ik = rough ? '' : ac.checkin, ok = rough ? '' : ac.checkout;
+    const ik = rough ? roughDayKey(t, ac.checkin) : ac.checkin, ok = rough ? roughDayKey(t, ac.checkout) : ac.checkout;
     if(!ac.checkin && !ac.checkout){
       // undecided with no dates yet: same Anytime bucket an unscheduled Task would use
       (groups['']=groups['']||[]).push({_autoStay:'checkin', time:'', ac, aci});
