@@ -1404,8 +1404,14 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.54';
+const APP_VERSION = '2.29.56';
 const CHANGELOG = [
+  {version:'2.29.56', notes:[
+    "Added Brisbane, Perth, Adelaide, Gold Coast, Cairns, Canberra, Hobart, Darwin, Wellington and Christchurch to the airport picker - Brisbane specifically wasn't in the list at all, so it could never come up while typing a flight's From/To.",
+  ]},
+  {version:'2.29.55', notes:[
+    "A rough-idea trip's Day 1 is now the earliest flight/ferry/car hire/accommodation date actually added, not the trip's own \"Rough Idea\" month - a booked date is a better answer to \"when does this trip start\" than a rough guess made before anything was known, and it was leaving real dated items stuck in Anytime whenever they fell before that guess.",
+  ]},
   {version:'2.29.54', notes:[
     "Fixed flights/ferries/car hire/accommodation with a real date always landing in the Itinerary's Anytime bucket on a trip that's only a rough idea so far (\"August 2027\" rather than exact dates) - they now land on the actual day they fall on, worked out from the rough idea's own start month, the same way a real trip's dates already did.",
   ]},
@@ -2674,15 +2680,28 @@ function tripSortDate(t){
    a week (a day/weekend/long weekend, see SHORT_WHEN_OPTS) times 7 lands a hair either side
    of a whole number in floating point, and this is used as an array length elsewhere. */
 const roughTripDays = t => hasRoughWhen(t) && t.when.weeks ? Math.round(t.when.weeks*7) : 0;
+/* the earliest real date across everything actually added to a rough trip (flights, ferries,
+   car hire, accommodation) - what's actually been booked is a better answer to "when does this
+   trip start" than the trip's own "Rough Idea" month guess (e.g. "Summer 2027"), which is often
+   set well before the real dates are known and then never revisited. Used as this trip's own
+   Day 1 by roughDayKey below. */
+function roughTripAnchor(t){
+  const dates = [];
+  (t.flights||[]).forEach(f=>{ if(f.date) dates.push(f.date); });
+  (t.ferries||[]).forEach(f=>{ if(f.date) dates.push(f.date); });
+  (t.carHire||[]).forEach(c=>{ if(c.pickupDate) dates.push(c.pickupDate); if(c.dropoffDate) dates.push(c.dropoffDate); });
+  (t.accommodations||[]).forEach(a=>{ if(a.checkin) dates.push(a.checkin); if(a.checkout) dates.push(a.checkout); });
+  return dates.length ? dates.reduce((a,b)=>a<b?a:b) : '';
+}
 /* a flight/ferry/car hire/stay still carries a real calendar date even on a trip that's only a
    rough idea so far - this turns that date into the same "d3" day-number key the itinerary runs
-   on for a rough trip, anchored to the rough idea's own start (tripSortDate's first-of-the-month
-   guess), so it lands on the right day instead of always falling into Anytime just because the
-   trip itself has no exact dates yet. A date that lands before that anchor has no sensible day
-   number to sit under, so it falls back to Anytime same as before. */
+   on for a rough trip, anchored to roughTripAnchor (the earliest thing actually added, not the
+   trip's own rough month guess), so it lands on the right day instead of always falling into
+   Anytime just because the trip itself has no exact dates yet. Nothing added yet to anchor to,
+   or no date on this particular item, falls back to Anytime same as before. */
 function roughDayKey(t, dateStr){
   if(!dateStr) return '';
-  const anchor = tripSortDate(t);
+  const anchor = roughTripAnchor(t);
   if(!anchor) return '';
   const n = Math.round((new Date(dateStr+'T00:00:00') - new Date(anchor+'T00:00:00'))/DAY_MS) + 1;
   return n > 0 ? 'd'+n : '';
@@ -3293,7 +3312,10 @@ const AIRPORTS = {
   JFK:'New York JFK', EWR:'Newark', LGA:'New York LaGuardia', LAX:'Los Angeles', SFO:'San Francisco',
   MIA:'Miami', ORD:'Chicago O\'Hare', BOS:'Boston', LAS:'Las Vegas', MCO:'Orlando',
   YYZ:'Toronto', YVR:'Vancouver', BKK:'Bangkok', SIN:'Singapore', HKG:'Hong Kong', NRT:'Tokyo Narita',
-  HND:'Tokyo Haneda', DPS:'Bali Denpasar', SYD:'Sydney', MEL:'Melbourne', AKL:'Auckland'
+  HND:'Tokyo Haneda', DPS:'Bali Denpasar',
+  SYD:'Sydney', MEL:'Melbourne', BNE:'Brisbane', PER:'Perth', ADL:'Adelaide', OOL:'Gold Coast',
+  CNS:'Cairns', CBR:'Canberra', HBA:'Hobart', DRW:'Darwin',
+  AKL:'Auckland', WLG:'Wellington', CHC:'Christchurch'
 };
 const airportName = code => AIRPORTS[String(code||'').toUpperCase()] || '';
 function airportDatalist(){
