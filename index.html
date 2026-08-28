@@ -988,7 +988,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    an unscheduled Task and for a flight/ferry/car hire/accommodation marked Not Booked Yet or
    a travel leg marked the same, so "still outstanding" reads the same wherever it shows up. */
 .card-undecided{border:2px dashed rgba(192,57,43,.35) !important; background:none !important; box-shadow:none !important;}
-.card-undecided .flight-head{background:none !important; border-bottom:1px dashed rgba(192,57,43,.35) !important;}
+/* no border-bottom of its own here - the outer dashed border above already wraps the whole
+   card, so a second dashed line under just the head split it into two dashed boxes stacked on
+   top of each other instead of reading as the one card it is. */
+.card-undecided .flight-head{background:none !important; border-bottom:none !important;}
 .card-undecided h3,.card-undecided .head-with-logo,.card-undecided .head-with-logo span,.card-undecided strong{color:#C0392B;}
 /* a task only wears this while it still needs a day - once it's on the Itinerary it's a
    plan like any other */
@@ -1022,7 +1025,12 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .mono{font-variant-numeric:tabular-nums; font-feature-settings:"tnum";}
 .amount{font-weight:800; white-space:nowrap; color:var(--ink);}
 .flight-strip{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden;}
-.flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--brand-ghost);}
+.flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--brand-ghost); flex-wrap:wrap; gap:6px;}
+/* when the right-hand side (pill/date/edit/delete) doesn't fit on one line and wraps under
+   itself, the title's own single line would otherwise be vertically centred against that whole
+   wrapped block and end up stranded between the two wrapped lines - pin it to the top instead so
+   it reads as a normal title sitting beside the first line, not floating in the middle. */
+.flight-head .head-with-logo,.flight-head > strong{align-self:flex-start; padding-top:2px;}
 /* the little square logo sitting with a card's title */
 .head-with-logo{display:flex; align-items:center; gap:9px; min-width:0;}
 /* a square logo, flex-centred against the title beside it, reads as sitting a touch high -
@@ -1396,8 +1404,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.52';
+const APP_VERSION = '2.29.53';
 const CHANGELOG = [
+  {version:'2.29.53', notes:[
+    "Accommodation's Check-in/Check-out date fields no longer silently default to today - they start blank, so a stay you haven't nailed down dates for yet just says so (a \"Not Booked\" placeholder) instead of quietly saving today's date for both.",
+    "Fixed a Not Booked flight/ferry/car hire/accommodation card showing as two separate dashed boxes stacked on top of each other instead of one - a redundant divider line under the header, plus its title floating stranded between two wrapped lines when the header ran out of room. Both now read as the single card they are.",
+  ]},
   {version:'2.29.52', notes:[
     "New logo: a striped-ball mark trailing into a line, replacing the old tiled hobbies-icon grid as the favicon and Home Screen app icon. The Home page's own \"Home\" heading is now the same mark plus the \"Hobi\" wordmark, instead of plain text.",
   ]},
@@ -11468,13 +11480,13 @@ App.accomForm = (i, prefill) => {
     <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name (fills in automatically once you add a link or address)"</div>
     <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}" oninput="App.accomAutoName()"></div>
     <div class="grid2">
-      <div class="field"><label class="label">Check-in date</label><input id="ac-in" type="date" value="${esc(a.checkin||todayStr())}"></div>
+      <div class="field"><label class="label">Check-in date</label><input id="ac-in" type="date" value="${esc(a.checkin||'')}"></div>
       <div class="field"><label class="label">Check-in time</label><input id="ac-in-time" type="time" value="${esc(a.checkinTime||'')}"></div>
     </div>
     <div class="field"><label class="label">Your arrival time</label><input id="ac-arrival-time" type="time" value="${esc(a.arrivalTime||'')}">
       <p class="muted small" style="margin-top:6px">Only if you're arriving later than the standard check-in time above, used instead of it to work out where this falls in the itinerary.</p></div>
     <div class="grid2">
-      <div class="field"><label class="label">Check-out date</label><input id="ac-out" type="date" value="${esc(a.checkout||todayStr())}"></div>
+      <div class="field"><label class="label">Check-out date</label><input id="ac-out" type="date" value="${esc(a.checkout||'')}"></div>
       <div class="field"><label class="label">Check-out time</label><input id="ac-out-time" type="time" value="${esc(a.checkoutTime||'')}"></div>
     </div>
     <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
