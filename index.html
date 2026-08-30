@@ -680,6 +680,19 @@ a{color:var(--brand-dark);}
    tap-to-reveal menu so the row read as content first, a manageable log second, but that made
    deleting a mis-tapped entry a two-tap hunt rather than the one obvious tap it should be. */
 .plant-timeline-delete{flex-shrink:0;}
+/* Route tab (routeStops/tabRoute) - the same connected-dot timeline as the plant log, but
+   numbered stops instead of emoji events: place 1, place 2, place 3, in order down the page. */
+.route-list{display:flex; flex-direction:column;}
+.route-item{display:flex; gap:12px; position:relative; padding-bottom:18px;}
+.route-item:not(:last-child)::before{content:''; position:absolute; left:13px; top:30px; bottom:0; width:2px; background:var(--line);}
+.route-dot{flex-shrink:0; width:28px; height:28px; border-radius:50%; z-index:1;
+  display:flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:700; line-height:1;
+  background:var(--brand); color:#fff; border:1px solid var(--brand);}
+.route-dot-gap{background:var(--paper); color:var(--ink); border:1px dashed var(--line-strong);
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.route-body{flex:1; min-width:0; padding-top:3px; border-radius:var(--radius);}
+.route-body strong{display:block; font-weight:700; color:var(--ink); font-size:.95rem;}
+.route-item-gap .route-body strong{font-weight:600;}
 /* Home shows every vegetable as its own small chip - emoji, its own water button (see
    plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
    one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
@@ -1404,8 +1417,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.56';
+const APP_VERSION = '2.29.57';
 const CHANGELOG = [
+  {version:'2.29.57', notes:[
+    "Added a Route tab alongside Itinerary - a place-by-place read of the trip (Hotel Milano, 2 nights, then Venice Canal House, 3 nights, and so on) built from your accommodation bookings, with any stretch of nights nowhere's booked for shown as a break in the route rather than papering over it.",
+  ]},
   {version:'2.29.56', notes:[
     "Added Brisbane, Perth, Adelaide, Gold Coast, Cairns, Canberra, Hobart, Darwin, Wellington and Christchurch to the airport picker - Brisbane specifically wasn't in the list at all, so it could never come up while typing a flight's From/To.",
   ]},
@@ -8972,6 +8988,7 @@ const ICONS = {
   mood: fa('lightbulb'),
   log: fa('clock-rotate-left'),
   plan: fa('map'),
+  route: fa('route'),
   pin: fa('location-dot'),
   calendar: fa('calendar-days'),
   link: fa('link'),
@@ -9068,6 +9085,7 @@ App.trackFlight = url => {
 const TABS = [
   ['home','Overview'],
   ['plan','Itinerary'],
+  ['route','Route'],
   ['tasks','Tasks'],
   ['travel','Travel'],
   ['stay','Accommodation'],
@@ -9340,6 +9358,7 @@ function renderTab(t){
   if(CUR_TAB==='travel')   el.innerHTML = tabTravel(t,ro);
   if(CUR_TAB==='stay')     el.innerHTML = tabStay(t,ro);
   if(CUR_TAB==='plan')   { el.innerHTML = tabPlan(t,ro); initWeather(t); }
+  if(CUR_TAB==='route')   el.innerHTML = tabRoute(t,ro);
   if(CUR_TAB==='docs')     el.innerHTML = tabDocs(t,ro);
   if(CUR_TAB==='money')    el.innerHTML = tabMoney(t,ro);
   if(CUR_TAB==='photos')   el.innerHTML = tabPhotos(t,ro);
@@ -9354,9 +9373,12 @@ function renderTab(t){
 function crumbAction(t){
   switch(CUR_TAB){
     case 'plan':
-      return `<button class="btn sm" onclick="App.tab('mood')">${secEmoji('💡')} Add Ideas</button>`
+      return `<button class="btn sm" onclick="App.tab('route')">${secEmoji('🗺️')} Route</button>`
+        + `<button class="btn sm" onclick="App.tab('mood')">${secEmoji('💡')} Add Ideas</button>`
         + `<button class="btn sm" onclick="App.travelLegForm(-1)">${secEmoji('🚌')} Add Travel</button>`
         + `<button class="btn sm" onclick="App.planForm(-1)">${secEmoji('📍')} Add Stop</button>`;
+    case 'route':
+      return `<button class="btn sm" onclick="App.tab('plan')">${secEmoji('🗓️')} Itinerary</button>`;
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
@@ -11247,6 +11269,53 @@ function tabStay(t, ro){
     .concat(gaps.map(g=>({date:g.firstNight, html: stayGapCardHTML(g, ro)})));
   rows.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
   return rows.map(r=>r.html).join('');
+}
+
+/* ================= TAB: route (locations only, and the dates you're there) =================
+   A separate read of the same trip: not day-by-day like the Itinerary, but place-by-place -
+   where the itinerary tells you what's happening, this tells you where you'll be. Built off
+   accommodation bookings, since where you're sleeping IS where you are, so it can never drift
+   out of sync with what's actually been booked. A gap with nowhere booked breaks the route
+   rather than papering over it, the same dashed treatment Accommodation and the Itinerary
+   already use for one. */
+function routeStops(t){
+  const stays = (t.accommodations||[]).map((a,i)=>({a,i}))
+    .filter(x=>!x.a.undecided && x.a.checkin)
+    .map(({a,i})=>{
+      const nights = a.checkout
+        ? Math.max(1, Math.round((new Date(a.checkout+'T00:00:00') - new Date(a.checkin+'T00:00:00'))/DAY_MS))
+        : 1;
+      return {date:a.checkin, gap:false, i, name:a.name||'Accommodation',
+        when: a.checkout ? fmtRange(a.checkin, a.checkout) : fmtDate(a.checkin), nights};
+    });
+  const gaps = stayGaps(t).map(g=>({date:g.firstNight, gap:true,
+    when: g.nights===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.checkout), nights:g.nights}));
+  return stays.concat(gaps).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+}
+function tabRoute(t, ro){
+  const stops = routeStops(t);
+  if(!stops.length){
+    return `<div class="empty">No accommodation booked yet, so there's no route to map out.${!ro?'<br><br><button class="btn primary" onclick="App.accomForm(-1)">+ Add Accommodation</button>':''}</div>`;
+  }
+  const totalNights = stops.reduce((n,s)=>n+s.nights,0);
+  const plannedNights = stops.filter(s=>!s.gap).reduce((n,s)=>n+s.nights,0);
+  // gaps sit in the sequence but don't take a number of their own - "1, 2, gap, 3" reads as the
+  // three real stops it is, not as a numbered list with a hole punched in it
+  let stopNum = 0;
+  const stopRow = s => {
+    if(!s.gap) stopNum++;
+    return `
+    <div class="route-item${s.gap?' route-item-gap':''}">
+      <div class="route-dot${s.gap?' route-dot-gap':''}" aria-hidden="true">${s.gap?secEmoji('❓'):stopNum}</div>
+      <div class="route-body${!ro&&!s.gap?' plan-click':''}" ${!ro&&!s.gap?`role="button" tabindex="0" onclick="App.accomForm(${s.i})" onkeydown="if(event.key==='Enter'||event.key===' '){App.accomForm(${s.i})}"`:''}>
+        <strong class="${s.gap?'text-undecided':''}">${s.gap?'Nowhere booked':esc(s.name)}</strong>
+        <div class="muted small">${esc(s.when)} · ${s.nights} night${s.nights===1?'':'s'}</div>
+      </div>
+    </div>`;
+  };
+  return `
+    <p class="muted small" style="margin:-4px 0 16px">${plannedNights} of ${totalNights} night${totalNights===1?'':'s'} with somewhere to stay</p>
+    <div class="route-list">${stops.map(stopRow).join('')}</div>`;
 }
 
 /* ================= TAB: emergency contacts ================= */
