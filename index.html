@@ -1423,8 +1423,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.59';
+const APP_VERSION = '2.29.60';
 const CHANGELOG = [
+  {version:'2.29.60', notes:[
+    "Route is now about cities, not accommodation - Add City gives it a name and a date range directly (nothing to book), and that's what the route lists and numbers. A booked hotel no longer drives it: a stay you've paid for and a city you've just decided on both belong on the trip, but they're not the same fact, and Route only ever needed the second one.",
+  ]},
   {version:'2.29.59', notes:[
     "Route now reads the journeys themselves, not just where you're sleeping - a flight, ferry or one-way car hire shows up as its own \"Flight to Athens\" entry the moment it's added, dated and named by where it lands, so a booked trip with nowhere to stay yet still says where it's actually going instead of just \"Nowhere booked\".",
   ]},
@@ -9392,7 +9395,7 @@ function crumbAction(t){
     case 'route':
       return `<button class="btn sm" onclick="App.tab('plan')">${secEmoji('🗓️')} Itinerary</button>`
         + `<button class="btn sm" onclick="App.tab('travel')">${secEmoji('🌎')} Travel</button>`
-        + `<button class="btn sm" onclick="App.routeAddForm()">${secEmoji('📍')} Add Location</button>`;
+        + `<button class="btn sm" onclick="App.routeAddForm()">${secEmoji('📍')} Add City</button>`;
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
@@ -9487,7 +9490,7 @@ function tabHome(t, ro){
    'Trip info'/'People' edits live on Overview itself (where this list already sits),
    so those rows aren't made clickable */
 const LOG_SECTION_TAB = {
-  Itinerary:'plan', Travel:'travel', Accommodation:'stay', Ideas:'mood', Money:'money',
+  Itinerary:'plan', Route:'route', Travel:'travel', Accommodation:'stay', Ideas:'mood', Money:'money',
   Photos:'photos', Contacts:'contacts', Documents:'docs', Notes:'notes', Polls:'polls',
   Packing:'pack'
 };
@@ -11237,10 +11240,12 @@ const isoAddDays = (iso, n) => {
    on the morning of D2, so that date doesn't need a bed from this booking. By the same logic
    the trip needs beds for its start date through to the night before its end date, since the
    end date is the day you travel home. Returns one entry per unbroken run of missing nights. */
-function stayGaps(t){
+/* the walk is the same whether it's counting un-slept-in nights (accommodation) or un-planned
+   ones (route cities) - only which list of {checkin,checkout} ranges covers the trip differs */
+function rangeGaps(t, items){
   if(!t.startDate || !t.endDate) return [];
   const covered = new Set();
-  (t.accommodations||[]).forEach(a=>{
+  (items||[]).forEach(a=>{
     if(!a.checkin) return;
     const last = a.checkout || a.checkin;   // no check-out set: assume the one night
     for(let d=a.checkin; d<last; d=isoAddDays(d,1)) covered.add(d);
@@ -11257,6 +11262,7 @@ function stayGaps(t){
   return gaps.map(g=>({...g, checkout: isoAddDays(g.lastNight,1),
     nights: Math.round((new Date(g.lastNight+'T00:00:00') - new Date(g.firstNight+'T00:00:00'))/DAY_MS) + 1}));
 }
+function stayGaps(t){ return rangeGaps(t, t.accommodations); }
 function stayGapCardHTML(g, ro){
   const n = g.nights;
   const when = n===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.lastNight);
@@ -11285,17 +11291,14 @@ function tabStay(t, ro){
   return rows.map(r=>r.html).join('');
 }
 
-/* ================= TAB: route (locations only, and the dates you're there) =================
+/* ================= TAB: route (cities, and the dates you're there) =================
    A separate read of the same trip: not day-by-day like the Itinerary, but place-by-place -
    where the itinerary tells you what's happening, this tells you where you'll be. Built off
-   accommodation bookings, since where you're sleeping IS where you are, so it can never drift
-   out of sync with what's actually been booked. A gap with nowhere booked breaks the route
-   rather than papering over it, the same dashed treatment Accommodation and the Itinerary
-   already use for one. */
-/* the journeys themselves - a flight/ferry/one-way car hire is what actually tells you a new
-   place is coming, often well before anywhere's booked to sleep there. Named by where it lands,
-   not both ends: "Flight to Athens" is the useful half, the same way the itinerary's own auto
-   cards lead with the destination. */
+   two things that both name a place: the cities you've told the trip about directly (t.routeCities
+   - just a name and a date range, nothing to book), and the journeys that get you there (a
+   flight/ferry/one-way car hire). Deliberately NOT accommodation - a hotel booking is a separate
+   concern (still lives on the Accommodation tab), and tying the route to it meant a trip with a
+   flight to Athens and nowhere booked yet just read "Nowhere booked", with no Athens in sight. */
 const JOURNEY_ICON = {flight:'✈️', ferry:'⛴️', car:'🚗'};
 function routeJourneys(t){
   const list = [];
@@ -11317,39 +11320,41 @@ function routeJourneys(t){
   });
   return list;
 }
+function cityGaps(t){ return rangeGaps(t, t.routeCities); }
 function routeStops(t){
-  const stays = (t.accommodations||[]).map((a,i)=>({a,i}))
-    .filter(x=>!x.a.undecided && x.a.checkin)
-    .map(({a,i})=>{
-      const nights = a.checkout
-        ? Math.max(1, Math.round((new Date(a.checkout+'T00:00:00') - new Date(a.checkin+'T00:00:00'))/DAY_MS))
+  const cities = (t.routeCities||[]).map((c,i)=>({c,i}))
+    .filter(x=>x.c.place && x.c.checkin)
+    .map(({c,i})=>{
+      const nights = c.checkout
+        ? Math.max(1, Math.round((new Date(c.checkout+'T00:00:00') - new Date(c.checkin+'T00:00:00'))/DAY_MS))
         : 1;
-      return {date:a.checkin, gap:false, journey:false, i, name:a.name||'Accommodation',
-        when: a.checkout ? fmtRange(a.checkin, a.checkout) : fmtDate(a.checkin), nights};
+      return {date:c.checkin, gap:false, journey:false, i, name:c.place,
+        when: c.checkout ? fmtRange(c.checkin, c.checkout) : fmtDate(c.checkin), nights};
     });
   const journeys = routeJourneys(t).map(j=>({...j, gap:false, journey:true, nights:0}));
-  const gaps = stayGaps(t).map(g=>({date:g.firstNight, gap:true, journey:false, checkin:g.firstNight, checkout:g.checkout,
+  const gaps = cityGaps(t).map(g=>({date:g.firstNight, gap:true, journey:false, checkin:g.firstNight, checkout:g.checkout,
     when: g.nights===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.checkout), nights:g.nights}));
-  // ties (a flight landing the same day a stay starts) keep journeys first, then stays, then
-  // gaps - you land, then check in, then whatever's still not booked shows up last
-  return journeys.concat(stays, gaps).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+  // ties (a flight landing the same day a city stop starts) keep journeys first, then cities,
+  // then gaps - you land, then you're there, then whatever's still not planned shows up last
+  return journeys.concat(cities, gaps).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
 }
-/* the trip's own dates make the best default for a location added from here - both ends
-   known up front beats a blank date field the itinerary would've bucketed into Anytime anyway */
-function routeAddForm(t){ App.accomForm(-1, {checkin:t.startDate||'', checkout:t.endDate||''}); }
+/* the trip's own dates make the best default for a city added from here - both ends known up
+   front beats a blank date field */
+function routeAddForm(t, prefill){ App.routeCityForm(-1, prefill || {checkin:t.startDate||'', checkout:t.endDate||''}); }
 App.routeAddForm = () => { const t = getTrip(CUR_TRIP_ID); if(t) routeAddForm(t); };
+App.routeCityGapForm = (checkin, checkout) => { const t = getTrip(CUR_TRIP_ID); if(t) routeAddForm(t, {checkin, checkout}); };
 const JOURNEY_FORM = {flight:'App.flightForm', ferry:'App.ferryForm', car:'App.carForm'};
 function tabRoute(t, ro){
   const stops = routeStops(t);
   if(!stops.length){
-    return `<div class="empty">No accommodation or travel added yet, so there's no route to map out.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
+    return `<div class="empty">No cities or travel added yet, so there's no route to map out.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
       <button class="btn" onclick="App.tab('travel')">${secEmoji('🌎')} Add Travel</button>
-      <button class="btn primary" onclick="App.routeAddForm()">+ Add Accommodation</button></span>`:''}</div>`;
+      <button class="btn primary" onclick="App.routeAddForm()">+ Add City</button></span>`:''}</div>`;
   }
   const totalNights = stops.reduce((n,s)=>n+s.nights,0);
   const plannedNights = stops.filter(s=>!s.gap && !s.journey).reduce((n,s)=>n+s.nights,0);
   // gaps and journeys sit in the sequence but don't take a number of their own - "1, 2, gap, 3"
-  // reads as the three real stays it is, not as a numbered list with holes punched in it
+  // reads as the three real cities it is, not as a numbered list with holes punched in it
   let stopNum = 0;
   const stopRow = s => {
     if(s.journey){
@@ -11367,19 +11372,63 @@ function tabRoute(t, ro){
     return `
     <div class="route-item${s.gap?' route-item-gap':''}">
       <div class="route-dot${s.gap?' route-dot-gap':''}" aria-hidden="true">${s.gap?secEmoji('❓'):stopNum}</div>
-      <div class="route-body${!ro&&!s.gap?' plan-click':''}" ${!ro&&!s.gap?`role="button" tabindex="0" onclick="App.accomForm(${s.i})" onkeydown="if(event.key==='Enter'||event.key===' '){App.accomForm(${s.i})}"`:''}>
-        <strong class="${s.gap?'text-undecided':''}">${s.gap?'Nowhere booked':esc(s.name)}</strong>
+      <div class="route-body${!ro&&!s.gap?' plan-click':''}" ${!ro&&!s.gap?`role="button" tabindex="0" onclick="App.routeCityForm(${s.i})" onkeydown="if(event.key==='Enter'||event.key===' '){App.routeCityForm(${s.i})}"`:''}>
+        <strong class="${s.gap?'text-undecided':''}">${s.gap?'No city added':esc(s.name)}</strong>
         <div class="muted small">${esc(s.when)} · ${s.nights} night${s.nights===1?'':'s'}</div>
-        ${s.gap&&!ro?`<button class="btn primary sm" style="margin-top:8px" onclick="App.accomGapForm('${s.checkin}','${s.checkout}')">+ Add Accommodation</button>`:''}
+        ${s.gap&&!ro?`<button class="btn primary sm" style="margin-top:8px" onclick="App.routeCityGapForm('${s.checkin}','${s.checkout}')">+ Add City</button>`:''}
       </div>
     </div>`;
   };
   // no nights to count at all (a rough-idea trip with only a flight added so far, say) -
   // nothing useful to say about "0 of 0 nights", so the summary line just sits out
   return `
-    ${totalNights?`<p class="muted small" style="margin:-4px 0 16px">${plannedNights} of ${totalNights} night${totalNights===1?'':'s'} with somewhere to stay</p>`:''}
+    ${totalNights?`<p class="muted small" style="margin:-4px 0 16px">${plannedNights} of ${totalNights} night${totalNights===1?'':'s'} with a city planned</p>`:''}
     <div class="route-list">${stops.map(stopRow).join('')}</div>`;
 }
+/* Add/Edit City: the lightweight route entry - just a name and a date range, nothing to book.
+   Kept deliberately separate from App.accomForm so a place on the route never implies, or
+   requires, an actual accommodation booking. */
+App.routeCityForm = (i, prefill) => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  t.routeCities = t.routeCities||[];
+  const c = (i>=0 && t.routeCities[i]) || prefill || {};
+  openModal(`
+    <h2>${i>=0?'Edit City':'Add City'}</h2>
+    <div class="field"><label class="label" for="rc-place">City</label><input id="rc-place" type="text" value="${esc(c.place||'')}" placeholder="e.g. Athens"></div>
+    <div class="grid2">
+      <div class="field"><label class="label">From</label><input id="rc-in" type="date" value="${esc(c.checkin||'')}"></div>
+      <div class="field"><label class="label">To</label><input id="rc-out" type="date" value="${esc(c.checkout||'')}"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" style="width:100%" onclick="App.saveRouteCity(${i})">Save</button>
+      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.delRouteCity(${i})">Delete City</button>`:''}
+    </div>`);
+};
+App.saveRouteCity = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  t.routeCities = t.routeCities||[];
+  const place = $('#rc-place').value.trim();
+  if(!place) return markErr('#rc-place','Give it a city name');
+  const c = {id: i>=0 && t.routeCities[i] ? t.routeCities[i].id : uid(), place,
+    checkin:$('#rc-in').value, checkout:$('#rc-out').value};
+  if(i>=0) t.routeCities[i]=c; else t.routeCities.push(c);
+  logEdit('Route', (i>=0?'updated ':'added ')+place);
+  save(); closeModal(); rerender();
+};
+App.delRouteCity = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t || !t.routeCities) return;
+  const tripId = t.id;
+  const removed = t.routeCities[i]; if(!removed) return;
+  const label = removed.place||'this city';
+  t.routeCities.splice(i,1);
+  logEdit('Route','removed '+label); save(); closeModal(); rerender();
+  toast('City removed', ()=>{
+    const t2 = getTrip(tripId); if(!t2) return;
+    t2.routeCities = t2.routeCities||[];
+    t2.routeCities.splice(Math.min(i,t2.routeCities.length),0,removed);
+    logEdit('Route','restored '+label); save(); rerender();
+  });
+};
 
 /* ================= TAB: emergency contacts ================= */
 function tabContacts(t, ro){
