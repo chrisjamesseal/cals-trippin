@@ -1417,8 +1417,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.57';
+const APP_VERSION = '2.29.58';
 const CHANGELOG = [
+  {version:'2.29.58', notes:[
+    "Route now has its own Add Location button (up top, and right on every gap) instead of sending you off to Accommodation to add one - and it defaults the check-in/check-out to the gap's own dates (or the trip's dates when nothing's booked yet), rather than making you re-enter dates you'd already told the trip about.",
+  ]},
   {version:'2.29.57', notes:[
     "Added a Route tab alongside Itinerary - a place-by-place read of the trip (Hotel Milano, 2 nights, then Venice Canal House, 3 nights, and so on) built from your accommodation bookings, with any stretch of nights nowhere's booked for shown as a break in the route rather than papering over it.",
   ]},
@@ -9378,7 +9381,8 @@ function crumbAction(t){
         + `<button class="btn sm" onclick="App.travelLegForm(-1)">${secEmoji('🚌')} Add Travel</button>`
         + `<button class="btn sm" onclick="App.planForm(-1)">${secEmoji('📍')} Add Stop</button>`;
     case 'route':
-      return `<button class="btn sm" onclick="App.tab('plan')">${secEmoji('🗓️')} Itinerary</button>`;
+      return `<button class="btn sm" onclick="App.tab('plan')">${secEmoji('🗓️')} Itinerary</button>`
+        + `<button class="btn sm" onclick="App.routeAddForm()">${secEmoji('📍')} Add Location</button>`;
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
@@ -11288,14 +11292,18 @@ function routeStops(t){
       return {date:a.checkin, gap:false, i, name:a.name||'Accommodation',
         when: a.checkout ? fmtRange(a.checkin, a.checkout) : fmtDate(a.checkin), nights};
     });
-  const gaps = stayGaps(t).map(g=>({date:g.firstNight, gap:true,
+  const gaps = stayGaps(t).map(g=>({date:g.firstNight, gap:true, checkin:g.firstNight, checkout:g.checkout,
     when: g.nights===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.checkout), nights:g.nights}));
   return stays.concat(gaps).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
 }
+/* the trip's own dates make the best default for a location added from here - both ends
+   known up front beats a blank date field the itinerary would've bucketed into Anytime anyway */
+function routeAddForm(t){ App.accomForm(-1, {checkin:t.startDate||'', checkout:t.endDate||''}); }
+App.routeAddForm = () => { const t = getTrip(CUR_TRIP_ID); if(t) routeAddForm(t); };
 function tabRoute(t, ro){
   const stops = routeStops(t);
   if(!stops.length){
-    return `<div class="empty">No accommodation booked yet, so there's no route to map out.${!ro?'<br><br><button class="btn primary" onclick="App.accomForm(-1)">+ Add Accommodation</button>':''}</div>`;
+    return `<div class="empty">No accommodation booked yet, so there's no route to map out.${!ro?'<br><br><button class="btn primary" onclick="App.routeAddForm()">+ Add Accommodation</button>':''}</div>`;
   }
   const totalNights = stops.reduce((n,s)=>n+s.nights,0);
   const plannedNights = stops.filter(s=>!s.gap).reduce((n,s)=>n+s.nights,0);
@@ -11310,6 +11318,7 @@ function tabRoute(t, ro){
       <div class="route-body${!ro&&!s.gap?' plan-click':''}" ${!ro&&!s.gap?`role="button" tabindex="0" onclick="App.accomForm(${s.i})" onkeydown="if(event.key==='Enter'||event.key===' '){App.accomForm(${s.i})}"`:''}>
         <strong class="${s.gap?'text-undecided':''}">${s.gap?'Nowhere booked':esc(s.name)}</strong>
         <div class="muted small">${esc(s.when)} · ${s.nights} night${s.nights===1?'':'s'}</div>
+        ${s.gap&&!ro?`<button class="btn primary sm" style="margin-top:8px" onclick="App.accomGapForm('${s.checkin}','${s.checkout}')">+ Add Accommodation</button>`:''}
       </div>
     </div>`;
   };
