@@ -92,6 +92,8 @@ h3{font-family:var(--font-head); font-size:1rem; font-weight:700; color:var(--in
 .label{font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); display:block; margin-bottom:5px;}
 .muted{color:var(--muted); font-size:.85rem;}
 .small{font-size:.85rem;}
+/* visible to screen readers only - for a label an icon/badge already carries visually */
+.sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;}
 a{color:var(--brand-dark);}
 
 /* ---------- buttons ---------- */
@@ -699,11 +701,10 @@ a{color:var(--brand-dark);}
 .route-body strong{display:block; font-weight:700; color:var(--ink); font-size:.95rem;}
 .route-item-gap .route-body strong{font-weight:600;}
 .route-item-journey .route-body strong{font-weight:600; color:var(--brand-dark);}
-/* a not-booked journey carries both .route-dot-journey and .route-dot-gap, and a journey row's
-   own brand-dark title color, at equal specificity to the dashed/undecided look those classes
-   would otherwise add - pin both explicitly rather than rely on source order to break the tie */
-.route-dot-journey.route-dot-gap{border:1px dashed var(--line-strong);}
-.route-item-journey .route-body strong.text-undecided{color:#C0392B;}
+/* .text-undecided's red loses to the two rules just above on specificity alone (a descendant
+   selector beats a single class, regardless of source order), so a not-booked stop or journey
+   would silently keep the default/brand-dark ink instead of turning red - pin the win here */
+.route-body strong.text-undecided{color:#C0392B;}
 /* Home shows every vegetable as its own small chip - emoji, its own water button (see
    plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
    one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
@@ -1269,9 +1270,9 @@ body.kb-open .tabbar.on{display:none;}
    you can take in one at a time instead of one long scroll */
 .plan-day{margin:40px 0 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .plan-day:first-child{margin-top:4px;}
-/* "Day N" carries the weight - it's the number you actually navigate by while scrolling - the
-   date beside it is just a cross-reference, so it stays small and quiet in comparison */
-.plan-day-num{font-family:var(--font-head); font-size:1.3rem; font-weight:700; color:var(--brand-dark); line-height:1;}
+/* the day number is the thing you actually navigate by while scrolling, so it gets the same
+   numbered-badge weight as a Route stop (see .route-dot) rather than being just bigger text -
+   the date beside it is a cross-reference, small and quiet in comparison */
 .plan-day-date{font-family:var(--font-body); font-size:.72rem; font-weight:700; color:var(--muted); letter-spacing:.02em;}
 .wx-chip{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
 .wx-emoji{font-size:.9rem; line-height:1;
@@ -1428,8 +1429,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.61';
+const APP_VERSION = '2.29.62';
 const CHANGELOG = [
+  {version:'2.29.62', notes:[
+    "Fixed Route's numbered stops (Mount Martha, Sydney, Brisbane...) losing their solid number badge and reading as a hollow, unlabelled circle the moment the stay behind them wasn't booked yet - a CSS specificity bug meant \"not booked\" text was quietly staying the default colour too, instead of the intended red. A stop keeps its number and turns red when unbooked; that's the only signal now.",
+    "The Itinerary's \"Day 1\" heading now uses the same round numbered badge as Route's stops, instead of plain bold text, so the two pages read as one system.",
+  ]},
   {version:'2.29.61', notes:[
     "Route rebuilt again to be fully automatic - it reads Flights, Ferries, Car Hire and Accommodation directly (including anything marked Not Booked yet), so there's nothing to add on Route itself any more. An accommodation stop is now named for its place (\"Mount Martha\", not \"Stay in Mount Martha\"), and the nights-planned summary line is gone.",
     "A Not Booked flight, ferry, car hire or accommodation card now shows only the essentials - route and date, or place and dates - dropping the airline, baggage chips, booking ref and Not Booked pill. The dashed border already says it's unconfirmed; repeating that in text and cramming in details nobody's settled on yet was just clutter.",
@@ -10456,14 +10461,17 @@ function planDayGroups(t){
    an empty day or a not-booked travel leg's date in the Tasks tab (pass plain:true) */
 function planDayLabel(t, k, rough, plain){
   if(!k) return 'Anytime';
-  if(rough) return plain ? 'Day '+k.slice(1) : `<span class="plan-day-num">Day ${k.slice(1)}</span>`;
+  if(rough){
+    const n = k.slice(1);
+    return plain ? 'Day '+n : `<span class="route-dot" aria-hidden="true">${n}</span><span class="sr-only">Day ${n}</span>`;
+  }
   let num = 0;
   if(t.startDate){
     const d = Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1;
     if(d>0) num = d;
   }
   if(plain) return (num?'Day '+num+' · ':'') + fmtDate(k);
-  const numHTML = num ? `<span class="plan-day-num">Day ${num}</span>` : '';
+  const numHTML = num ? `<span class="route-dot" aria-hidden="true">${num}</span><span class="sr-only">Day ${num}</span>` : '';
   return numHTML + `<span class="plan-day-date">${fmtDate(k)}</span>`;
 }
 /* the day and its date as two separate strings rather than one combined line - for a card
@@ -11416,16 +11424,17 @@ function tabRoute(t, ro){
       <button class="btn primary" onclick="App.accomForm(-1)">+ Add Accommodation</button></span>`:''}</div>`;
   }
   // gaps and journeys sit in the sequence but don't take a number of their own - "1, 2, gap, 3"
-  // reads as the three real stays it is, not as a numbered list with holes punched in it. A
-  // not-booked stop/journey gets the same dashed-dot treatment as a gap instead of a pill -
-  // the dashing already says "not settled", a badge repeating it is just more to read.
+  // reads as the three real stays it is, not as a numbered list with holes punched in it. Each
+  // dot keeps a stable look by what it IS (a numbered stay, a journey, a gap) - not booked yet
+  // is a fact about the row, carried by its (red, bold) text alone, so a stop doesn't lose its
+  // number and read as just another empty gap the moment it's added but not yet confirmed.
   let stopNum = 0;
   const stopRow = s => {
     if(s.journey){
       const editFn = `${JOURNEY_FORM[s.mode]}(${s.i})`;
       return `
-      <div class="route-item route-item-journey${s.notBooked?' route-item-gap':''}">
-        <div class="route-dot route-dot-journey${s.notBooked?' route-dot-gap':''}" aria-hidden="true">${secEmoji(JOURNEY_ICON[s.mode]||'📍')}</div>
+      <div class="route-item route-item-journey">
+        <div class="route-dot route-dot-journey" aria-hidden="true">${secEmoji(JOURNEY_ICON[s.mode]||'📍')}</div>
         <div class="route-body${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${editFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${editFn}}"`:''}>
           <strong class="${s.notBooked?'text-undecided':''}">${esc(s.label)} to ${esc(s.place)}</strong>
           <div class="muted small">${esc(fmtDate(s.date))}${s.time?' · '+esc(s.time):''}</div>
@@ -11434,8 +11443,8 @@ function tabRoute(t, ro){
     }
     if(!s.gap) stopNum++;
     return `
-    <div class="route-item${s.gap||s.notBooked?' route-item-gap':''}">
-      <div class="route-dot${s.gap||s.notBooked?' route-dot-gap':''}" aria-hidden="true">${s.gap?secEmoji('❓'):stopNum}</div>
+    <div class="route-item${s.gap?' route-item-gap':''}">
+      <div class="route-dot${s.gap?' route-dot-gap':''}" aria-hidden="true">${s.gap?secEmoji('❓'):stopNum}</div>
       <div class="route-body${!ro&&!s.gap?' plan-click':''}" ${!ro&&!s.gap?`role="button" tabindex="0" onclick="App.accomForm(${s.i})" onkeydown="if(event.key==='Enter'||event.key===' '){App.accomForm(${s.i})}"`:''}>
         <strong class="${s.gap||s.notBooked?'text-undecided':''}">${s.gap?'Nowhere booked':esc(s.name)}</strong>
         <div class="muted small">${esc(s.when)} · ${s.nights} night${s.nights===1?'':'s'}</div>
