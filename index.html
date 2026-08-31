@@ -696,11 +696,6 @@ a{color:var(--brand-dark);}
 .route-item:last-child{border-bottom:none;}
 .route-body{display:block; padding:14px 2px;}
 .route-body strong{display:block; font-weight:700; color:var(--ink); font-size:.95rem;}
-.route-item-gap .route-body strong{font-weight:600;}
-.route-item-journey .route-body strong{font-weight:600; color:var(--brand-dark);}
-/* .text-undecided's red loses to the two rules just above on specificity alone (a descendant
-   selector beats a single class, regardless of source order), so a not-booked stop or journey
-   would silently keep the default/brand-dark ink instead of turning red - pin the win here */
 .route-body strong.text-undecided{color:#C0392B;}
 /* the accordion header row - name/dates on the left, edit icon + chevron on the right, all on
    one line until it has to wrap */
@@ -725,6 +720,16 @@ a{color:var(--brand-dark);}
 .route-days .flight-head{background:none; border-bottom:none; padding:0 0 8px;}
 .route-days .flight-body,.route-days .accom-body{padding:0;}
 .route-days .card.plan-card:not(.gap-card){border:none; box-shadow:none; background:none; padding:0; margin-bottom:20px;}
+/* a not-yet-booked flight/ferry/car/stay/travel leg inside a day's own detail keeps its box
+   (same reasoning as .gap-card just above - it's a prompt to go fill something in, not a card
+   already saying what it is), but reads with the page's own muted/paper tones instead of red:
+   "still needs details" rather than "something's wrong". Kept scoped to the Itinerary's own
+   day view - a not-booked flight on the Travel tab, or a not-booked task, still wants the
+   sharper red everywhere else on the page it actually is a thing to fix. */
+.route-days .card-undecided{border-color:var(--muted) !important; background:var(--bg) !important; margin-bottom:20px;}
+.route-days .card-undecided h3,.route-days .card-undecided .head-with-logo,
+.route-days .card-undecided .head-with-logo span,.route-days .card-undecided strong{color:var(--ink) !important;}
+.route-days .plan-leg.card-undecided{margin-bottom:0;}
 /* the flight/ferry/car card's own date, spelled out in full ("September 23, 2026"), is the
    same date the day heading right above it already gives in short form ("23/9") - keeping
    both said it twice on every card, one of them at length, so this one (not the day heading,
@@ -1496,8 +1501,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.67';
+const APP_VERSION = '2.29.68';
 const CHANGELOG = [
+  {version:'2.29.68', notes:[
+    "The Itinerary now opens day by day instead of place by place - Day 1, Day 2, Day 3, each its own row with its date, which place it's in, and whether anything's on it right on the heading (\"Day 1 - Travel to 🇬🇷 Corfu\", or a quiet \"Nothing Scheduled\" for a day that's still blank), so a long trip reads as a short list of days rather than a list of places. A flight, a check-in, an unbooked leg - everything that used to sit between stops - is just part of whichever day it falls on now, opened the same way with a tap. A not-yet-booked flight/ferry/car/stay/travel leg inside a day also reads with the page's own muted tones instead of red, since it's a \"still needs details\" prompt, not a warning.",
+  ]},
   {version:'2.29.67', notes:[
     "Tidied up the Itinerary: the numbered 1/2/3 badges and the connecting line down the list are gone, both on the stop list itself and on the day headings inside an opened stop - the map above already carries that numbering, and the list reads as a plain, full-width list of places now instead. Every flight/ferry/car/stay/task/stop card inside an opened stop shed its box too, so a busy day reads as clean text and photos rather than a stack of bordered tiles. Dates throughout shortened to day/month only (23/9, not 23 September 2026) - the trip's year is already said once at the top of the page.",
     "Fixed the route map only ever showing some of a trip's pins: an accommodation with no address saved yet had nothing for the map to look up, so it silently never got a pin - it now falls back to the same place name the list already shows for it. The map also switched to a cleaner, more modern-looking tile set (still free, still no API key), and a bug where opening Edit Accommodation while the map was on screen could let the map show through on top of the edit screen is fixed.",
@@ -2705,14 +2713,18 @@ function fmtShortDate(d){
   const dt = new Date(d + 'T00:00:00');
   return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+String(dt.getFullYear()).slice(-2);
 }
-/* day/month, no year at all - for the Itinerary's own day headings and stop dates, where the
-   trip's year is already said once at the top of the page and every date on the page after
-   that falls inside it, so spelling the month out in full ("23 September") on every single
-   stop and every single day heading was wider than the page needed it to be. */
-function fmtDayMonth(d){
+/* "23rd September 2026" - the small date line sat above each day's own heading on the
+   Itinerary (see dayNarrative), spelled out in full with an ordinal day rather than shortened,
+   since it's the one date on that day's row and reads better written out than as a fraction. */
+function ordinalSuffix(n){
+  if(n%100>=11 && n%100<=13) return 'th';
+  switch(n%10){ case 1: return 'st'; case 2: return 'nd'; case 3: return 'rd'; default: return 'th'; }
+}
+function fmtDateOrdinal(d){
   if(!d) return '';
   const dt = new Date(d + 'T00:00:00');
-  return dt.getDate()+'/'+(dt.getMonth()+1);
+  const day = dt.getDate();
+  return `${day}${ordinalSuffix(day)} ${dt.toLocaleDateString(undefined, {month:'long'})} ${dt.getFullYear()}`;
 }
 function todayStr(){
   const d = new Date();
@@ -9807,7 +9819,7 @@ function undecidedItemsHTML(t, ro){
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : mode.label;
     const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
-    const when = k ? planDayLabel(t, k, rough, true) : '';
+    const when = k ? planDayLabel(t, k, rough) : '';
     rows.push({icon:secEmoji(mode.emoji), label:'Not Booked Yet',
       inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${place}</h3>${when?`<p class="small muted" style="margin-top:4px">${esc(when)}</p>`:''}</div>`,
       editFn:`App.travelLegForm(${i})`, sortKey:k});
@@ -10566,11 +10578,11 @@ function planDayGroups(t){
   return {groups, keys, rough, hasAny};
 }
 /* the shared "Day N" / date label for a plan day key, used both for the itinerary's own day
-   headings (a plain short date, the default - see fmtDayMonth) and for describing a day in
-   plain text elsewhere - e.g. an empty day or a not-booked travel leg's date in the Tasks tab
-   (pass plain:true, which keeps the fuller "Day N · 23 September 2026" text form since that
-   one's read out of context, not sat right under the trip's own dated stops) */
-function planDayLabel(t, k, rough, plain){
+   headings elsewhere - e.g. an empty day or a not-booked travel leg's date in the Tasks tab -
+   the fuller "Day N · 23 September 2026" text form, since that one's read out of context, not
+   sat right under the Itinerary's own day heading (which builds its own date line - see
+   dayNarrative - rather than going through this at all) */
+function planDayLabel(t, k, rough){
   if(!k) return 'Anytime';
   if(rough) return 'Day '+k.slice(1);
   let num = 0;
@@ -10578,8 +10590,7 @@ function planDayLabel(t, k, rough, plain){
     const d = Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1;
     if(d>0) num = d;
   }
-  if(plain) return (num?'Day '+num+' · ':'') + fmtDate(k);
-  return esc(fmtDayMonth(k));
+  return (num?'Day '+num+' · ':'') + fmtDate(k);
 }
 /* the day and its date as two separate strings rather than one combined line - for a card
    like the Tasks tab's derived ones, where the date belongs underneath the title as its own
@@ -10607,16 +10618,15 @@ function dayKeyCompare(rough){
     return rough ? (+ak.slice(1)) - (+bk.slice(1)) : ak.localeCompare(bk);
   };
 }
-/* the day-by-day cards for a stretch of the trip - every Day N heading, auto-card (flight/
-   ferry/car/stay), stop, task and gap - factored out of tabPlan so it can render either the
-   whole trip (unused now that Route owns the page) or just one stop's own date range, inside
-   that stop's accordion. filterKeys picks which of planDayGroups's keys actually render;
-   pass none of the trip's own keys and it renders nothing, same as an accordion for a stop
-   with no date range would */
+/* one day's own cards - auto-card (flight/ferry/car/stay), stop, task and gap - for inside
+   that day's own accordion on the Itinerary. The day's own heading (Day N, its date, which
+   place it's in) is built separately by dayNarrative and sits above the accordion whether it's
+   open or not, so this only ever needs to draw what's inside it. filterKeys is always a single
+   day key in practice ([k]) - kept as an array since planDayGroups already hands back keys
+   that way and a day with nothing in its own group (blank filterKeys) should just render
+   nothing, same as it always has */
 function planDaysHTML(t, ro, filterKeys){
   const {groups, keys, rough} = planDayGroups(t);
-  const todayKey = todayStr();
-  const dayLabel = k => planDayLabel(t, k, rough);
   // a day strictly between a stay's check-in and check-out gets a reminder of where you're
   // sleeping, the check-in/check-out days themselves already show their own auto-card
   const stayingAt = k => {
@@ -10780,23 +10790,79 @@ function planDaysHTML(t, ro, filterKeys){
     const dayItems = (groups[k]||[]).slice().sort(planCompare);
     const stay = stayingAt(k);
     const gap = stayGapAt(k);
-    return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</h3>
-      ${stay?`<p class="muted small" style="margin:-8px 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏠')}Staying at ${esc(stay)}</p>`:''}
+    return `${stay?`<p class="muted small" style="margin:0 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏠')}Staying at ${esc(stay)}</p>`:''}
       ${gap?stayGapCardHTML(gap, ro):''}
       ${dayItems.length ? dayItems.map(card).join('') : (gap?'':emptyDayCard(k))}`;
   };
   return (filterKeys || keys).map(dayBlock).join('');
 }
-/* which of planDayGroups's keys fall inside a stop's own date range - a real date for an
-   exact trip, or that date's day-number key for a rough one (accommodation always keeps real
-   calendar dates even on a rough trip, so this is the same conversion roughDayKey already
-   does for a flight/stay landing on the day-numbered itinerary) */
-function keysForStopRange(t, rough, checkin, checkoutExclusive){
-  if(!checkin) return [];
-  const endEx = checkoutExclusive || isoAddDays(checkin, 1);
-  const out = [];
-  for(let d=checkin; d<endEx; d=isoAddDays(d,1)) out.push(rough ? roughDayKey(t,d) : d);
-  return out.filter(Boolean);
+/* the flag for wherever an address (or, failing that, a plain place name) is - the same
+   "drop the trailing postcode, take what's left" reading guessCityFromAddress already does for
+   the town, just kept on the country segment instead of dropping it. Falls back to the trip's
+   own single country when there's nothing to read a country out of at all (no address saved,
+   or a bare place name with no comma in it), since a one-country trip's day headings can still
+   fly its flag even before anything's typed in; a multi-country trip with nothing to go on
+   just goes without one rather than guessing wrong. */
+function flagForPlace(t, address){
+  if(address){
+    const parts = String(address).split(',').map(s=>s.trim()).filter(Boolean);
+    const looksLikePostcode = parts.length>1 && /\d/.test(parts[parts.length-1]) && parts[parts.length-1].length<=10;
+    const clean = looksLikePostcode ? parts.slice(0,-1) : parts;
+    const co = clean.length ? countryByName(clean[clean.length-1]) : null;
+    if(co) return co.flag;
+  }
+  if((t.countries||[]).length===1){ const co = countryByCode(t.countries[0]); if(co) return co.flag; }
+  return '';
+}
+/* which place a given day of the Itinerary belongs to, and whether it's a day you're
+   travelling to get there - for the day's own heading ("Day 1 - Travel to 🇬🇷 Corfu" vs. plain
+   "Day 2 - 🇬🇷 Corfu"). Checking in somewhere new today, or checking out with nowhere else
+   booked today, names the day by that booking; otherwise, on a real-dated trip, it falls back
+   to whichever accommodation's date range simply covers today (a rough trip has no calendar to
+   run that check against, so a day in the middle of a rough stay is left placeless rather than
+   guessed at). A day with no accommodation news at all but a flight/ferry/car/travel leg still
+   reads as travelling to wherever that's headed, so a first day with no stay booked yet isn't
+   left blank. */
+function dayPlaceInfo(t, k, dayItems, rough){
+  const checkin = dayItems.find(s=>s._autoStay==='checkin');
+  const checkout = dayItems.find(s=>s._autoStay==='checkout');
+  const journeyIn = dayItems.find(s=>s._autoFlight || s._autoFerry || s._autoCar==='pickup' || s.kind==='travel');
+  let ac = checkin ? checkin.ac : checkout ? checkout.ac : null;
+  if(!ac && !rough && k){
+    ac = (t.accommodations||[]).find(a=>a.checkin && a.checkout && k>a.checkin && k<a.checkout) || null;
+  }
+  let place = ac ? accomCityName(ac) : '';
+  let flag = ac ? flagForPlace(t, ac.address) : '';
+  if(!place && journeyIn){
+    const dest = journeyIn._autoFlight ? (airportName(journeyIn.f.to)||journeyIn.f.to)
+      : journeyIn._autoFerry ? journeyIn.f.to
+      : journeyIn._autoCar ? journeyIn.c.pickupLoc
+      : journeyIn.to;
+    if(dest){ place = dest; flag = flagForPlace(t, dest); }
+  }
+  return {place, flag, arriving: !!(checkin || journeyIn)};
+}
+/* the Itinerary's own day heading - a small "23rd September 2026" date line above a bold
+   "Day 1 - Travel to 🇬🇷 Corfu" (dropping the verb once you're just staying somewhere rather
+   than travelling to it that day - "Day 2 - 🇬🇷 Corfu"), with a quiet "Nothing Scheduled" said
+   right on the line when the day's empty, rather than the day just reading like any other
+   until you open it and find out. Built fresh here rather than going through planDayLabel,
+   which everywhere else it's used just wants a short "Day N" for something read out of
+   context - this is the one heading on the page itself, so it gets the full date and the
+   place along with it. */
+function dayNarrative(t, k, dayItems, rough){
+  if(!k) return {dateLine:'', headingHTML:'Anytime'};
+  const num = rough ? +k.slice(1)
+    : t.startDate ? Math.max(0, Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1)
+    : 0;
+  const {place, flag, arriving} = dayPlaceInfo(t, k, dayItems, rough);
+  const placeText = place ? ` - ${arriving?'Travel to ':''}${flag?flag+' ':''}${esc(place)}` : '';
+  const emptyText = dayItems.length===0 ? ` <span class="muted">Nothing Scheduled</span>` : '';
+  // a trip with real booking dates but no start date set yet (still being put together) has
+  // nothing to count "Day N" from - the date itself stands in for it, same as this heading
+  // would have shown before it grew a day number at all, rather than inventing a "Day ?"
+  const dayLabel = num ? `Day ${num}` : fmtDate(k);
+  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${placeText}${emptyText}`};
 }
 /* which stop/gap accordions are open - a UI-only choice, not trip data, so it's a plain
    module variable rather than anything saved or synced; resets (collapsed) on reload same as
@@ -10868,16 +10934,17 @@ function initRouteMap(t){
     });
   });
 }
-/* AI stop summaries - the first time a stop opens, its cards are sent to /ai-stop-summary
+/* AI day summaries - the first time a day opens, its cards are sent to /ai-stop-summary
    (Claude, via the same shared worker as PSN/Spotify/Letterboxd) which turns them into a
-   couple of tailored sentences shown above the day-by-day detail. Entirely optional: if the
-   worker's ANTHROPIC_API_KEY secret isn't set, the request 503s and the stop just shows its
+   couple of tailored sentences shown above that day's own detail. Entirely optional: if the
+   worker's ANTHROPIC_API_KEY secret isn't set, the request 503s and the day just shows its
    cards as normal, same as every other feature this worker gates behind a missing secret. The
-   result is cached on the trip itself (t.aiSummaries[key]), so it rides along with cloud sync
-   and is only ever generated once per stop unless the ↻ next to it is tapped - opening a stop
-   you've already opened before costs nothing. PENDING/FAILED are per-page-load only (not
-   persisted): a failed attempt (worker unreachable, no key configured) is retried on the next
-   full reload, same as the map/weather's own geocode-miss caches. */
+   result is cached on the trip itself (t.aiSummaries[key], key 'day:'+the day's own key, or
+   'day:any' for the dateless Anytime bucket), so it rides along with cloud sync and is only
+   ever generated once per day unless the ↻ next to it is tapped - opening a day you've already
+   opened before costs nothing. PENDING/FAILED are per-page-load only (not persisted): a failed
+   attempt (worker unreachable, no key configured) is retried on the next full reload, same as
+   the map/weather's own geocode-miss caches. */
 let AI_SUMMARY_PENDING = new Set();
 let AI_SUMMARY_FAILED = new Set();
 function aiSummaryHTML(t, key, ro){
@@ -10891,24 +10958,24 @@ function aiSummaryHTML(t, key, ro){
   if(ro || AI_SUMMARY_FAILED.has(key)) return '';
   return `<div class="ai-summary ai-summary-loading">${fa('sparkles')} Writing a summary…</div>`;
 }
-async function aiRequestSummary(t, s, key){
+/* the day key hides inside the accordion's own openKey ('day:'+(k||'any')) rather than being
+   passed around separately - this undoes that, back to the '' Anytime falls out of a day key. */
+function dayKeyFromOpenKey(key){ const k = key.slice(4); return k==='any' ? '' : k; }
+async function aiRequestSummary(t, k, key){
   AI_SUMMARY_PENDING.add(key);
   AI_SUMMARY_FAILED.delete(key);
   try{
-    const ac = t.accommodations[s.i];
-    const checkin = ac.checkin, checkout = ac.checkout || isoAddDays(checkin, 1);
-    const rangeKeys = keysForStopRange(t, hasRoughWhen(t), checkin, checkout);
+    const rough = hasRoughWhen(t);
     const {groups} = planDayGroups(t);
-    const days = rangeKeys.map(k => ({
-      date: k,
-      items: (groups[k]||[]).map(itm => ({
-        label: itineraryItemLabel(itm),
-        time: itm.time || (itm.period && PLAN_PERIODS[itm.period] && PLAN_PERIODS[itm.period][0]) || '',
-      })),
+    const dayItems = groups[k]||[];
+    const {place} = dayPlaceInfo(t, k, dayItems, rough);
+    const items = dayItems.map(itm => ({
+      label: itineraryItemLabel(itm),
+      time: itm.time || (itm.period && PLAN_PERIODS[itm.period] && PLAN_PERIODS[itm.period][0]) || '',
     }));
     const res = await fetch(psnUrl('/ai-stop-summary'), {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({place: s.name, when: s.when, nights: s.nights, days}),
+      body: JSON.stringify({place: place || t.name, when: k ? planDayLabel(t, k, rough) : 'Anytime', nights: 1, days:[{date:k, items}]}),
     });
     if(!res.ok) throw new Error('request failed');
     const data = await res.json();
@@ -10926,17 +10993,15 @@ async function aiRequestSummary(t, s, key){
 function maybeGenerateAiSummary(t, key){
   if((t.aiSummaries||{})[key]) return;
   if(AI_SUMMARY_PENDING.has(key) || AI_SUMMARY_FAILED.has(key)) return;
-  const i = +key.slice(5);
-  const s = routeStops(t).find(x => !x.gap && !x.journey && x.i===i);
-  if(s) aiRequestSummary(t, s, key);
+  aiRequestSummary(t, dayKeyFromOpenKey(key), key);
 }
 /* called after every render of the Itinerary tab (same spot as initWeather/initRouteMap) -
-   scans for any stop that's currently open (ROUTE_OPEN) and doesn't have a summary yet,
+   scans for any day that's currently open (ROUTE_OPEN) and doesn't have a summary yet,
    whether it was just toggled open or was already open from before a tab switch */
 function initAiSummaries(t){
   if(readOnly(t)) return;
-  routeStops(t).filter(s => !s.gap && !s.journey).forEach(s => {
-    const key = 'stay:'+s.i;
+  planDayGroups(t).keys.forEach(k => {
+    const key = 'day:'+(k||'any');
     if(ROUTE_OPEN.has(key)) maybeGenerateAiSummary(t, key);
   });
 }
@@ -10944,63 +11009,47 @@ App.aiRegenSummary = key => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   if(t.aiSummaries) delete t.aiSummaries[key];
   AI_SUMMARY_FAILED.delete(key);
-  const i = +key.slice(5);
-  const s = routeStops(t).find(x => !x.gap && !x.journey && x.i===i);
-  if(s) aiRequestSummary(t, s, key);
+  aiRequestSummary(t, dayKeyFromOpenKey(key), key);
 };
-/* ================= TAB: itinerary (place-by-place, day-by-day inside each place) =================
-   Built on the same read as the old Route tab - flights/ferries/car hire/accommodation, in
-   date order - but each stop now opens into the full day-by-day detail for its own dates
-   instead of living on a separate page. Collapsed by default, so a long trip reads as the
-   short list of places it actually is until you tap into the one you want. */
+/* ================= TAB: itinerary (day-by-day, one accordion per day) =================
+   Every day of the trip is its own row now, not each place you stay - its date, which place
+   it's in, and whether anything's actually scheduled on it, all sat on the heading whether the
+   day's open or not, so a long trip still reads as a short list until you tap into the one you
+   want. A flight, a check-in, a not-yet-booked night - everything that used to be its own
+   top-level row between stops - is just part of whichever day it falls on now, opened into via
+   planDaysHTML the same way it always rendered a day's own cards; the only thing that's
+   changed is which level of the page owns the accordion. */
 function tabPlan(t, ro){
-  const stops = routeStops(t);
-  if(!stops.length){
+  const {groups, keys, rough, hasAny} = planDayGroups(t);
+  if(!hasAny){
     return `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
       <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
       <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`;
   }
-  const rough = hasRoughWhen(t);
-  const stopRow = s => {
-    if(s.journey){
-      const editFn = `${JOURNEY_FORM[s.mode]}(${s.i})`;
-      return `
-      <div class="route-item route-item-journey">
-        <div class="route-body${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${editFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${editFn}}"`:''}>
-          <strong class="${s.notBooked?'text-undecided':''}">${secEmoji(JOURNEY_ICON[s.mode]||'📍')} ${esc(s.label)} to ${esc(s.place)}</strong>
-          <div class="muted small">${esc(fmtDayMonth(s.date))}${s.time?' · '+esc(s.time):''}</div>
-        </div>
-      </div>`;
-    }
-    const openKey = s.gap ? 'gap:'+s.checkin : 'stay:'+s.i;
+  const todayKey = todayStr();
+  const dayRow = k => {
+    const dayItems = groups[k] || [];
+    const openKey = 'day:'+(k||'any');
     const isOpen = ROUTE_OPEN.has(openKey);
-    const ac = !s.gap && t.accommodations[s.i];
-    const checkin = s.gap ? s.checkin : ac.checkin;
-    const checkout = s.gap ? s.checkout : (ac.checkout || isoAddDays(checkin,1));
-    const rangeKeys = keysForStopRange(t, rough, checkin, checkout);
-    const whenShort = checkout ? `${fmtDayMonth(checkin)} - ${fmtDayMonth(checkout)}` : fmtDayMonth(checkin);
     const toggleFn = `App.routeToggle('${openKey}')`;
+    const {dateLine, headingHTML} = dayNarrative(t, k, dayItems, rough);
     return `
-    <div class="route-item${s.gap?' route-item-gap':''}">
+    <div class="route-item">
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
         <div class="route-head-row">
           <div style="min-width:0">
-            <strong class="${s.gap||s.notBooked?'text-undecided':''}">${s.gap?secEmoji('❓')+' Nowhere booked':esc(s.name)}</strong>
-            <div class="muted small">${esc(whenShort)} · ${s.nights} night${s.nights===1?'':'s'}</div>
+            ${dateLine?`<div class="muted small">${esc(dateLine)}</div>`:''}
+            <strong>${headingHTML}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</strong>
           </div>
-          <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
-            ${!s.gap&&!ro?`<button type="button" class="btn icon-only" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${s.i})">${ICONS.edit}</button>`:''}
-          </span>
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
         </div>
-        ${s.gap&&!ro?`<button class="btn primary sm" style="margin-top:8px" onclick="event.stopPropagation();App.accomGapForm('${s.checkin}','${s.checkout}')">+ Add Accommodation</button>`:''}
-        ${isOpen?`<div class="route-days" onclick="event.stopPropagation()">${s.gap?'':aiSummaryHTML(t, openKey, ro)}${planDaysHTML(t, ro, rangeKeys)}</div>`:''}
+        ${isOpen?`<div class="route-days" onclick="event.stopPropagation()">${aiSummaryHTML(t, openKey, ro)}${planDaysHTML(t, ro, [k])}</div>`:''}
       </div>
     </div>`;
   };
-  const hasNumbered = stops.some(s=>!s.gap && !s.journey);
+  const hasNumbered = (t.accommodations||[]).some(a=>a.checkin);
   const mapHTML = hasNumbered ? `<div class="route-map-wrap"><div id="route-map" class="route-map"></div></div>` : '';
-  return `${mapHTML}<div class="route-list">${stops.map(stopRow).join('')}</div>`;
+  return `${mapHTML}<div class="route-list">${keys.map(dayRow).join('')}</div>`;
 }
 /* A stop or travel leg is pinned to a date on a normal trip and to a day number on one
    that's still only "next summer". Same slot in the form either way, so the layout doesn't
