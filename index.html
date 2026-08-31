@@ -22,6 +22,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -717,6 +719,15 @@ a{color:var(--brand-dark);}
 .route-days{margin:14px 0 4px; padding-left:2px;}
 .route-days .plan-day{margin:24px 0 14px;}
 .route-days .plan-day:first-child{margin-top:10px;}
+/* the route map (initRouteMap) - a Leaflet/OSM view sat above the stop list, pins numbered
+   to match .route-dot so "3" on the map and "3" in the list below are visibly the same
+   place. Only rendered once there's a real booked stop to plot; skipped rather than shown
+   empty for a trip that's nothing but ideas so far. */
+.route-map-wrap{border-radius:var(--radius); overflow:hidden; margin-bottom:18px; border:1px solid var(--line);}
+.route-map{height:220px; background:var(--paper);}
+.route-map-pin{width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:.78rem; font-weight:700; line-height:1; background:var(--brand); color:#fff; border:2px solid #fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.35);}
 /* Home shows every vegetable as its own small chip - emoji, its own water button (see
    plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
    one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
@@ -1441,8 +1452,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.63';
+const APP_VERSION = '2.29.64';
 const CHANGELOG = [
+  {version:'2.29.64', notes:[
+    "Added a route map to the top of the Itinerary - a real, pannable map with a numbered pin for each booked stop, joined up in the order you visit them, so a multi-stop trip reads as a route rather than a list. Free, no API key: OpenStreetMap for the map itself, and the same place-lookup the weather forecast already uses to find a stay's coordinates, so it costs nothing extra to add.",
+  ]},
   {version:'2.29.63', notes:[
     "Itinerary and Route are now one page. Route's place-by-place list is the front door - Palaiokastritsa, Kerkira, and so on, each still just a name, dates and a night count - and tapping a stop opens it into the exact day-by-day detail the old flat Itinerary showed, scoped to that stop's own dates, collapsed again with another tap. A long, multi-stop trip now reads as the short list of places it actually is instead of one long scroll of every day at once.",
   ]},
@@ -9398,7 +9412,7 @@ function renderTab(t){
   if(CUR_TAB==='home')     el.innerHTML = tabHome(t,ro);
   if(CUR_TAB==='travel')   el.innerHTML = tabTravel(t,ro);
   if(CUR_TAB==='stay')     el.innerHTML = tabStay(t,ro);
-  if(CUR_TAB==='plan')   { el.innerHTML = tabPlan(t,ro); initWeather(t); }
+  if(CUR_TAB==='plan')   { el.innerHTML = tabPlan(t,ro); initWeather(t); initRouteMap(t); }
   if(CUR_TAB==='docs')     el.innerHTML = tabDocs(t,ro);
   if(CUR_TAB==='money')    el.innerHTML = tabMoney(t,ro);
   if(CUR_TAB==='photos')   el.innerHTML = tabPhotos(t,ro);
@@ -10706,7 +10720,54 @@ App.routeToggle = key => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   renderTab(t);
   initWeather(t);
+  initRouteMap(t);
 };
+/* the route map - free, keyless Leaflet + OpenStreetMap tiles, with place names geocoded via
+   the same Open-Meteo pipeline the weather chips already use (wxResolve/wxStayPlaces), so a
+   stay's coordinates only ever cost one lookup app-wide, cached, however many places ask for
+   them. Pins are numbered the same way the stop list below numbers them (booked accommodation
+   stops only - gaps and journeys aren't places you're staying, so they don't get a pin), and
+   join up in order once two or more have resolved. The whole tab body is replaced on every
+   render (a toggle included), which throws away the map's DOM node each time, so this just
+   makes a fresh Leaflet map every time it's called rather than trying to update one in place. */
+let ROUTE_MAP = null;
+function initRouteMap(t){
+  if(ROUTE_MAP){ try{ ROUTE_MAP.remove(); }catch(e){} ROUTE_MAP = null; }
+  const el = document.getElementById('route-map');
+  if(!el || typeof L === 'undefined') return;
+  const numbered = routeStops(t).filter(s=>!s.gap && !s.journey);
+  if(!numbered.length) return;
+  const map = L.map(el, {scrollWheelZoom:false}).setView([20,0], 2);
+  ROUTE_MAP = map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {attribution:'&copy; OpenStreetMap contributors', maxZoom:18}).addTo(map);
+  const pins = new Array(numbered.length).fill(null);
+  let layers = [];
+  const redraw = () => {
+    if(ROUTE_MAP !== map) return;   // a later render superseded this map already
+    layers.forEach(l=>map.removeLayer(l)); layers = [];
+    numbered.forEach((s,idx)=>{
+      const p = pins[idx]; if(!p) return;
+      const icon = L.divIcon({className:'', html:`<div class="route-map-pin">${idx+1}</div>`, iconSize:[26,26], iconAnchor:[13,13]});
+      layers.push(L.marker([p.lat,p.lon], {icon}).addTo(map));
+    });
+    const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
+    if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
+    if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
+  };
+  numbered.forEach((s,idx)=>{
+    const cands = wxStayPlaces(t.accommodations[s.i]);
+    if(!cands.length) return;
+    const listKey = cands.join('|');
+    const known = WX_LIST_GEO[listKey];
+    if(known){ pins[idx] = known; redraw(); return; }
+    if(known === false) return;
+    wxResolve(cands, geo=>{
+      WX_LIST_GEO[listKey] = geo || false;
+      if(geo){ pins[idx] = geo; redraw(); }
+    });
+  });
+}
 /* ================= TAB: itinerary (place-by-place, day-by-day inside each place) =================
    Built on the same read as the old Route tab - flights/ferries/car hire/accommodation, in
    date order - but each stop now opens into the full day-by-day detail for its own dates
@@ -10760,7 +10821,9 @@ function tabPlan(t, ro){
       </div>
     </div>`;
   };
-  return `<div class="route-list">${stops.map(stopRow).join('')}</div>`;
+  const hasNumbered = stops.some(s=>!s.gap && !s.journey);
+  const mapHTML = hasNumbered ? `<div class="route-map-wrap"><div id="route-map" class="route-map"></div></div>` : '';
+  return `${mapHTML}<div class="route-list">${stops.map(stopRow).join('')}</div>`;
 }
 /* A stop or travel leg is pinned to a date on a normal trip and to a day number on one
    that's still only "next summer". Same slot in the form either way, so the layout doesn't
