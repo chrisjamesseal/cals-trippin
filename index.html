@@ -702,6 +702,17 @@ a{color:var(--brand-dark);}
    cards for a flight and a stay. */
 .route-days .itin-flight{background:#fff; border-radius:var(--radius); padding:8px 12px 12px; margin-bottom:20px;}
 .route-days .itin-flight .flight-head{padding:0 0 10px;}
+/* time, logo and route title sit together on the left as one group - without a seats chip to
+   soak up the parent's own space-between, those two were the only children left on the row and
+   got pushed to opposite corners instead. Seats (when there is one) still lands on the right,
+   off its own margin-left:auto rather than the parent's justify-content. */
+.route-days .flight-head{justify-content:flex-start; gap:10px;}
+.route-days .head-with-logo{align-items:center;}
+/* time+logo+title sit together on one row now (not spread to opposite corners any more), so the
+   "pin the title to the top in case the right side wraps under itself" override above doesn't
+   apply here - centering the logo against the time/route text next to it is what actually reads
+   as aligned. */
+.route-days .flight-head .head-with-logo{align-self:center; padding-top:0;}
 .itin-time{color:var(--ink); font-size:.85rem; margin-right:8px;}
 .itin-seats{color:var(--ink); font-size:.85rem; margin-left:auto;}
 .itin-route-name{font-weight:700; color:var(--ink); font-size:.9rem; margin-bottom:12px;}
@@ -711,7 +722,11 @@ a{color:var(--brand-dark);}
    Figma mock's own checkmark+cross styling - the crossed-out one just faded, not recoloured */
 .itin-amenity .icon{color:var(--brand);}
 .itin-amenity.off .icon{color:var(--brand); opacity:.4;}
+/* one line, always - a plain inline <strong> would already do this, but .route-body strong
+   (meant for a card's own title) forces every strong inside it to display:block, which was
+   wrapping the reference number onto its own line underneath the label. */
 .itin-ref{font-size:.9rem; color:var(--ink); margin-bottom:12px;}
+.itin-ref strong{display:inline;}
 .itin-actions{display:flex; flex-direction:column; gap:8px;}
 .itin-action-btn{width:100%; background:var(--bg); color:var(--ink); border:none; border-radius:var(--radius);
   padding:10px 12px; font-weight:700; font-size:.85rem; text-align:center; display:flex; align-items:center;
@@ -1517,8 +1532,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.75';
+const APP_VERSION = '2.29.76';
 const CHANGELOG = [
+  {version:'2.29.76', notes:[
+    "Itinerary: the flight/accommodation card's time and its logo+title now sit together on the left, instead of getting pushed to opposite corners of the row when there's no seats/nights chip to balance them out. The logo's own vertical alignment against that text is fixed too. Booking Reference now always stays on one line - it was wrapping onto its own line underneath the label.",
+  ]},
   {version:'2.29.75', notes:[
     "Films: a rewatch with a different rating no longer shows up under both its old and new star rating in the By Rating breakdown - only its latest watch counts, so a film logged again with a new rating moves cleanly to the new bucket instead of appearing in two.",
     "Itinerary: the accommodation card's booking button now takes the site's own brand colour (Airbnb's pink-red, Booking.com's blue, etc.) instead of the app's own orange; its Check In/Check Out and date rows use real icons instead of emoji; and the card's site logo dropped a doubled-up background/border that was framing an already-square favicon a second time. The flight card's Track button and the duration line between cards use real icons too now, and the Cabin Bag/Checked Bag/Priority Boarding checks use the app's own brand colour instead of green/grey.",
