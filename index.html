@@ -682,8 +682,9 @@ a{color:var(--brand-dark);}
    tap-to-reveal menu so the row read as content first, a manageable log second, but that made
    deleting a mis-tapped entry a two-tap hunt rather than the one obvious tap it should be. */
 .plant-timeline-delete{flex-shrink:0;}
-/* Route tab (routeStops/tabRoute) - the same connected-dot timeline as the plant log, but
-   numbered stops instead of emoji events: place 1, place 2, place 3, in order down the page. */
+/* Itinerary (routeStops/tabPlan) - the same connected-dot timeline as the plant log, but
+   numbered stops instead of emoji events: place 1, place 2, place 3, in order down the page,
+   each one an accordion onto its own day-by-day detail (planDaysHTML). */
 .route-list{display:flex; flex-direction:column;}
 .route-item{display:flex; gap:12px; position:relative; padding-bottom:18px;}
 .route-item:not(:last-child)::before{content:''; position:absolute; left:13px; top:30px; bottom:0; width:2px; background:var(--line);}
@@ -705,6 +706,17 @@ a{color:var(--brand-dark);}
    selector beats a single class, regardless of source order), so a not-booked stop or journey
    would silently keep the default/brand-dark ink instead of turning red - pin the win here */
 .route-body strong.text-undecided{color:#C0392B;}
+/* the accordion header row - name/dates on the left, edit icon + chevron on the right, all on
+   one line until it has to wrap */
+.route-head-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.route-head-row>div:first-child{flex:1; min-width:0;}
+.route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
+.route-chevron.open{transform:rotate(180deg);}
+/* the stop's own day-by-day detail, indented slightly off the dot column so it still reads as
+   belonging to this stop rather than starting a new one */
+.route-days{margin:14px 0 4px; padding-left:2px;}
+.route-days .plan-day{margin:24px 0 14px;}
+.route-days .plan-day:first-child{margin-top:10px;}
 /* Home shows every vegetable as its own small chip - emoji, its own water button (see
    plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
    one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
@@ -1429,8 +1441,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.62';
+const APP_VERSION = '2.29.63';
 const CHANGELOG = [
+  {version:'2.29.63', notes:[
+    "Itinerary and Route are now one page. Route's place-by-place list is the front door - Palaiokastritsa, Kerkira, and so on, each still just a name, dates and a night count - and tapping a stop opens it into the exact day-by-day detail the old flat Itinerary showed, scoped to that stop's own dates, collapsed again with another tap. A long, multi-stop trip now reads as the short list of places it actually is instead of one long scroll of every day at once.",
+  ]},
   {version:'2.29.62', notes:[
     "Fixed Route's numbered stops (Mount Martha, Sydney, Brisbane...) losing their solid number badge and reading as a hollow, unlabelled circle the moment the stay behind them wasn't booked yet - a CSS specificity bug meant \"not booked\" text was quietly staying the default colour too, instead of the intended red. A stop keeps its number and turns red when unbooked; that's the only signal now.",
     "The Itinerary's \"Day 1\" heading now uses the same round numbered badge as Route's stops, instead of plain bold text, so the two pages read as one system.",
@@ -9017,7 +9032,6 @@ const ICONS = {
   mood: fa('lightbulb'),
   log: fa('clock-rotate-left'),
   plan: fa('map'),
-  route: fa('route'),
   pin: fa('location-dot'),
   calendar: fa('calendar-days'),
   link: fa('link'),
@@ -9039,7 +9053,6 @@ const ICONS = {
   edit: fa('pen'),
   trash: fa('trash'),
   view: fa('eye'),
-  route: fa('route'),
   question: fa('question'),
   filePdf: fa('file-pdf'),
   fileImg: fa('file-image'),
@@ -9114,7 +9127,6 @@ App.trackFlight = url => {
 const TABS = [
   ['home','Overview'],
   ['plan','Itinerary'],
-  ['route','Route'],
   ['tasks','Tasks'],
   ['travel','Travel'],
   ['stay','Accommodation'],
@@ -9387,7 +9399,6 @@ function renderTab(t){
   if(CUR_TAB==='travel')   el.innerHTML = tabTravel(t,ro);
   if(CUR_TAB==='stay')     el.innerHTML = tabStay(t,ro);
   if(CUR_TAB==='plan')   { el.innerHTML = tabPlan(t,ro); initWeather(t); }
-  if(CUR_TAB==='route')   el.innerHTML = tabRoute(t,ro);
   if(CUR_TAB==='docs')     el.innerHTML = tabDocs(t,ro);
   if(CUR_TAB==='money')    el.innerHTML = tabMoney(t,ro);
   if(CUR_TAB==='photos')   el.innerHTML = tabPhotos(t,ro);
@@ -9402,14 +9413,9 @@ function renderTab(t){
 function crumbAction(t){
   switch(CUR_TAB){
     case 'plan':
-      return `<button class="btn sm" onclick="App.tab('route')">${secEmoji('🗺️')} Route</button>`
-        + `<button class="btn sm" onclick="App.tab('mood')">${secEmoji('💡')} Add Ideas</button>`
+      return `<button class="btn sm" onclick="App.tab('mood')">${secEmoji('💡')} Add Ideas</button>`
         + `<button class="btn sm" onclick="App.travelLegForm(-1)">${secEmoji('🚌')} Add Travel</button>`
         + `<button class="btn sm" onclick="App.planForm(-1)">${secEmoji('📍')} Add Stop</button>`;
-    case 'route':
-      return `<button class="btn sm" onclick="App.tab('plan')">${secEmoji('🗓️')} Itinerary</button>`
-        + `<button class="btn sm" onclick="App.tab('travel')">${secEmoji('🌎')} Travel</button>`
-        + `<button class="btn sm" onclick="App.tab('stay')">${secEmoji('🏠')} Accommodation</button>`;
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
@@ -10500,8 +10506,14 @@ function dayKeyCompare(rough){
     return rough ? (+ak.slice(1)) - (+bk.slice(1)) : ak.localeCompare(bk);
   };
 }
-function tabPlan(t, ro){
-  const {groups, keys, rough, hasAny} = planDayGroups(t);
+/* the day-by-day cards for a stretch of the trip - every Day N heading, auto-card (flight/
+   ferry/car/stay), stop, task and gap - factored out of tabPlan so it can render either the
+   whole trip (unused now that Route owns the page) or just one stop's own date range, inside
+   that stop's accordion. filterKeys picks which of planDayGroups's keys actually render;
+   pass none of the trip's own keys and it renders nothing, same as an accordion for a stop
+   with no date range would */
+function planDaysHTML(t, ro, filterKeys){
+  const {groups, keys, rough} = planDayGroups(t);
   const todayKey = todayStr();
   const dayLabel = k => planDayLabel(t, k, rough);
   // a day strictly between a stay's check-in and check-out gets a reminder of where you're
@@ -10664,7 +10676,7 @@ function tabPlan(t, ro){
   const stayGapsList = stayGaps(t);
   const stayGapAt = k => stayGapsList.find(g => g.firstNight === k);
   const dayBlock = k => {
-    const dayItems = groups[k].slice().sort(planCompare);
+    const dayItems = (groups[k]||[]).slice().sort(planCompare);
     const stay = stayingAt(k);
     const gap = stayGapAt(k);
     return `<h3 class="plan-day">${dayLabel(k)}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</h3>
@@ -10672,11 +10684,83 @@ function tabPlan(t, ro){
       ${gap?stayGapCardHTML(gap, ro):''}
       ${dayItems.length ? dayItems.map(card).join('') : (gap?'':emptyDayCard(k))}`;
   };
-  return `
-    ${hasAny ? keys.map(dayBlock).join('')
-    : `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
-        <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
-        <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`}`;
+  return (filterKeys || keys).map(dayBlock).join('');
+}
+/* which of planDayGroups's keys fall inside a stop's own date range - a real date for an
+   exact trip, or that date's day-number key for a rough one (accommodation always keeps real
+   calendar dates even on a rough trip, so this is the same conversion roughDayKey already
+   does for a flight/stay landing on the day-numbered itinerary) */
+function keysForStopRange(t, rough, checkin, checkoutExclusive){
+  if(!checkin) return [];
+  const endEx = checkoutExclusive || isoAddDays(checkin, 1);
+  const out = [];
+  for(let d=checkin; d<endEx; d=isoAddDays(d,1)) out.push(rough ? roughDayKey(t,d) : d);
+  return out.filter(Boolean);
+}
+/* which stop/gap accordions are open - a UI-only choice, not trip data, so it's a plain
+   module variable rather than anything saved or synced; resets (collapsed) on reload same as
+   the page always used to look before you opened anything */
+let ROUTE_OPEN = new Set();
+App.routeToggle = key => {
+  if(ROUTE_OPEN.has(key)) ROUTE_OPEN.delete(key); else ROUTE_OPEN.add(key);
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  renderTab(t);
+  initWeather(t);
+};
+/* ================= TAB: itinerary (place-by-place, day-by-day inside each place) =================
+   Built on the same read as the old Route tab - flights/ferries/car hire/accommodation, in
+   date order - but each stop now opens into the full day-by-day detail for its own dates
+   instead of living on a separate page. Collapsed by default, so a long trip reads as the
+   short list of places it actually is until you tap into the one you want. */
+function tabPlan(t, ro){
+  const stops = routeStops(t);
+  if(!stops.length){
+    return `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
+      <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
+      <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`;
+  }
+  const rough = hasRoughWhen(t);
+  let stopNum = 0;
+  const stopRow = s => {
+    if(s.journey){
+      const editFn = `${JOURNEY_FORM[s.mode]}(${s.i})`;
+      return `
+      <div class="route-item route-item-journey">
+        <div class="route-dot route-dot-journey" aria-hidden="true">${secEmoji(JOURNEY_ICON[s.mode]||'📍')}</div>
+        <div class="route-body${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${editFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${editFn}}"`:''}>
+          <strong class="${s.notBooked?'text-undecided':''}">${esc(s.label)} to ${esc(s.place)}</strong>
+          <div class="muted small">${esc(fmtDate(s.date))}${s.time?' · '+esc(s.time):''}</div>
+        </div>
+      </div>`;
+    }
+    const openKey = s.gap ? 'gap:'+s.checkin : 'stay:'+s.i;
+    const isOpen = ROUTE_OPEN.has(openKey);
+    const ac = !s.gap && t.accommodations[s.i];
+    const checkin = s.gap ? s.checkin : ac.checkin;
+    const checkout = s.gap ? s.checkout : (ac.checkout || isoAddDays(checkin,1));
+    const rangeKeys = keysForStopRange(t, rough, checkin, checkout);
+    if(!s.gap) stopNum++;
+    const toggleFn = `App.routeToggle('${openKey}')`;
+    return `
+    <div class="route-item${s.gap?' route-item-gap':''}">
+      <div class="route-dot${s.gap?' route-dot-gap':''}" aria-hidden="true">${s.gap?secEmoji('❓'):stopNum}</div>
+      <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
+        <div class="route-head-row">
+          <div style="min-width:0">
+            <strong class="${s.gap||s.notBooked?'text-undecided':''}">${s.gap?'Nowhere booked':esc(s.name)}</strong>
+            <div class="muted small">${esc(s.when)} · ${s.nights} night${s.nights===1?'':'s'}</div>
+          </div>
+          <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
+            ${!s.gap&&!ro?`<button type="button" class="btn icon-only" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${s.i})">${ICONS.edit}</button>`:''}
+          </span>
+          <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
+        </div>
+        ${s.gap&&!ro?`<button class="btn primary sm" style="margin-top:8px" onclick="event.stopPropagation();App.accomGapForm('${s.checkin}','${s.checkout}')">+ Add Accommodation</button>`:''}
+        ${isOpen?`<div class="route-days" onclick="event.stopPropagation()">${planDaysHTML(t, ro, rangeKeys)}</div>`:''}
+      </div>
+    </div>`;
+  };
+  return `<div class="route-list">${stops.map(stopRow).join('')}</div>`;
 }
 /* A stop or travel leg is pinned to a date on a normal trip and to a day number on one
    that's still only "next summer". Same slot in the form either way, so the layout doesn't
@@ -11416,44 +11500,6 @@ function routeStops(t){
   return journeys.concat(stays, gaps).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
 }
 const JOURNEY_FORM = {flight:'App.flightForm', ferry:'App.ferryForm', car:'App.carForm'};
-function tabRoute(t, ro){
-  const stops = routeStops(t);
-  if(!stops.length){
-    return `<div class="empty">No accommodation or travel added yet, so there's no route to map out.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
-      <button class="btn" onclick="App.tab('travel')">${secEmoji('🌎')} Add Travel</button>
-      <button class="btn primary" onclick="App.accomForm(-1)">+ Add Accommodation</button></span>`:''}</div>`;
-  }
-  // gaps and journeys sit in the sequence but don't take a number of their own - "1, 2, gap, 3"
-  // reads as the three real stays it is, not as a numbered list with holes punched in it. Each
-  // dot keeps a stable look by what it IS (a numbered stay, a journey, a gap) - not booked yet
-  // is a fact about the row, carried by its (red, bold) text alone, so a stop doesn't lose its
-  // number and read as just another empty gap the moment it's added but not yet confirmed.
-  let stopNum = 0;
-  const stopRow = s => {
-    if(s.journey){
-      const editFn = `${JOURNEY_FORM[s.mode]}(${s.i})`;
-      return `
-      <div class="route-item route-item-journey">
-        <div class="route-dot route-dot-journey" aria-hidden="true">${secEmoji(JOURNEY_ICON[s.mode]||'📍')}</div>
-        <div class="route-body${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${editFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${editFn}}"`:''}>
-          <strong class="${s.notBooked?'text-undecided':''}">${esc(s.label)} to ${esc(s.place)}</strong>
-          <div class="muted small">${esc(fmtDate(s.date))}${s.time?' · '+esc(s.time):''}</div>
-        </div>
-      </div>`;
-    }
-    if(!s.gap) stopNum++;
-    return `
-    <div class="route-item${s.gap?' route-item-gap':''}">
-      <div class="route-dot${s.gap?' route-dot-gap':''}" aria-hidden="true">${s.gap?secEmoji('❓'):stopNum}</div>
-      <div class="route-body${!ro&&!s.gap?' plan-click':''}" ${!ro&&!s.gap?`role="button" tabindex="0" onclick="App.accomForm(${s.i})" onkeydown="if(event.key==='Enter'||event.key===' '){App.accomForm(${s.i})}"`:''}>
-        <strong class="${s.gap||s.notBooked?'text-undecided':''}">${s.gap?'Nowhere booked':esc(s.name)}</strong>
-        <div class="muted small">${esc(s.when)} · ${s.nights} night${s.nights===1?'':'s'}</div>
-        ${s.gap&&!ro?`<button class="btn primary sm" style="margin-top:8px" onclick="App.accomGapForm('${s.checkin}','${s.checkout}')">+ Add Accommodation</button>`:''}
-      </div>
-    </div>`;
-  };
-  return `<div class="route-list">${stops.map(stopRow).join('')}</div>`;
-}
 
 /* ================= TAB: emergency contacts ================= */
 function tabContacts(t, ro){
