@@ -684,23 +684,17 @@ a{color:var(--brand-dark);}
    tap-to-reveal menu so the row read as content first, a manageable log second, but that made
    deleting a mis-tapped entry a two-tap hunt rather than the one obvious tap it should be. */
 .plant-timeline-delete{flex-shrink:0;}
-/* Itinerary (routeStops/tabPlan) - the same connected-dot timeline as the plant log, but
-   numbered stops instead of emoji events: place 1, place 2, place 3, in order down the page,
-   each one an accordion onto its own day-by-day detail (planDaysHTML). */
+/* Itinerary (routeStops/tabPlan) - a flat list of stops, each one an accordion onto its own
+   day-by-day detail (planDaysHTML). Used to number each stop with its own dot on a connecting
+   line, the same treatment as the plant log's timeline, but the map above the list now carries
+   that numbering (see .route-map-pin) - a second set of 1/2/3s in the list itself, plus the
+   line joining them, was repeating the same information the map already shows at a glance, so
+   the list is a plain divided list instead: a row per stop, nothing on the left to align text
+   against, full width to work with. */
 .route-list{display:flex; flex-direction:column;}
-.route-item{display:flex; gap:12px; position:relative; padding-bottom:18px;}
-.route-item:not(:last-child)::before{content:''; position:absolute; left:13px; top:30px; bottom:0; width:2px; background:var(--line);}
-.route-dot{flex-shrink:0; width:28px; height:28px; border-radius:50%; z-index:1;
-  display:flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:700; line-height:1;
-  background:var(--brand); color:#fff; border:1px solid var(--brand);}
-.route-dot-gap{background:var(--paper); color:var(--ink); border:1px dashed var(--line-strong);
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-/* a journey (routeJourneys) isn't a place you're staying, so it doesn't get a stop number -
-   same paper-and-line treatment as a gap, minus the dashed "still needs deciding" border, since
-   the flight/ferry/car hire it's read from is already a real saved booking */
-.route-dot-journey{background:var(--paper); color:var(--ink); border:1px solid var(--line-strong);
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; font-size:1rem;}
-.route-body{flex:1; min-width:0; padding-top:3px; border-radius:var(--radius);}
+.route-item{border-bottom:1px solid var(--line);}
+.route-item:last-child{border-bottom:none;}
+.route-body{display:block; padding:14px 2px;}
 .route-body strong{display:block; font-weight:700; color:var(--ink); font-size:.95rem;}
 .route-item-gap .route-body strong{font-weight:600;}
 .route-item-journey .route-body strong{font-weight:600; color:var(--brand-dark);}
@@ -714,16 +708,38 @@ a{color:var(--brand-dark);}
 .route-head-row>div:first-child{flex:1; min-width:0;}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
-/* the stop's own day-by-day detail, indented slightly off the dot column so it still reads as
-   belonging to this stop rather than starting a new one */
-.route-days{margin:14px 0 4px; padding-left:2px;}
+.route-days{margin:14px 0 4px;}
 .route-days .plan-day{margin:24px 0 14px;}
 .route-days .plan-day:first-child{margin-top:10px;}
-/* the route map (initRouteMap) - a Leaflet/OSM view sat above the stop list, pins numbered
-   to match .route-dot so "3" on the map and "3" in the list below are visibly the same
-   place. Only rendered once there's a real booked stop to plot; skipped rather than shown
-   empty for a trip that's nothing but ideas so far. */
-.route-map-wrap{border-radius:var(--radius); overflow:hidden; margin-bottom:18px; border:1px solid var(--line);}
+/* every auto-generated card (flight/ferry/car/stay) and every plain plan-card (a manually
+   added stop, a task, a booked travel leg) sheds its box once it's inside a stop's own expanded
+   detail - the label above each one (the auto-tag, or the card's own heading) already says
+   what it is, so the bordered/shadowed box around it was framing the same "this is a thing"
+   message a second time, on every single item on a busy day. Left as a plain block with the
+   same internal layout, it reads exactly as clearly with far less visual weight, and the full
+   width the box's own padding used to eat into goes back to the content.
+   .card-undecided and .gap-card are both left alone: the first already wins here on
+   !important, and the second (a dashed prompt to add a stop/accommodation, not an info card)
+   is deliberately still boxed so it reads as something to act on rather than more text. */
+.route-days .flight-strip{border:none; box-shadow:none; background:none; border-radius:0; margin-bottom:0;}
+.route-days .flight-head{background:none; border-bottom:none; padding:0 0 8px;}
+.route-days .flight-body,.route-days .accom-body{padding:0;}
+.route-days .card.plan-card:not(.gap-card){border:none; box-shadow:none; background:none; padding:0; margin-bottom:20px;}
+/* the flight/ferry/car card's own date, spelled out in full ("September 23, 2026"), is the
+   same date the day heading right above it already gives in short form ("23/9") - keeping
+   both said it twice on every card, one of them at length, so this one (not the day heading,
+   which is the one thing on the page you'd actually scroll to find) is the one that goes */
+.route-days .flight-head .muted.small{display:none;}
+/* the route map (initRouteMap) - a Leaflet/OSM view sat above the stop list, its pins the only
+   numbering left once the list below dropped its own (see the comment above .route-list).
+   Only rendered once there's a real booked stop to plot; skipped rather than shown empty for a
+   trip that's nothing but ideas so far. position:relative + z-index:0 gives it its own
+   stacking context - without one, Leaflet's internal panes (some z-indexed well above 100)
+   would otherwise paint on top of any modal opened while the map is on screen, since a
+   descendant's z-index only stays contained within the nearest ancestor that actually
+   establishes a stacking context. */
+.route-map-wrap{border-radius:var(--radius); overflow:hidden; margin-bottom:18px; border:1px solid var(--line);
+  position:relative; z-index:0;}
 .route-map{height:220px; background:var(--paper);}
 .route-map-pin{width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   font-size:.78rem; font-weight:700; line-height:1; background:var(--brand); color:#fff; border:2px solid #fff;
@@ -1325,10 +1341,6 @@ body.kb-open .tabbar.on{display:none;}
    you can take in one at a time instead of one long scroll */
 .plan-day{margin:40px 0 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .plan-day:first-child{margin-top:4px;}
-/* the day number is the thing you actually navigate by while scrolling, so it gets the same
-   numbered-badge weight as a Route stop (see .route-dot) rather than being just bigger text -
-   the date beside it is a cross-reference, small and quiet in comparison */
-.plan-day-date{font-family:var(--font-body); font-size:.72rem; font-weight:700; color:var(--muted); letter-spacing:.02em;}
 .wx-chip{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
 .wx-emoji{font-size:.9rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
@@ -1484,8 +1496,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.66';
+const APP_VERSION = '2.29.67';
 const CHANGELOG = [
+  {version:'2.29.67', notes:[
+    "Tidied up the Itinerary: the numbered 1/2/3 badges and the connecting line down the list are gone, both on the stop list itself and on the day headings inside an opened stop - the map above already carries that numbering, and the list reads as a plain, full-width list of places now instead. Every flight/ferry/car/stay/task/stop card inside an opened stop shed its box too, so a busy day reads as clean text and photos rather than a stack of bordered tiles. Dates throughout shortened to day/month only (23/9, not 23 September 2026) - the trip's year is already said once at the top of the page.",
+    "Fixed the route map only ever showing some of a trip's pins: an accommodation with no address saved yet had nothing for the map to look up, so it silently never got a pin - it now falls back to the same place name the list already shows for it. The map also switched to a cleaner, more modern-looking tile set (still free, still no API key), and a bug where opening Edit Accommodation while the map was on screen could let the map show through on top of the edit screen is fixed.",
+  ]},
   {version:'2.29.66', notes:[
     "Itinerary's three add buttons (Ideas/Travel/Stop) are now one sticky button pinned to the bottom of the screen, reachable without scrolling back to the top of a long trip. Tapping it opens a proper full-screen \"Add to Itinerary\" picker instead of three buttons squeezed into the breadcrumb row, each option handing straight off to the same place it always did.",
   ]},
@@ -2688,6 +2704,15 @@ function fmtShortDate(d){
   if(!d) return '';
   const dt = new Date(d + 'T00:00:00');
   return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+String(dt.getFullYear()).slice(-2);
+}
+/* day/month, no year at all - for the Itinerary's own day headings and stop dates, where the
+   trip's year is already said once at the top of the page and every date on the page after
+   that falls inside it, so spelling the month out in full ("23 September") on every single
+   stop and every single day heading was wider than the page needed it to be. */
+function fmtDayMonth(d){
+  if(!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.getDate()+'/'+(dt.getMonth()+1);
 }
 function todayStr(){
   const d = new Date();
@@ -10541,22 +10566,20 @@ function planDayGroups(t){
   return {groups, keys, rough, hasAny};
 }
 /* the shared "Day N" / date label for a plan day key, used both for the itinerary's own day
-   headings (styled spans, the default) and for describing a day in plain text elsewhere - e.g.
-   an empty day or a not-booked travel leg's date in the Tasks tab (pass plain:true) */
+   headings (a plain short date, the default - see fmtDayMonth) and for describing a day in
+   plain text elsewhere - e.g. an empty day or a not-booked travel leg's date in the Tasks tab
+   (pass plain:true, which keeps the fuller "Day N · 23 September 2026" text form since that
+   one's read out of context, not sat right under the trip's own dated stops) */
 function planDayLabel(t, k, rough, plain){
   if(!k) return 'Anytime';
-  if(rough){
-    const n = k.slice(1);
-    return plain ? 'Day '+n : `<span class="route-dot" aria-hidden="true">${n}</span><span class="sr-only">Day ${n}</span>`;
-  }
+  if(rough) return 'Day '+k.slice(1);
   let num = 0;
   if(t.startDate){
     const d = Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1;
     if(d>0) num = d;
   }
   if(plain) return (num?'Day '+num+' · ':'') + fmtDate(k);
-  const numHTML = num ? `<span class="route-dot" aria-hidden="true">${num}</span><span class="sr-only">Day ${num}</span>` : '';
-  return numHTML + `<span class="plan-day-date">${fmtDate(k)}</span>`;
+  return esc(fmtDayMonth(k));
 }
 /* the day and its date as two separate strings rather than one combined line - for a card
    like the Tasks tab's derived ones, where the date belongs underneath the title as its own
@@ -10786,14 +10809,17 @@ App.routeToggle = key => {
   initWeather(t);
   initRouteMap(t);
 };
-/* the route map - free, keyless Leaflet + OpenStreetMap tiles, with place names geocoded via
-   the same Open-Meteo pipeline the weather chips already use (wxResolve/wxStayPlaces), so a
-   stay's coordinates only ever cost one lookup app-wide, cached, however many places ask for
-   them. Pins are numbered the same way the stop list below numbers them (booked accommodation
-   stops only - gaps and journeys aren't places you're staying, so they don't get a pin), and
-   join up in order once two or more have resolved. The whole tab body is replaced on every
-   render (a toggle included), which throws away the map's DOM node each time, so this just
-   makes a fresh Leaflet map every time it's called rather than trying to update one in place. */
+/* the route map - free, keyless Leaflet + CartoDB Voyager tiles (a cleaner, more modern-looking
+   basemap than plain OpenStreetMap's own default style, still free and keyless - just a
+   different, more polished set of tile images built from the same open map data), with place
+   names geocoded via the same Open-Meteo pipeline the weather chips already use
+   (wxResolve/wxStayPlaces), so a stay's coordinates only ever cost one lookup app-wide, cached,
+   however many places ask for them. Pins are numbered the same way the stop list below used to
+   number them - now the only 1/2/3 left on the page, since the list itself dropped its own (see
+   the CSS comment above .route-list) - and join up in order once two or more have resolved.
+   The whole tab body is replaced on every render (a toggle included), which throws away the
+   map's DOM node each time, so this just makes a fresh Leaflet map every time it's called
+   rather than trying to update one in place. */
 let ROUTE_MAP = null;
 function initRouteMap(t){
   if(ROUTE_MAP){ try{ ROUTE_MAP.remove(); }catch(e){} ROUTE_MAP = null; }
@@ -10803,8 +10829,10 @@ function initRouteMap(t){
   if(!numbered.length) return;
   const map = L.map(el, {scrollWheelZoom:false}).setView([20,0], 2);
   ROUTE_MAP = map;
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {attribution:'&copy; OpenStreetMap contributors', maxZoom:18}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 20, subdomains: 'abcd',
+  }).addTo(map);
   const pins = new Array(numbered.length).fill(null);
   let layers = [];
   const redraw = () => {
@@ -10820,8 +10848,16 @@ function initRouteMap(t){
     if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
   };
   numbered.forEach((s,idx)=>{
-    const cands = wxStayPlaces(t.accommodations[s.i]);
-    if(!cands.length) return;
+    /* the stop's own display name (accomCityName - already what heads the list below) goes
+       first: it's usually the more specific of the two, since an address with no street/house
+       number ("Palaiokastritsa, Corfu, Greece") only leaves the region once the country's
+       dropped, while the display name still has its town-level guess. wxStayPlaces' own
+       address-derived candidates follow as a backup, for a custom booking nickname ("Beach
+       House") the geocoder won't recognise on its own - and a booking with no address at all
+       would otherwise never get a pin, which this also covers since the name is tried either
+       way. */
+    const fromAddress = wxStayPlaces(t.accommodations[s.i]);
+    const cands = [s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())];
     const listKey = cands.join('|');
     const known = WX_LIST_GEO[listKey];
     if(known){ pins[idx] = known; redraw(); return; }
@@ -10925,16 +10961,14 @@ function tabPlan(t, ro){
       <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`;
   }
   const rough = hasRoughWhen(t);
-  let stopNum = 0;
   const stopRow = s => {
     if(s.journey){
       const editFn = `${JOURNEY_FORM[s.mode]}(${s.i})`;
       return `
       <div class="route-item route-item-journey">
-        <div class="route-dot route-dot-journey" aria-hidden="true">${secEmoji(JOURNEY_ICON[s.mode]||'📍')}</div>
         <div class="route-body${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${editFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${editFn}}"`:''}>
-          <strong class="${s.notBooked?'text-undecided':''}">${esc(s.label)} to ${esc(s.place)}</strong>
-          <div class="muted small">${esc(fmtDate(s.date))}${s.time?' · '+esc(s.time):''}</div>
+          <strong class="${s.notBooked?'text-undecided':''}">${secEmoji(JOURNEY_ICON[s.mode]||'📍')} ${esc(s.label)} to ${esc(s.place)}</strong>
+          <div class="muted small">${esc(fmtDayMonth(s.date))}${s.time?' · '+esc(s.time):''}</div>
         </div>
       </div>`;
     }
@@ -10944,16 +10978,15 @@ function tabPlan(t, ro){
     const checkin = s.gap ? s.checkin : ac.checkin;
     const checkout = s.gap ? s.checkout : (ac.checkout || isoAddDays(checkin,1));
     const rangeKeys = keysForStopRange(t, rough, checkin, checkout);
-    if(!s.gap) stopNum++;
+    const whenShort = checkout ? `${fmtDayMonth(checkin)} - ${fmtDayMonth(checkout)}` : fmtDayMonth(checkin);
     const toggleFn = `App.routeToggle('${openKey}')`;
     return `
     <div class="route-item${s.gap?' route-item-gap':''}">
-      <div class="route-dot${s.gap?' route-dot-gap':''}" aria-hidden="true">${s.gap?secEmoji('❓'):stopNum}</div>
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
         <div class="route-head-row">
           <div style="min-width:0">
-            <strong class="${s.gap||s.notBooked?'text-undecided':''}">${s.gap?'Nowhere booked':esc(s.name)}</strong>
-            <div class="muted small">${esc(s.when)} · ${s.nights} night${s.nights===1?'':'s'}</div>
+            <strong class="${s.gap||s.notBooked?'text-undecided':''}">${s.gap?secEmoji('❓')+' Nowhere booked':esc(s.name)}</strong>
+            <div class="muted small">${esc(whenShort)} · ${s.nights} night${s.nights===1?'':'s'}</div>
           </div>
           <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">
             ${!s.gap&&!ro?`<button type="button" class="btn icon-only" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${s.i})">${ICONS.edit}</button>`:''}
