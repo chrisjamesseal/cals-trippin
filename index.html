@@ -745,6 +745,11 @@ a{color:var(--brand-dark);}
    other card in a day carries its own margin-bottom, this one didn't, so it read as glued to
    whatever followed it (e.g. a "Check Out of X" pill straight after) */
 .route-days .itin-gap-pill{margin-bottom:20px;}
+/* the date range used to sit as its own line above this pill - now it's part of the pill
+   itself, a muted second line under the title rather than a separate element floating above */
+.itin-gap-pill .task-pill-text{display:flex; align-items:flex-start; gap:8px;}
+.itin-gap-pill-body{display:flex; flex-direction:column; gap:2px;}
+.itin-gap-pill-date{color:var(--muted); font-size:.8rem; font-weight:400;}
 /* the image below is full-bleed to the card's own edges; the body copy above it keeps the
    card's normal text gutter everywhere else, but right against a photo that gutter reads as
    the two being out of step, so it drops to flush with the image's own left edge instead */
@@ -756,6 +761,7 @@ a{color:var(--brand-dark);}
   font-size:.9rem; margin:0 0 20px;}
 .plan-arrive-pill{background:#fff; border-radius:var(--radius); padding:11px 12px; margin:0 0 20px;
   font-weight:700; font-size:.9rem; color:var(--ink);}
+.plan-arrive-time{font-weight:400;}
 /* a simple travel leg (train/bus/taxi/drive/not-decided) - a dashed box rather than the slim
    one-line .plan-leg this replaces inside the Itinerary's day view, matching the Figma mock's
    own treatment for anything short of a real flight/ferry card */
@@ -1154,18 +1160,15 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .flight-head .head-with-logo,.flight-head > strong{align-self:flex-start; padding-top:2px;}
 /* the little square logo sitting with a card's title */
 .head-with-logo{display:flex; align-items:center; gap:9px; min-width:0;}
-/* a square logo, flex-centred against the title beside it, reads as sitting a touch high -
-   the title text's own visual weight (cap-height, not its full line box) is lower than true
-   geometric centre, so the logo wants a small nudge down to actually look aligned */
 /* no added background/border here any more - a brand favicon almost always already carries its
    own square background baked in, and framing that again with the app's own paper+border on top
    just doubled the edge into a messy ring around it */
 .card-logo{width:26px; height:26px; flex-shrink:0; border-radius:6px; object-fit:contain;
-  transform:translateY(2px);}
+  transform:translateY(-1px);}
 /* same footprint as .card-logo, but for a Font Awesome glyph standing in for a brand's favicon
    image (see bookingLogoFor) - centred in the same box instead of filling it */
 .card-logo-icon{width:26px; height:26px; flex-shrink:0; display:inline-flex; align-items:center;
-  justify-content:center; font-size:20px; transform:translateY(2px);}
+  justify-content:center; font-size:20px; transform:translateY(-1px);}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
 /* accommodation runs down the card rather than across it, but shares the flight card's
    strip/head shell so the two read as the same kind of thing on the Itinerary */
@@ -1551,8 +1554,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.78';
+const APP_VERSION = '2.29.79';
 const CHANGELOG = [
+  {version:'2.29.79', notes:[
+    "Itinerary: a flight's shown duration now accounts for its two airports being on different UTC offsets, instead of just diffing the clock times shown - a London-Corfu flight landing five clock-hours later was really a three-hour flight, the other two being the timezone gap. The flight card's logo now sits properly centred against its title (the previous fix's nudge overcorrected downward); the header shows the airports' full names instead of their codes, with the now-redundant full-name line underneath removed; and \"View Boarding Pass\" takes the airline's own brand colour, the same way an accommodation's booking button already does for its site.",
+    "Itinerary: no time on the page is bold any more - \"Arrive in X\"/\"Check Out of X\" kept their bold pill but the time inside is now regular weight, like everywhere else a time appears. The \"Plan\" tag above a stop now reads the stop's own title (\"Castle Walk & Sunset - Evening\") instead of the generic word \"Plan\". A day with nothing on it no longer says so twice - the heading's \"Nothing Scheduled\" is gone now that opening the day shows its own \"Nothing Planned\" pill. A stay gap's date range moved from its own line above the pill into the pill itself, as a second line under the title.",
+  ]},
   {version:'2.29.78', notes:[
     "Itinerary: a flight/accommodation card's logo-plus-title header wasn't actually the flex row it was declared as - a broader rule meant for a card's own title was quietly overriding it back to block layout, so the gap between the logo and its text collapsed to nothing and the text sat low against the logo instead of centred on it. Fixed at the root, so it's corrected everywhere that header appears (Wizz Air's \"TIA → LGW\" included).",
   ]},
@@ -3565,6 +3572,67 @@ const AIRPORTS = {
   AKL:'Auckland', WLG:'Wellington', CHC:'Christchurch'
 };
 const airportName = code => AIRPORTS[String(code||'').toUpperCase()] || '';
+/* IANA timezone for each airport above, keyed the same way - so a flight's shown duration can
+   account for the two ends being on different UTC offsets instead of just diffing clock times
+   (a London-Corfu flight landing three hours later by the clock is really a three-hour flight,
+   not five - the other two are the offset between Europe/London and Europe/Athens). Kept as its
+   own table rather than folded into AIRPORTS so a code missing from here just falls back to the
+   old naive clock math (see flightDurationMinutes) instead of guessing wrong. */
+const AIRPORT_TZ = {
+  LHR:'Europe/London', LGW:'Europe/London', STN:'Europe/London', LTN:'Europe/London', LCY:'Europe/London',
+  MAN:'Europe/London', BHX:'Europe/London', EDI:'Europe/London', GLA:'Europe/London', BRS:'Europe/London', NCL:'Europe/London',
+  LPL:'Europe/London', LBA:'Europe/London', BFS:'Europe/London', DUB:'Europe/Dublin', ORK:'Europe/Dublin',
+  CDG:'Europe/Paris', ORY:'Europe/Paris', NCE:'Europe/Paris', LYS:'Europe/Paris', MRS:'Europe/Paris', TLS:'Europe/Paris',
+  AMS:'Europe/Amsterdam', BRU:'Europe/Brussels', CRL:'Europe/Brussels', LUX:'Europe/Luxembourg',
+  FRA:'Europe/Berlin', MUC:'Europe/Berlin', BER:'Europe/Berlin', DUS:'Europe/Berlin', HAM:'Europe/Berlin', CGN:'Europe/Berlin', STR:'Europe/Berlin',
+  MAD:'Europe/Madrid', BCN:'Europe/Madrid', AGP:'Europe/Madrid', PMI:'Europe/Madrid', IBZ:'Europe/Madrid', ALC:'Europe/Madrid', VLC:'Europe/Madrid',
+  SVQ:'Europe/Madrid', BIO:'Europe/Madrid', TFS:'Atlantic/Canary', LPA:'Atlantic/Canary', ACE:'Atlantic/Canary', FUE:'Atlantic/Canary',
+  LIS:'Europe/Lisbon', OPO:'Europe/Lisbon', FAO:'Europe/Lisbon', FNC:'Atlantic/Madeira',
+  FCO:'Europe/Rome', CIA:'Europe/Rome', MXP:'Europe/Rome', LIN:'Europe/Rome', BGY:'Europe/Rome',
+  VCE:'Europe/Rome', NAP:'Europe/Rome', BLQ:'Europe/Rome', PSA:'Europe/Rome', CTA:'Europe/Rome', PMO:'Europe/Rome', CAG:'Europe/Rome', BRI:'Europe/Rome',
+  ATH:'Europe/Athens', SKG:'Europe/Athens', HER:'Europe/Athens', CHQ:'Europe/Athens', RHO:'Europe/Athens', CFU:'Europe/Athens',
+  JMK:'Europe/Athens', JTR:'Europe/Athens', KGS:'Europe/Athens', ZTH:'Europe/Athens', PVK:'Europe/Athens', KVA:'Europe/Athens',
+  TIA:'Europe/Tirane', SUF:'Europe/Rome',
+  VIE:'Europe/Vienna', ZRH:'Europe/Zurich', GVA:'Europe/Zurich', PRG:'Europe/Prague', BUD:'Europe/Budapest', WAW:'Europe/Warsaw', KRK:'Europe/Warsaw',
+  CPH:'Europe/Copenhagen', ARN:'Europe/Stockholm', OSL:'Europe/Oslo', HEL:'Europe/Helsinki', KEF:'Atlantic/Reykjavik',
+  IST:'Europe/Istanbul', SAW:'Europe/Istanbul', AYT:'Europe/Istanbul', DLM:'Europe/Istanbul', BJV:'Europe/Istanbul',
+  DXB:'Asia/Dubai', AUH:'Asia/Dubai', DOH:'Asia/Qatar', CAI:'Africa/Cairo', RAK:'Africa/Casablanca', TUN:'Africa/Tunis',
+  JFK:'America/New_York', EWR:'America/New_York', LGA:'America/New_York', LAX:'America/Los_Angeles', SFO:'America/Los_Angeles',
+  MIA:'America/New_York', ORD:'America/Chicago', BOS:'America/New_York', LAS:'America/Los_Angeles', MCO:'America/New_York',
+  YYZ:'America/Toronto', YVR:'America/Vancouver', BKK:'Asia/Bangkok', SIN:'Asia/Singapore', HKG:'Asia/Hong_Kong', NRT:'Asia/Tokyo',
+  HND:'Asia/Tokyo', DPS:'Asia/Makassar',
+  SYD:'Australia/Sydney', MEL:'Australia/Melbourne', BNE:'Australia/Brisbane', PER:'Australia/Perth', ADL:'Australia/Adelaide', OOL:'Australia/Brisbane',
+  CNS:'Australia/Brisbane', CBR:'Australia/Sydney', HBA:'Australia/Hobart', DRW:'Australia/Darwin',
+  AKL:'Pacific/Auckland', WLG:'Pacific/Auckland', CHC:'Pacific/Auckland'
+};
+/* converts a local wall-clock date+time in a given IANA zone to a UTC instant (ms). JS has no
+   native "zoned local time -> instant" conversion, so this uses the standard two-pass trick:
+   read the zone's offset as if the wall time were already UTC, then re-read the offset at that
+   corrected instant - one pass is enough outside the rare case of a wall time landing inside a
+   DST transition itself. */
+function zonedTimeToUtc(dateStr, timeStr, tz){
+  const [y,mo,d] = dateStr.split('-').map(Number);
+  const [h,mi] = timeStr.split(':').map(Number);
+  const asIfUTC = Date.UTC(y, mo-1, d, h, mi);
+  const offsetAt = t => {
+    const dtf = new Intl.DateTimeFormat('en-US', {timeZone:tz, hourCycle:'h23',
+      year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    const p = dtf.formatToParts(new Date(t)).reduce((a,x)=>{ a[x.type]=x.value; return a; },{});
+    const asUTC = Date.UTC(+p.year, +p.month-1, +p.day, +p.hour, +p.minute, +p.second);
+    return asUTC - t;
+  };
+  return asIfUTC - offsetAt(asIfUTC);
+}
+/* a flight's real duration, timezone-corrected when both airports are in AIRPORT_TZ; falls back
+   to the old same-day clock diff (minutesBetween) otherwise, exactly as before this existed. */
+function flightDurationMinutes(f){
+  const fromTz = AIRPORT_TZ[String(f.from||'').toUpperCase()], toTz = AIRPORT_TZ[String(f.to||'').toUpperCase()];
+  if(!f.date || !f.depTime || !f.arrTime || !fromTz || !toTz) return minutesBetween(f.depTime, f.arrTime);
+  const dep = zonedTimeToUtc(f.date, f.depTime, fromTz);
+  let arr = zonedTimeToUtc(f.date, f.arrTime, toTz);
+  if(arr <= dep) arr += 24*60*60*1000;
+  return Math.round((arr-dep)/60000);
+}
 function airportDatalist(){
   return `<datalist id="airport-list">${Object.entries(AIRPORTS).sort((a,b)=>a[1].localeCompare(b[1])).map(([c,n])=>`<option value="${c} · ${esc(n)}">`).join('')}</datalist>`;
 }
@@ -10606,21 +10674,20 @@ function planDaysHTML(t, ro, filterKeys){
     <div class="flight-strip itin-flight">
       <div class="flight-head">
         <span class="itin-time">${f.depTime?esc(f.depTime):''}</span>
-        <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(f.from||'?')} → ${esc(f.to||'?')}</span></strong>
+        <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(fromName)} → ${esc(toName)}</span></strong>
         ${f.seats?`<span class="itin-seats">${esc(f.seats)}</span>`:''}
       </div>
-      <div class="itin-route-name">${esc(fromName)} → ${esc(toName)}</div>
       <div class="itin-amenities">${amenities.map(a=>
         `<span class="itin-amenity${inc.includes(a)?'':' off'}">${inc.includes(a)?fa('check'):fa('xmark')}${esc(a)}</span>`).join('')}</div>
       ${f.ref?`<div class="itin-ref">Booking Reference: <strong>${esc(f.ref)}</strong></div>`:''}
       ${trackUrl||f.doc?`<div class="itin-actions">
         ${trackUrl?`<button type="button" class="btn itin-action-btn" onclick="event.stopPropagation();App.trackFlight('${esc(trackUrl)}')">${ICONS.flight} Track ${esc(f.flightNo||'Flight')}</button>`:''}
-        ${f.doc?`<button type="button" class="btn itin-action-btn primary" onclick="event.stopPropagation();App.viewTravelDoc('flights',${fi})">${ICONS.docs} View Boarding Pass</button>`:''}
+        ${f.doc?`<button type="button" class="btn itin-action-btn primary"${airlineButtonStyle(f.airline)} onclick="event.stopPropagation();App.viewTravelDoc('flights',${fi})">${ICONS.docs} View Boarding Pass</button>`:''}
       </div>`:''}
     </div>`;
   };
   const autoFlightCard = s => {
-    const dur = minutesBetween(s.f.depTime, s.f.arrTime);
+    const dur = flightDurationMinutes(s.f);
     const toName = airportName(s.f.to) || s.f.to;
     const arriveFlag = flagForPlace(t, toName);
     return `
@@ -10628,7 +10695,7 @@ function planDaysHTML(t, ro, filterKeys){
       ${itinFlightCardHTML(s)}
     </div>
     ${!s.f.undecided?planConnectorHTML(dur, ICONS.flight):''}
-    ${!s.f.undecided && s.f.to?`<div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>${s.f.arrTime?esc(s.f.arrTime)+' ':''}${arriveFlag?arriveFlag+' ':''}Arrive in ${esc(toName)}</div>`:''}`;
+    ${!s.f.undecided && s.f.to?`<div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>${s.f.arrTime?`<span class="plan-arrive-time">${esc(s.f.arrTime)}</span> `:''}${arriveFlag?arriveFlag+' ':''}Arrive in ${esc(toName)}</div>`:''}`;
   };
   const autoFerryCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.ferryForm(${s.fi})`)}>
@@ -10681,7 +10748,7 @@ function planDaysHTML(t, ro, filterKeys){
     }
     // check-out day, for a stay that started on an earlier day already showing its own card
     return `
-    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?esc(s.time)+' ':''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac))}</div>`;
+    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)}</span> `:''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac))}</div>`;
   };
   /* A flight or ferry is a booked thing with a time you have to make, so it earns a card.
      Everything else - a train, a bus, a taxi, driving yourself - is not that: you turn up and
@@ -10769,7 +10836,7 @@ function planDaysHTML(t, ro, filterKeys){
     // the same way an auto-generated card's own tag sits above it, rather than as a plain line
     // inside the card competing with the title for the same kind of weight
     return time
-      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), 'Plan', time)}${card}</div>`
+      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), s.name, time)}${card}</div>`
       : card;
   };
   const taskCard = s => `
@@ -10809,10 +10876,9 @@ function planDaysHTML(t, ro, filterKeys){
     const when = n===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.lastNight);
     const editFn = `App.accomGapForm('${g.firstNight}','${g.checkout}')`;
     return `
-      <div class="task-date">${esc(when)}</div>
       <div class="task-pill itin-gap-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="${editFn}"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${editFn}}"`}>
-        <span class="task-pill-text">${secEmoji('🛏️')} <strong>${n} Night${n===1?'':'s'} with No Accommodation</strong></span>
+        <span class="task-pill-text">${secEmoji('🛏️')}<span class="itin-gap-pill-body"><strong>${n} Night${n===1?'':'s'} with No Accommodation</strong><span class="itin-gap-pill-date">${esc(when)}</span></span></span>
         ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
       </div>`;
   };
@@ -10874,9 +10940,9 @@ function dayPlaceInfo(t, k, dayItems, rough){
 }
 /* the Itinerary's own day heading - a small "23rd September 2026" date line above a bold
    "Day 1 - Travel to 🇬🇷 Corfu" (dropping the verb once you're just staying somewhere rather
-   than travelling to it that day - "Day 2 - 🇬🇷 Corfu"), with a quiet "Nothing Scheduled" said
-   right on the line when the day's empty, rather than the day just reading like any other
-   until you open it and find out. Built fresh here rather than going through planDayLabel,
+   than travelling to it that day - "Day 2 - 🇬🇷 Corfu"). An empty day says so once, in its own
+   "Nothing Planned" pill once opened - the heading itself no longer repeats it. Built fresh
+   here rather than going through planDayLabel,
    which everywhere else it's used just wants a short "Day N" for something read out of
    context - this is the one heading on the page itself, so it gets the full date and the
    place along with it. */
@@ -10887,12 +10953,11 @@ function dayNarrative(t, k, dayItems, rough){
     : 0;
   const {place, flag, arriving} = dayPlaceInfo(t, k, dayItems, rough);
   const placeText = place ? ` - ${arriving?'Travel to ':''}${flag?flag+' ':''}${esc(place)}` : '';
-  const emptyText = dayItems.length===0 ? ` <span class="muted">Nothing Scheduled</span>` : '';
   // a trip with real booking dates but no start date set yet (still being put together) has
   // nothing to count "Day N" from - the date itself stands in for it, same as this heading
   // would have shown before it grew a day number at all, rather than inventing a "Day ?"
   const dayLabel = num ? `Day ${num}` : fmtDate(k);
-  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${placeText}${emptyText}`};
+  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${placeText}`};
 }
 /* which stop/gap accordions are open - a UI-only choice, not trip data, so it's a plain
    module variable rather than anything saved or synced; resets on reload same as the rest of
@@ -11572,6 +11637,23 @@ const AIRLINE_SITES = {
   'Singapore Airlines':'singaporeair.com','Cathay Pacific':'cathaypacific.com','Icelandair':'icelandair.com',
   'ITA Airways':'ita-airways.com','airBaltic':'airbaltic.com','Croatia Airlines':'croatiaairlines.com'
 };
+/* the airline's own brand colour for its "View Boarding Pass" button, the same idea as
+   BOOKING_SERVICE_COLORS for an accommodation's booking button - easyJet's orange rather than
+   the app's own brand orange, so the button reads as that airline's rather than a generic one.
+   Only the airlines this is confident about are listed; anything else falls back to the app's
+   own default button style, same as an unrecognised booking site does. */
+const AIRLINE_COLORS = {
+  'easyJet':'#FF6600', 'Ryanair':'#073590', 'British Airways':'#075AAA', 'Wizz Air':'#C6007E',
+  'Virgin Atlantic':'#E10A0A', 'Emirates':'#D71921', 'Qatar Airways':'#5C0632', 'Lufthansa':'#05164D',
+  'Air France':'#002157', 'KLM':'#00A1DE', 'Iberia':'#D91A2C', 'Vueling':'#FFD100',
+  'Aer Lingus':'#00693C', 'Turkish Airlines':'#C70A0D', 'SWISS':'#DA291C', 'Finnair':'#0F1689',
+  'American Airlines':'#0078D2', 'Delta':'#C8102E', 'United':'#002244', 'Qantas':'#E40000',
+  'Southwest':'#304CB2',
+};
+function airlineButtonStyle(airline){
+  const color = AIRLINE_COLORS[airline];
+  return color ? ` style="background:${color};border-color:${color}"` : '';
+}
 /* Google's favicon service doesn't guarantee it actually has one - some sites (easyJet's
    among them) come back blank rather than 404, which an onerror alone won't catch, so this
    also gives the <img> a byte-count floor: a real favicon is never a 1x1 transparent pixel,
