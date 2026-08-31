@@ -735,6 +735,42 @@ a{color:var(--brand-dark);}
    both said it twice on every card, one of them at length, so this one (not the day heading,
    which is the one thing on the page you'd actually scroll to find) is the one that goes */
 .route-days .flight-head .muted.small{display:none;}
+/* the flight/accommodation's own rich card on the Itinerary (itinFlightCardHTML/
+   itinAccomCardHTML) - the one exception to every other card inside a day shedding its box
+   (see the comment above .route-days .flight-strip): these two carry real booking detail
+   worth setting apart from the plain text around them, same as the Figma mock's own white
+   cards for a flight and a stay. */
+.route-days .itin-flight{background:#fff; border-radius:var(--radius); padding:8px 12px 12px; margin-bottom:20px;}
+.route-days .itin-flight .flight-head{padding:0 0 10px;}
+.itin-time{color:var(--ink); font-size:.85rem; margin-right:8px;}
+.itin-seats{color:var(--ink); font-size:.85rem; margin-left:auto;}
+.itin-route-name{font-weight:700; color:var(--ink); font-size:.9rem; margin-bottom:12px;}
+.itin-amenities{display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px;}
+.itin-amenity{display:flex; align-items:center; gap:6px; font-size:.9rem; color:var(--ink);}
+.itin-amenity .icon{color:#1F7A3D;}
+.itin-amenity.off .icon{color:var(--muted);}
+.itin-ref{font-size:.9rem; color:var(--ink); margin-bottom:12px;}
+.itin-actions{display:flex; flex-direction:column; gap:8px;}
+.itin-action-btn{width:100%; background:var(--bg); color:var(--ink); border:none; border-radius:var(--radius);
+  padding:10px 12px; font-weight:700; font-size:.85rem; text-align:center; display:flex; align-items:center;
+  justify-content:center; gap:8px; cursor:pointer;}
+.itin-action-btn.primary{background:var(--brand); color:#fff;}
+.itin-stay-dates{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:.9rem; color:var(--ink); margin-bottom:12px;}
+/* the connector between two cards in a day's timeline ("✈️ 3 Hours") and the plain white
+   pill marking a moment rather than a booking ("21:10 🇬🇷 Arrive in Corfu", "Check Out of
+   Palaiokastritsa") - see planConnectorHTML/autoFlightCard/autoStayCard */
+.plan-connector{display:flex; align-items:center; justify-content:center; gap:6px; color:var(--ink);
+  font-size:.9rem; margin:0 0 20px;}
+.plan-arrive-pill{background:#fff; border-radius:var(--radius); padding:11px 12px; margin:0 0 20px;
+  font-weight:700; font-size:.9rem; color:var(--ink);}
+/* a simple travel leg (train/bus/taxi/drive/not-decided) - a dashed box rather than the slim
+   one-line .plan-leg this replaces inside the Itinerary's day view, matching the Figma mock's
+   own treatment for anything short of a real flight/ferry card */
+.plan-leg-box{display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:var(--bg); border:1px dashed var(--muted); border-radius:var(--radius);
+  padding:11px 12px; margin-bottom:20px;}
+.plan-leg-box-text{color:var(--ink); font-size:.9rem; overflow-wrap:anywhere;}
+.plan-leg-box-plus{color:var(--brand); flex-shrink:0; font-size:1.05rem; line-height:1;}
 /* the route map (initRouteMap) - a Leaflet/OSM view sat above the stop list, its pins the only
    numbering left once the list below dropped its own (see the comment above .route-list).
    Only rendered once there's a real booked stop to plot; skipped rather than shown empty for a
@@ -1079,6 +1115,20 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .task-flag{font-size:.95rem; line-height:1;}
 .task-card.task-done{border-left-color:var(--line-strong); opacity:.6;}
 .task-card.task-done h3{text-decoration:line-through; color:var(--muted);}
+/* the outstanding-item rows on Tasks (a not-booked flight/ferry/car/stay, an empty Itinerary
+   day, a run of unbooked nights) - a plain dashed pill naming the thing and when, per the
+   Figma Tasks page: a small date line above (a single day, or the day range for a multi-night
+   gap), then the pill itself, tapping either opens the same real form editing it elsewhere -
+   there's nothing to complete here, just something still to decide. */
+.task-block{border-bottom:1px solid var(--line); padding-bottom:18px; margin-bottom:18px;}
+.task-block:last-child{border-bottom:none; margin-bottom:0; padding-bottom:0;}
+.task-date{color:var(--muted); font-size:.85rem; margin:0 0 14px;}
+.task-pill{display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:var(--bg); border:1px solid var(--muted); border-style:dashed; border-radius:var(--radius);
+  padding:11px 12px;}
+.task-pill-text{color:var(--ink); font-size:.9rem;}
+.task-pill-time{color:var(--ink); font-weight:400;}
+.task-pill-plus{color:var(--brand); flex-shrink:0; font-size:1.05rem; line-height:1;}
 /* the same red, for a single field (airline, operator, company…) left blank on a card that's
    otherwise a real, filled-in card - too small a gap to earn the full dashed treatment */
 .text-undecided{color:#C0392B; font-weight:600;}
@@ -1501,8 +1551,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.68';
+const APP_VERSION = '2.29.69';
 const CHANGELOG = [
+  {version:'2.29.69', notes:[
+    "The Itinerary's flight and accommodation cards now match the full richness of the new Figma design: a flight shows its seats, a check/cross against Cabin Bag, Checked Bag and Priority Boarding, its booking reference, and Track Flight/View Boarding Pass buttons; an accommodation shows its full address, both check-in and check-out with their times, its booking reference, and Google Maps/View Details buttons. A duration (\"✈️ 3 Hours\") sits between cards as its own line, and a flight/check-out gets a plain \"Arrive in X\"/\"Check Out of X\" pill of its own. A simple travel leg (train, bus, taxi, drive, or not decided) now reads as a dashed box instead of a slim line, matching the mock. New: a Seat(s) field on the flight form.",
+  ]},
   {version:'2.29.68', notes:[
     "The Itinerary now opens day by day instead of place by place - Day 1, Day 2, Day 3, each its own row with its date, which place it's in, and whether anything's on it right on the heading (\"Day 1 - Travel to 🇬🇷 Corfu\", or a quiet \"Nothing Scheduled\" for a day that's still blank), so a long trip reads as a short list of days rather than a list of places. A flight, a check-in, an unbooked leg - everything that used to sit between stops - is just part of whichever day it falls on now, opened the same way with a tap. A not-yet-booked flight/ferry/car/stay/travel leg inside a day also reads with the page's own muted tones instead of red, since it's a \"still needs details\" prompt, not a warning.",
   ]},
@@ -10415,6 +10468,36 @@ function travelDurationLabel(s){
   if(!h && !m) return '';
   return [h?h+'h':'', m?m+'m':''].filter(Boolean).join(' ');
 }
+/* minutes from one HH:MM clock time to another, treating the second as after the first even
+   across midnight (a red-eye flight, an early check-in the next morning) - naive clock math,
+   no timezone awareness, same as every other time on this page (an airport-to-airport flight
+   time in particular will read a little off whenever the two ends don't share a UTC offset,
+   the same rough-and-ready trade every other duration on the Itinerary already makes). */
+function minutesBetween(t1, t2){
+  if(!t1 || !t2) return null;
+  const [h1,m1] = t1.split(':').map(Number), [h2,m2] = t2.split(':').map(Number);
+  let diff = (h2*60+m2) - (h1*60+m1);
+  if(diff <= 0) diff += 24*60;
+  return diff;
+}
+/* the connector row between two cards on the Itinerary ("🚆 2 Hours") spells the word out,
+   rounded to the nearest hour - unlike travelDurationLabel's compact "2h 15m" (a card's own
+   fine-grained duration line), a connector is just placing two things relative to each other,
+   not a fact worth stating to the minute. */
+function hoursWordLabel(mins){
+  if(mins==null) return '';
+  const h = Math.round(mins/60);
+  if(h<=0) return '';
+  return `${h} Hour${h===1?'':'s'}`;
+}
+/* the connector row itself, sat between two cards in a day's timeline - a leg's own stored
+   duration (durationH/M) wins when it has one, since that's a fact rather than a guess;
+   otherwise it's worked out from the two clock times either side, when both are known. Returns
+   '' when there's nothing to show rather than ever guessing at a number with nothing behind it. */
+function planConnectorHTML(mins, emoji){
+  const label = hoursWordLabel(mins);
+  return label ? `<div class="plan-connector">${secEmoji(emoji)}${esc(label)}</div>` : '';
+}
 function itineraryItemLabel(s){
   if(s.kind==='travel') return (s.from||s.to) ? `${s.from||'?'} → ${s.to||'?'}` : 'a travel leg';
   return s.name || 'a stop';
@@ -10639,11 +10722,49 @@ function planDaysHTML(t, ro, filterKeys){
   const autoTag = (icon, label, time) => `
     <div class="plan-auto-tag">${icon}<strong>${esc(label)}${time?' - '+esc(time):''}</strong></div>`;
   const clickAttrs = fn => !ro ? `role="button" tabindex="0" onclick="${fn}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}"` : '';
-  const autoFlightCard = s => `
-    <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
-      ${autoTag(secEmoji('✈️'), 'Flight', s.time)}
-      ${flightStripHTML(s.f, s.fi, '')}
+  /* the flight's own rich card - route, seats, the three ticket amenities (check or cross,
+     whichever f.includes actually says), its booking reference, and Track/Boarding Pass
+     buttons where there's a real trackable flight number or an attached document to show for
+     either. Not-booked-yet keeps the plain dashed treatment every other undecided card uses -
+     there's nothing here yet to fill a rich card with. */
+  const itinFlightCardHTML = s => {
+    const f = s.f, fi = s.fi;
+    if(f.undecided) return flightStripHTML(f, fi, '');
+    const trackUrl = flightTrackUrl(f);
+    const full = [f.airline||'', f.flightNo||''].filter(Boolean).join(' ');
+    const logo = f.airline ? airlineLogoFor(f.airline, full) : '';
+    const fromName = airportName(f.from) || f.from || '?';
+    const toName = airportName(f.to) || f.to || '?';
+    const inc = f.includes||[];
+    const amenities = ['Cabin bag','Checked bag','Priority boarding'];
+    return `
+    <div class="flight-strip itin-flight">
+      <div class="flight-head">
+        <span class="itin-time">${f.depTime?esc(f.depTime):''}</span>
+        <strong class="head-with-logo">${logo}<span>${secEmoji('✈️')} ${esc(f.from||'?')} → ${esc(f.to||'?')}</span></strong>
+        ${f.seats?`<span class="itin-seats">${esc(f.seats)}</span>`:''}
+      </div>
+      <div class="itin-route-name">${esc(fromName)} → ${esc(toName)}</div>
+      <div class="itin-amenities">${amenities.map(a=>
+        `<span class="itin-amenity${inc.includes(a)?'':' off'}">${inc.includes(a)?fa('check'):fa('xmark')}${esc(a)}</span>`).join('')}</div>
+      ${f.ref?`<div class="itin-ref">Booking Reference: <strong>${esc(f.ref)}</strong></div>`:''}
+      ${trackUrl||f.doc?`<div class="itin-actions">
+        ${trackUrl?`<button type="button" class="btn itin-action-btn" onclick="event.stopPropagation();App.trackFlight('${esc(trackUrl)}')">${secEmoji('✈️')} Track ${esc(f.flightNo||'Flight')}</button>`:''}
+        ${f.doc?`<button type="button" class="btn itin-action-btn primary" onclick="event.stopPropagation();App.viewTravelDoc('flights',${fi})">${ICONS.docs} View Boarding Pass</button>`:''}
+      </div>`:''}
     </div>`;
+  };
+  const autoFlightCard = s => {
+    const dur = minutesBetween(s.f.depTime, s.f.arrTime);
+    const toName = airportName(s.f.to) || s.f.to;
+    const arriveFlag = flagForPlace(t, toName);
+    return `
+    <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
+      ${itinFlightCardHTML(s)}
+    </div>
+    ${!s.f.undecided?planConnectorHTML(dur, '✈️'):''}
+    ${!s.f.undecided && s.f.to?`<div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>${s.f.arrTime?esc(s.f.arrTime)+' ':''}${arriveFlag?arriveFlag+' ':''}Arrive in ${esc(toName)}</div>`:''}`;
+  };
   const autoFerryCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.ferryForm(${s.fi})`)}>
       ${autoTag(secEmoji('⛴️'), 'Ferry', s.time)}
@@ -10654,21 +10775,48 @@ function planDaysHTML(t, ro, filterKeys){
       ${autoTag(secEmoji(s._autoCar==='pickup'?'🚗':'🅿️'), s._autoCar==='pickup'?'Car Hire Pick Up':'Car Hire Drop Off', s.time)}
       ${carStripHTML(s.c, s.ci, '')}
     </div>`;
-  /* the tag names the thing and says when you'd get there: the arrival time if the booking has
-     one, otherwise the check-in/check-out time it's sorted by - with the property's own
-     check-in time tucked in brackets right after it on check-in, since the compact card below
-     no longer repeats it itself. */
+  /* the accommodation's own rich card - full address, both ends of the stay with an icon
+     each, its booking reference, and Google Maps/View Details buttons - shown once, on the
+     check-in day, with both dates on it (same as the Figma mock). Check-out gets a plain
+     pill on its own day instead of a second copy of the same card, for a stay that runs on
+     past the day you arrived. */
+  const itinAccomCardHTML = ac => {
+    if(ac.undecided) return accomCardHTML(ac, {compact:true});
+    const mapsUrl = ac.address ? googleMapsUrl(ac.address) : '';
+    const nights = ac.checkin && ac.checkout
+      ? Math.max(1, Math.round((new Date(ac.checkout+'T00:00:00')-new Date(ac.checkin+'T00:00:00'))/86400000)) : 0;
+    const logo = ac.bookingUrl ? siteLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : '';
+    const primaryTime = ac.arrivalTime || ac.checkinTime;
+    return `
+    <div class="flight-strip itin-flight">
+      <div class="flight-head">
+        <span class="itin-time">${primaryTime?esc(primaryTime):''}</span>
+        <strong class="head-with-logo">${logo}<span>${secEmoji('📍')} ${esc(accomCityName(ac))}</span></strong>
+        ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
+      </div>
+      ${ac.address?`<div class="itin-route-name">${esc(ac.address)}</div>`:''}
+      ${ac.checkin?`<div class="itin-stay-dates">
+        <span>${secEmoji('📅')}${esc(fmtDateOrdinal(ac.checkin))}${ac.checkinTime?` ${secEmoji('🕐')}Check In: ${esc(ac.checkinTime)}`:''}</span>
+        ${ac.checkout?`<span>to ${secEmoji('📅')}${esc(fmtDateOrdinal(ac.checkout))}${ac.checkoutTime?` ${secEmoji('🕐')}Check Out: ${esc(ac.checkoutTime)}`:''}</span>`:''}
+      </div>`:''}
+      ${ac.ref?`<div class="itin-ref">Booking Reference: <strong>${esc(ac.ref)}</strong></div>`:''}
+      ${mapsUrl||ac.bookingUrl?`<div class="itin-actions">
+        ${mapsUrl?`<a class="btn itin-action-btn" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('📍')} Google Maps</a>`:''}
+        ${ac.bookingUrl?`<a class="btn itin-action-btn primary" href="${esc(ac.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('❤️')} View Details</a>`:''}
+      </div>`:''}
+    </div>`;
+  };
   const autoStayCard = s => {
     const checkin = s._autoStay==='checkin';
-    const primary = checkin ? (s.ac.arrivalTime || s.time) : s.time;
-    const tagTimeFull = !primary ? ''
-      : checkin ? (s.ac.checkinTime ? `${primary} (${s.ac.checkinTime} Check In)` : primary)
-      : `${primary} (Check Out)`;
+    if(checkin){
+      return `
+      <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
+        ${itinAccomCardHTML(s.ac)}
+      </div>`;
+    }
+    // check-out day, for a stay that started on an earlier day already showing its own card
     return `
-    <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>
-      ${autoTag(secEmoji(checkin?'🏠':'👋'), 'Accommodation', tagTimeFull)}
-      ${accomCardHTML(s.ac, {showDates:false, compact:true, phase:s._autoStay})}
-    </div>`;
+    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?esc(s.time)+' ':''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac))}</div>`;
   };
   /* A flight or ferry is a booked thing with a time you have to make, so it earns a card.
      Everything else - a train, a bus, a taxi, driving yourself - is not that: you turn up and
@@ -10699,12 +10847,18 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
                  : way;
-      const meta = [when, duration].filter(Boolean).join(' · ');
+      // a simple leg - train, bus, taxi, driving yourself, or not decided yet - reads as a
+      // dashed box (the Figma mock's own treatment for anything short of a real flight/ferry
+      // card), the bare time and the mode's own emoji on the left, a plus on the right as a
+      // quiet "there's more to fill in here" cue rather than an edit affordance that's really
+      // any different from tapping the rest of the box
+      const dur = s.durationH||s.durationM ? (s.durationH||0)*60+(s.durationM||0) : null;
       return `
-      <div class="plan-leg${!ro?' plan-click':''}${s.notBooked?' card-undecided':''}" ${clickAttrs(editFn)}>
-        <span class="plan-leg-icon">${secEmoji(mode.emoji)}</span>
-        <span class="plan-leg-text${s.notBooked?' text-undecided':''}">${line}${meta?` <span class="muted">- ${esc(meta)}</span>`:''}</span>
-      </div>`;
+      <div class="plan-leg-box${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
+        <span class="plan-leg-box-text${s.notBooked?' text-undecided':''}">${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${secEmoji(mode.emoji)} <strong>${line}</strong></span>
+        <span class="plan-leg-box-plus" aria-hidden="true">${fa('circle-plus')}</span>
+      </div>
+      ${planConnectorHTML(dur, mode.emoji)}`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -11894,7 +12048,10 @@ App.flightForm = i => {
       <div class="field"><label class="label">Departs</label><input id="fl-dep" type="time" value="${esc(f.depTime||'')}"></div>
       <div class="field"><label class="label">Arrives</label><input id="fl-arr" type="time" value="${esc(f.arrTime||'')}"></div>
     </div>
-    <div class="field"><label class="label">Booking ref</label><input id="fl-ref" type="text" value="${esc(f.ref||'')}"></div>
+    <div class="grid2">
+      <div class="field"><label class="label">Booking ref</label><input id="fl-ref" type="text" value="${esc(f.ref||'')}"></div>
+      <div class="field"><label class="label">Seat(s)</label><input id="fl-seats" type="text" value="${esc(f.seats||'')}" placeholder="e.g. 23B / 32E"></div>
+    </div>
     <div class="field"><label class="label">Included with the ticket</label>
       <div class="chips">${FLIGHT_INCLUDES.map(x=>`<label class="chip pick ${inc.includes(x)?'on':''}" style="cursor:pointer"><input type="checkbox" class="fl-inc" value="${esc(x)}" ${inc.includes(x)?'checked':''} style="display:none" onchange="this.closest('.chip').classList.toggle('on',this.checked)">${esc(x)}</label>`).join('')}</div>
     </div>
@@ -11913,7 +12070,7 @@ App.saveFlight = i => {
     airline:$('#fl-air').value.trim(), flightNo:$('#fl-no').value.trim().toUpperCase(),
     date:$('#fl-date').value, from:parseAirport($('#fl-from').value), to:parseAirport($('#fl-to').value),
     depTime:$('#fl-dep').value, arrTime:$('#fl-arr').value,
-    ref:$('#fl-ref').value.trim(), includes, doc:FORM_DOC
+    ref:$('#fl-ref').value.trim(), seats:$('#fl-seats').value.trim(), includes, doc:FORM_DOC
   };
   if(!f.airline && !f.flightNo && !f.from && !f.to && !undecided) return markErr('#fl-air','Add at least an airline or a route');
   const label = (f.airline||'flight')+(f.flightNo?' '+f.flightNo:'')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
