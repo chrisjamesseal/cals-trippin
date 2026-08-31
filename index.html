@@ -584,13 +584,17 @@ a{color:var(--brand-dark);}
    padding - tighter padding and a smaller size keep it on one line in a narrow grid card instead
    of wrapping under the emoji */
 .plant-water-action-btn.plant-mark-planted{padding:9px 6px; gap:5px; font-size:.7rem;}
+/* the grid card's own button (plantWaterButtonHTML's compact param) - sat inline in the card's
+   head row next to the name, same as the Figma mock's own card, rather than the detail page's
+   full-width button below everything else */
+.plant-water-action-btn.compact{width:auto; flex-shrink:0; margin-top:0; height:36px; padding:11px 20px; font-size:.8rem;}
 .plant-water-btn-emoji{font-size:1.05rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 /* the relative "last watered" time used to sit in its own line above/below this button - now it
    sits inside it, right under the label, since it's context for this exact button's action */
 .plant-water-btn-text{display:inline-flex; flex-direction:row; align-items:baseline; gap:5px;}
 .plant-water-btn-time{font-size:.72rem; font-weight:600; opacity:.7;}
-.plant-water-action-btn.overdue{background:#2E86DE; border-color:#2E86DE; color:#fff;}
+.plant-water-action-btn.overdue{background:#4895E1; border-color:#2E86DE; color:#fff;}
 .plant-water-action-btn.done{background:var(--brand-tint);}
 /* the brief post-tap "did you mean that" state (see PLANT_UNDO_TIMERS) - dashed rather than a
    solid border so it doesn't read as just another status colour like overdue/done do */
@@ -1551,8 +1555,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.71';
+const APP_VERSION = '2.29.72';
 const CHANGELOG = [
+  {version:'2.29.72', notes:[
+    "Plants grid card now matches the Figma design: icon, name and growth stage, and the water button all sit on the one row, the same as the mock - the button's own blue (actionable) and grey (already watered) now use the mock's exact colours too, not the app's own slightly darker blue. Everything the card already tracked beyond that (health badge, water status, germination countdown, care tips) is kept, just as a second row underneath rather than crowding the top one.",
+  ]},
   {version:'2.29.71', notes:[
     "Itinerary flight/accommodation cards: real logos instead of emoji on the Google Maps and View Details buttons (Google's own icon, and the booking site's own favicon), and dropped the generic plane/pin emoji from the header whenever the airline or booking site's own logo is already sat right next to it - the two were reading as one thing said twice.",
   ]},
@@ -7811,7 +7818,7 @@ const PLANT_UNDO_MS = 5000;
    Plants page card gets a bigger labelled button instead - "Watered" with the emoji
    beside it, its own class (.plant-water-action-btn) since it's a different shape
    entirely, not just a bigger version of the same button. */
-function plantWaterButtonHTML(p, sm){
+function plantWaterButtonHTML(p, sm, compact){
   const showUndo = !!PLANT_UNDO_TIMERS[p.id];
   if(sm){
     // no overdue/done border colour here - see .plant-water-btn.sm's own comment for why - but
@@ -7833,7 +7840,7 @@ function plantWaterButtonHTML(p, sm){
   // sense yet for something that isn't in the ground, so this replaces it with the same planting
   // action instead of disabling a button whose whole label is wrong for this stage
   if(p.stage===PLANT_STAGE_DEFAULT){
-    return `<button type="button" class="plant-water-action-btn plant-mark-planted"
+    return `<button type="button" class="plant-water-action-btn plant-mark-planted${compact?' compact':''}"
         onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">Mark as Planted<span class="plant-water-btn-emoji" aria-hidden="true">🪏</span></button>`;
   }
   // not just "watered today" - a plant on a 2-day schedule watered yesterday isn't due yet
@@ -7841,27 +7848,31 @@ function plantWaterButtonHTML(p, sm){
   // reading as a normal tappable action for a watering it doesn't need
   const notDue = !showUndo && !plantOverdue(p);
   const state = showUndo ? ' undo' : notDue ? ' done' : ' overdue';
-  if(showUndo) return `<button type="button" class="plant-water-action-btn${state}"
+  const cls = `plant-water-action-btn${state}${compact?' compact':''}`;
+  if(showUndo) return `<button type="button" class="${cls}"
         onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">Undo Watering<span class="plant-water-btn-emoji" aria-hidden="true">↩</span></button>`;
   // "Watered" alone read as a status ("this one's already watered") rather than something to
   // tap, in both its states - which one just happened to depend on fill colour and disabled-ness
   // doing all the work. Splitting the wording by state fixes that without a colour/fill read:
   // the live button says what tapping it will do (log a watering), the done one says what
-  // already happened, in the past tense a completed state actually reads as.
+  // already happened, in the past tense a completed state actually reads as. The compact grid-
+  // card button (matching the Figma mock's plain "Watered Today"/"Watered") drops the relative-
+  // time suffix - there's no room for it sat inline in the card's head row, and the detail
+  // page's own full-width button (compact:false) still carries it.
   const timeLabel = plantWaterRelativeLabel(p);
+  const timeSuffix = compact ? '' : `<span class="plant-water-btn-time">- ${esc(timeLabel)}</span>`;
   return notDue
-    ? `<button type="button" class="plant-water-action-btn${state}" disabled
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">Watered Today<span class="plant-water-btn-time">- ${esc(timeLabel)}</span></span><span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`
-    : `<button type="button" class="plant-water-action-btn${state}"
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">I've Watered It<span class="plant-water-btn-time">- ${esc(timeLabel)}</span></span><span class="plant-water-btn-emoji" aria-hidden="true">💧</span></button>`;
+    ? `<button type="button" class="${cls}" disabled
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">${compact?'Watered':'Watered Today'}${timeSuffix}</span>${compact?'':`<span class="plant-water-btn-emoji" aria-hidden="true">💧</span>`}</button>`
+    : `<button type="button" class="${cls}"
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">${compact?'Watered Today':`I've Watered It`}${timeSuffix}</span>${compact?'':`<span class="plant-water-btn-emoji" aria-hidden="true">💧</span>`}</button>`;
 }
-/* the card, top to bottom: icon, name, the health badge (the most prominent thing here after
-   the name, per the redesign brief), then three short icon-led status lines - growth stage,
-   water status, and (seed/sprout stage only) a germination countdown - the CTA button, then a
-   compact "last watered" footer, and (per request) a few of the same care tips the detail
-   page's own checklist shows - enough that most visits shouldn't need a tap into the detail
-   page at all, just glance down the list. One per row now rather than a multi-column grid, since
-   a card carrying this much wants the full width to lay it out in, not a narrow column. */
+/* the card, top to bottom: icon, name and its growth stage stacked next to it, and the water
+   button, all on the one head row - matching the Figma mock's own plain single-row card
+   exactly. The health badge, a water-status chip, a germination countdown and a few of the
+   same care tips the detail page's own checklist shows follow underneath, kept rather than
+   dropped (per your call to keep the page's existing depth) but as secondary content below the
+   row that has to read the same as the mock at a glance. */
 function plantCardHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
   const unplanted = p.stage===PLANT_STAGE_DEFAULT;
@@ -7876,13 +7887,13 @@ function plantCardHTML(p){
           <div class="plant-name">${esc(p.name||'Untitled')}</div>
           <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
         </div>
-        ${plantHealthBadgeHTML(p)}
+        ${plantWaterButtonHTML(p, false, true)}
       </div>
       ${!unplanted ? `<div class="plant-card-wide-stats">
+        ${plantHealthBadgeHTML(p)}
         ${plantWaterStatusHTML(p)}
         ${g ? `<div class="plant-germ-label">⏳ Day ${g.day} &middot; ${g.min} to ${g.max} days to sprout</div>` : ''}
       </div>` : ''}
-      ${plantWaterButtonHTML(p)}
       ${tips.length ? `<ul class="plant-card-wide-tips">${tips.map(t=>`<li><span aria-hidden="true">${t.icon}</span>${esc(t.text)}</li>`).join('')}</ul>` : ''}
     </div>`;
 }
