@@ -1266,6 +1266,29 @@ body.kb-open .tabbar.on{display:none;}
    set after the narrow-screen rule above so it wins on phones too, where the bar still needs
    the same clearance the wider layouts give it */
 .wrap{padding-bottom:96px;}
+/* the Itinerary's single sticky Add button - stacked directly above the tabbar via --bar-h
+   (the tabbar's own real rendered height, safe-area inset and all, kept live by renderTabbar),
+   rather than a guessed pixel offset that would drift on a notched phone. .wrap gets extra
+   bottom clearance to match while it's showing, so the last stop on the page doesn't end up
+   hidden underneath both bars. */
+.add-bar{position:fixed; left:0; right:0; bottom:var(--bar-h,0px); z-index:59;
+  background:var(--paper); border-top:1px solid var(--line); padding:10px 16px;
+  transform:translateZ(0);}
+.add-bar .btn{width:100%;}
+.wrap.has-sticky-add{padding-bottom:176px;}
+/* the "what do you want to add" screen the sticky button opens - three big tappable rows
+   rather than the cramped inline buttons this replaced, each handing straight off to the
+   exact same form/tab the old button did */
+.add-choice-list{display:flex; flex-direction:column; gap:10px; margin-top:6px;}
+.add-choice{display:flex; align-items:center; gap:14px; text-align:left; width:100%;
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
+  padding:14px 16px; cursor:pointer; font:inherit; color:inherit;}
+.add-choice:hover,.add-choice:focus-visible{background:var(--brand-ghost); outline:none;}
+.add-choice-emoji{flex-shrink:0; font-size:1.6rem; line-height:1;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.add-choice-body{min-width:0;}
+.add-choice-body strong{display:block; font-size:.98rem;}
+.add-choice-body span{display:block; margin-top:2px;}
 /* a bigger group wraps onto a second line rather than being cut off; the icon sits at the
    top of its own line rather than centred, which only looked right with text one line tall */
 .trip-people{display:flex; align-items:flex-start; gap:7px; margin-top:6px;}
@@ -1461,8 +1484,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.65';
+const APP_VERSION = '2.29.66';
 const CHANGELOG = [
+  {version:'2.29.66', notes:[
+    "Itinerary's three add buttons (Ideas/Travel/Stop) are now one sticky button pinned to the bottom of the screen, reachable without scrolling back to the top of a long trip. Tapping it opens a proper full-screen \"Add to Itinerary\" picker instead of three buttons squeezed into the breadcrumb row, each option handing straight off to the same place it always did.",
+  ]},
   {version:'2.29.65', notes:[
     "Each stop on the Itinerary now opens with a short, AI-written summary above its day-by-day cards - a couple of tailored sentences pulling together what's booked and planned for that place, written the first time you open it and cached from then on (tap Regenerate if the plan there changes). Uses your own Anthropic API credits via the same shared proxy Music/Films already use; entirely optional and invisible if that's not set up - the day-by-day cards themselves are unaffected either way.",
   ]},
@@ -9197,7 +9223,10 @@ function renderTrip(t){
     <button class="btn" style="width:100%;margin-top:10px" onclick="App.share('${t.id}')">${secEmoji('🔗')} Share Trip</button>`:''}
     ${CUR_TAB==='home' && !ro ? `
     <button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
-    ${CUR_TAB==='home' ? tabLog(t) : ''}`;
+    ${CUR_TAB==='home' ? tabLog(t) : ''}
+    ${CUR_TAB==='plan' && !ro ? `
+    <div class="add-bar"><button class="btn primary" onclick="App.addMenu()">${secEmoji('➕')} Add to Itinerary</button></div>`:''}`;
+  $('#app').classList.toggle('has-sticky-add', CUR_TAB==='plan' && !ro);
   renderTab(t);
 }
 /* Edit Trip screen: name, dates, countries and people (trip settings) */
@@ -9438,10 +9467,11 @@ function renderTab(t){
 /* the section's primary action, shown next to the breadcrumb title */
 function crumbAction(t){
   switch(CUR_TAB){
-    case 'plan':
-      return `<button class="btn sm" onclick="App.tab('mood')">${secEmoji('💡')} Add Ideas</button>`
-        + `<button class="btn sm" onclick="App.travelLegForm(-1)">${secEmoji('🚌')} Add Travel</button>`
-        + `<button class="btn sm" onclick="App.planForm(-1)">${secEmoji('📍')} Add Stop</button>`;
+    // Itinerary's add actions live in the sticky bar at the bottom of the screen instead
+    // (see .add-bar in renderTrip and App.addMenu) - three buttons crammed into this row
+    // wrapped awkwardly on a phone, and the sticky bar is reachable without scrolling back
+    // to the top of what can be a long page.
+    case 'plan':   return '';
     case 'mood':   return `<button class="btn sm primary" onclick="App.moodForm()">+ New Idea</button>`;
     case 'contacts': return `<button class="btn sm primary" onclick="App.contactForm()">+ Add</button>`;
     case 'notes':  return `<button class="btn sm primary" onclick="App.noteForm(-1)">+ Add Note</button>`;
@@ -9452,6 +9482,28 @@ function crumbAction(t){
     default:       return '';
   }
 }
+/* the Itinerary's sticky Add button opens this instead of jumping straight to one form - the
+   same three destinations the old inline buttons went to (Ideas is a whole tab, not a form,
+   since that's where you browse and pin ideas before turning one into a stop), just picked
+   from a proper full screen instead of three buttons squeezed into the breadcrumb row */
+App.addMenu = () => {
+  openModal(`
+    <h2>Add to Itinerary</h2>
+    <div class="add-choice-list">
+      <button type="button" class="add-choice" onclick="closeModal();App.tab('mood')">
+        <span class="add-choice-emoji" aria-hidden="true">💡</span>
+        <span class="add-choice-body"><strong>Browse Ideas</strong><span class="muted small">Pin somewhere, then turn it into a stop when you're ready</span></span>
+      </button>
+      <button type="button" class="add-choice" onclick="App.travelLegForm(-1)">
+        <span class="add-choice-emoji" aria-hidden="true">🚌</span>
+        <span class="add-choice-body"><strong>Add Travel</strong><span class="muted small">A flight, ferry, drive or other leg between places</span></span>
+      </button>
+      <button type="button" class="add-choice" onclick="App.planForm(-1)">
+        <span class="add-choice-emoji" aria-hidden="true">📍</span>
+        <span class="add-choice-body"><strong>Add Stop</strong><span class="muted small">Something to do on a specific day</span></span>
+      </button>
+    </div>`, {autofocus:false});
+};
 function rerender(){
   const t = getTrip(CUR_TRIP_ID);
   if(t) renderTrip(t);
