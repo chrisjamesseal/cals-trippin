@@ -450,7 +450,14 @@ a{color:var(--brand-dark);}
 /* Places Been / Gigs Seen / This Year / Games - four counts up top, fixed to two columns
    regardless of height (unlike the masonry below, which balances by measured height) so they
    read as one glanceable block rather than being scattered wherever the balancer lands them */
-.dash-stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
+.dash-stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px;}
+/* a bare "🌍16" pill - four to a row, so each tile drops the "N Label" wording the same shape
+   gets everywhere else on the dashboard (the label still reaches a screen reader via aria-label
+   on the tile itself) and shrinks its padding/gap to actually fit four across on a phone. */
+.dash-stat-grid .dash-widget{padding:12px 10px;}
+.dash-stat-grid .dash-widget-row{gap:6px;}
+.dash-stat-grid .dash-item-flags{font-size:1.15rem;}
+.dash-stat-grid .dash-item-title{font-size:.95rem;}
 /* Branch's earnings card - full width rather than squeezed into the 2-column stat grid above,
    since it's carrying two figures (today/this week) side by side, not one. Reuses the same
    .dash-stat-num/.dash-stat-label look each stat tile already has, just two of them sharing one
@@ -501,6 +508,10 @@ a{color:var(--brand-dark);}
 .dash-item-flags-boxed .flag-cell span{font-size:2.6rem; line-height:1;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
+/* the Next Trip tile's own small map preview - same boxed treatment as the Itinerary's full
+   route map (.route-map-wrap/.route-map), just shorter, sitting above its flags */
+.dash-trip-map-wrap{border-radius:var(--radius); overflow:hidden; margin-bottom:12px; border:1px solid var(--line);}
+.dash-trip-map{height:110px; background:var(--bg);}
 
 /* ---------- plants (vegetable growing tracker) ---------- */
 /* still tight enough to hold a lot of vegetables at once and read as a glanceable board, not a
@@ -578,18 +589,6 @@ a{color:var(--brand-dark);}
    typical disabled control, since "Watered" needs to read as a completed state at a glance, not
    just a slightly-dimmed button */
 .plant-water-action-btn:disabled{opacity:.45; cursor:default;}
-/* Home's chips (dashPlantsWidgetHTML) use this small icon-only circle instead - six-plus of
-   them sit side by side there, so a full labelled button per chip wouldn't fit */
-.plant-water-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
-  width:30px; height:30px; border:1px solid var(--line-strong); border-radius:50%;
-  background:var(--paper); cursor:pointer; padding:0; font-size:1rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-water-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
-.plant-water-btn.sm{width:22px; height:22px; font-size:.8rem;}
-/* the checkmark itself already reads as "done" - a circle drawn around it on top just doubles
-   up the shape, so it's dropped here (unlike the plain water-drop state, which still needs the
-   circle as its tap-target outline) */
-.plant-water-btn.checkmark{border:none; background:none;}
 .plant-emoji-picker{display:flex; flex-wrap:wrap; gap:6px;}
 .plant-emoji-opt{font-size:1.3rem; line-height:1; padding:6px 9px; border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
@@ -670,6 +669,11 @@ a{color:var(--brand-dark);}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
 .route-days{margin:14px 0 4px;}
+/* a stop/task/travel card's own title is an <h3>, which everywhere else on the app carries the
+   serif display font - the Itinerary's own cards want the plain sans body font instead, same as
+   everything around them here (the day heading itself is a <strong>, never an h3, so it was
+   already sans and never had this problem) */
+.route-days h3{font-family:var(--font-body);}
 .route-days .plan-day{margin:24px 0 14px;}
 .route-days .plan-day:first-child{margin-top:10px;}
 /* every auto-generated card (flight/ferry/car/stay) and every plain plan-card (a manually
@@ -721,6 +725,7 @@ a{color:var(--brand-dark);}
 .route-days .flight-head .head-with-logo{align-self:center; padding-top:0;}
 .itin-time{color:var(--ink); font-size:.85rem; margin-right:8px;}
 .itin-seats{color:var(--ink); font-size:.85rem; margin-left:auto;}
+.itin-seats .icon{margin-right:5px;}
 .itin-route-name{font-weight:700; color:var(--ink); font-size:.9rem; margin-bottom:12px;}
 .itin-amenities{display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px;}
 .itin-amenity{display:flex; align-items:center; gap:6px; font-size:.9rem; color:var(--ink);}
@@ -737,9 +742,12 @@ a{color:var(--brand-dark);}
 .itin-action-btn{width:100%; background:var(--bg); color:var(--ink); border:none; border-radius:var(--radius);
   padding:10px 12px; font-weight:700; font-size:.85rem; text-align:center; display:flex; align-items:center;
   justify-content:center; gap:8px; cursor:pointer;}
+/* the icon's own margin-right (meant for an inline, non-flex context) doubled up with this
+   row's own flex gap, pushing the label further from the icon than everywhere else on the card */
+.itin-action-btn .fav{margin-right:0;}
 .itin-action-btn.primary{background:var(--brand); color:#fff;}
 .itin-stay-dates{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:.9rem; color:var(--ink); margin-bottom:12px;}
-.itin-stay-dates .icon{color:var(--muted); margin-right:6px;}
+.itin-stay-dates .icon{color:var(--stay-icon-color, var(--muted)); margin-right:6px;}
 .itin-stay-dates .icon.fa-clock{margin-left:8px;}
 /* the gap pill sits right above the next card in the day with nothing else between them - every
    other card in a day carries its own margin-bottom, this one didn't, so it read as glued to
@@ -793,20 +801,6 @@ a{color:var(--brand-dark);}
 .ai-summary-refresh{background:none; border:none; padding:6px 0 0; margin:0; color:var(--muted); font-size:.78rem;
   display:flex; align-items:center; gap:5px; cursor:pointer;}
 .ai-summary-refresh:hover{color:var(--brand-dark);}
-/* Home shows every vegetable as its own small chip - emoji, its own water button (see
-   plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
-   one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
-   auto-fill) so six vegetables sit neatly as two even rows regardless of the tile's actual
-   pixel width; a seventh just wraps onto a third row, growing the card down rather than
-   squeezing anything smaller. */
-.plant-home-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px 6px;}
-.plant-home-chip{display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;}
-/* same "not actually growing yet" fade the Plants page's own cards use (see .plant-card) */
-.plant-home-chip.plant-unplanted{opacity:.55;}
-.plant-home-emoji{font-size:1.5rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-home-emoji.plant-icon-img{width:24px; height:24px; object-fit:cover; border-radius:6px;}
-.plant-home-ts{font-size:.62rem; color:var(--muted); white-space:nowrap;}
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:4px;}
 .gig-card{padding:14px;}
@@ -954,6 +948,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
   width:40px; height:40px; border:none; background:none; color:var(--muted); cursor:pointer; border-radius:50%; padding:0; font-size:.8rem;}
 .field-clear:hover{background:var(--brand-ghost); color:var(--brand-dark);}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+/* a field hidden by the "Not Booked Yet?" toggle (see undecidedFieldHTML) - collapses to
+   nothing rather than leaving a gap, and lets its .grid2 row's other field take the full row */
+.hide-undecided{display:none;}
+.grid2:has(>.hide-undecided){grid-template-columns:1fr;}
 .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
 @media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr;}}
 /* two halves of one value (hours + minutes, a time) read as a pair, so they stay side by
@@ -1165,10 +1163,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    just doubled the edge into a messy ring around it */
 .card-logo{width:26px; height:26px; flex-shrink:0; border-radius:6px; object-fit:contain;
   transform:translateY(-1px);}
-/* same footprint as .card-logo, but for a Font Awesome glyph standing in for a brand's favicon
-   image (see bookingLogoFor) - centred in the same box instead of filling it */
-.card-logo-icon{width:26px; height:26px; flex-shrink:0; display:inline-flex; align-items:center;
-  justify-content:center; font-size:20px; transform:translateY(-1px);}
+/* the airline/booking service name in its own brand colour, standing in for a favicon logo
+   (see airlineLogoFor/bookingLogoFor) - no fixed box, just sized and weighted to sit inline
+   with the rest of the card title */
+.card-logo-text{font-size:.95rem; font-weight:700; white-space:nowrap; flex-shrink:0;}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
 /* accommodation runs down the card rather than across it, but shares the flight card's
    strip/head shell so the two read as the same kind of thing on the Itinerary */
@@ -1348,7 +1346,11 @@ body.kb-open .tabbar.on{display:none;}
 .add-bar{position:fixed; left:0; right:0; bottom:var(--bar-h,0px); z-index:59;
   background:var(--paper); border-top:1px solid var(--line); padding:10px 16px;
   transform:translateZ(0);}
-.add-bar .btn{width:100%;}
+.add-bar-row{display:flex; gap:8px;}
+.add-bar-row .btn.primary{flex:1; min-width:0;}
+.add-bar-row .btn:not(.primary){flex-shrink:0;}
+/* the plus/chevrons glyphs read a touch high against the button's own text baseline */
+.add-bar .icon{transform:translateY(1px);}
 .wrap.has-sticky-add{padding-bottom:176px;}
 /* the "what do you want to add" screen the sticky button opens - three big tappable rows
    rather than the cramped inline buttons this replaced, each handing straight off to the
@@ -1458,7 +1460,10 @@ body.kb-open .tabbar.on{display:none;}
 .plan-card-photo>.btn-row{padding-bottom:18px;}
 .plan-img-wrap{position:relative;}
 .plan-img{width:100%; max-height:220px; object-fit:cover; display:block;}
-.plan-img-map{position:absolute; bottom:10px; right:10px; background:var(--paper); box-shadow:var(--shadow);}
+.plan-img-map{position:absolute; bottom:10px; right:10px; background:none; box-shadow:none;}
+.btn.icon-only.plan-img-map{padding:0;}
+.plan-img-map .fav{width:28px; height:28px;}
+.plan-img-map .sec-emoji{font-size:1.4rem;}
 /* an icon sitting beside a line of text rather than above a title, so it wants the text's own
    baseline instead of the bigger align-items:center a card head gets */
 .plan-meta-line{display:flex; align-items:flex-start; gap:7px;}
@@ -1546,6 +1551,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
    an address, safe to commit; your PSN login itself is entered on-device later and stays in
    this browser's localStorage, never here. Leave blank and Games shows setup instructions. */
 const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
+/* Optional: the Itinerary route map and the Next Trip dashboard preview both use CartoDB's
+   Voyager map tiles, which now require an API key even for light personal use - get a free one
+   at https://carto.com/basemaps (Auth → API Keys) and paste it below. Leave blank and the map
+   still loads, just watermarked "API key required" across the tiles instead of the real map. */
+const CARTO_API_KEY = '';
 /* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
@@ -1554,8 +1564,21 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.81';
+const APP_VERSION = '2.29.83';
 const CHANGELOG = [
+  {version:'2.29.83', notes:[
+    "Home dashboard: the top stat row is now 4 columns instead of 2 (Places/Gigs/Films/Games/Board Games/Theatre, plus a new Watering Needed/Done tile for Plants), each just a small icon-and-count tile like the Figma mock. The Next Trip card now shows a small route preview map above its flags.",
+    "Itinerary and booking-service logos (airline favicons, Airbnb/Booking.com etc) are now the service's own name in its own brand colour - Wizz Air in purple, Airbnb in red, Booking.com in dark blue - instead of a small favicon square, so every airline/service reads consistently rather than only the ones with a mapped logo.",
+    "The Itinerary route map (and the new Next Trip preview map) can now take a CartoDB API key - their Voyager map tiles started requiring one for even light personal use. See CARTO_API_KEY near the top of index.html for where to paste it; left blank, the map still loads, just watermarked. The route map's own attribution text in the bottom corner is also hidden now.",
+  ]},
+  {version:'2.29.82', notes:[
+    "Itinerary: the route map now plots a flight/ferry/car-hire destination too, not just an accommodation stay - a leg to somewhere you haven't booked a place yet (a ferry across to Albania, say) used to just vanish off the map entirely, now it gets its own numbered pin and joins the route line like everywhere else you're actually going.",
+    "A flight's Not Booked Yet toggle now hides the airline and Departs/Arrives fields live as you tick it - those don't mean much before there's an actual booking - while the date and both airports stay put either way.",
+    "A flight's Seat(s) field gets its own chair icon, in the airline's own brand colour where known. An accommodation's Check In/Check Out calendar and clock icons now pick up its booking site's brand colour too, instead of plain grey.",
+    "A stop/task/travel card's title on the Itinerary was quietly picking up the app's serif display font (the same rule every h1/h2/h3 uses everywhere else) - it's plain sans now, matching the rest of the page around it.",
+    "The sticky \"Add to Itinerary\" button's plus icon is a proper icon now, not an emoji, so it reads white against the button like the rest of its label. Next to it: a new Open All/Collapse All toggle for every day's accordion at once, defaulting to Open All having already run so it reads correctly the first time the page loads.",
+    "Cleaned up two Google Maps buttons: the text one now sits closer to its icon (a doubled-up margin was pushing it further than the rest of the card's buttons), and the round one overlaid on a stop's photo dropped its background/shadow circle for a plain, slightly bigger icon.",
+  ]},
   {version:'2.29.81', notes:[
     "Itinerary: a day where you're only checking out of somewhere (nothing checking in that same day) no longer wrongly reads as \"Travel to\" that place - it was picking up the \"Travel to\" verb from any other travel leg on the page happening to fall on the same day, even one headed somewhere else entirely, so a checkout day could read as arriving in the city you were actually leaving.",
   ]},
@@ -3921,6 +3944,7 @@ function dashTripItemHTML(t){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/trip/${esc(t.id)}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${esc(t.id)}'}">
+      <div class="dash-trip-map-wrap"><div class="dash-trip-map" data-trip-id="${esc(t.id)}"></div></div>
       <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">${flagCellsHTML(flags.length?flags:['✈️'])}</div>
       <div class="dash-item-title">${esc(t.name)}</div>
       <div class="dash-item-sub">Next Trip</div>
@@ -3995,13 +4019,19 @@ function loadDashboardBranch(){
     const slot = $('#dash-branch-slot'); if(slot) slot.innerHTML = '';
   });
 }
-function dashGigsStatWidgetHTML(){
+/* every top-row stat tile (Places/Gigs/Films/Games/Board Games/Theatre) is just "icon + bare
+   count" now - the "N Places Been"-style label still reaches a screen reader via aria-label on
+   the tile, it's just not printed on the tile itself any more. */
+function dashStatTileHTML(icon, count, label, onclick){
   return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGigsSeen()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigsSeen()}">
-      <div class="dash-item-flags" aria-hidden="true">🎤</div>
-      <div class="dash-item-title">${dashGigsBeenCount(CUR_DASH_SONG_RANGE)} Gigs Seen</div>
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="${onclick}" aria-label="${esc(count+' '+label)}"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${onclick}}">
+      <div class="dash-item-flags" aria-hidden="true">${icon}</div>
+      <div class="dash-item-title" aria-hidden="true">${esc(String(count))}</div>
     </div>`;
+}
+function dashGigsStatWidgetHTML(){
+  return dashStatTileHTML('🎤', dashGigsBeenCount(CUR_DASH_SONG_RANGE), 'Gigs Seen', 'App.goGigsSeen()');
 }
 /* a country only carries a status ('been'/'want'/'going'), never a date - the closest thing to
    "when" is the most recent finished trip that visited it, so that's what the range picker
@@ -4026,12 +4056,7 @@ function dashPlacesBeenCount(range){
   }).length;
 }
 function dashPlacesBeenWidgetHTML(){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlaces('been')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('been')}">
-      <div class="dash-item-flags" aria-hidden="true">🌍</div>
-      <div class="dash-item-title">${dashPlacesBeenCount(CUR_DASH_SONG_RANGE)} Places Been</div>
-    </div>`;
+  return dashStatTileHTML('🌍', dashPlacesBeenCount(CUR_DASH_SONG_RANGE), 'Places Been', "App.goPlaces('been')");
 }
 function dashNextGig(){
   const upcoming = (DB.gigs||[]).filter(g=>g.date && g.date>todayStr());
@@ -4121,12 +4146,7 @@ function loadDashboardSong(){
   });
 }
 function dashGamesStatWidgetHTML(n){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGames()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      <div class="dash-item-flags" aria-hidden="true">🎮</div>
-      <div class="dash-item-title">${n} Played</div>
-    </div>`;
+  return dashStatTileHTML('🎮', n, 'Games Played', 'App.goGames()');
 }
 function dashCurrentlyPlayingWidgetHTML(g){
   return `
@@ -4192,24 +4212,14 @@ function dashFilmsSeenCount(range){
   return (DB.films||[]).filter(f=>f.watchedDate && f.watchedDate<=todayStr() && (!cutoff || f.watchedDate>=cutoff)).length;
 }
 function dashFilmsSeenWidgetHTML(){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goFilmsDiary()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
-      <div class="dash-item-flags" aria-hidden="true">🎬</div>
-      <div class="dash-item-title">${dashFilmsSeenCount(CUR_DASH_SONG_RANGE)} Films Seen</div>
-    </div>`;
+  return dashStatTileHTML('🎬', dashFilmsSeenCount(CUR_DASH_SONG_RANGE), 'Films Seen', 'App.goFilmsDiary()');
 }
 function dashTheatreSeenCount(range){
   const cutoff = dashRangeCutoffStr(range);
   return (DB.theatre||[]).filter(t=>t.date && t.date<=todayStr() && (!cutoff || t.date>=cutoff)).length;
 }
 function dashTheatreSeenWidgetHTML(){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goTheatre()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goTheatre()}">
-      <div class="dash-item-flags" aria-hidden="true">🎭</div>
-      <div class="dash-item-title">${dashTheatreSeenCount(CUR_DASH_SONG_RANGE)} Shows Seen</div>
-    </div>`;
+  return dashStatTileHTML('🎭', dashTheatreSeenCount(CUR_DASH_SONG_RANGE), 'Shows Seen', 'App.goTheatre()');
 }
 /* Board Games marks (bgMarks) carry no date, unlike the diary-backed stat tiles above, so this
    one has no time-range filter to apply - it's just a straight count of everything marked
@@ -4218,12 +4228,7 @@ function dashBoardGamesPlayedCount(){
   return Object.values(bgMarks()).filter(v=>v==='played').length;
 }
 function dashBoardGamesPlayedWidgetHTML(){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goBoardGamesPlayed()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goBoardGamesPlayed()}">
-      <div class="dash-item-flags" aria-hidden="true">🎲</div>
-      <div class="dash-item-title">${dashBoardGamesPlayedCount()} Played</div>
-    </div>`;
+  return dashStatTileHTML('🎲', dashBoardGamesPlayedCount(), 'Board Games Played', 'App.goBoardGamesPlayed()');
 }
 function dashLastSeenFilmWidgetHTML(){
   const f = (DB.films||[]).filter(f=>f.watchedDate).sort((a,b)=>b.watchedDate.localeCompare(a.watchedDate))[0];
@@ -4487,7 +4492,6 @@ const DASH_WIDGET_DEFS = [
   {key:'theatrenext', label:'Theatre See Next'},
   {key:'boardgamenext', label:'Board Game Play Next'},
   {key:'lastseen', label:'Last Seen'},
-  {key:'plants', label:'Plants'},
 ];
 /* reconciles whatever's saved with the widgets that actually exist right now - any widget added
    to the app since the prefs were last saved (or before they've ever been customised at all) is
@@ -4517,7 +4521,6 @@ function dashWidgetHTML(key){
   if(key==='theatrenext') return dashTheatreWatchNextWidgetHTML();
   if(key==='boardgamenext') return `<div id="dash-boardgame-slot">${dashBoardGameNextWidgetHTML()}</div>`;
   if(key==='lastseen') return dashLastSeenFilmWidgetHTML();
-  if(key==='plants') return `<div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   return '';
 }
 /* the Home Dashboard section of Settings (see renderSettings) - up/down to reorder, an eye to
@@ -4557,6 +4560,7 @@ function renderDashboard(){
       <div id="dash-games-stat-slot">${dashGamesStatPlaceholderHTML()}</div>
       <div id="dash-boardgames-stat-slot">${dashBoardGamesPlayedWidgetHTML()}</div>
       <div id="dash-theatre-stat-slot">${dashTheatreSeenWidgetHTML()}</div>
+      <div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>
     </div>
     <div class="dash-masonry">
       <div class="dash-col" id="dash-col-a">${widgets}</div>
@@ -4569,6 +4573,7 @@ function renderDashboard(){
   // anything - see balanceDashboardColumns' own comment for why this has to happen up front
   [...$('#dash-col-a').children].forEach((n,i) => { n.dataset.dashOrder = i; });
   balanceDashboardColumns();
+  initDashTripMaps();
   loadDashboardGames();
   loadDashboardSong();
   loadDashboardBranch();
@@ -7731,35 +7736,14 @@ function plantsSorted(){
 /* the couple of seconds right after a tap (PLANT_UNDO_TIMERS) is the one time the button shows
    something other than "log a watering" - an accidental tap is common (it's a small target
    sitting right where a card is otherwise all tap-to-open), so it turns into a plain "undo that"
-   button instead, then reverts back on its own once the window's passed. sm is used by the
-   Home widget's smaller chips (see dashPlantsWidgetHTML) - same behaviour, smaller button. */
+   button instead, then reverts back on its own once the window's passed. */
 let PLANT_UNDO_TIMERS = {};
 const PLANT_UNDO_MS = 5000;
-/* Home's chips (sm) keep the small icon-only circular button (.plant-water-btn); the full
-   Plants page card gets a bigger labelled button instead - "Watered" with the emoji
-   beside it, its own class (.plant-water-action-btn) since it's a different shape
-   entirely, not just a bigger version of the same button. */
-function plantWaterButtonHTML(p, sm, compact){
+function plantWaterButtonHTML(p, compact){
   const showUndo = !!PLANT_UNDO_TIMERS[p.id];
-  if(sm){
-    // no overdue/done border colour here - see .plant-water-btn.sm's own comment for why - but
-    // the icon itself still swaps to a checkmark once it's had enough water for now (not
-    // overdue), so Home's still glanceable without needing a colour cue. Still tappable either
-    // way - watering twice in a day is normal, not something to block.
-    if(showUndo) return `<button type="button" class="plant-water-btn sm undo" aria-label="Undo watering"
-          onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`;
-    // a still-unplanted vegetable isn't overdue for water, it just hasn't started yet - tapping
-    // the shovel plants it (advances to Seed Sown) rather than logging a watering it can't have
-    // had yet, since there's nothing in the ground to water
-    if(p.stage===PLANT_STAGE_DEFAULT) return `<button type="button" class="plant-water-btn sm" aria-label="Mark as planted"
-          onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">🪏</button>`;
-    const enough = !plantOverdue(p);
-    return `<button type="button" class="plant-water-btn sm${enough?' checkmark':''}" aria-label="${enough?'Watered enough for now - log another watering':'Log watering'}"
-          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">${enough?'✅':'💧'}</button>`;
-  }
-  // same reasoning as the sm shovel above, just the full-page button shape - "Watered" makes no
-  // sense yet for something that isn't in the ground, so this replaces it with the same planting
-  // action instead of disabling a button whose whole label is wrong for this stage
+  // a still-unplanted vegetable isn't overdue for water, it just hasn't started yet - "Watered"
+  // makes no sense yet, so this replaces it with the planting action instead of disabling a
+  // button whose whole label is wrong for this stage
   if(p.stage===PLANT_STAGE_DEFAULT){
     return `<button type="button" class="plant-water-action-btn plant-mark-planted${compact?' compact':''}"
         onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">Mark as Planted<span class="plant-water-btn-emoji" aria-hidden="true">🪏</span></button>`;
@@ -7812,7 +7796,7 @@ function plantCardHTML(p){
           <div class="plant-name">${esc(p.name||'Untitled')}</div>
           <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
         </div>
-        ${plantWaterButtonHTML(p, false, true)}
+        ${plantWaterButtonHTML(p, true)}
       </div>
     </div>`;
 }
@@ -8461,43 +8445,16 @@ function delPlantImpl(id){
     toast('Vegetable removed');
   });
 }
-/* Home shows every vegetable, not just the neediest one - each as its own small chip (emoji,
-   its own water button, a short last-watered timestamp) so watering can happen right from Home
-   without a trip to the Plants page. Reads DB.plants directly like Films' own Home tiles do, no
-   live fetch to wait on since plants are already loaded on-device by the time Home renders (the
-   fuller cloud sync happens if/when the Plants tab itself is opened). */
-function plantHomeChipHTML(p){
-  const href = '#/plant/'+encodeURIComponent(p.id);
-  const unplanted = p.stage===PLANT_STAGE_DEFAULT ? ' plant-unplanted' : '';
-  return `
-    <div class="plant-home-chip${unplanted}" role="button" tabindex="0" onclick="location.hash='${href}'"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
-      ${plantIconHTML(p, 'plant-home-emoji')}
-      ${plantWaterButtonHTML(p, true)}
-      <span class="plant-home-ts">${esc(plantWaterShortLabel(p))}</span>
-    </div>`;
-}
+/* a bare stat tile like the rest of the top row (see dashStatTileHTML) rather than a per-plant
+   chip grid - Home is a glance, not a watering console, so it just needs to say whether
+   anything is waiting for you on the Plants page or not. */
 function dashPlantsWidgetHTML(){
   const list = DB.plants||[];
-  if(!list.length) return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlants()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
-      <div class="dash-item-flags" aria-hidden="true">🥕</div>
-      <div class="dash-item-title">Start Growing</div>
-    </div>`;
-  // only the ones actually due right now - a full re-list of every vegetable regardless of
-  // whether it needs anything defeats the point of a Home widget you check at a glance
+  if(!list.length) return dashStatTileHTML('🥕', 'Start Growing', '', 'App.goPlants()');
   const due = plantsSorted().filter(p => p.stage!==PLANT_STAGE_DEFAULT && plantOverdue(p));
-  if(!due.length) return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlants()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
-      <div class="dash-item-flags" aria-hidden="true">🌱</div>
-      <div class="dash-item-title">Completed</div>
-    </div>`;
-  return `
-    <div class="dash-widget plant-home-widget">
-      <div class="plant-home-grid">${due.map(plantHomeChipHTML).join('')}</div>
-    </div>`;
+  return due.length
+    ? dashStatTileHTML('💧', 'Watering Needed', '', 'App.goPlants()')
+    : dashStatTileHTML('🌱', 'Watering Done', '', 'App.goPlants()');
 }
 function drawDashPlantsSlot(){
   const slot = $('#dash-plants-slot'); if(slot) slot.innerHTML = dashPlantsWidgetHTML();
@@ -9135,6 +9092,7 @@ const ICONS = {
   plan: fa('map'),
   pin: fa('location-dot'),
   calendar: fa('calendar-days'),
+  seat: fa('chair'),
   link: fa('link'),
   user: fa('user'),
   share: fa('share-nodes'),
@@ -9246,6 +9204,13 @@ function renderTrip(t){
   renderSidebar(t);
   const phrase = statusPhrase(t);
   const upcoming = CUR_TAB==='home' ? upcomingStartDate(t) : null;
+  // routeOpenAllDaysByDefault normally only runs inside tabPlan, which renders into #tab-body
+  // AFTER this function's own template string (containing the sticky bar's Open All/Collapse
+  // All button) is already built - running it here too (harmlessly a no-op after the first
+  // time, same guard) keeps that button's initial label in sync with the accordions it
+  // describes, instead of reading ROUTE_OPEN before anything's been defaulted into it
+  const planDayKeys = CUR_TAB==='plan' && !ro ? planDayGroups(t).keys : [];
+  if(planDayKeys.length) routeOpenAllDaysByDefault(t, planDayKeys);
   $('#app').innerHTML = `
     ${CUR_TAB==='home' ? `
     <div class="page-head" style="margin-bottom:22px">
@@ -9274,7 +9239,10 @@ function renderTrip(t){
     <button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
     ${CUR_TAB==='home' ? tabLog(t) : ''}
     ${CUR_TAB==='plan' && !ro ? `
-    <div class="add-bar"><button class="btn primary" onclick="App.addMenu()">${secEmoji('➕')} Add to Itinerary</button></div>`:''}`;
+    <div class="add-bar"><div class="add-bar-row">
+      <button class="btn primary" onclick="App.addMenu()">${fa('plus')} Add to Itinerary</button>
+      ${planDayKeys.length>0?`<button class="btn" onclick="App.toggleAllDays()">${allDaysOpenFor(t)?fa('angles-up')+' Collapse All':fa('angles-down')+' Open All'}</button>`:''}
+    </div></div>`:''}`;
   $('#app').classList.toggle('has-sticky-add', CUR_TAB==='plan' && !ro);
   renderTab(t);
 }
@@ -10404,10 +10372,15 @@ function whenOptionsHTML(initWhen){
    outstanding rather than a real plan), and it shows in Tasks too - not as a separate stored
    record, just this same item read straight out of its own array, so editing or deleting it
    in either place is editing or deleting the one thing, nothing to keep in sync. */
-function undecidedFieldHTML(id, checked){
+/* hideClass, when given, is a class shared by whichever fields don't make sense before there's
+   an actual booking (an airline, a departure time) - ticking the toggle hides them live, since
+   nothing else re-renders the form to pick that up. Fields that stay meaningful either way (the
+   date, the route) aren't marked with it and stay put. */
+function undecidedFieldHTML(id, checked, hideClass){
+  const onchange = hideClass ? ` onchange="document.querySelectorAll('.${hideClass}').forEach(el=>el.classList.toggle('hide-undecided',this.checked))"` : '';
   return `<div class="field">
     <label class="switch-row"><span>🎫 Not Booked Yet?</span>
-      <span class="switch"><input type="checkbox" id="${id}" ${checked?'checked':''}><span class="knob"></span></span>
+      <span class="switch"><input type="checkbox" id="${id}" ${checked?'checked':''}${onchange}><span class="knob"></span></span>
     </label>
     <p class="muted small" style="margin-top:4px">Shows dashed here and lists it in Tasks, until you've booked it.</p>
   </div>`;
@@ -10681,7 +10654,7 @@ function planDaysHTML(t, ro, filterKeys){
       <div class="flight-head">
         <span class="itin-time">${f.depTime?esc(f.depTime):''}</span>
         <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(fromName)} → ${esc(toName)}</span></strong>
-        ${f.seats?`<span class="itin-seats">${esc(f.seats)}</span>`:''}
+        ${f.seats?`<span class="itin-seats"><i class="icon fa-solid fa-chair"${AIRLINE_COLORS[f.airline]?` style="color:${AIRLINE_COLORS[f.airline]}"`:''}></i>${esc(f.seats)}</span>`:''}
       </div>
       <div class="itin-amenities">${amenities.map(a=>
         `<span class="itin-amenity${inc.includes(a)?'':' off'}">${inc.includes(a)?fa('check'):fa('xmark')}${esc(a)}</span>`).join('')}</div>
@@ -10733,7 +10706,7 @@ function planDaysHTML(t, ro, filterKeys){
         ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
       </div>
       ${ac.address?`<div class="itin-route-name">${esc(ac.address)}</div>`:''}
-      ${ac.checkin?`<div class="itin-stay-dates">
+      ${ac.checkin?`<div class="itin-stay-dates"${BOOKING_SERVICE_COLORS[detectBookingService(ac.bookingUrl)]?` style="--stay-icon-color:${BOOKING_SERVICE_COLORS[detectBookingService(ac.bookingUrl)]}"`:''}>
         <span>${ICONS.calendar}${esc(fmtDateOrdinal(ac.checkin))}${ac.checkinTime?` ${fa('clock')}Check In: ${esc(ac.checkinTime)}`:''}</span>
         ${ac.checkout?`<span>to ${ICONS.calendar}${esc(fmtDateOrdinal(ac.checkout))}${ac.checkoutTime?` ${fa('clock')}Check Out: ${esc(ac.checkoutTime)}`:''}</span>`:''}
       </div>`:''}
@@ -10984,6 +10957,22 @@ function routeOpenAllDaysByDefault(t, keys){
   ROUTE_OPEN_DEFAULTED.add(t.id);
   keys.forEach(k => ROUTE_OPEN.add('day:'+(k||'any')));
 }
+/* whether every one of the trip's day accordions is currently open - drives the sticky Open
+   All/Collapse All button's own label and icon (see App.toggleAllDays just below): closed with
+   even one day shut, so a half-open trip reads as "Open All" rather than "Collapse All". */
+function allDaysOpenFor(t){
+  return planDayGroups(t).keys.every(k => ROUTE_OPEN.has('day:'+(k||'any')));
+}
+App.toggleAllDays = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const keys = planDayGroups(t).keys;
+  const opening = !allDaysOpenFor(t);
+  keys.forEach(k => {
+    const key = 'day:'+(k||'any');
+    if(opening) ROUTE_OPEN.add(key); else ROUTE_OPEN.delete(key);
+  });
+  rerender();
+};
 App.routeToggle = key => {
   if(ROUTE_OPEN.has(key)) ROUTE_OPEN.delete(key); else ROUTE_OPEN.add(key);
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -11003,21 +10992,60 @@ App.routeToggle = key => {
    map's DOM node each time, so this just makes a fresh Leaflet map every time it's called
    rather than trying to update one in place. */
 let ROUTE_MAP = null;
+/* the geocoding half of a route map, shared by the full Itinerary map (initRouteMap) and the
+   small preview on a Next Trip dashboard tile (initDashTripMap) - resolves each of a trip's
+   numbered stops to a lat/lon, from the shared WX_LIST_GEO cache where possible, calling
+   onUpdate(pins) every time a new one comes in (from cache synchronously, or async once a
+   geocode request returns) so the caller can redraw as pins arrive rather than waiting for all
+   of them. Returns the (initially all-null) pins array the caller's onUpdate reads from. */
+function resolveRouteStopPins(t, numbered, onUpdate){
+  const pins = new Array(numbered.length).fill(null);
+  numbered.forEach((s,idx)=>{
+    /* the stop's own display name (accomCityName - already what heads the list below) goes
+       first: it's usually the more specific of the two, since an address with no street/house
+       number ("Palaiokastritsa, Corfu, Greece") only leaves the region once the country's
+       dropped, while the display name still has its town-level guess. wxStayPlaces' own
+       address-derived candidates follow as a backup, for a custom booking nickname ("Beach
+       House") the geocoder won't recognise on its own - and a booking with no address at all
+       would otherwise never get a pin, which this also covers since the name is tried either
+       way. */
+    const fromAddress = s.journey ? [] : wxStayPlaces(t.accommodations[s.i]);
+    /* a bare town name ("Kerkira") is often too ambiguous, or too locally-spelled, for the
+       geocoder to place on its own - qualifying it with each of the trip's own countries first
+       (tried in order, only one needs to hit) resolves it far more often than the bare name
+       alone would, without needing to know which of a multi-country trip's countries this
+       particular stop is actually in. */
+    const countryQualified = (t.countries||[]).map(c=>(countryByCode(c)||{}).name).filter(Boolean)
+      .map(name => `${s.name}, ${name}`);
+    const cands = [...new Set([...countryQualified, s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())])];
+    const listKey = cands.join('|');
+    const known = WX_LIST_GEO[listKey];
+    if(known){ pins[idx] = known; onUpdate(pins); return; }
+    if(known === false) return;
+    wxResolve(cands, geo=>{
+      WX_LIST_GEO[listKey] = geo || false;
+      if(geo){ pins[idx] = geo; onUpdate(pins); }
+    });
+  });
+  return pins;
+}
+/* CartoDB now gates its Voyager tiles behind an API key even for light personal use - see
+   CARTO_API_KEY's own comment up in config. */
+function cartoTileUrl(){
+  return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+    + (CARTO_API_KEY ? '?api_key='+encodeURIComponent(CARTO_API_KEY) : '');
+}
 function initRouteMap(t){
   if(ROUTE_MAP){ try{ ROUTE_MAP.remove(); }catch(e){} ROUTE_MAP = null; }
   const el = document.getElementById('route-map');
   if(!el || typeof L === 'undefined') return;
-  const numbered = routeStops(t).filter(s=>!s.gap && !s.journey);
+  const numbered = routeStops(t).filter(s=>!s.gap);
   if(!numbered.length) return;
-  const map = L.map(el, {scrollWheelZoom:false}).setView([20,0], 2);
+  const map = L.map(el, {scrollWheelZoom:false, attributionControl:false}).setView([20,0], 2);
   ROUTE_MAP = map;
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 20, subdomains: 'abcd',
-  }).addTo(map);
-  const pins = new Array(numbered.length).fill(null);
+  L.tileLayer(cartoTileUrl(), { maxZoom: 20, subdomains: 'abcd' }).addTo(map);
   let layers = [];
-  const redraw = () => {
+  const redraw = pins => {
     if(ROUTE_MAP !== map) return;   // a later render superseded this map already
     layers.forEach(l=>map.removeLayer(l)); layers = [];
     numbered.forEach((s,idx)=>{
@@ -11029,32 +11057,30 @@ function initRouteMap(t){
     if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
     if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
   };
-  numbered.forEach((s,idx)=>{
-    /* the stop's own display name (accomCityName - already what heads the list below) goes
-       first: it's usually the more specific of the two, since an address with no street/house
-       number ("Palaiokastritsa, Corfu, Greece") only leaves the region once the country's
-       dropped, while the display name still has its town-level guess. wxStayPlaces' own
-       address-derived candidates follow as a backup, for a custom booking nickname ("Beach
-       House") the geocoder won't recognise on its own - and a booking with no address at all
-       would otherwise never get a pin, which this also covers since the name is tried either
-       way. */
-    const fromAddress = wxStayPlaces(t.accommodations[s.i]);
-    /* a bare town name ("Kerkira") is often too ambiguous, or too locally-spelled, for the
-       geocoder to place on its own - qualifying it with each of the trip's own countries first
-       (tried in order, only one needs to hit) resolves it far more often than the bare name
-       alone would, without needing to know which of a multi-country trip's countries this
-       particular stop is actually in. */
-    const countryQualified = (t.countries||[]).map(c=>(countryByCode(c)||{}).name).filter(Boolean)
-      .map(name => `${s.name}, ${name}`);
-    const cands = [...new Set([...countryQualified, s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())])];
-    const listKey = cands.join('|');
-    const known = WX_LIST_GEO[listKey];
-    if(known){ pins[idx] = known; redraw(); return; }
-    if(known === false) return;
-    wxResolve(cands, geo=>{
-      WX_LIST_GEO[listKey] = geo || false;
-      if(geo){ pins[idx] = geo; redraw(); }
-    });
+  resolveRouteStopPins(t, numbered, redraw);
+}
+/* the small, non-interactive map preview on a Next Trip dashboard tile - same pin-resolution as
+   the full Itinerary map, just plain dots instead of numbered pins and no zoom/drag controls,
+   since this is a glance-sized preview that hands off to the real map on tap. Runs after the
+   dashboard's own render (see renderDashboard), one call per visible trip tile. */
+function initDashTripMaps(){
+  document.querySelectorAll('.dash-trip-map[data-trip-id]').forEach(el=>{
+    if(typeof L === 'undefined') return;
+    const t = getTrip(el.dataset.tripId); if(!t) return;
+    const numbered = routeStops(t).filter(s=>!s.gap);
+    if(!numbered.length) return;
+    const map = L.map(el, {scrollWheelZoom:false, dragging:false, zoomControl:false,
+      attributionControl:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false}).setView([20,0], 2);
+    L.tileLayer(cartoTileUrl(), {maxZoom:20, subdomains:'abcd'}).addTo(map);
+    let layers = [];
+    const redraw = pins => {
+      layers.forEach(l=>map.removeLayer(l)); layers = [];
+      const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
+      pts.forEach(pt => layers.push(L.circleMarker(pt, {radius:5, color:'#fff', weight:2, fillColor:'#C1502E', fillOpacity:1}).addTo(map)));
+      if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:2, opacity:.7}).addTo(map));
+      if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[14,14], maxZoom:9});
+    };
+    resolveRouteStopPins(t, numbered, redraw);
   });
 }
 /* AI day summaries - the first time a day opens, its cards are sent to /ai-stop-summary
@@ -11680,9 +11706,13 @@ function logoSquare(domain, label, restoreText){
 function siteLogoFor(url, label, restoreText){
   try{ return logoSquare(new URL(url).hostname, label, restoreText); }catch(e){ return ''; }
 }
-function airlineLogoFor(name, restoreText){
-  const site = AIRLINE_SITES[name];
-  return site ? logoSquare(site, name, restoreText) : '';
+/* the airline's own name, in its own brand colour where known, instead of a favicon image -
+   works for every airline (not just the ones with a mapped site to fetch a favicon from), and
+   reads as a proper brand mark rather than a small, sometimes-blank logo square. */
+function airlineLogoFor(name){
+  if(!name) return '';
+  const color = AIRLINE_COLORS[name];
+  return `<span class="card-logo-text"${color?` style="color:${color}"`:''}>${esc(name)}</span>`;
 }
 function faviconFor(url){
   try{ const h = new URL(url).hostname; return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy">`; }
@@ -11731,16 +11761,16 @@ function bookingButtonStyle(url){
   const color = BOOKING_SERVICE_COLORS[detectBookingService(url)];
   return color ? ` style="background:${color};border-color:${color}"` : '';
 }
-/* Airbnb's favicon is a raster image with its own baked-in background square, and its baked-in
-   red doesn't quite match this app's #FF385C - two different shades of "Airbnb red" on the same
-   card. Font Awesome's own airbnb glyph has neither problem: it's a flat, backgroundless icon
-   that can be coloured to match exactly. The header logo gets that exact brand colour; the one
-   sitting on the button itself is left uncoloured so it inherits the button's own white text
-   colour instead, reading as part of the button rather than a separate red badge on top of it.
-   No other booking site has a Font Awesome brand glyph, so those keep their favicon as before. */
+/* the booking site's own name, in its own brand colour, instead of its favicon - a favicon's
+   raster image carries its own baked-in background square and a red/blue that doesn't quite
+   match this app's own BOOKING_SERVICE_COLORS value, so two different shades of "Airbnb red"
+   (say) could show up on the same card. Text sidesteps both problems at once, and works for
+   every recognised service, not just the one (Airbnb) with its own Font Awesome brand glyph.
+   Falls back to the old favicon for a booking link this app doesn't recognise at all. */
 function bookingLogoFor(url, label, restoreText){
-  return detectBookingService(url)==='Airbnb'
-    ? `<i class="icon card-logo-icon fa-brands fa-airbnb" style="color:${BOOKING_SERVICE_COLORS.Airbnb}" aria-label="${esc(label||restoreText||'Airbnb')}"></i>`
+  const service = detectBookingService(url);
+  return service
+    ? `<span class="card-logo-text" style="color:${BOOKING_SERVICE_COLORS[service]}">${esc(service)}</span>`
     : siteLogoFor(url, label, restoreText);
 }
 function bookingIconFor(url){
@@ -11933,18 +11963,19 @@ function routeJourneys(t){
   const list = [];
   (t.flights||[]).forEach((f,i)=>{
     if(!f.to || !f.date) return;
-    list.push({date:f.date, time:f.depTime||'', place:airportName(f.to)||f.to, mode:'flight', label:'Flight', i, notBooked:!!f.undecided});
+    const name = airportName(f.to)||f.to;
+    list.push({date:f.date, time:f.depTime||'', place:name, name, mode:'flight', label:'Flight', i, notBooked:!!f.undecided});
   });
   (t.ferries||[]).forEach((f,i)=>{
     if(!f.to || !f.date) return;
-    list.push({date:f.date, time:f.depTime||'', place:f.to, mode:'ferry', label:'Ferry', i, notBooked:!!f.undecided});
+    list.push({date:f.date, time:f.depTime||'', place:f.to, name:f.to, mode:'ferry', label:'Ferry', i, notBooked:!!f.undecided});
   });
   (t.carHire||[]).forEach((c,i)=>{
-    if(c.pickupLoc && c.pickupDate) list.push({date:c.pickupDate, time:c.pickupTime||'', place:c.pickupLoc, mode:'car', label:'Car Hire', i, notBooked:!!c.undecided});
+    if(c.pickupLoc && c.pickupDate) list.push({date:c.pickupDate, time:c.pickupTime||'', place:c.pickupLoc, name:c.pickupLoc, mode:'car', label:'Car Hire', i, notBooked:!!c.undecided});
     // a drop-off only counts as arriving somewhere new when it's a one-way hire - the same
     // city back at pick-up isn't a place the route hasn't already named
     if(c.dropoffLoc && c.dropoffDate && c.dropoffLoc.trim().toLowerCase()!==(c.pickupLoc||'').trim().toLowerCase())
-      list.push({date:c.dropoffDate, time:c.dropoffTime||'', place:c.dropoffLoc, mode:'car', label:'Car Hire', i, notBooked:!!c.undecided});
+      list.push({date:c.dropoffDate, time:c.dropoffTime||'', place:c.dropoffLoc, name:c.dropoffLoc, mode:'car', label:'Car Hire', i, notBooked:!!c.undecided});
   });
   return list;
 }
@@ -12056,9 +12087,9 @@ App.flightForm = i => {
   const inc = f.includes || [];
   openModal(`
     <h2>${i>=0?'Edit Flight':'Add Flight'}</h2>
-    ${undecidedFieldHTML('fl-undecided', f.undecided)}
+    ${undecidedFieldHTML('fl-undecided', f.undecided, 'fl-hide-undecided')}
     <div class="grid2">
-      ${airlineFieldHTML('fl-air', f.airline)}
+      <div class="fl-hide-undecided${f.undecided?' hide-undecided':''}">${airlineFieldHTML('fl-air', f.airline)}</div>
       <div class="field"><label class="label">Flight no.</label><input id="fl-no" type="text" value="${esc(f.flightNo||'')}" placeholder="BA432"></div>
     </div>
     <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||todayStr())}"></div>
@@ -12067,7 +12098,7 @@ App.flightForm = i => {
       <div class="field"><label class="label">To (airport)</label><input id="fl-to" type="text" list="airport-list" value="${esc(airportInputVal(f.to))}" placeholder="Start typing a city or code"></div>
     </div>
     ${airportDatalist()}
-    <div class="grid2">
+    <div class="grid2 fl-hide-undecided${f.undecided?' hide-undecided':''}">
       <div class="field"><label class="label">Departs</label><input id="fl-dep" type="time" value="${esc(f.depTime||'')}"></div>
       <div class="field"><label class="label">Arrives</label><input id="fl-arr" type="time" value="${esc(f.arrTime||'')}"></div>
     </div>
