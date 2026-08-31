@@ -5,9 +5,9 @@
 > `/music-news` for the News tab's RSS (three categories, merged into one feed client-side),
 > `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` `/spotify-top-tracks` group for Music's artist search, Artists
-> checklist and Songs tab, `/letterboxd-diary` for Films' Letterboxd sync, and
-> `/branch-earnings` for Home's Made Today/This Week card. Deploying this once turns all of them
-> on. (Board Games and the Games tab's Wishlist aren't here - see "Connect BoardGameGeek" and
+> checklist and Songs tab, `/letterboxd-diary` for Films' Letterboxd sync, `/ai-stop-summary` for
+> the Itinerary's AI-written stop summaries, and `/branch-earnings` for Home's Made Today/This
+> Week card. Deploying this once turns all of them on. (Board Games and the Games tab's Wishlist aren't here - see "Connect BoardGameGeek" and
 > "Connect RAWG" below for where those actually live and their own one-time setup.)
 
 The Games tab shows your PlayStation trophy progress. PlayStation has no official public API,
@@ -179,6 +179,31 @@ already live; if not, deploying it (see "Deploy it" above) turns this on along w
 else. In the Films tab, tap **Connect Letterboxd** and enter your username (the one in your
 profile URL, not your display name).
 
+## Connect Anthropic (for AI-tailored Itinerary summaries)
+
+Every stop on the Itinerary works without this - the day-by-day cards (flights, stays, tasks)
+always show in full. But the first time you open a stop, it also asks Claude to turn that
+stop's cards into a couple of tailored sentences at the top ("3 nights in Venice, arriving by
+ferry on the 11th…") using your own Anthropic account. The result is cached on the trip itself,
+so a given stop is only ever generated once (until you edit its plan and tap the ↻ next to it to
+regenerate) - it costs a fraction of a cent per stop on Haiku, not per visit.
+
+1. Create a key at [console.anthropic.com](https://console.anthropic.com/settings/keys) (you'll
+   need billing set up on the account - this uses your API credits, not a Claude.ai subscription).
+2. Set it as a secret on the deployed worker, **not** in `worker.js` or anywhere else in this
+   repo, same reasoning as Spotify's credentials above - it's tied to your own Anthropic account
+   and this repo is public:
+   ```
+   wrangler secret put ANTHROPIC_API_KEY
+   ```
+   (or the Cloudflare dashboard: your worker → Settings → Variables and Secrets)
+3. `wrangler deploy`. Open any trip's Itinerary and tap a stop - the summary appears above its
+   day-by-day cards a moment later. Nothing to connect in-app; if the key's set, it just works.
+
+Skipping this is entirely fine - a stop that can't reach the AI (key not set, or the request
+fails) just shows its day-by-day cards with no summary above them, exactly as the Itinerary
+always has.
+
 ## Connect Branch (for Home's Made Today/This Week card)
 
 Home's top card shows two figures: what you've made today (every invoice line item logged in
@@ -286,6 +311,14 @@ text box either way), the Vercel project is missing (or has a stale) `TMDB_API_K
 variable - see "Connect TMDb" above. The same missing key is why a CSV import's "finding
 posters…" step silently finds none - nothing breaks, the films just stay posterless the way they
 came in from the CSV.
+
+If a stop on the Itinerary never shows an AI summary above its day-by-day cards, that's by
+design when `ANTHROPIC_API_KEY` isn't set (see "Connect Anthropic" above) - the request 503s
+quietly and the stop's own cards are shown exactly as normal either way, no error surfaced in
+the app. If it was working and stops, the most likely causes are the Anthropic account running
+out of credit or the key being revoked; `POST` to `/ai-stop-summary` directly (with a JSON body
+like `{"place":"Test","when":"1 Jan","nights":1,"days":[]}`) to see the actual error rather than
+guessing.
 
 If Home's Made Today/This Week card just doesn't appear at all, that's by design when Branch
 isn't configured yet (see "Connect Branch" above) - `loadDashboardBranch` fails quiet rather
