@@ -670,6 +670,11 @@ a{color:var(--brand-dark);}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
 .route-days{margin:14px 0 4px;}
+/* a stop/task/travel card's own title is an <h3>, which everywhere else on the app carries the
+   serif display font - the Itinerary's own cards want the plain sans body font instead, same as
+   everything around them here (the day heading itself is a <strong>, never an h3, so it was
+   already sans and never had this problem) */
+.route-days h3{font-family:var(--font-body);}
 .route-days .plan-day{margin:24px 0 14px;}
 .route-days .plan-day:first-child{margin-top:10px;}
 /* every auto-generated card (flight/ferry/car/stay) and every plain plan-card (a manually
@@ -721,6 +726,7 @@ a{color:var(--brand-dark);}
 .route-days .flight-head .head-with-logo{align-self:center; padding-top:0;}
 .itin-time{color:var(--ink); font-size:.85rem; margin-right:8px;}
 .itin-seats{color:var(--ink); font-size:.85rem; margin-left:auto;}
+.itin-seats .icon{margin-right:5px;}
 .itin-route-name{font-weight:700; color:var(--ink); font-size:.9rem; margin-bottom:12px;}
 .itin-amenities{display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px;}
 .itin-amenity{display:flex; align-items:center; gap:6px; font-size:.9rem; color:var(--ink);}
@@ -737,9 +743,12 @@ a{color:var(--brand-dark);}
 .itin-action-btn{width:100%; background:var(--bg); color:var(--ink); border:none; border-radius:var(--radius);
   padding:10px 12px; font-weight:700; font-size:.85rem; text-align:center; display:flex; align-items:center;
   justify-content:center; gap:8px; cursor:pointer;}
+/* the icon's own margin-right (meant for an inline, non-flex context) doubled up with this
+   row's own flex gap, pushing the label further from the icon than everywhere else on the card */
+.itin-action-btn .fav{margin-right:0;}
 .itin-action-btn.primary{background:var(--brand); color:#fff;}
 .itin-stay-dates{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:.9rem; color:var(--ink); margin-bottom:12px;}
-.itin-stay-dates .icon{color:var(--muted); margin-right:6px;}
+.itin-stay-dates .icon{color:var(--stay-icon-color, var(--muted)); margin-right:6px;}
 .itin-stay-dates .icon.fa-clock{margin-left:8px;}
 /* the gap pill sits right above the next card in the day with nothing else between them - every
    other card in a day carries its own margin-bottom, this one didn't, so it read as glued to
@@ -954,6 +963,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
   width:40px; height:40px; border:none; background:none; color:var(--muted); cursor:pointer; border-radius:50%; padding:0; font-size:.8rem;}
 .field-clear:hover{background:var(--brand-ghost); color:var(--brand-dark);}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+/* a field hidden by the "Not Booked Yet?" toggle (see undecidedFieldHTML) - collapses to
+   nothing rather than leaving a gap, and lets its .grid2 row's other field take the full row */
+.hide-undecided{display:none;}
+.grid2:has(>.hide-undecided){grid-template-columns:1fr;}
 .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
 @media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr;}}
 /* two halves of one value (hours + minutes, a time) read as a pair, so they stay side by
@@ -1348,7 +1361,11 @@ body.kb-open .tabbar.on{display:none;}
 .add-bar{position:fixed; left:0; right:0; bottom:var(--bar-h,0px); z-index:59;
   background:var(--paper); border-top:1px solid var(--line); padding:10px 16px;
   transform:translateZ(0);}
-.add-bar .btn{width:100%;}
+.add-bar-row{display:flex; gap:8px;}
+.add-bar-row .btn.primary{flex:1; min-width:0;}
+.add-bar-row .btn:not(.primary){flex-shrink:0;}
+/* the plus/chevrons glyphs read a touch high against the button's own text baseline */
+.add-bar .icon{transform:translateY(1px);}
 .wrap.has-sticky-add{padding-bottom:176px;}
 /* the "what do you want to add" screen the sticky button opens - three big tappable rows
    rather than the cramped inline buttons this replaced, each handing straight off to the
@@ -1458,7 +1475,10 @@ body.kb-open .tabbar.on{display:none;}
 .plan-card-photo>.btn-row{padding-bottom:18px;}
 .plan-img-wrap{position:relative;}
 .plan-img{width:100%; max-height:220px; object-fit:cover; display:block;}
-.plan-img-map{position:absolute; bottom:10px; right:10px; background:var(--paper); box-shadow:var(--shadow);}
+.plan-img-map{position:absolute; bottom:10px; right:10px; background:none; box-shadow:none;}
+.btn.icon-only.plan-img-map{padding:0;}
+.plan-img-map .fav{width:28px; height:28px;}
+.plan-img-map .sec-emoji{font-size:1.4rem;}
 /* an icon sitting beside a line of text rather than above a title, so it wants the text's own
    baseline instead of the bigger align-items:center a card head gets */
 .plan-meta-line{display:flex; align-items:flex-start; gap:7px;}
@@ -1554,8 +1574,16 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.81';
+const APP_VERSION = '2.29.82';
 const CHANGELOG = [
+  {version:'2.29.82', notes:[
+    "Itinerary: the route map now plots a flight/ferry/car-hire destination too, not just an accommodation stay - a leg to somewhere you haven't booked a place yet (a ferry across to Albania, say) used to just vanish off the map entirely, now it gets its own numbered pin and joins the route line like everywhere else you're actually going.",
+    "A flight's Not Booked Yet toggle now hides the airline and Departs/Arrives fields live as you tick it - those don't mean much before there's an actual booking - while the date and both airports stay put either way.",
+    "A flight's Seat(s) field gets its own chair icon, in the airline's own brand colour where known. An accommodation's Check In/Check Out calendar and clock icons now pick up its booking site's brand colour too, instead of plain grey.",
+    "A stop/task/travel card's title on the Itinerary was quietly picking up the app's serif display font (the same rule every h1/h2/h3 uses everywhere else) - it's plain sans now, matching the rest of the page around it.",
+    "The sticky \"Add to Itinerary\" button's plus icon is a proper icon now, not an emoji, so it reads white against the button like the rest of its label. Next to it: a new Open All/Collapse All toggle for every day's accordion at once, defaulting to Open All having already run so it reads correctly the first time the page loads.",
+    "Cleaned up two Google Maps buttons: the text one now sits closer to its icon (a doubled-up margin was pushing it further than the rest of the card's buttons), and the round one overlaid on a stop's photo dropped its background/shadow circle for a plain, slightly bigger icon.",
+  ]},
   {version:'2.29.81', notes:[
     "Itinerary: a day where you're only checking out of somewhere (nothing checking in that same day) no longer wrongly reads as \"Travel to\" that place - it was picking up the \"Travel to\" verb from any other travel leg on the page happening to fall on the same day, even one headed somewhere else entirely, so a checkout day could read as arriving in the city you were actually leaving.",
   ]},
@@ -9135,6 +9163,7 @@ const ICONS = {
   plan: fa('map'),
   pin: fa('location-dot'),
   calendar: fa('calendar-days'),
+  seat: fa('chair'),
   link: fa('link'),
   user: fa('user'),
   share: fa('share-nodes'),
@@ -9246,6 +9275,13 @@ function renderTrip(t){
   renderSidebar(t);
   const phrase = statusPhrase(t);
   const upcoming = CUR_TAB==='home' ? upcomingStartDate(t) : null;
+  // routeOpenAllDaysByDefault normally only runs inside tabPlan, which renders into #tab-body
+  // AFTER this function's own template string (containing the sticky bar's Open All/Collapse
+  // All button) is already built - running it here too (harmlessly a no-op after the first
+  // time, same guard) keeps that button's initial label in sync with the accordions it
+  // describes, instead of reading ROUTE_OPEN before anything's been defaulted into it
+  const planDayKeys = CUR_TAB==='plan' && !ro ? planDayGroups(t).keys : [];
+  if(planDayKeys.length) routeOpenAllDaysByDefault(t, planDayKeys);
   $('#app').innerHTML = `
     ${CUR_TAB==='home' ? `
     <div class="page-head" style="margin-bottom:22px">
@@ -9274,7 +9310,10 @@ function renderTrip(t){
     <button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteTrip('${t.id}')">Delete Trip</button>`:''}
     ${CUR_TAB==='home' ? tabLog(t) : ''}
     ${CUR_TAB==='plan' && !ro ? `
-    <div class="add-bar"><button class="btn primary" onclick="App.addMenu()">${secEmoji('➕')} Add to Itinerary</button></div>`:''}`;
+    <div class="add-bar"><div class="add-bar-row">
+      <button class="btn primary" onclick="App.addMenu()">${fa('plus')} Add to Itinerary</button>
+      ${planDayKeys.length>0?`<button class="btn" onclick="App.toggleAllDays()">${allDaysOpenFor(t)?fa('angles-up')+' Collapse All':fa('angles-down')+' Open All'}</button>`:''}
+    </div></div>`:''}`;
   $('#app').classList.toggle('has-sticky-add', CUR_TAB==='plan' && !ro);
   renderTab(t);
 }
@@ -10404,10 +10443,15 @@ function whenOptionsHTML(initWhen){
    outstanding rather than a real plan), and it shows in Tasks too - not as a separate stored
    record, just this same item read straight out of its own array, so editing or deleting it
    in either place is editing or deleting the one thing, nothing to keep in sync. */
-function undecidedFieldHTML(id, checked){
+/* hideClass, when given, is a class shared by whichever fields don't make sense before there's
+   an actual booking (an airline, a departure time) - ticking the toggle hides them live, since
+   nothing else re-renders the form to pick that up. Fields that stay meaningful either way (the
+   date, the route) aren't marked with it and stay put. */
+function undecidedFieldHTML(id, checked, hideClass){
+  const onchange = hideClass ? ` onchange="document.querySelectorAll('.${hideClass}').forEach(el=>el.classList.toggle('hide-undecided',this.checked))"` : '';
   return `<div class="field">
     <label class="switch-row"><span>🎫 Not Booked Yet?</span>
-      <span class="switch"><input type="checkbox" id="${id}" ${checked?'checked':''}><span class="knob"></span></span>
+      <span class="switch"><input type="checkbox" id="${id}" ${checked?'checked':''}${onchange}><span class="knob"></span></span>
     </label>
     <p class="muted small" style="margin-top:4px">Shows dashed here and lists it in Tasks, until you've booked it.</p>
   </div>`;
@@ -10681,7 +10725,7 @@ function planDaysHTML(t, ro, filterKeys){
       <div class="flight-head">
         <span class="itin-time">${f.depTime?esc(f.depTime):''}</span>
         <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(fromName)} → ${esc(toName)}</span></strong>
-        ${f.seats?`<span class="itin-seats">${esc(f.seats)}</span>`:''}
+        ${f.seats?`<span class="itin-seats"><i class="icon fa-solid fa-chair"${AIRLINE_COLORS[f.airline]?` style="color:${AIRLINE_COLORS[f.airline]}"`:''}></i>${esc(f.seats)}</span>`:''}
       </div>
       <div class="itin-amenities">${amenities.map(a=>
         `<span class="itin-amenity${inc.includes(a)?'':' off'}">${inc.includes(a)?fa('check'):fa('xmark')}${esc(a)}</span>`).join('')}</div>
@@ -10733,7 +10777,7 @@ function planDaysHTML(t, ro, filterKeys){
         ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
       </div>
       ${ac.address?`<div class="itin-route-name">${esc(ac.address)}</div>`:''}
-      ${ac.checkin?`<div class="itin-stay-dates">
+      ${ac.checkin?`<div class="itin-stay-dates"${BOOKING_SERVICE_COLORS[detectBookingService(ac.bookingUrl)]?` style="--stay-icon-color:${BOOKING_SERVICE_COLORS[detectBookingService(ac.bookingUrl)]}"`:''}>
         <span>${ICONS.calendar}${esc(fmtDateOrdinal(ac.checkin))}${ac.checkinTime?` ${fa('clock')}Check In: ${esc(ac.checkinTime)}`:''}</span>
         ${ac.checkout?`<span>to ${ICONS.calendar}${esc(fmtDateOrdinal(ac.checkout))}${ac.checkoutTime?` ${fa('clock')}Check Out: ${esc(ac.checkoutTime)}`:''}</span>`:''}
       </div>`:''}
@@ -10984,6 +11028,22 @@ function routeOpenAllDaysByDefault(t, keys){
   ROUTE_OPEN_DEFAULTED.add(t.id);
   keys.forEach(k => ROUTE_OPEN.add('day:'+(k||'any')));
 }
+/* whether every one of the trip's day accordions is currently open - drives the sticky Open
+   All/Collapse All button's own label and icon (see App.toggleAllDays just below): closed with
+   even one day shut, so a half-open trip reads as "Open All" rather than "Collapse All". */
+function allDaysOpenFor(t){
+  return planDayGroups(t).keys.every(k => ROUTE_OPEN.has('day:'+(k||'any')));
+}
+App.toggleAllDays = () => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const keys = planDayGroups(t).keys;
+  const opening = !allDaysOpenFor(t);
+  keys.forEach(k => {
+    const key = 'day:'+(k||'any');
+    if(opening) ROUTE_OPEN.add(key); else ROUTE_OPEN.delete(key);
+  });
+  rerender();
+};
 App.routeToggle = key => {
   if(ROUTE_OPEN.has(key)) ROUTE_OPEN.delete(key); else ROUTE_OPEN.add(key);
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -11007,7 +11067,7 @@ function initRouteMap(t){
   if(ROUTE_MAP){ try{ ROUTE_MAP.remove(); }catch(e){} ROUTE_MAP = null; }
   const el = document.getElementById('route-map');
   if(!el || typeof L === 'undefined') return;
-  const numbered = routeStops(t).filter(s=>!s.gap && !s.journey);
+  const numbered = routeStops(t).filter(s=>!s.gap);
   if(!numbered.length) return;
   const map = L.map(el, {scrollWheelZoom:false}).setView([20,0], 2);
   ROUTE_MAP = map;
@@ -11038,7 +11098,7 @@ function initRouteMap(t){
        House") the geocoder won't recognise on its own - and a booking with no address at all
        would otherwise never get a pin, which this also covers since the name is tried either
        way. */
-    const fromAddress = wxStayPlaces(t.accommodations[s.i]);
+    const fromAddress = s.journey ? [] : wxStayPlaces(t.accommodations[s.i]);
     /* a bare town name ("Kerkira") is often too ambiguous, or too locally-spelled, for the
        geocoder to place on its own - qualifying it with each of the trip's own countries first
        (tried in order, only one needs to hit) resolves it far more often than the bare name
@@ -11933,18 +11993,19 @@ function routeJourneys(t){
   const list = [];
   (t.flights||[]).forEach((f,i)=>{
     if(!f.to || !f.date) return;
-    list.push({date:f.date, time:f.depTime||'', place:airportName(f.to)||f.to, mode:'flight', label:'Flight', i, notBooked:!!f.undecided});
+    const name = airportName(f.to)||f.to;
+    list.push({date:f.date, time:f.depTime||'', place:name, name, mode:'flight', label:'Flight', i, notBooked:!!f.undecided});
   });
   (t.ferries||[]).forEach((f,i)=>{
     if(!f.to || !f.date) return;
-    list.push({date:f.date, time:f.depTime||'', place:f.to, mode:'ferry', label:'Ferry', i, notBooked:!!f.undecided});
+    list.push({date:f.date, time:f.depTime||'', place:f.to, name:f.to, mode:'ferry', label:'Ferry', i, notBooked:!!f.undecided});
   });
   (t.carHire||[]).forEach((c,i)=>{
-    if(c.pickupLoc && c.pickupDate) list.push({date:c.pickupDate, time:c.pickupTime||'', place:c.pickupLoc, mode:'car', label:'Car Hire', i, notBooked:!!c.undecided});
+    if(c.pickupLoc && c.pickupDate) list.push({date:c.pickupDate, time:c.pickupTime||'', place:c.pickupLoc, name:c.pickupLoc, mode:'car', label:'Car Hire', i, notBooked:!!c.undecided});
     // a drop-off only counts as arriving somewhere new when it's a one-way hire - the same
     // city back at pick-up isn't a place the route hasn't already named
     if(c.dropoffLoc && c.dropoffDate && c.dropoffLoc.trim().toLowerCase()!==(c.pickupLoc||'').trim().toLowerCase())
-      list.push({date:c.dropoffDate, time:c.dropoffTime||'', place:c.dropoffLoc, mode:'car', label:'Car Hire', i, notBooked:!!c.undecided});
+      list.push({date:c.dropoffDate, time:c.dropoffTime||'', place:c.dropoffLoc, name:c.dropoffLoc, mode:'car', label:'Car Hire', i, notBooked:!!c.undecided});
   });
   return list;
 }
@@ -12056,9 +12117,9 @@ App.flightForm = i => {
   const inc = f.includes || [];
   openModal(`
     <h2>${i>=0?'Edit Flight':'Add Flight'}</h2>
-    ${undecidedFieldHTML('fl-undecided', f.undecided)}
+    ${undecidedFieldHTML('fl-undecided', f.undecided, 'fl-hide-undecided')}
     <div class="grid2">
-      ${airlineFieldHTML('fl-air', f.airline)}
+      <div class="fl-hide-undecided${f.undecided?' hide-undecided':''}">${airlineFieldHTML('fl-air', f.airline)}</div>
       <div class="field"><label class="label">Flight no.</label><input id="fl-no" type="text" value="${esc(f.flightNo||'')}" placeholder="BA432"></div>
     </div>
     <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||todayStr())}"></div>
@@ -12067,7 +12128,7 @@ App.flightForm = i => {
       <div class="field"><label class="label">To (airport)</label><input id="fl-to" type="text" list="airport-list" value="${esc(airportInputVal(f.to))}" placeholder="Start typing a city or code"></div>
     </div>
     ${airportDatalist()}
-    <div class="grid2">
+    <div class="grid2 fl-hide-undecided${f.undecided?' hide-undecided':''}">
       <div class="field"><label class="label">Departs</label><input id="fl-dep" type="time" value="${esc(f.depTime||'')}"></div>
       <div class="field"><label class="label">Arrives</label><input id="fl-arr" type="time" value="${esc(f.arrTime||'')}"></div>
     </div>
