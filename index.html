@@ -550,7 +550,7 @@ a{color:var(--brand-dark);}
    the word "Watered" read as a status either way, tappable or not, so leaving it tappable made an
    already-watered plant look like it still needed a tap. */
 .plant-water-action-btn{display:flex; flex-direction:row; align-items:center; justify-content:center;
-  gap:8px; width:100%; margin-top:10px; border:1px solid #2E86DE; border-radius:var(--radius-sm);
+  gap:8px; width:100%; border:1px solid #2E86DE; border-radius:var(--radius-sm);
   background:var(--paper); cursor:pointer; padding:11px 20px; font:inherit; font-weight:700;
   font-size:.8rem; color:var(--ink); white-space:nowrap;}
 /* "Mark as Planted" is longer than "Watered"/"Undo Watering" ever needed to be at the usual
@@ -593,53 +593,34 @@ a{color:var(--brand-dark);}
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji-opt.on{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand);}
-/* ---------- plant detail page (a CRM/dashboard for one plant, not a reference page) ---------- */
-/* one consistent "H2" for every section on this page (plantSectionHeadingHTML) - a Font Awesome
-   icon plus a short label, same weight/size everywhere, instead of a different decorative emoji
-   per heading. Emoji are reserved for identifying the plant itself (its own icon, the sticky
-   header, health colour dots) - never a section title. */
-.plant-section-heading{display:flex; align-items:center; gap:9px; font-family:var(--font-head);
-  font-weight:700; font-size:.92rem; color:var(--ink); margin:0 0 10px;}
-.plant-section-heading .icon{color:var(--brand); font-size:.86rem; flex-shrink:0;}
-/* the sticky header (plantStickyHeaderHTML) - a full-width bar, not a floating card, so it reads
-   as part of the page chrome rather than another tile. Holds the plant's name once (nothing below
-   repeats it) plus a handful of short dynamic fact lines that change by stage, a Mark Watered
-   button for the one action worth reaching without scrolling, and collapses to a single summary
-   line once scrolled past (see plantBindStickyScroll) so it never blocks much of the viewport
-   while still keeping "is everything OK" in view. */
-.plant-sticky-header{position:sticky; top:0; z-index:5; background:var(--paper);
-  border-bottom:1px solid var(--line); margin:0 -16px 18px; padding:14px 16px; transition:padding .12s;}
-@media(max-width:560px){.plant-sticky-header{margin-left:-12px; margin-right:-12px; padding-left:12px; padding-right:12px;}}
-@media(min-width:768px){.plant-sticky-header{margin-left:-32px; margin-right:-40px; padding-left:32px; padding-right:40px;}}
-.plant-sticky-header.plant-unplanted{opacity:.8;}
-.plant-sticky-expanded{display:flex; flex-direction:column; align-items:flex-start; gap:10px;}
-.plant-sticky-header.collapsed{padding-top:10px; padding-bottom:10px;}
-.plant-sticky-header.collapsed .plant-sticky-expanded{display:none;}
-.plant-sticky-collapsed{display:none; align-items:center; gap:8px;}
-.plant-sticky-header.collapsed .plant-sticky-collapsed{display:flex;}
-.plant-sticky-collapsed span{font-family:var(--font-head); font-weight:700; font-size:.86rem; color:var(--ink); overflow-wrap:anywhere;}
-.plant-sticky-emoji{font-size:2.4rem; line-height:1;
+/* ---------- plant detail page, per the Figma mock (5:2323) ---------- */
+/* the header row's own icon+name group, sat between the back button and Edit - the plant's
+   name lives here now, not in a sticky header further down the page. Reuses .plant-name/
+   .plant-emoji's own sizing (the grid card's own icon+name pairing) so this reads as the exact
+   same typography wherever the app names a vegetable. */
+.plant-detail-title{display:flex; align-items:center; gap:8px; flex:1; min-width:0;}
+.plant-detail-title-emoji{font-size:1.5rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-sticky-emoji.plant-icon-img{width:44px; height:44px; object-fit:cover; border-radius:8px;}
-.plant-sticky-collapsed-emoji{font-size:1.05rem; line-height:1; flex-shrink:0;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-sticky-collapsed-emoji.plant-icon-img{width:18px; height:18px; object-fit:cover; border-radius:4px;}
-.plant-sticky-info{min-width:0; width:100%;}
-.plant-sticky-name{font-family:var(--font-head); font-weight:800; font-size:1.2rem; color:var(--ink); overflow-wrap:anywhere;}
-.plant-sticky-line{font-size:.8rem; color:var(--ink); margin-top:2px;}
-/* the watering button, moved up into the sticky header itself (see plantStickyHeaderHTML) rather
-   than living further down the page - full width, same as everywhere else this button appears. */
-.plant-sticky-water{width:100%;}
-.plant-journey-change{margin:14px 0 22px;}
-.plant-journey-change summary{color:var(--brand); font-weight:700; font-size:.8rem; cursor:pointer; list-style:none;}
+.plant-detail-title-emoji.plant-icon-img{width:28px; height:28px; object-fit:cover; border-radius:6px;}
+/* the top action block - Watered button, current-stage row, Change Stage - one flex column so a
+   consistent gap handles all the spacing rather than each piece carrying its own margin. */
+.plant-detail-actions{display:flex; flex-direction:column; gap:12px; margin-bottom:14px;}
+.plant-stage-current-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:.84rem;}
+.plant-stage-current-label{flex:1; font-weight:700; color:var(--ink);}
+.plant-stage-current-time{color:var(--ink);}
+/* styled as the mock's own bordered "Change Stage" button rather than a plain text link -
+   opens into the full stage-picker list (plantStagePickerHTML) underneath it when tapped. */
+.plant-journey-change summary{display:flex; align-items:center; justify-content:center; width:100%;
+  height:36px; background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
+  color:var(--brand); font-weight:700; font-size:.8rem; cursor:pointer; list-style:none;}
 .plant-journey-change summary::-webkit-details-marker{display:none;}
+.plant-journey-change[open] summary{margin-bottom:8px;}
 /* Growing Conditions (plantDetailInfoHTML) - light/water/temperature/harvest-season as plain
-   rows, shown inline on the page rather than behind a separate tab. */
+   icon+text rows, shown inline on the page with no heading over them, same as the mock. */
 .plant-info-rows{margin-bottom:22px;}
 .plant-info-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:.84rem;}
 .plant-info-row:last-child{border-bottom:none;}
-.plant-info-label{color:var(--muted); flex:1;}
-.plant-info-value{font-weight:700; color:var(--ink); text-align:right;}
+.plant-info-value{font-weight:700; color:var(--ink);}
 .plant-timeline{display:flex; flex-direction:column;}
 .plant-timeline-item{display:flex; gap:12px; position:relative; padding-bottom:14px;}
 .plant-timeline-item:not(:last-child)::before{content:''; position:absolute; left:11px; top:26px; bottom:0; width:2px; background:var(--line);}
@@ -1528,8 +1509,12 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.73';
+const APP_VERSION = '2.29.74';
 const CHANGELOG = [
+  {version:'2.29.74', notes:[
+    "Itinerary: every day now opens expanded the first time you view a trip's plan, instead of needing a tap into each one - close whichever you don't need, and that sticks across the rest of the visit.",
+    "Plant detail page rebuilt to match the new Figma design exactly: the name now sits in the header row next to the back button and a filled Edit button, the old multi-line status dashboard is replaced with a single full-width Watered button (\"Watered (2 Hours Ago)\" once it's been watered, \"Watered Today\" when it's due), a one-line current-stage summary (\"🌿 Sprouted · 1 day ago\"), and the Change Stage control right underneath it. Growing Conditions dropped its heading and its label:value layout for the mock's own plain \"Full Sun\"/\"Keep Moist Until Germination\"/\"Harvested between August and October\" phrasing, and the Timeline dropped its heading too - it was never in the mock either.",
+  ]},
   {version:'2.29.73', notes:[
     "Plants grid card now matches the Figma design exactly: icon, name and growth stage, and the water button, one row, nothing else - the health badge, water-status chip, germination countdown and care tips that used to fill out a second row are gone from this list (still there on a vegetable's own detail page, one tap away). The stats row above the list (Total Plants/Need Water/Germinating/Ready To Harvest) is gone too, and the Add button now reads \"+ New Vegetable\" to match the mock's own wording.",
   ]},
@@ -7448,64 +7433,16 @@ function plantOverdue(p){
   const days = daysSinceTs(plantLastWateredTs(p));
   return days===null || days>=(p.wateringFrequencyDays||3);
 }
-/* the one piece of logic every status readout on a plant (the health badge, the water-status
-   chip, the Success Tracker's "Soil Moist" line) all key off, so they can never disagree with
-   each other - red once actually overdue (see plantOverdue), amber the day before that so
-   there's a heads-up rather than the state jumping straight from fine to overdue with no
-   warning, green otherwise. No verdict for a still-unplanted vegetable - nothing's growing yet
-   to have a watering opinion about. */
-function plantHealthState(p){
-  if(p.stage===PLANT_STAGE_DEFAULT) return null;
-  if(plantOverdue(p)) return 'red';
-  const days = daysSinceTs(plantLastWateredTs(p));
-  // days>0 guard: watered today (days=0) is never a "check today" heads-up, whatever the
-  // frequency math says - it was just watered, there's nothing to check yet
-  if(days>0 && days===(p.wateringFrequencyDays||3)-1) return 'yellow';
-  return 'green';
-}
-const PLANT_HEALTH_META = {
-  green: {emoji:'🟢', label:'On Track'},
-  yellow: {emoji:'🟡', label:'Check Today'},
-  red: {emoji:'🔴', label:'Needs Water'},
-};
-/* how many whole days a vegetable's been growing, preferring the edit form's own Planted date
-   (p.plantedDate - the grower's actual answer to "when did you sow this") over guessing from the
-   stage-change log, which only exists as a fallback for a plant that predates this reading it
-   (or one whose Planted date was left on the default and never actually confirmed). When it does
-   fall back, it counts from the most recent time the plant was actually set to Seed Sown (a
-   re-sown batch resets the clock, which is correct - see plantLogStageChange). */
-function plantDaysSinceSown(p){
-  if(p.plantedDate) return daysSinceTs(p.plantedDate+'T12:00:00');
-  const entries = (Array.isArray(p.stageChanges) ? p.stageChanges : []).filter(e => plantStageKey(e.stage)==='seed');
-  if(!entries.length) return null;
-  const latest = entries.reduce((a,b) => new Date(b.ts) > new Date(a.ts) ? b : a);
-  return daysSinceTs(latest.ts);
-}
-/* only meaningful while it's actually germinating, and only for a vegetable this app has a
-   known germination window for (see PLANT_CARE_DATA) - returns null otherwise so callers can
-   just skip the row/section rather than showing a countdown for numbers nobody supplied. */
-function plantGerminationInfo(p){
-  if(!['seed','sprout'].includes(plantStageKey(p.stage))) return null;
-  const care = plantCareDataFor(p); if(!care || !care.germDays) return null;
-  const days = plantDaysSinceSown(p); if(days===null) return null;
-  return {day: days+1, min: care.germDays[0], max: care.germDays[1]};
-}
 /* how many whole days since the plant last actually entered a given stage (its most recent
    stageChanges entry for that stage) - every stage transition gets logged (see
    plantSetStageImpl/plantLogStageChange), so this works for any stage a plant has actually
-   reached, not just the current one. */
+   reached, not just the current one. Feeds the current-stage row's own relative time (see
+   plantDetailActionsHTML). */
 function plantDaysSinceStageEntered(p, stageKey){
   const entries = (Array.isArray(p.stageChanges) ? p.stageChanges : []).filter(e => plantStageKey(e.stage)===stageKey);
   if(!entries.length) return null;
   const latest = entries.reduce((a,b) => new Date(b.ts) > new Date(a.ts) ? b : a);
   return daysSinceTs(latest.ts);
-}
-/* how many days until the next watering is actually due, going by the same wateringFrequencyDays
-   every other watering readout uses - only meaningful once it's actually been watered at least
-   once (a never-watered plant is already 'red' via plantHealthState, which callers check first). */
-function plantDaysUntilWaterDue(p){
-  const last = plantLastWateredTs(p); if(!last) return null;
-  return (p.wateringFrequencyDays||3) - daysSinceTs(last);
 }
 /* real elapsed time for anything watered in the last day (matches the brief's own "2h ago"
    example), falling back to the calendar-day phrasing the rest of the app already uses (see
@@ -7515,23 +7452,12 @@ function plantWaterRelativeLabel(p){
   const ts = plantLastWateredTs(p);
   if(!ts) return 'Never';
   const mins = Math.round((Date.now() - new Date(ts).getTime())/60000);
-  if(mins < 1) return 'Just now';
-  if(mins < 60) return mins+'m ago';
+  if(mins < 1) return 'Just Now';
+  if(mins < 60) return `${mins} Minute${mins===1?'':'s'} Ago`;
   const hrs = Math.round(mins/60);
-  if(hrs < 24) return hrs+'h ago';
+  if(hrs < 24) return `${hrs} Hour${hrs===1?'':'s'} Ago`;
   const days = daysSinceTs(ts);
-  return days===1 ? 'Yesterday' : days+'d ago';
-}
-/* ---- the detail page's "friendly coach" layer ----
-   Everything below reads the exact same underlying state (plantHealthState, plantGerminationInfo,
-   plantStageKey) the sticky header and the data-y sections already use - this is purely a warmer,
-   plainer-English presentation of it for a beginner who's never grown anything before, not a
-   second source of truth. */
-/* one consistent section-heading style for the whole page (Font Awesome icon + label) instead of
-   a different decorative emoji per heading - the CRM redesign brief's own "emojis identify the
-   plant, icons label the sections" rule. Plain <h2>-equivalent, same weight/size everywhere. */
-function plantSectionHeadingHTML(icon, label){
-  return `<h2 class="plant-section-heading">${fa(icon)}<span>${esc(label)}</span></h2>`;
+  return days===1 ? 'Yesterday' : `${days} Days Ago`;
 }
 /* the four generic stages the visual journey steps through - unplanted has no step of its own
    (nothing to show yet), and Ready/Harvested share the last step since "harvest" is the
@@ -7545,9 +7471,9 @@ const PLANT_JOURNEY_STEPS = [
 function plantJourneyStepIdx(p){
   return PLANT_JOURNEY_STEPS.findIndex(s => s.stages.includes(plantStageKey(p.stage)));
 }
-/* a short, stage-specific blurb for the Progress Timeline below - independent of the plant's own
-   current stage, since tapping a *future* node should still explain what that stage actually
-   involves, not just describe whatever's happening right now. */
+/* a short, stage-specific blurb for the timeline below - independent of the plant's own current
+   stage, since tapping a *future* node should still explain what that stage actually involves,
+   not just describe whatever's happening right now. */
 function plantJourneyStepDescription(i, p){
   const care = plantCareDataFor(p);
   if(i===0) return care && care.germDays
@@ -7556,141 +7482,6 @@ function plantJourneyStepDescription(i, p){
   if(i===1) return "The seedling's up. Give it plenty of light so it grows strong, not tall and floppy.";
   if(i===2) return "Actively growing. Keep the water and sunlight coming - nothing else needed.";
   return "Ready to pick. Harvest whenever suits you - it won't spoil by waiting a day or two.";
-}
-/* the page's one visual timeline (folds the old separate "day count" text block and "Growing
-   Journey" accordion list into a single component, per the CRM redesign brief) - a connected
-   vertical line of stops rather than either a horizontal stepper or oversized cards. Every node
-   (not just the current one) can jump the plant straight to that stage - the same jump-to-any-
-   stage behaviour the flat button list (plantStagePickerHTML) gives, just presented as a
-   progression instead. The current node carries a plain-English description of that stage; the
-   germination day count/expected range itself lives in the sticky header up top (plantStickyLines)
-   rather than here too, so it's not the same numbers twice on one page. While still unplanted
-   there's nothing to progress through yet, so this falls back to the plain stage picker so there's
-   still a way to mark it planted. */
-/* now folded into the combined Timeline below (see plantCombinedTimelineHTML) - kept as its own
-   function since plantJourneyStepDescription/plantJourneyStepIdx are still used to build the
-   current-stage card there, just no longer wrapped in four separate accordion nodes of their
-   own. */
-/* the sticky header's own watering hint - short enough to sit on one line next to the status and
-   (for a growing plant) a harvest-timing line. Returns null rather than a "nothing to do today"
-   reassurance once nothing's actually due - the header's own status line already covers that via
-   plantStickyStatusLine's watered/not-watered wording, so a second line saying the same thing a
-   different way is just noise; this line is worth showing only once there's an actual heads-up. */
-function plantStickyWaterHint(p, state){
-  if(state==='red') return '💧 Water today';
-  if(state==='yellow') return '💧 Check soil today';
-  const until = plantDaysUntilWaterDue(p);
-  if(until===1) return '💧 Water tomorrow';
-  if(until>1) return `💧 Water in ${until} days`;
-  return null;
-}
-/* the header's own status line - urgency (needing water) always wins over the stage-flavoured
-   "going well" phrasing, since "growing strong" reads oddly next to a plant that's actually
-   overdue a drink. Otherwise each stage gets its own upbeat label rather than reusing the plain
-   health-badge wording everywhere. The seed-stage fallback reports today's actual watered/
-   not-watered state rather than a vague "Looking Good", since that's the one stage without a
-   more specific stage-flavoured label of its own. */
-function plantStickyStatusLine(p, state){
-  const stage = plantStageKey(p.stage);
-  if(state==='red') return `${PLANT_HEALTH_META.red.emoji} Needs Water`;
-  if(state==='yellow') return `${PLANT_HEALTH_META.yellow.emoji} Check Today`;
-  if(stage==='sprout') return '🟢 Growing Well';
-  if(stage==='growing') return '🪴 Growing Strong';
-  if(stage==='ready') return '🧺 Ready to Harvest';
-  if(stage==='harvested') return '✅ All Done';
-  return daysSinceTs(plantLastWateredTs(p))===0 ? '✅ Watered' : '💧 Not Watered';
-}
-/* the sticky header's own three-line dashboard - deliberately different content per stage rather
-   than reusing the same fields everywhere, since "what's worth knowing right now" genuinely
-   changes: a germination countdown while it's a seed, days-since-sprouting once it's up, a
-   watering + harvest-timing hint once it's actually growing. This is the CRM-style "what do I
-   need to do next" summary the whole redesign is built around - everything below it is detail. */
-function plantStickyLines(p){
-  if(p.stage===PLANT_STAGE_DEFAULT) return ['⚪ Not Planted Yet', 'Tap Change Stage below to get started'];
-  const stage = plantStageKey(p.stage);
-  const state = plantHealthState(p);
-  const lines = [plantStickyStatusLine(p, state)];
-  // light + water requirements live here now too, alongside the name and status - one glance
-  // at the top of the page instead of a trip to the Information tab for what this vegetable needs
-  const care = plantCareDataFor(p);
-  if(care){
-    const bits = [];
-    if(care.sun) bits.push('☀️ '+care.sun);
-    if(care.water) bits.push('💧 '+care.water);
-    if(bits.length) lines.push(bits.join(' · '));
-  }
-  if(stage==='seed'){
-    const g = plantGerminationInfo(p);
-    const hint = plantStickyWaterHint(p, state);
-    if(g) lines.push(`📅 Day ${g.day} · expected ${g.min} to ${g.max} days until sprouts`);
-    else if(hint) lines.push(hint);
-  } else if(stage==='sprout'){
-    const days = plantDaysSinceStageEntered(p, 'sprout');
-    lines.push(days!=null ? `🌿 Sprouted ${days===0?'today':days===1?'yesterday':days+' days ago'}` : '🌿 Sprouted');
-    const hint = plantStickyWaterHint(p, state);
-    if(hint) lines.push(hint);
-  } else if(stage==='growing'){
-    const hint = plantStickyWaterHint(p, state);
-    if(hint) lines.push(hint);
-    const guide = plantGuideFor(p);
-    const munch = guide && guide.facts && guide.facts.munch;
-    if(munch) lines.push(`🥦 Harvest ${munch}`);
-  } else if(stage==='ready'){
-    lines.push('🥦 Harvest whenever suits you');
-  } else if(stage==='harvested'){
-    lines.push('🎉 Nice work growing this one');
-  }
-  return lines;
-}
-/* the one-line version shown once the header's collapsed (see plantBindStickyScroll) - name,
-   day count where there is one, and the same status line the expanded view leads with, so
-   scrolling away never loses the answer to "is everything OK" even once the detail's gone. */
-function plantStickyCollapsedText(p, state){
-  if(p.stage===PLANT_STAGE_DEFAULT) return `${p.name||'Untitled'} · Not Planted`;
-  const parts = [p.name||'Untitled'];
-  const g = plantGerminationInfo(p);
-  if(g) parts.push(`Day ${g.day}`);
-  parts.push(plantStickyStatusLine(p, state));
-  return parts.join(' · ');
-}
-/* the page's own dashboard for this one plant (per the CRM-style redesign) - full width, sticks
-   to the top of the viewport while the rest of the page scrolls underneath it, and collapses to a
-   single summary line once scrolled past (both states are rendered up front; CSS just toggles
-   which one shows, so collapsing is a plain class flip rather than a re-render - see
-   plantBindStickyScroll). The plant's name lives here and nowhere else on the page - the crumb
-   above it is back/edit controls only now, not a second title. */
-function plantStickyHeaderHTML(p){
-  const unplanted = p.stage===PLANT_STAGE_DEFAULT;
-  const state = unplanted ? null : plantHealthState(p);
-  const lines = plantStickyLines(p);
-  return `
-    <div class="plant-sticky-header${unplanted?' plant-unplanted':''}" id="plant-detail-sticky">
-      <div class="plant-sticky-expanded">
-        ${plantIconHTML(p, 'plant-sticky-emoji')}
-        <div class="plant-sticky-info">
-          <div class="plant-sticky-name">${esc(p.name||'Untitled')}</div>
-          ${lines.map(l=>`<div class="plant-sticky-line">${esc(l)}</div>`).join('')}
-        </div>
-        <div class="plant-sticky-water">${plantWaterButtonHTML(p)}</div>
-      </div>
-      <div class="plant-sticky-collapsed">
-        ${plantIconHTML(p, 'plant-sticky-collapsed-emoji')}
-        <span>${esc(plantStickyCollapsedText(p, state))}</span>
-      </div>
-    </div>`;
-}
-/* one persistent scroll listener (registered lazily, the first time a plant detail page ever
-   renders) rather than binding/unbinding one per visit - cheaply a no-op via the DOM guard
-   whenever some other page is showing, same pattern the rest of this page's draw functions use. */
-let PLANT_STICKY_SCROLL_BOUND = false;
-function plantBindStickyScroll(){
-  if(PLANT_STICKY_SCROLL_BOUND) return;
-  PLANT_STICKY_SCROLL_BOUND = true;
-  window.addEventListener('scroll', () => {
-    const el = document.getElementById('plant-detail-sticky');
-    if(!el) return;
-    el.classList.toggle('collapsed', window.scrollY > 40);
-  }, {passive:true});
 }
 /* 24-hour HH:MM rather than toLocaleTimeString's 12-hour "6:00 PM" - shorter, and reads
    unambiguously at the small size this sits at on the card */
@@ -7737,6 +7528,39 @@ function plantStagePickerHTML(p){
     <button type="button" class="plant-stage-btn${i===cur?' on':''}"
       onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${s.k}')">
       ${s.emoji?`<span aria-hidden="true">${s.emoji}</span> `:''}${esc(s.label)}</button>`).join('')}</div>`;
+}
+/* the page's top action block (Figma 5:2323) - the Watered button, a one-line current-stage
+   summary with how long it's been that way, and the Change Stage control, replacing the old
+   sticky multi-line status dashboard the mock doesn't have. Unplanted has no stage of its own
+   yet, so it's just the button plus an already-open picker to get started. */
+function plantDetailActionsHTML(p){
+  const unplanted = p.stage===PLANT_STAGE_DEFAULT;
+  if(unplanted){
+    return `
+      <div class="plant-detail-actions">
+        ${plantWaterButtonHTML(p)}
+        <details class="plant-journey-change" open>
+          <summary>Change Stage</summary>
+          ${plantStagePickerHTML(p)}
+        </details>
+      </div>`;
+  }
+  const stageInfo = PLANT_STAGES[plantStageIdx(p.stage)] || {};
+  const days = plantDaysSinceStageEntered(p, plantStageKey(p.stage));
+  const rel = days==null ? '' : days===0 ? 'Today' : `${days} day${days===1?'':'s'} ago`;
+  return `
+    <div class="plant-detail-actions">
+      ${plantWaterButtonHTML(p)}
+      <div class="plant-stage-current-row">
+        ${stageInfo.emoji?`<span aria-hidden="true">${stageInfo.emoji}</span>`:''}
+        <span class="plant-stage-current-label">${esc(stageInfo.label||'')}</span>
+        ${rel?`<span class="plant-stage-current-time">${esc(rel)}</span>`:''}
+      </div>
+      <details class="plant-journey-change">
+        <summary>Change Stage</summary>
+        ${plantStagePickerHTML(p)}
+      </details>
+    </div>`;
 }
 /* overdue-watering plants float to the top (the thing most worth noticing at a glance),
    harvested ones sink to the bottom (done, least worth the eye), everything else by name */
@@ -7797,17 +7621,24 @@ function plantWaterButtonHTML(p, sm, compact){
   // tap, in both its states - which one just happened to depend on fill colour and disabled-ness
   // doing all the work. Splitting the wording by state fixes that without a colour/fill read:
   // the live button says what tapping it will do (log a watering), the done one says what
-  // already happened, in the past tense a completed state actually reads as. The compact grid-
-  // card button (matching the Figma mock's plain "Watered Today"/"Watered") drops the relative-
-  // time suffix - there's no room for it sat inline in the card's head row, and the detail
-  // page's own full-width button (compact:false) still carries it.
+  // already happened. Both sizes now match the Figma mock's own wording exactly - the compact
+  // grid-card button says plain "Watered Today"/"Watered", and the detail page's full-width
+  // button folds the relative time straight into the done label in parentheses ("Watered
+  // (2 Hours Ago)") rather than a separate dash-suffix - neither carries the droplet emoji any
+  // more, the mock's own buttons don't either.
+  if(compact){
+    return notDue
+      ? `<button type="button" class="${cls}" disabled
+          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">Watered</span></button>`
+      : `<button type="button" class="${cls}"
+          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">Watered Today</span></button>`;
+  }
   const timeLabel = plantWaterRelativeLabel(p);
-  const timeSuffix = compact ? '' : `<span class="plant-water-btn-time">- ${esc(timeLabel)}</span>`;
   return notDue
     ? `<button type="button" class="${cls}" disabled
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">${compact?'Watered':'Watered Today'}${timeSuffix}</span>${compact?'':`<span class="plant-water-btn-emoji" aria-hidden="true">💧</span>`}</button>`
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered (${esc(timeLabel)})</button>`
     : `<button type="button" class="${cls}"
-        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">${compact?'Watered Today':`I've Watered It`}${timeSuffix}</span>${compact?'':`<span class="plant-water-btn-emoji" aria-hidden="true">💧</span>`}</button>`;
+        onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">Watered Today</button>`;
 }
 /* the grid card, exactly the Figma mock's own layout and nothing past it: icon, name and its
    growth stage, and the water button, one row. The health badge, water-status chip,
@@ -7881,8 +7712,7 @@ function plantTimelineHTML(p){
     const label = ev.type==='water' ? 'Watered' : 'Set to '+esc(stageInfo.label||ev.stage);
     const emoji = ev.type==='water' ? '💧' : (stageInfo.emoji||'🌱');
     const deleteLabel = 'Delete "'+label+'" logged '+fmtDate(ev.ts.slice(0,10));
-    // the germination day count/range lives in the sticky header up top now (see
-    // plantStickyLines) - just the plain-English description here, not the same numbers twice
+    // just the plain-English description here, not a day-count/range restating it in numbers too
     const detail = ev===currentStageEvent
       ? esc(plantJourneyStepDescription(idx, p))
       : '';
@@ -7909,22 +7739,11 @@ function plantTimelineHTML(p){
    being two different things on the page. Jumping to a different stage by hand (a correction, not
    something done every visit) is a collapsed picker right under the heading - high enough to find
    without scrolling past the whole log, but still out of the way until it's actually needed. */
+/* Change Stage now lives up in the actions block near the top of the page (see
+   plantDetailActionsHTML), matching the Figma mock's own layout - this is just the log
+   itself, no heading (the mock doesn't have one over its own timeline either). */
 function plantCombinedTimelineHTML(p){
-  if(p.stage===PLANT_STAGE_DEFAULT){
-    return `
-      ${plantSectionHeadingHTML('route','Timeline')}
-      <details class="plant-journey-change" open>
-        <summary>Change Stage</summary>
-        ${plantStagePickerHTML(p)}
-      </details>`;
-  }
-  return `
-    ${plantSectionHeadingHTML('route','Timeline')}
-    <details class="plant-journey-change">
-      <summary>Change Stage</summary>
-      ${plantStagePickerHTML(p)}
-    </details>
-    ${plantTimelineHTML(p)}`;
+  return p.stage===PLANT_STAGE_DEFAULT ? '' : plantTimelineHTML(p);
 }
 /* full sentences, one labelled row per known growing condition, only for a vegetable this app
    actually has care data for (see PLANT_CARE_DATA). Nothing shown for a vegetable with none,
@@ -7935,19 +7754,34 @@ function plantCombinedTimelineHTML(p){
    Season off the growing guide where one exists. Lives inside the collapsed Plant Information
    section (see plantInfoSectionHTML) rather than as its own top-level section - reference
    material, not something worth a glance every visit. */
+/* every word capitalised, matching the Figma mock's own styling of these rows ("Keep Moist
+   Until Germination", not "Keep moist until germination") */
+function capitalizeWords(s){ return (s||'').replace(/\b\w/g, c => c.toUpperCase()); }
+const PLANT_MONTH_FULL = {jan:'January',feb:'February',mar:'March',apr:'April',may:'May',
+  jun:'June',june:'June',jul:'July',july:'July',aug:'August',sep:'September',sept:'September',
+  oct:'October',nov:'November',dec:'December'};
+/* the growing guide's own abbreviated month range ("Aug - Oct") spelled out into the mock's own
+   "Harvested between August and October" phrasing - falls back to just spelling out whatever's
+   there if it isn't a plain two-month range (e.g. "May onwards"). */
+function plantHarvestSeasonText(munch){
+  if(!munch) return '';
+  const parts = munch.split('-').map(s=>s.trim());
+  const full = parts.map(part => part.split(' ').map(w => PLANT_MONTH_FULL[w.toLowerCase()] || w).join(' '));
+  return full.length===2 ? `Harvested between ${full[0]} and ${full[1]}` : `Harvested ${full.join(' - ')}`;
+}
 function plantInfoConditionRows(p){
   const care = plantCareDataFor(p); if(!care) return '';
   const guide = plantGuideFor(p);
   const munch = guide && guide.facts && guide.facts.munch;
   const rows = [
-    care.sun && ['☀️','Light', care.sun],
-    ['💧','Water', care.water],
-    care.temp && ['🌡️','Temperature', care.temp],
-    munch && ['🥦','Harvest Season', munch],
+    care.sun && ['☀️', capitalizeWords(care.sun)],
+    ['💧', capitalizeWords(care.water)],
+    care.temp && ['🌡️', capitalizeWords(care.temp)],
+    munch && ['🥦', plantHarvestSeasonText(munch)],
   ].filter(Boolean);
   if(!rows.length) return '';
-  return `<div class="plant-info-rows">${rows.map(([icon,label,val]) => `
-    <div class="plant-info-row"><span aria-hidden="true">${icon}</span><span class="plant-info-label">${esc(label)}</span><span class="plant-info-value">${esc(val)}</span></div>`).join('')}</div>`;
+  return `<div class="plant-info-rows">${rows.map(([icon,text]) => `
+    <div class="plant-info-row"><span aria-hidden="true">${icon}</span><span class="plant-info-value">${esc(text)}</span></div>`).join('')}</div>`;
 }
 /* derived from the same care data rather than hand-written per vegetable - the water/sun/temp
    tips restate PLANT_CARE_DATA's own fields as an actual tip rather than a bare label, and the
@@ -8250,16 +8084,18 @@ function plantCareDataFor(p){
    just light/water/temperature/harvest-season, shown inline on the page rather than behind a
    separate Information tab, since there's nothing else left on the page competing for the space. */
 function plantDetailInfoHTML(p){
-  const conditions = plantInfoConditionRows(p);
-  if(!conditions) return '';
-  return `${plantSectionHeadingHTML('circle-info','Growing Conditions')}${conditions}`;
+  return plantInfoConditionRows(p);
 }
 let CUR_PLANT_DETAIL_ID = null;
 function plantDetailContentHTML(p){
   return `
+    <div id="plant-detail-actions">${plantDetailActionsHTML(p)}</div>
     <div id="plant-detail-info">${plantDetailInfoHTML(p)}</div>
     <div id="plant-detail-timeline">${plantCombinedTimelineHTML(p)}</div>`;
 }
+/* the header row (Figma 5:2323) - back, icon+name, Edit, all in one line rather than the name
+   living down in a sticky header of its own further down the page. Edit is now the same filled
+   brand-colour button the mock uses, not a ghost outline. */
 function renderPlantDetail(id){
   const p = (DB.plants||[]).find(x=>x.id===id);
   if(!p){ location.hash = '#/plants'; return; }
@@ -8268,21 +8104,24 @@ function renderPlantDetail(id){
     <div class="crumb">
       <div class="crumb-titlerow">
         <button class="crumb-backbtn" onclick="App.goPlants()" aria-label="Back to Plants">${ICONS.back}</button>
-        <button class="btn sm ghost" onclick="App.plantForm('${esc(p.id)}')">Edit</button>
+        <div class="plant-detail-title">
+          ${plantIconHTML(p, 'plant-detail-title-emoji')}
+          <span class="plant-name">${esc(p.name||'Untitled')}</span>
+        </div>
+        <button class="btn sm primary" onclick="App.plantForm('${esc(p.id)}')">Edit</button>
       </div>
     </div>
-    ${plantStickyHeaderHTML(p)}
     <div id="plant-detail-content">${plantDetailContentHTML(p)}</div>`;
-  plantBindStickyScroll();
 }
-/* refreshes just the live bits of the detail page in place (sticky header, the combined timeline)
-   rather than a full re-render - a no-op if some other page is actually showing right now, same
-   guard-on-the-DOM-node pattern drawPlantsGrid/drawDashPlantsSlot already use. Growing Conditions
-   isn't refreshed here since it's static per vegetable, not affected by watering or stage. */
+/* refreshes just the live bits of the detail page in place (the actions block, the combined
+   timeline) rather than a full re-render - a no-op if some other page is actually showing right
+   now, same guard-on-the-DOM-node pattern drawPlantsGrid/drawDashPlantsSlot already use. Growing
+   Conditions isn't refreshed here since it's static per vegetable, not affected by watering or
+   stage. */
 function drawPlantDetail(id){
-  const stickyRoot = $('#plant-detail-sticky'); if(!stickyRoot) return;
+  const actionsRoot = $('#plant-detail-actions'); if(!actionsRoot) return;
   const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
-  stickyRoot.outerHTML = plantStickyHeaderHTML(p);
+  actionsRoot.innerHTML = plantDetailActionsHTML(p);
   const timelineRoot = $('#plant-detail-timeline'); if(timelineRoot) timelineRoot.innerHTML = plantCombinedTimelineHTML(p);
 }
 function plantDeleteLogEntryImpl(id, type, ts){
@@ -10962,9 +10801,19 @@ function dayNarrative(t, k, dayItems, rough){
   return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${placeText}${emptyText}`};
 }
 /* which stop/gap accordions are open - a UI-only choice, not trip data, so it's a plain
-   module variable rather than anything saved or synced; resets (collapsed) on reload same as
-   the page always used to look before you opened anything */
+   module variable rather than anything saved or synced; resets on reload same as the rest of
+   this module-level UI state. */
 let ROUTE_OPEN = new Set();
+/* every day accordion starts open (the first time a trip's Itinerary is shown this session) so
+   the page reads as a full day-by-day plan straight away rather than needing a tap-in per day -
+   tracked separately per trip so a manual close, once made, sticks across re-renders instead of
+   being defaulted back open on every toggle/tab-switch. */
+let ROUTE_OPEN_DEFAULTED = new Set();
+function routeOpenAllDaysByDefault(t, keys){
+  if(ROUTE_OPEN_DEFAULTED.has(t.id)) return;
+  ROUTE_OPEN_DEFAULTED.add(t.id);
+  keys.forEach(k => ROUTE_OPEN.add('day:'+(k||'any')));
+}
 App.routeToggle = key => {
   if(ROUTE_OPEN.has(key)) ROUTE_OPEN.delete(key); else ROUTE_OPEN.add(key);
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
@@ -11125,6 +10974,7 @@ App.aiRegenSummary = key => {
    changed is which level of the page owns the accordion. */
 function tabPlan(t, ro){
   const {groups, keys, rough, hasAny} = planDayGroups(t);
+  if(hasAny) routeOpenAllDaysByDefault(t, keys);
   if(!hasAny){
     return `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
       <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
