@@ -1554,8 +1554,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.79';
+const APP_VERSION = '2.29.80';
 const CHANGELOG = [
+  {version:'2.29.80', notes:[
+    "Itinerary: a ferry added as a plain travel leg (not through the dedicated Ferries booking feature) now reads as the same quiet dashed one-liner as a train, bus, taxi, or driving yourself - \"Ferry to Saranda - leave by 14:00\" - instead of the full white card, which turned out to be the wrong reference; that heavier card is a flight's alone now.",
+  ]},
   {version:'2.29.79', notes:[
     "Itinerary: a flight's shown duration now accounts for its two airports being on different UTC offsets, instead of just diffing the clock times shown - a London-Corfu flight landing five clock-hours later was really a three-hour flight, the other two being the timezone gap. The flight card's logo now sits properly centred against its title (the previous fix's nudge overcorrected downward); the header shows the airports' full names instead of their codes, with the now-redundant full-name line underneath removed; and \"View Boarding Pass\" takes the airline's own brand colour, the same way an accommodation's booking button already does for its site.",
     "Itinerary: no time on the page is bold any more - \"Arrive in X\"/\"Check Out of X\" kept their bold pill but the time inside is now regular weight, like everywhere else a time appears. The \"Plan\" tag above a stop now reads the stop's own title (\"Castle Walk & Sunset - Evening\") instead of the generic word \"Plan\". A day with nothing on it no longer says so twice - the heading's \"Nothing Scheduled\" is gone now that opening the day shows its own \"Nothing Planned\" pill. A stay gap's date range moved from its own line above the pill into the pill itself, as a second line under the title.",
@@ -10750,12 +10753,13 @@ function planDaysHTML(t, ro, filterKeys){
     return `
     <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)}</span> `:''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac))}</div>`;
   };
-  /* A flight or ferry is a booked thing with a time you have to make, so it earns a card.
-     Everything else - a train, a bus, a taxi, driving yourself - is not that: you turn up and
-     go, and it doesn't want the same weight on the page as the flight above it. Those read as
-     one line - "Train to London Gatwick - leave by 14:00" - and still open the same form on a
-     tap. */
-  const BOOKED_MODES = ['flight','ferry'];
+  /* A flight is a booked thing with a time you have to make, so it earns a card. Everything
+     else - a ferry, a train, a bus, a taxi, driving yourself - is not that: you turn up and go,
+     and it doesn't want the same weight on the page as the flight above it. Those read as
+     one line - "Ferry to Saranda - leave by 14:00" - and still open the same form on a tap.
+     (A ferry booked through the dedicated Ferries feature - see autoFerryCard - still gets its
+     own full card there; this only covers a ferry added as a plain travel leg.) */
+  const BOOKED_MODES = ['flight'];
   const travelCard = s => {
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
     const booked = BOOKED_MODES.includes(s.mode);
