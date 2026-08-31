@@ -1551,8 +1551,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.69';
+const APP_VERSION = '2.29.70';
 const CHANGELOG = [
+  {version:'2.29.70', notes:[
+    "Tasks now reads the same way the Itinerary does: a plain dashed pill per outstanding thing (a not-booked flight/ferry/car/stay, an empty Itinerary day, a run of unbooked nights), its date above it, tapping it straight into the real form for whatever it is. A run of unbooked nights now names the place it's still in (\"Accommodation in Corfu\") rather than just a night count.",
+    "Fixed the route map only ever placing one of several stops: a bare town name (especially a locally-spelled one, like \"Kerkira\" for Corfu) is often too ambiguous for the geocoder on its own - it's now tried qualified with each of the trip's own countries first, which resolves far more of them.",
+    "Removed the leftover \"Staying at X\" line on a day strictly between check-in and check-out - the day's own heading already says where you are, so this was saying it a second time in a spot the new design didn't call for.",
+  ]},
   {version:'2.29.69', notes:[
     "The Itinerary's flight and accommodation cards now match the full richness of the new Figma design: a flight shows its seats, a check/cross against Cabin Bag, Checked Bag and Priority Boarding, its booking reference, and Track Flight/View Boarding Pass buttons; an accommodation shows its full address, both check-in and check-out with their times, its booking reference, and Google Maps/View Details buttons. A duration (\"✈️ 3 Hours\") sits between cards as its own line, and a flight/check-out gets a plain \"Arrive in X\"/\"Check Out of X\" pill of its own. A simple travel leg (train, bus, taxi, drive, or not decided) now reads as a dashed box instead of a slim line, matching the mock. New: a Seat(s) field on the flight form.",
   ]},
@@ -2778,6 +2783,19 @@ function fmtDateOrdinal(d){
   const dt = new Date(d + 'T00:00:00');
   const day = dt.getDate();
   return `${day}${ordinalSuffix(day)} ${dt.toLocaleDateString(undefined, {month:'long'})} ${dt.getFullYear()}`;
+}
+/* an ordinal date range for a stretch of days on the Tasks page (a run of nights with nowhere
+   booked) - same "year said once, at the end" idea as rangeParts, but written out day by day
+   with the month said once too when both ends share it: "27th - 30th September 2026". Falls
+   back to two full dates when the ends don't share a month (or year) to say. */
+function fmtDateOrdinalRange(a, b){
+  if(!a) return '';
+  if(!b || a===b) return fmtDateOrdinal(a);
+  const da = new Date(a+'T00:00:00'), db = new Date(b+'T00:00:00');
+  const sameMonth = da.getFullYear()===db.getFullYear() && da.getMonth()===db.getMonth();
+  if(!sameMonth) return `${fmtDateOrdinal(a)} - ${fmtDateOrdinal(b)}`;
+  const dayA = da.getDate();
+  return `${dayA}${ordinalSuffix(dayA)} - ${fmtDateOrdinal(b)}`;
 }
 function todayStr(){
   const d = new Date();
@@ -9860,46 +9878,44 @@ function taskRowHTML(t, task, i, ro){
 function undecidedItemsHTML(t, ro){
   const rows = [];
   const rough = hasRoughWhen(t);
-  (t.flights||[]).forEach((f,i)=>{ if(f.undecided) rows.push({icon:secEmoji('✈️'), label:'Flight',
-    inner:flightStripHTML(f,i,''), editFn:`App.flightForm(${i})`, sortKey: rough?'':(f.date||'')}); });
-  (t.ferries||[]).forEach((f,i)=>{ if(f.undecided) rows.push({icon:secEmoji('⛴️'), label:'Ferry',
-    inner:ferryStripHTML(f,i,''), editFn:`App.ferryForm(${i})`, sortKey: rough?'':(f.date||'')}); });
-  (t.carHire||[]).forEach((c,i)=>{ if(c.undecided) rows.push({icon:secEmoji('🚗'), label:'Car Hire',
-    inner:carStripHTML(c,i,''), editFn:`App.carForm(${i})`, sortKey: rough?'':(c.pickupDate||c.dropoffDate||'')}); });
-  (t.accommodations||[]).forEach((a,i)=>{ if(a.undecided) rows.push({icon:secEmoji('🏠'), label:'Accommodation',
-    inner:accomCardHTML(a,{}), editFn:`App.accomForm(${i})`, sortKey: rough?'':(a.checkin||a.checkout||'')}); });
+  const dateLineFor = k => (!rough && k) ? fmtDateOrdinal(k) : '';
+  (t.flights||[]).forEach((f,i)=>{ if(f.undecided) rows.push({
+    dateLine: dateLineFor(f.date), icon:secEmoji('✈️'), title: f.to ? `Flight to ${esc(airportName(f.to)||f.to)}` : 'Flight',
+    time:f.depTime, editFn:`App.flightForm(${i})`, sortKey: rough?'':(f.date||'')}); });
+  (t.ferries||[]).forEach((f,i)=>{ if(f.undecided) rows.push({
+    dateLine: dateLineFor(f.date), icon:secEmoji('⛴️'), title: f.to ? `Ferry to ${esc(f.to)}` : 'Ferry',
+    time:f.depTime, editFn:`App.ferryForm(${i})`, sortKey: rough?'':(f.date||'')}); });
+  (t.carHire||[]).forEach((c,i)=>{ if(c.undecided) rows.push({
+    dateLine: dateLineFor(c.pickupDate), icon:secEmoji('🚗'), title:'Car Hire',
+    time:c.pickupTime, editFn:`App.carForm(${i})`, sortKey: rough?'':(c.pickupDate||c.dropoffDate||'')}); });
+  (t.accommodations||[]).forEach((a,i)=>{ if(a.undecided) rows.push({
+    dateLine: dateLineFor(a.checkin), icon:secEmoji('🏠'), title:`Accommodation in ${esc(accomCityName(a))}`,
+    time:a.checkinTime, editFn:`App.accomForm(${i})`, sortKey: rough?'':(a.checkin||a.checkout||'')}); });
   (t.itinerary||[]).forEach((s,i)=>{ if(s.kind==='travel' && s.notBooked){
     const mode = TRAVEL_MODES[s.mode] || TRAVEL_MODES.undecided;
-    const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : mode.label;
+    const title = s.to ? `${mode.label} to ${esc(s.to)}` : s.from ? `${mode.label} from ${esc(s.from)}` : mode.label;
     const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
-    const when = k ? planDayLabel(t, k, rough) : '';
-    rows.push({icon:secEmoji(mode.emoji), label:'Not Booked Yet',
-      inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${place}</h3>${when?`<p class="small muted" style="margin-top:4px">${esc(when)}</p>`:''}</div>`,
+    rows.push({dateLine: dateLineFor(k), icon:secEmoji(mode.emoji), title, time:s.time,
       editFn:`App.travelLegForm(${i})`, sortKey:k});
   }});
   /* an empty itinerary day counts toward the dashboard's "things to book" tile (tabHome uses
-     the same planDayGroups + stayGaps math), so it needs a card here too or the tile's number
+     the same planDayGroups + stayGaps math), so it needs a row here too or the tile's number
      and this list disagree */
   const {groups:dGroups, keys:dKeys} = planDayGroups(t);
   const gapFirstNights = new Set(stayGaps(t).map(g=>g.firstNight));
   dKeys.forEach(k=>{
     if(dGroups[k].length===0 && !gapFirstNights.has(k)){
-      // date sits under the title as its own line, same as every other card here, rather than
-      // folded into one combined "Day N · date" title
-      const {title, sub} = planDayLabelSplit(t, k, rough);
-      rows.push({icon:secEmoji('❌'), label:'Nothing Planned',
-        inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${esc(title)}</h3>${sub?`<p class="small muted" style="margin-top:4px">${esc(sub)}</p>`:''}</div>`,
+      rows.push({dateLine: dateLineFor(k), icon:secEmoji('🏖️'), title:'Nothing Planned', time:'',
         editFn:`App.planGapForm('${k}', ${rough})`, sortKey:k});
     }
   });
-  /* a stretch of nights with nowhere booked gets the same tag-above-card treatment as every
-     other row here, instead of sitting on its own with no label - tapping it opens the same
-     Add Accommodation form the gap card's own button does, so nothing's lost by dropping it */
+  /* a stretch of nights with nowhere booked names the place it's still in (whichever
+     accommodation the gap falls right after or right before - see gapPlaceName), same as a
+     not-yet-booked accommodation above does, with the date line spanning the whole run */
   stayGaps(t).forEach(g => {
-    const n = g.nights;
-    const when = n===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.lastNight);
-    rows.push({icon:secEmoji('🛏️'), label:'Not Booked Yet',
-      inner:`<div class="card card-undecided"><h3 style="margin:0;font-size:1rem">${n} Night${n===1?'':'s'}</h3><p class="small muted" style="margin-top:4px">${esc(when)}</p></div>`,
+    const place = gapPlaceName(t, g);
+    rows.push({dateLine: fmtDateOrdinalRange(g.firstNight, g.checkout), icon:secEmoji('🏠'),
+      title: place ? `Accommodation in ${esc(place)}` : 'Accommodation', time:'',
       editFn:`App.accomGapForm('${g.firstNight}','${g.checkout}')`, sortKey:g.firstNight});
   });
   /* the whole list reads in day order - a flight/car/accommodation still marked entirely TBC
@@ -9907,10 +9923,13 @@ function undecidedItemsHTML(t, ro){
      arbitrary spot by category */
   rows.sort(dayKeyCompare(rough));
   return rows.map(r => ({sortKey:r.sortKey, html:`
-    <div class="plan-auto${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
-      <div class="plan-auto-tag">${r.icon}<strong>${r.label}</strong></div>
-      ${r.inner}
+    <div class="task-block">
+      ${r.dateLine?`<div class="task-date">${esc(r.dateLine)}</div>`:''}
+      <div class="task-pill${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
+        <span class="task-pill-text">${r.time?`<span class="task-pill-time">${esc(r.time)} </span>`:''}${r.icon} <strong>${r.title}</strong></span>
+        ${!ro?`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`:''}
+      </div>
     </div>`}));
 }
 function tabTasks(t, ro){
@@ -10675,20 +10694,6 @@ function planDayLabel(t, k, rough){
   }
   return (num?'Day '+num+' · ':'') + fmtDate(k);
 }
-/* the day and its date as two separate strings rather than one combined line - for a card
-   like the Tasks tab's derived ones, where the date belongs underneath the title as its own
-   line (matching the accommodation-gap card), not folded into the title itself */
-function planDayLabelSplit(t, k, rough){
-  if(!k) return {title:'Anytime', sub:''};
-  if(rough) return {title:'Day '+k.slice(1), sub:''};
-  let num = 0;
-  if(t.startDate){
-    const d = Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1;
-    if(d>0) num = d;
-  }
-  const date = fmtDate(k);
-  return num ? {title:'Day '+num, sub:date} : {title:date, sub:''};
-}
 /* a comparator for planDayGroups-style keys ('YYYY-MM-DD' or 'dN') - blank sorts last, since
    nothing to sort by is exactly the thing still needing a decision, not something to bury in
    the middle of the list */
@@ -10710,13 +10715,6 @@ function dayKeyCompare(rough){
    nothing, same as it always has */
 function planDaysHTML(t, ro, filterKeys){
   const {groups, keys, rough} = planDayGroups(t);
-  // a day strictly between a stay's check-in and check-out gets a reminder of where you're
-  // sleeping, the check-in/check-out days themselves already show their own auto-card
-  const stayingAt = k => {
-    if(!k) return '';
-    const ac = (t.accommodations||[]).find(a=>a.checkin && a.checkout && k>a.checkin && k<a.checkout);
-    return ac ? (ac.name||'') : '';
-  };
   // All day is the default - worth a picker option, not worth spelling out on every card
   const timeBadge = s => s.time || (s.period && s.period!=='allday' && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][0]) || '';
   const autoTag = (icon, label, time) => `
@@ -10942,10 +10940,8 @@ function planDaysHTML(t, ro, filterKeys){
   const stayGapAt = k => stayGapsList.find(g => g.firstNight === k);
   const dayBlock = k => {
     const dayItems = (groups[k]||[]).slice().sort(planCompare);
-    const stay = stayingAt(k);
     const gap = stayGapAt(k);
-    return `${stay?`<p class="muted small" style="margin:0 0 12px;display:flex;align-items:center;gap:6px">${secEmoji('🏠')}Staying at ${esc(stay)}</p>`:''}
-      ${gap?stayGapCardHTML(gap, ro):''}
+    return `${gap?stayGapCardHTML(gap, ro):''}
       ${dayItems.length ? dayItems.map(card).join('') : (gap?'':emptyDayCard(k))}`;
   };
   return (filterKeys || keys).map(dayBlock).join('');
@@ -11077,7 +11073,14 @@ function initRouteMap(t){
        would otherwise never get a pin, which this also covers since the name is tried either
        way. */
     const fromAddress = wxStayPlaces(t.accommodations[s.i]);
-    const cands = [s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())];
+    /* a bare town name ("Kerkira") is often too ambiguous, or too locally-spelled, for the
+       geocoder to place on its own - qualifying it with each of the trip's own countries first
+       (tried in order, only one needs to hit) resolves it far more often than the bare name
+       alone would, without needing to know which of a multi-country trip's countries this
+       particular stop is actually in. */
+    const countryQualified = (t.countries||[]).map(c=>(countryByCode(c)||{}).name).filter(Boolean)
+      .map(name => `${s.name}, ${name}`);
+    const cands = [...new Set([...countryQualified, s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())])];
     const listKey = cands.join('|');
     const known = WX_LIST_GEO[listKey];
     if(known){ pins[idx] = known; redraw(); return; }
@@ -11869,6 +11872,16 @@ function rangeGaps(t, items){
     nights: Math.round((new Date(g.lastNight+'T00:00:00') - new Date(g.firstNight+'T00:00:00'))/DAY_MS) + 1}));
 }
 function stayGaps(t){ return rangeGaps(t, t.accommodations); }
+/* which place a run of nights with nowhere booked actually falls in - whichever accommodation
+   the gap sits right after (you checked out) or right before (you're about to check in), since
+   that's where you still are/are headed even though nothing's booked for these nights
+   specifically. A gap with nothing booked on either side of it (the whole trip's still empty)
+   has nothing to read a place off of, so it's left blank. */
+function gapPlaceName(t, g){
+  const accs = t.accommodations||[];
+  const ac = accs.find(a=>a.checkout===g.firstNight) || accs.find(a=>a.checkin===g.checkout);
+  return ac ? accomCityName(ac) : '';
+}
 function stayGapCardHTML(g, ro){
   const n = g.nights;
   const when = n===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.lastNight);
