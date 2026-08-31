@@ -450,7 +450,14 @@ a{color:var(--brand-dark);}
 /* Places Been / Gigs Seen / This Year / Games - four counts up top, fixed to two columns
    regardless of height (unlike the masonry below, which balances by measured height) so they
    read as one glanceable block rather than being scattered wherever the balancer lands them */
-.dash-stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
+.dash-stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px;}
+/* a bare "🌍16" pill - four to a row, so each tile drops the "N Label" wording the same shape
+   gets everywhere else on the dashboard (the label still reaches a screen reader via aria-label
+   on the tile itself) and shrinks its padding/gap to actually fit four across on a phone. */
+.dash-stat-grid .dash-widget{padding:12px 10px;}
+.dash-stat-grid .dash-widget-row{gap:6px;}
+.dash-stat-grid .dash-item-flags{font-size:1.15rem;}
+.dash-stat-grid .dash-item-title{font-size:.95rem;}
 /* Branch's earnings card - full width rather than squeezed into the 2-column stat grid above,
    since it's carrying two figures (today/this week) side by side, not one. Reuses the same
    .dash-stat-num/.dash-stat-label look each stat tile already has, just two of them sharing one
@@ -501,6 +508,10 @@ a{color:var(--brand-dark);}
 .dash-item-flags-boxed .flag-cell span{font-size:2.6rem; line-height:1;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
+/* the Next Trip tile's own small map preview - same boxed treatment as the Itinerary's full
+   route map (.route-map-wrap/.route-map), just shorter, sitting above its flags */
+.dash-trip-map-wrap{border-radius:var(--radius); overflow:hidden; margin-bottom:12px; border:1px solid var(--line);}
+.dash-trip-map{height:110px; background:var(--bg);}
 
 /* ---------- plants (vegetable growing tracker) ---------- */
 /* still tight enough to hold a lot of vegetables at once and read as a glanceable board, not a
@@ -578,18 +589,6 @@ a{color:var(--brand-dark);}
    typical disabled control, since "Watered" needs to read as a completed state at a glance, not
    just a slightly-dimmed button */
 .plant-water-action-btn:disabled{opacity:.45; cursor:default;}
-/* Home's chips (dashPlantsWidgetHTML) use this small icon-only circle instead - six-plus of
-   them sit side by side there, so a full labelled button per chip wouldn't fit */
-.plant-water-btn{flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
-  width:30px; height:30px; border:1px solid var(--line-strong); border-radius:50%;
-  background:var(--paper); cursor:pointer; padding:0; font-size:1rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-water-btn.undo{border-style:dashed; border-color:var(--muted); background:var(--bg); color:var(--muted);}
-.plant-water-btn.sm{width:22px; height:22px; font-size:.8rem;}
-/* the checkmark itself already reads as "done" - a circle drawn around it on top just doubles
-   up the shape, so it's dropped here (unlike the plain water-drop state, which still needs the
-   circle as its tap-target outline) */
-.plant-water-btn.checkmark{border:none; background:none;}
 .plant-emoji-picker{display:flex; flex-wrap:wrap; gap:6px;}
 .plant-emoji-opt{font-size:1.3rem; line-height:1; padding:6px 9px; border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); background:var(--paper); cursor:pointer;
@@ -802,20 +801,6 @@ a{color:var(--brand-dark);}
 .ai-summary-refresh{background:none; border:none; padding:6px 0 0; margin:0; color:var(--muted); font-size:.78rem;
   display:flex; align-items:center; gap:5px; cursor:pointer;}
 .ai-summary-refresh:hover{color:var(--brand-dark);}
-/* Home shows every vegetable as its own small chip - emoji, its own water button (see
-   plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
-   one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
-   auto-fill) so six vegetables sit neatly as two even rows regardless of the tile's actual
-   pixel width; a seventh just wraps onto a third row, growing the card down rather than
-   squeezing anything smaller. */
-.plant-home-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px 6px;}
-.plant-home-chip{display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;}
-/* same "not actually growing yet" fade the Plants page's own cards use (see .plant-card) */
-.plant-home-chip.plant-unplanted{opacity:.55;}
-.plant-home-emoji{font-size:1.5rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
-.plant-home-emoji.plant-icon-img{width:24px; height:24px; object-fit:cover; border-radius:6px;}
-.plant-home-ts{font-size:.62rem; color:var(--muted); white-space:nowrap;}
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:4px;}
 .gig-card{padding:14px;}
@@ -1178,10 +1163,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    just doubled the edge into a messy ring around it */
 .card-logo{width:26px; height:26px; flex-shrink:0; border-radius:6px; object-fit:contain;
   transform:translateY(-1px);}
-/* same footprint as .card-logo, but for a Font Awesome glyph standing in for a brand's favicon
-   image (see bookingLogoFor) - centred in the same box instead of filling it */
-.card-logo-icon{width:26px; height:26px; flex-shrink:0; display:inline-flex; align-items:center;
-  justify-content:center; font-size:20px; transform:translateY(-1px);}
+/* the airline/booking service name in its own brand colour, standing in for a favicon logo
+   (see airlineLogoFor/bookingLogoFor) - no fixed box, just sized and weighted to sit inline
+   with the rest of the card title */
+.card-logo-text{font-size:.95rem; font-weight:700; white-space:nowrap; flex-shrink:0;}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
 /* accommodation runs down the card rather than across it, but shares the flight card's
    strip/head shell so the two read as the same kind of thing on the Itinerary */
@@ -1566,6 +1551,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
    an address, safe to commit; your PSN login itself is entered on-device later and stays in
    this browser's localStorage, never here. Leave blank and Games shows setup instructions. */
 const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
+/* Optional: the Itinerary route map and the Next Trip dashboard preview both use CartoDB's
+   Voyager map tiles, which now require an API key even for light personal use - get a free one
+   at https://carto.com/basemaps (Auth → API Keys) and paste it below. Leave blank and the map
+   still loads, just watermarked "API key required" across the tiles instead of the real map. */
+const CARTO_API_KEY = '';
 /* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
@@ -1574,8 +1564,13 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.82';
+const APP_VERSION = '2.29.83';
 const CHANGELOG = [
+  {version:'2.29.83', notes:[
+    "Home dashboard: the top stat row is now 4 columns instead of 2 (Places/Gigs/Films/Games/Board Games/Theatre, plus a new Watering Needed/Done tile for Plants), each just a small icon-and-count tile like the Figma mock. The Next Trip card now shows a small route preview map above its flags.",
+    "Itinerary and booking-service logos (airline favicons, Airbnb/Booking.com etc) are now the service's own name in its own brand colour - Wizz Air in purple, Airbnb in red, Booking.com in dark blue - instead of a small favicon square, so every airline/service reads consistently rather than only the ones with a mapped logo.",
+    "The Itinerary route map (and the new Next Trip preview map) can now take a CartoDB API key - their Voyager map tiles started requiring one for even light personal use. See CARTO_API_KEY near the top of index.html for where to paste it; left blank, the map still loads, just watermarked. The route map's own attribution text in the bottom corner is also hidden now.",
+  ]},
   {version:'2.29.82', notes:[
     "Itinerary: the route map now plots a flight/ferry/car-hire destination too, not just an accommodation stay - a leg to somewhere you haven't booked a place yet (a ferry across to Albania, say) used to just vanish off the map entirely, now it gets its own numbered pin and joins the route line like everywhere else you're actually going.",
     "A flight's Not Booked Yet toggle now hides the airline and Departs/Arrives fields live as you tick it - those don't mean much before there's an actual booking - while the date and both airports stay put either way.",
@@ -3949,6 +3944,7 @@ function dashTripItemHTML(t){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/trip/${esc(t.id)}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/trip/${esc(t.id)}'}">
+      <div class="dash-trip-map-wrap"><div class="dash-trip-map" data-trip-id="${esc(t.id)}"></div></div>
       <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">${flagCellsHTML(flags.length?flags:['✈️'])}</div>
       <div class="dash-item-title">${esc(t.name)}</div>
       <div class="dash-item-sub">Next Trip</div>
@@ -4023,13 +4019,19 @@ function loadDashboardBranch(){
     const slot = $('#dash-branch-slot'); if(slot) slot.innerHTML = '';
   });
 }
-function dashGigsStatWidgetHTML(){
+/* every top-row stat tile (Places/Gigs/Films/Games/Board Games/Theatre) is just "icon + bare
+   count" now - the "N Places Been"-style label still reaches a screen reader via aria-label on
+   the tile, it's just not printed on the tile itself any more. */
+function dashStatTileHTML(icon, count, label, onclick){
   return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGigsSeen()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGigsSeen()}">
-      <div class="dash-item-flags" aria-hidden="true">🎤</div>
-      <div class="dash-item-title">${dashGigsBeenCount(CUR_DASH_SONG_RANGE)} Gigs Seen</div>
+    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="${onclick}" aria-label="${esc(count+' '+label)}"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${onclick}}">
+      <div class="dash-item-flags" aria-hidden="true">${icon}</div>
+      <div class="dash-item-title" aria-hidden="true">${esc(String(count))}</div>
     </div>`;
+}
+function dashGigsStatWidgetHTML(){
+  return dashStatTileHTML('🎤', dashGigsBeenCount(CUR_DASH_SONG_RANGE), 'Gigs Seen', 'App.goGigsSeen()');
 }
 /* a country only carries a status ('been'/'want'/'going'), never a date - the closest thing to
    "when" is the most recent finished trip that visited it, so that's what the range picker
@@ -4054,12 +4056,7 @@ function dashPlacesBeenCount(range){
   }).length;
 }
 function dashPlacesBeenWidgetHTML(){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlaces('been')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlaces('been')}">
-      <div class="dash-item-flags" aria-hidden="true">🌍</div>
-      <div class="dash-item-title">${dashPlacesBeenCount(CUR_DASH_SONG_RANGE)} Places Been</div>
-    </div>`;
+  return dashStatTileHTML('🌍', dashPlacesBeenCount(CUR_DASH_SONG_RANGE), 'Places Been', "App.goPlaces('been')");
 }
 function dashNextGig(){
   const upcoming = (DB.gigs||[]).filter(g=>g.date && g.date>todayStr());
@@ -4149,12 +4146,7 @@ function loadDashboardSong(){
   });
 }
 function dashGamesStatWidgetHTML(n){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGames()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      <div class="dash-item-flags" aria-hidden="true">🎮</div>
-      <div class="dash-item-title">${n} Played</div>
-    </div>`;
+  return dashStatTileHTML('🎮', n, 'Games Played', 'App.goGames()');
 }
 function dashCurrentlyPlayingWidgetHTML(g){
   return `
@@ -4220,24 +4212,14 @@ function dashFilmsSeenCount(range){
   return (DB.films||[]).filter(f=>f.watchedDate && f.watchedDate<=todayStr() && (!cutoff || f.watchedDate>=cutoff)).length;
 }
 function dashFilmsSeenWidgetHTML(){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goFilmsDiary()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
-      <div class="dash-item-flags" aria-hidden="true">🎬</div>
-      <div class="dash-item-title">${dashFilmsSeenCount(CUR_DASH_SONG_RANGE)} Films Seen</div>
-    </div>`;
+  return dashStatTileHTML('🎬', dashFilmsSeenCount(CUR_DASH_SONG_RANGE), 'Films Seen', 'App.goFilmsDiary()');
 }
 function dashTheatreSeenCount(range){
   const cutoff = dashRangeCutoffStr(range);
   return (DB.theatre||[]).filter(t=>t.date && t.date<=todayStr() && (!cutoff || t.date>=cutoff)).length;
 }
 function dashTheatreSeenWidgetHTML(){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goTheatre()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goTheatre()}">
-      <div class="dash-item-flags" aria-hidden="true">🎭</div>
-      <div class="dash-item-title">${dashTheatreSeenCount(CUR_DASH_SONG_RANGE)} Shows Seen</div>
-    </div>`;
+  return dashStatTileHTML('🎭', dashTheatreSeenCount(CUR_DASH_SONG_RANGE), 'Shows Seen', 'App.goTheatre()');
 }
 /* Board Games marks (bgMarks) carry no date, unlike the diary-backed stat tiles above, so this
    one has no time-range filter to apply - it's just a straight count of everything marked
@@ -4246,12 +4228,7 @@ function dashBoardGamesPlayedCount(){
   return Object.values(bgMarks()).filter(v=>v==='played').length;
 }
 function dashBoardGamesPlayedWidgetHTML(){
-  return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goBoardGamesPlayed()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goBoardGamesPlayed()}">
-      <div class="dash-item-flags" aria-hidden="true">🎲</div>
-      <div class="dash-item-title">${dashBoardGamesPlayedCount()} Played</div>
-    </div>`;
+  return dashStatTileHTML('🎲', dashBoardGamesPlayedCount(), 'Board Games Played', 'App.goBoardGamesPlayed()');
 }
 function dashLastSeenFilmWidgetHTML(){
   const f = (DB.films||[]).filter(f=>f.watchedDate).sort((a,b)=>b.watchedDate.localeCompare(a.watchedDate))[0];
@@ -4515,7 +4492,6 @@ const DASH_WIDGET_DEFS = [
   {key:'theatrenext', label:'Theatre See Next'},
   {key:'boardgamenext', label:'Board Game Play Next'},
   {key:'lastseen', label:'Last Seen'},
-  {key:'plants', label:'Plants'},
 ];
 /* reconciles whatever's saved with the widgets that actually exist right now - any widget added
    to the app since the prefs were last saved (or before they've ever been customised at all) is
@@ -4545,7 +4521,6 @@ function dashWidgetHTML(key){
   if(key==='theatrenext') return dashTheatreWatchNextWidgetHTML();
   if(key==='boardgamenext') return `<div id="dash-boardgame-slot">${dashBoardGameNextWidgetHTML()}</div>`;
   if(key==='lastseen') return dashLastSeenFilmWidgetHTML();
-  if(key==='plants') return `<div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>`;
   return '';
 }
 /* the Home Dashboard section of Settings (see renderSettings) - up/down to reorder, an eye to
@@ -4585,6 +4560,7 @@ function renderDashboard(){
       <div id="dash-games-stat-slot">${dashGamesStatPlaceholderHTML()}</div>
       <div id="dash-boardgames-stat-slot">${dashBoardGamesPlayedWidgetHTML()}</div>
       <div id="dash-theatre-stat-slot">${dashTheatreSeenWidgetHTML()}</div>
+      <div id="dash-plants-slot">${dashPlantsWidgetHTML()}</div>
     </div>
     <div class="dash-masonry">
       <div class="dash-col" id="dash-col-a">${widgets}</div>
@@ -4597,6 +4573,7 @@ function renderDashboard(){
   // anything - see balanceDashboardColumns' own comment for why this has to happen up front
   [...$('#dash-col-a').children].forEach((n,i) => { n.dataset.dashOrder = i; });
   balanceDashboardColumns();
+  initDashTripMaps();
   loadDashboardGames();
   loadDashboardSong();
   loadDashboardBranch();
@@ -7759,35 +7736,14 @@ function plantsSorted(){
 /* the couple of seconds right after a tap (PLANT_UNDO_TIMERS) is the one time the button shows
    something other than "log a watering" - an accidental tap is common (it's a small target
    sitting right where a card is otherwise all tap-to-open), so it turns into a plain "undo that"
-   button instead, then reverts back on its own once the window's passed. sm is used by the
-   Home widget's smaller chips (see dashPlantsWidgetHTML) - same behaviour, smaller button. */
+   button instead, then reverts back on its own once the window's passed. */
 let PLANT_UNDO_TIMERS = {};
 const PLANT_UNDO_MS = 5000;
-/* Home's chips (sm) keep the small icon-only circular button (.plant-water-btn); the full
-   Plants page card gets a bigger labelled button instead - "Watered" with the emoji
-   beside it, its own class (.plant-water-action-btn) since it's a different shape
-   entirely, not just a bigger version of the same button. */
-function plantWaterButtonHTML(p, sm, compact){
+function plantWaterButtonHTML(p, compact){
   const showUndo = !!PLANT_UNDO_TIMERS[p.id];
-  if(sm){
-    // no overdue/done border colour here - see .plant-water-btn.sm's own comment for why - but
-    // the icon itself still swaps to a checkmark once it's had enough water for now (not
-    // overdue), so Home's still glanceable without needing a colour cue. Still tappable either
-    // way - watering twice in a day is normal, not something to block.
-    if(showUndo) return `<button type="button" class="plant-water-btn sm undo" aria-label="Undo watering"
-          onclick="event.stopPropagation();App.plantUndoWater('${esc(p.id)}')">↩</button>`;
-    // a still-unplanted vegetable isn't overdue for water, it just hasn't started yet - tapping
-    // the shovel plants it (advances to Seed Sown) rather than logging a watering it can't have
-    // had yet, since there's nothing in the ground to water
-    if(p.stage===PLANT_STAGE_DEFAULT) return `<button type="button" class="plant-water-btn sm" aria-label="Mark as planted"
-          onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">🪏</button>`;
-    const enough = !plantOverdue(p);
-    return `<button type="button" class="plant-water-btn sm${enough?' checkmark':''}" aria-label="${enough?'Watered enough for now - log another watering':'Log watering'}"
-          onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')">${enough?'✅':'💧'}</button>`;
-  }
-  // same reasoning as the sm shovel above, just the full-page button shape - "Watered" makes no
-  // sense yet for something that isn't in the ground, so this replaces it with the same planting
-  // action instead of disabling a button whose whole label is wrong for this stage
+  // a still-unplanted vegetable isn't overdue for water, it just hasn't started yet - "Watered"
+  // makes no sense yet, so this replaces it with the planting action instead of disabling a
+  // button whose whole label is wrong for this stage
   if(p.stage===PLANT_STAGE_DEFAULT){
     return `<button type="button" class="plant-water-action-btn plant-mark-planted${compact?' compact':''}"
         onclick="event.stopPropagation();App.plantSetStage('${esc(p.id)}','${PLANT_STAGES[1].k}')">Mark as Planted<span class="plant-water-btn-emoji" aria-hidden="true">🪏</span></button>`;
@@ -7840,7 +7796,7 @@ function plantCardHTML(p){
           <div class="plant-name">${esc(p.name||'Untitled')}</div>
           <div class="plant-stage-label">${esc(plantStageStatusText(p))}</div>
         </div>
-        ${plantWaterButtonHTML(p, false, true)}
+        ${plantWaterButtonHTML(p, true)}
       </div>
     </div>`;
 }
@@ -8489,43 +8445,16 @@ function delPlantImpl(id){
     toast('Vegetable removed');
   });
 }
-/* Home shows every vegetable, not just the neediest one - each as its own small chip (emoji,
-   its own water button, a short last-watered timestamp) so watering can happen right from Home
-   without a trip to the Plants page. Reads DB.plants directly like Films' own Home tiles do, no
-   live fetch to wait on since plants are already loaded on-device by the time Home renders (the
-   fuller cloud sync happens if/when the Plants tab itself is opened). */
-function plantHomeChipHTML(p){
-  const href = '#/plant/'+encodeURIComponent(p.id);
-  const unplanted = p.stage===PLANT_STAGE_DEFAULT ? ' plant-unplanted' : '';
-  return `
-    <div class="plant-home-chip${unplanted}" role="button" tabindex="0" onclick="location.hash='${href}'"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
-      ${plantIconHTML(p, 'plant-home-emoji')}
-      ${plantWaterButtonHTML(p, true)}
-      <span class="plant-home-ts">${esc(plantWaterShortLabel(p))}</span>
-    </div>`;
-}
+/* a bare stat tile like the rest of the top row (see dashStatTileHTML) rather than a per-plant
+   chip grid - Home is a glance, not a watering console, so it just needs to say whether
+   anything is waiting for you on the Plants page or not. */
 function dashPlantsWidgetHTML(){
   const list = DB.plants||[];
-  if(!list.length) return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlants()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
-      <div class="dash-item-flags" aria-hidden="true">🥕</div>
-      <div class="dash-item-title">Start Growing</div>
-    </div>`;
-  // only the ones actually due right now - a full re-list of every vegetable regardless of
-  // whether it needs anything defeats the point of a Home widget you check at a glance
+  if(!list.length) return dashStatTileHTML('🥕', 'Start Growing', '', 'App.goPlants()');
   const due = plantsSorted().filter(p => p.stage!==PLANT_STAGE_DEFAULT && plantOverdue(p));
-  if(!due.length) return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goPlants()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goPlants()}">
-      <div class="dash-item-flags" aria-hidden="true">🌱</div>
-      <div class="dash-item-title">Completed</div>
-    </div>`;
-  return `
-    <div class="dash-widget plant-home-widget">
-      <div class="plant-home-grid">${due.map(plantHomeChipHTML).join('')}</div>
-    </div>`;
+  return due.length
+    ? dashStatTileHTML('💧', 'Watering Needed', '', 'App.goPlants()')
+    : dashStatTileHTML('🌱', 'Watering Done', '', 'App.goPlants()');
 }
 function drawDashPlantsSlot(){
   const slot = $('#dash-plants-slot'); if(slot) slot.innerHTML = dashPlantsWidgetHTML();
@@ -11063,32 +10992,14 @@ App.routeToggle = key => {
    map's DOM node each time, so this just makes a fresh Leaflet map every time it's called
    rather than trying to update one in place. */
 let ROUTE_MAP = null;
-function initRouteMap(t){
-  if(ROUTE_MAP){ try{ ROUTE_MAP.remove(); }catch(e){} ROUTE_MAP = null; }
-  const el = document.getElementById('route-map');
-  if(!el || typeof L === 'undefined') return;
-  const numbered = routeStops(t).filter(s=>!s.gap);
-  if(!numbered.length) return;
-  const map = L.map(el, {scrollWheelZoom:false}).setView([20,0], 2);
-  ROUTE_MAP = map;
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 20, subdomains: 'abcd',
-  }).addTo(map);
+/* the geocoding half of a route map, shared by the full Itinerary map (initRouteMap) and the
+   small preview on a Next Trip dashboard tile (initDashTripMap) - resolves each of a trip's
+   numbered stops to a lat/lon, from the shared WX_LIST_GEO cache where possible, calling
+   onUpdate(pins) every time a new one comes in (from cache synchronously, or async once a
+   geocode request returns) so the caller can redraw as pins arrive rather than waiting for all
+   of them. Returns the (initially all-null) pins array the caller's onUpdate reads from. */
+function resolveRouteStopPins(t, numbered, onUpdate){
   const pins = new Array(numbered.length).fill(null);
-  let layers = [];
-  const redraw = () => {
-    if(ROUTE_MAP !== map) return;   // a later render superseded this map already
-    layers.forEach(l=>map.removeLayer(l)); layers = [];
-    numbered.forEach((s,idx)=>{
-      const p = pins[idx]; if(!p) return;
-      const icon = L.divIcon({className:'', html:`<div class="route-map-pin">${idx+1}</div>`, iconSize:[26,26], iconAnchor:[13,13]});
-      layers.push(L.marker([p.lat,p.lon], {icon}).addTo(map));
-    });
-    const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
-    if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
-    if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
-  };
   numbered.forEach((s,idx)=>{
     /* the stop's own display name (accomCityName - already what heads the list below) goes
        first: it's usually the more specific of the two, since an address with no street/house
@@ -11109,12 +11020,67 @@ function initRouteMap(t){
     const cands = [...new Set([...countryQualified, s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())])];
     const listKey = cands.join('|');
     const known = WX_LIST_GEO[listKey];
-    if(known){ pins[idx] = known; redraw(); return; }
+    if(known){ pins[idx] = known; onUpdate(pins); return; }
     if(known === false) return;
     wxResolve(cands, geo=>{
       WX_LIST_GEO[listKey] = geo || false;
-      if(geo){ pins[idx] = geo; redraw(); }
+      if(geo){ pins[idx] = geo; onUpdate(pins); }
     });
+  });
+  return pins;
+}
+/* CartoDB now gates its Voyager tiles behind an API key even for light personal use - see
+   CARTO_API_KEY's own comment up in config. */
+function cartoTileUrl(){
+  return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+    + (CARTO_API_KEY ? '?api_key='+encodeURIComponent(CARTO_API_KEY) : '');
+}
+function initRouteMap(t){
+  if(ROUTE_MAP){ try{ ROUTE_MAP.remove(); }catch(e){} ROUTE_MAP = null; }
+  const el = document.getElementById('route-map');
+  if(!el || typeof L === 'undefined') return;
+  const numbered = routeStops(t).filter(s=>!s.gap);
+  if(!numbered.length) return;
+  const map = L.map(el, {scrollWheelZoom:false, attributionControl:false}).setView([20,0], 2);
+  ROUTE_MAP = map;
+  L.tileLayer(cartoTileUrl(), { maxZoom: 20, subdomains: 'abcd' }).addTo(map);
+  let layers = [];
+  const redraw = pins => {
+    if(ROUTE_MAP !== map) return;   // a later render superseded this map already
+    layers.forEach(l=>map.removeLayer(l)); layers = [];
+    numbered.forEach((s,idx)=>{
+      const p = pins[idx]; if(!p) return;
+      const icon = L.divIcon({className:'', html:`<div class="route-map-pin">${idx+1}</div>`, iconSize:[26,26], iconAnchor:[13,13]});
+      layers.push(L.marker([p.lat,p.lon], {icon}).addTo(map));
+    });
+    const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
+    if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
+    if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
+  };
+  resolveRouteStopPins(t, numbered, redraw);
+}
+/* the small, non-interactive map preview on a Next Trip dashboard tile - same pin-resolution as
+   the full Itinerary map, just plain dots instead of numbered pins and no zoom/drag controls,
+   since this is a glance-sized preview that hands off to the real map on tap. Runs after the
+   dashboard's own render (see renderDashboard), one call per visible trip tile. */
+function initDashTripMaps(){
+  document.querySelectorAll('.dash-trip-map[data-trip-id]').forEach(el=>{
+    if(typeof L === 'undefined') return;
+    const t = getTrip(el.dataset.tripId); if(!t) return;
+    const numbered = routeStops(t).filter(s=>!s.gap);
+    if(!numbered.length) return;
+    const map = L.map(el, {scrollWheelZoom:false, dragging:false, zoomControl:false,
+      attributionControl:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false}).setView([20,0], 2);
+    L.tileLayer(cartoTileUrl(), {maxZoom:20, subdomains:'abcd'}).addTo(map);
+    let layers = [];
+    const redraw = pins => {
+      layers.forEach(l=>map.removeLayer(l)); layers = [];
+      const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
+      pts.forEach(pt => layers.push(L.circleMarker(pt, {radius:5, color:'#fff', weight:2, fillColor:'#C1502E', fillOpacity:1}).addTo(map)));
+      if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:2, opacity:.7}).addTo(map));
+      if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[14,14], maxZoom:9});
+    };
+    resolveRouteStopPins(t, numbered, redraw);
   });
 }
 /* AI day summaries - the first time a day opens, its cards are sent to /ai-stop-summary
@@ -11740,9 +11706,13 @@ function logoSquare(domain, label, restoreText){
 function siteLogoFor(url, label, restoreText){
   try{ return logoSquare(new URL(url).hostname, label, restoreText); }catch(e){ return ''; }
 }
-function airlineLogoFor(name, restoreText){
-  const site = AIRLINE_SITES[name];
-  return site ? logoSquare(site, name, restoreText) : '';
+/* the airline's own name, in its own brand colour where known, instead of a favicon image -
+   works for every airline (not just the ones with a mapped site to fetch a favicon from), and
+   reads as a proper brand mark rather than a small, sometimes-blank logo square. */
+function airlineLogoFor(name){
+  if(!name) return '';
+  const color = AIRLINE_COLORS[name];
+  return `<span class="card-logo-text"${color?` style="color:${color}"`:''}>${esc(name)}</span>`;
 }
 function faviconFor(url){
   try{ const h = new URL(url).hostname; return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy">`; }
@@ -11791,16 +11761,16 @@ function bookingButtonStyle(url){
   const color = BOOKING_SERVICE_COLORS[detectBookingService(url)];
   return color ? ` style="background:${color};border-color:${color}"` : '';
 }
-/* Airbnb's favicon is a raster image with its own baked-in background square, and its baked-in
-   red doesn't quite match this app's #FF385C - two different shades of "Airbnb red" on the same
-   card. Font Awesome's own airbnb glyph has neither problem: it's a flat, backgroundless icon
-   that can be coloured to match exactly. The header logo gets that exact brand colour; the one
-   sitting on the button itself is left uncoloured so it inherits the button's own white text
-   colour instead, reading as part of the button rather than a separate red badge on top of it.
-   No other booking site has a Font Awesome brand glyph, so those keep their favicon as before. */
+/* the booking site's own name, in its own brand colour, instead of its favicon - a favicon's
+   raster image carries its own baked-in background square and a red/blue that doesn't quite
+   match this app's own BOOKING_SERVICE_COLORS value, so two different shades of "Airbnb red"
+   (say) could show up on the same card. Text sidesteps both problems at once, and works for
+   every recognised service, not just the one (Airbnb) with its own Font Awesome brand glyph.
+   Falls back to the old favicon for a booking link this app doesn't recognise at all. */
 function bookingLogoFor(url, label, restoreText){
-  return detectBookingService(url)==='Airbnb'
-    ? `<i class="icon card-logo-icon fa-brands fa-airbnb" style="color:${BOOKING_SERVICE_COLORS.Airbnb}" aria-label="${esc(label||restoreText||'Airbnb')}"></i>`
+  const service = detectBookingService(url);
+  return service
+    ? `<span class="card-logo-text" style="color:${BOOKING_SERVICE_COLORS[service]}">${esc(service)}</span>`
     : siteLogoFor(url, label, restoreText);
 }
 function bookingIconFor(url){
