@@ -728,6 +728,15 @@ a{color:var(--brand-dark);}
 .route-map-pin{width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   font-size:.78rem; font-weight:700; line-height:1; background:var(--brand); color:#fff; border:2px solid #fff;
   box-shadow:0 1px 4px rgba(0,0,0,.35);}
+/* the AI stop summary (aiSummaryHTML) - a tinted callout so it reads as an added extra sat
+   above the day-by-day cards, not just another card in the same list */
+.ai-summary{background:var(--brand-ghost); border:1px solid var(--brand-tint); border-radius:var(--radius);
+  padding:12px 14px; margin-bottom:16px;}
+.ai-summary p{margin:0; font-size:.92rem; line-height:1.45; color:var(--ink);}
+.ai-summary-loading{color:var(--muted); font-size:.88rem; display:flex; align-items:center; gap:7px;}
+.ai-summary-refresh{background:none; border:none; padding:6px 0 0; margin:0; color:var(--muted); font-size:.78rem;
+  display:flex; align-items:center; gap:5px; cursor:pointer;}
+.ai-summary-refresh:hover{color:var(--brand-dark);}
 /* Home shows every vegetable as its own small chip - emoji, its own water button (see
    plantWaterButtonHTML's sm variant), a short timestamp - rather than a single "most urgent
    one" summary, so watering can actually happen right from Home. A fixed 3 columns (not
@@ -1452,8 +1461,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.64';
+const APP_VERSION = '2.29.65';
 const CHANGELOG = [
+  {version:'2.29.65', notes:[
+    "Each stop on the Itinerary now opens with a short, AI-written summary above its day-by-day cards - a couple of tailored sentences pulling together what's booked and planned for that place, written the first time you open it and cached from then on (tap Regenerate if the plan there changes). Uses your own Anthropic API credits via the same shared proxy Music/Films already use; entirely optional and invisible if that's not set up - the day-by-day cards themselves are unaffected either way.",
+  ]},
   {version:'2.29.64', notes:[
     "Added a route map to the top of the Itinerary - a real, pannable map with a numbered pin for each booked stop, joined up in the order you visit them, so a multi-stop trip reads as a route rather than a list. Free, no API key: OpenStreetMap for the map itself, and the same place-lookup the weather forecast already uses to find a stay's coordinates, so it costs nothing extra to add.",
   ]},
@@ -9412,7 +9424,7 @@ function renderTab(t){
   if(CUR_TAB==='home')     el.innerHTML = tabHome(t,ro);
   if(CUR_TAB==='travel')   el.innerHTML = tabTravel(t,ro);
   if(CUR_TAB==='stay')     el.innerHTML = tabStay(t,ro);
-  if(CUR_TAB==='plan')   { el.innerHTML = tabPlan(t,ro); initWeather(t); initRouteMap(t); }
+  if(CUR_TAB==='plan')   { el.innerHTML = tabPlan(t,ro); initWeather(t); initRouteMap(t); initAiSummaries(t); }
   if(CUR_TAB==='docs')     el.innerHTML = tabDocs(t,ro);
   if(CUR_TAB==='money')    el.innerHTML = tabMoney(t,ro);
   if(CUR_TAB==='photos')   el.innerHTML = tabPhotos(t,ro);
@@ -10768,6 +10780,86 @@ function initRouteMap(t){
     });
   });
 }
+/* AI stop summaries - the first time a stop opens, its cards are sent to /ai-stop-summary
+   (Claude, via the same shared worker as PSN/Spotify/Letterboxd) which turns them into a
+   couple of tailored sentences shown above the day-by-day detail. Entirely optional: if the
+   worker's ANTHROPIC_API_KEY secret isn't set, the request 503s and the stop just shows its
+   cards as normal, same as every other feature this worker gates behind a missing secret. The
+   result is cached on the trip itself (t.aiSummaries[key]), so it rides along with cloud sync
+   and is only ever generated once per stop unless the ↻ next to it is tapped - opening a stop
+   you've already opened before costs nothing. PENDING/FAILED are per-page-load only (not
+   persisted): a failed attempt (worker unreachable, no key configured) is retried on the next
+   full reload, same as the map/weather's own geocode-miss caches. */
+let AI_SUMMARY_PENDING = new Set();
+let AI_SUMMARY_FAILED = new Set();
+function aiSummaryHTML(t, key, ro){
+  const cached = (t.aiSummaries||{})[key];
+  if(cached && cached.text){
+    return `<div class="ai-summary">
+      <p>${esc(cached.text)}</p>
+      ${ro?'':`<button type="button" class="ai-summary-refresh" onclick="App.aiRegenSummary('${key}')">${fa('rotate-right')} Regenerate</button>`}
+    </div>`;
+  }
+  if(ro || AI_SUMMARY_FAILED.has(key)) return '';
+  return `<div class="ai-summary ai-summary-loading">${fa('sparkles')} Writing a summary…</div>`;
+}
+async function aiRequestSummary(t, s, key){
+  AI_SUMMARY_PENDING.add(key);
+  AI_SUMMARY_FAILED.delete(key);
+  try{
+    const ac = t.accommodations[s.i];
+    const checkin = ac.checkin, checkout = ac.checkout || isoAddDays(checkin, 1);
+    const rangeKeys = keysForStopRange(t, hasRoughWhen(t), checkin, checkout);
+    const {groups} = planDayGroups(t);
+    const days = rangeKeys.map(k => ({
+      date: k,
+      items: (groups[k]||[]).map(itm => ({
+        label: itineraryItemLabel(itm),
+        time: itm.time || (itm.period && PLAN_PERIODS[itm.period] && PLAN_PERIODS[itm.period][0]) || '',
+      })),
+    }));
+    const res = await fetch(psnUrl('/ai-stop-summary'), {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({place: s.name, when: s.when, nights: s.nights, days}),
+    });
+    if(!res.ok) throw new Error('request failed');
+    const data = await res.json();
+    if(!data.summary) throw new Error('empty summary');
+    if(!t.aiSummaries) t.aiSummaries = {};
+    t.aiSummaries[key] = {text: data.summary, at: Date.now()};
+    AI_SUMMARY_PENDING.delete(key);
+    save();
+  }catch(e){
+    AI_SUMMARY_PENDING.delete(key);
+    AI_SUMMARY_FAILED.add(key);
+  }
+  if(CUR_TAB==='plan' && CUR_TRIP_ID===t.id) renderTab(t);
+}
+function maybeGenerateAiSummary(t, key){
+  if((t.aiSummaries||{})[key]) return;
+  if(AI_SUMMARY_PENDING.has(key) || AI_SUMMARY_FAILED.has(key)) return;
+  const i = +key.slice(5);
+  const s = routeStops(t).find(x => !x.gap && !x.journey && x.i===i);
+  if(s) aiRequestSummary(t, s, key);
+}
+/* called after every render of the Itinerary tab (same spot as initWeather/initRouteMap) -
+   scans for any stop that's currently open (ROUTE_OPEN) and doesn't have a summary yet,
+   whether it was just toggled open or was already open from before a tab switch */
+function initAiSummaries(t){
+  if(readOnly(t)) return;
+  routeStops(t).filter(s => !s.gap && !s.journey).forEach(s => {
+    const key = 'stay:'+s.i;
+    if(ROUTE_OPEN.has(key)) maybeGenerateAiSummary(t, key);
+  });
+}
+App.aiRegenSummary = key => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  if(t.aiSummaries) delete t.aiSummaries[key];
+  AI_SUMMARY_FAILED.delete(key);
+  const i = +key.slice(5);
+  const s = routeStops(t).find(x => !x.gap && !x.journey && x.i===i);
+  if(s) aiRequestSummary(t, s, key);
+};
 /* ================= TAB: itinerary (place-by-place, day-by-day inside each place) =================
    Built on the same read as the old Route tab - flights/ferries/car hire/accommodation, in
    date order - but each stop now opens into the full day-by-day detail for its own dates
@@ -10817,7 +10909,7 @@ function tabPlan(t, ro){
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
         </div>
         ${s.gap&&!ro?`<button class="btn primary sm" style="margin-top:8px" onclick="event.stopPropagation();App.accomGapForm('${s.checkin}','${s.checkout}')">+ Add Accommodation</button>`:''}
-        ${isOpen?`<div class="route-days" onclick="event.stopPropagation()">${planDaysHTML(t, ro, rangeKeys)}</div>`:''}
+        ${isOpen?`<div class="route-days" onclick="event.stopPropagation()">${s.gap?'':aiSummaryHTML(t, openKey, ro)}${planDaysHTML(t, ro, rangeKeys)}</div>`:''}
       </div>
     </div>`;
   };

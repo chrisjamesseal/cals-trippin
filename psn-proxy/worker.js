@@ -782,6 +782,60 @@ async function fetchBranchEarnings(env){
   };
 }
 
+/* ============================================================================================
+   AI stop summaries for the Itinerary - the app already shows every flight/stay/task as its
+   own card; this turns one stop's cards into a couple of tailored sentences via Anthropic's
+   Messages API, using the trip owner's own API credits. Entirely optional and stateless: no
+   trip data is stored here, nothing is cached server-side (the app caches the result itself,
+   on the trip, so the same stop is never paid for twice). If ANTHROPIC_API_KEY isn't set as a
+   Worker secret this just 503s, same as Spotify/Branch above when their secrets are missing -
+   the itinerary's own cards are unaffected either way, this is purely an added extra.
+   Requires ANTHROPIC_API_KEY as a Worker secret (`wrangler secret put ANTHROPIC_API_KEY`,
+   or the Cloudflare dashboard: Settings -> Variables and Secrets). Uses Haiku rather than a
+   larger model - a couple of sentences summarizing a short list of cards doesn't call for it,
+   and it's the trip owner's own spend on every stop opened for the first time. */
+const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
+async function fetchAiStopSummary(env, body){
+  if(!env.ANTHROPIC_API_KEY){
+    throw Object.assign(new Error("AI summaries aren't configured - add ANTHROPIC_API_KEY as a Worker secret"), {status:503});
+  }
+  const place = (body && body.place || '').trim();
+  if(!place) throw Object.assign(new Error('place is required'), {status:400});
+  const when = (body && body.when) || '';
+  const nights = (body && body.nights) || 0;
+  const days = (body && body.days) || [];
+  const dayLines = days.map(d => {
+    const items = (d.items||[]).map(i => `${i.time?i.time+' ':''}${i.label}`.trim()).join('; ');
+    return `${d.date}: ${items || 'nothing planned yet'}`;
+  }).join('\n');
+  const prompt = `You're writing a short, warm summary for a couple's trip-planning app. Here's one stop on their trip:\n\n`
+    + `Place: ${place}\nDates: ${when} (${nights} night${nights===1?'':'s'})\n\nDay-by-day plan:\n${dayLines}\n\n`
+    + `Write 1-2 short sentences (40 words or fewer) summarizing this stop in a friendly, natural tone. `
+    + `Mention the place and anything notable planned, but don't just list every item back. `
+    + `No preamble, no markdown, no quotation marks - plain text only.`;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 150,
+      messages: [{role: 'user', content: prompt}],
+    }),
+  });
+  if(!res.ok){
+    const errBody = await res.text().catch(() => '');
+    throw new Error('Anthropic API returned status ' + res.status + (errBody ? ': ' + errBody.slice(0, 300) : ''));
+  }
+  const data = await res.json();
+  const text = (data.content || []).map(b => b.text || '').join('').trim();
+  if(!text) throw new Error('Anthropic API returned an empty response');
+  return {summary: text};
+}
+
 export default {
   async fetch(request, env, ctx){
     if(request.method === 'OPTIONS') return new Response(null, {headers: corsHeaders(env)});
@@ -881,6 +935,10 @@ export default {
         const token = bearerFrom(request);
         if(!token) return json({error:'missing bearer token'}, 401, env);
         return json(await fetchSpotifyTopTracks(token, url.searchParams.get('time_range')), 200, env);
+      }
+      if(request.method === 'POST' && url.pathname === '/ai-stop-summary'){
+        const body = await request.json().catch(() => ({}));
+        return json(await fetchAiStopSummary(env, body), 200, env);
       }
       if(request.method === 'GET' && url.pathname === '/branch-earnings'){
         // personal financial data, changes through the day - not cached, and (see this
