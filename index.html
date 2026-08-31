@@ -1554,8 +1554,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.80';
+const APP_VERSION = '2.29.81';
 const CHANGELOG = [
+  {version:'2.29.81', notes:[
+    "Itinerary: a day where you're only checking out of somewhere (nothing checking in that same day) no longer wrongly reads as \"Travel to\" that place - it was picking up the \"Travel to\" verb from any other travel leg on the page happening to fall on the same day, even one headed somewhere else entirely, so a checkout day could read as arriving in the city you were actually leaving.",
+  ]},
   {version:'2.29.80', notes:[
     "Itinerary: a ferry added as a plain travel leg (not through the dedicated Ferries booking feature) now reads as the same quiet dashed one-liner as a train, bus, taxi, or driving yourself - \"Ferry to Saranda - leave by 14:00\" - instead of the full white card, which turned out to be the wrong reference; that heavier card is a flight's alone now.",
   ]},
@@ -10933,14 +10936,18 @@ function dayPlaceInfo(t, k, dayItems, rough){
   }
   let place = ac ? accomCityName(ac) : '';
   let flag = ac ? flagForPlace(t, ac.address) : '';
+  // a check-out-only day's place is where you're LEAVING, not arriving - only a check-in, or a
+  // travel leg supplying its own destination below, ever earns the "Travel to" verb; a same-day
+  // travel leg to somewhere else entirely used to flip this on regardless of what "place" was
+  let arriving = !!checkin;
   if(!place && journeyIn){
     const dest = journeyIn._autoFlight ? (airportName(journeyIn.f.to)||journeyIn.f.to)
       : journeyIn._autoFerry ? journeyIn.f.to
       : journeyIn._autoCar ? journeyIn.c.pickupLoc
       : journeyIn.to;
-    if(dest){ place = dest; flag = flagForPlace(t, dest); }
+    if(dest){ place = dest; flag = flagForPlace(t, dest); arriving = true; }
   }
-  return {place, flag, arriving: !!(checkin || journeyIn)};
+  return {place, flag, arriving};
 }
 /* the Itinerary's own day heading - a small "23rd September 2026" date line above a bold
    "Day 1 - Travel to 🇬🇷 Corfu" (dropping the verb once you're just staying somewhere rather
