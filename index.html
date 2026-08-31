@@ -657,6 +657,12 @@ a{color:var(--brand-dark);}
 .route-body{display:block; padding:14px 2px;}
 .route-body strong{display:block; font-weight:700; color:var(--ink); font-size:.95rem;}
 .route-body strong.text-undecided{color:#C0392B;}
+/* .head-with-logo (a card's own logo-plus-title header, also a <strong>) needs to stay the flex
+   row it's declared as elsewhere - the block rule just above outranks that on specificity alone
+   and was silently winning, so the logo and its title were never actually flex-centred against
+   each other despite the align-items/gap rules meant to do exactly that; they just sat on the
+   same inline baseline instead, gapless and with the text reading low against the logo. */
+.route-body .head-with-logo{display:flex;}
 /* the accordion header row - name/dates on the left, edit icon + chevron on the right, all on
    one line until it has to wrap */
 .route-head-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
@@ -679,7 +685,7 @@ a{color:var(--brand-dark);}
 .route-days .flight-strip{border:none; box-shadow:none; background:none; border-radius:0; margin-bottom:0;}
 .route-days .flight-head{background:none; border-bottom:none; padding:0 0 8px;}
 .route-days .flight-body,.route-days .accom-body{padding:0;}
-.route-days .card.plan-card:not(.gap-card){border:none; box-shadow:none; background:none; padding:0; margin-bottom:20px;}
+.route-days .card.plan-card:not(.gap-card):not(.plan-travel){border:none; box-shadow:none; background:none; padding:0; margin-bottom:20px;}
 /* a not-yet-booked flight/ferry/car/stay/travel leg inside a day's own detail keeps its box
    (same reasoning as .gap-card just above - it's a prompt to go fill something in, not a card
    already saying what it is), but reads with the page's own muted/paper tones instead of red:
@@ -734,6 +740,15 @@ a{color:var(--brand-dark);}
 .itin-action-btn.primary{background:var(--brand); color:#fff;}
 .itin-stay-dates{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:.9rem; color:var(--ink); margin-bottom:12px;}
 .itin-stay-dates .icon{color:var(--muted); margin-right:6px;}
+.itin-stay-dates .icon.fa-clock{margin-left:8px;}
+/* the gap pill sits right above the next card in the day with nothing else between them - every
+   other card in a day carries its own margin-bottom, this one didn't, so it read as glued to
+   whatever followed it (e.g. a "Check Out of X" pill straight after) */
+.route-days .itin-gap-pill{margin-bottom:20px;}
+/* the image below is full-bleed to the card's own edges; the body copy above it keeps the
+   card's normal text gutter everywhere else, but right against a photo that gutter reads as
+   the two being out of step, so it drops to flush with the image's own left edge instead */
+.plan-card-photo>p.plan-notes{padding-left:0; padding-right:0;}
 /* the connector between two cards in a day's timeline ("✈️ 3 Hours") and the plain white
    pill marking a moment rather than a booking ("21:10 🇬🇷 Arrive in Corfu", "Check Out of
    Palaiokastritsa") - see planConnectorHTML/autoFlightCard/autoStayCard */
@@ -1147,6 +1162,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    just doubled the edge into a messy ring around it */
 .card-logo{width:26px; height:26px; flex-shrink:0; border-radius:6px; object-fit:contain;
   transform:translateY(2px);}
+/* same footprint as .card-logo, but for a Font Awesome glyph standing in for a brand's favicon
+   image (see bookingLogoFor) - centred in the same box instead of filling it */
+.card-logo-icon{width:26px; height:26px; flex-shrink:0; display:inline-flex; align-items:center;
+  justify-content:center; font-size:20px; transform:translateY(2px);}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
 /* accommodation runs down the card rather than across it, but shares the flight card's
    strip/head shell so the two read as the same kind of thing on the Itinerary */
@@ -1532,8 +1551,15 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.76';
+const APP_VERSION = '2.29.78';
 const CHANGELOG = [
+  {version:'2.29.78', notes:[
+    "Itinerary: a flight/accommodation card's logo-plus-title header wasn't actually the flex row it was declared as - a broader rule meant for a card's own title was quietly overriding it back to block layout, so the gap between the logo and its text collapsed to nothing and the text sat low against the logo instead of centred on it. Fixed at the root, so it's corrected everywhere that header appears (Wizz Air's \"TIA → LGW\" included).",
+  ]},
+  {version:'2.29.77', notes:[
+    "Itinerary: a ferry-mode travel leg (e.g. \"Corfu → Saranda, Albania\") now gets the same boxed card as a flight or any other travel leg, instead of losing its box and reading as plain text. The \"Plan\" tag above a stop now carries that stop's own icon (a castle for a castle visit) instead of a generic map, and its body copy now sits flush with the photo below it instead of indented a step further in. The gap between the \"X Nights with No Accommodation\" pill and whatever follows it is no longer squashed to nothing.",
+    "Itinerary: the accommodation card's Airbnb icon is now a flat Font Awesome glyph instead of a favicon image with its own baked-in background and slightly-off red - one exact brand colour on the header logo, and the same glyph inherits the booking button's own white so it reads as part of the button rather than a mismatched badge sat on top of it. Added a touch of space before the Check In/Check Out clock icons.",
+  ]},
   {version:'2.29.76', notes:[
     "Itinerary: the flight/accommodation card's time and its logo+title now sit together on the left, instead of getting pushed to opposite corners of the row when there's no seats/nights chip to balance them out. The logo's own vertical alignment against that text is fixed too. Booking Reference now always stays on one line - it was wrapping onto its own line underneath the label.",
   ]},
@@ -10624,7 +10650,7 @@ function planDaysHTML(t, ro, filterKeys){
     const mapsUrl = ac.address ? googleMapsUrl(ac.address) : '';
     const nights = ac.checkin && ac.checkout
       ? Math.max(1, Math.round((new Date(ac.checkout+'T00:00:00')-new Date(ac.checkin+'T00:00:00'))/86400000)) : 0;
-    const logo = ac.bookingUrl ? siteLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : '';
+    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : '';
     const primaryTime = ac.arrivalTime || ac.checkinTime;
     return `
     <div class="flight-strip itin-flight">
@@ -10641,7 +10667,7 @@ function planDaysHTML(t, ro, filterKeys){
       ${ac.ref?`<div class="itin-ref">Booking Reference: <strong>${esc(ac.ref)}</strong></div>`:''}
       ${mapsUrl||ac.bookingUrl?`<div class="itin-actions">
         ${mapsUrl?`<a class="btn itin-action-btn" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${mapIcon(mapsUrl)} Google Maps</a>`:''}
-        ${ac.bookingUrl?`<a class="btn itin-action-btn primary" href="${esc(ac.bookingUrl)}" target="_blank" rel="noopener"${bookingButtonStyle(ac.bookingUrl)} onclick="event.stopPropagation()">${faviconFor(ac.bookingUrl)} View Details</a>`:''}
+        ${ac.bookingUrl?`<a class="btn itin-action-btn primary" href="${esc(ac.bookingUrl)}" target="_blank" rel="noopener"${bookingButtonStyle(ac.bookingUrl)} onclick="event.stopPropagation()">${bookingIconFor(ac.bookingUrl)} View Details</a>`:''}
       </div>`:''}
     </div>`;
   };
@@ -10732,7 +10758,7 @@ function planDaysHTML(t, ro, filterKeys){
         </div>
       </div>
       ${s.location && !s.mapsUrl ? `<div class="small accom-addr plan-meta-line" style="margin-bottom:10px">${secEmoji('📍')}<span>${esc(s.location)}</span></div>` : ''}
-      ${s.notes?`<p class="small" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
+      ${s.notes?`<p class="small plan-notes" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${hasImage ? `<div class="plan-img-wrap">
         <img class="plan-img" src="${s.image}" alt="${esc(s.name)}">
         ${mapBtnHTML('plan-img-map')}
@@ -10743,7 +10769,7 @@ function planDaysHTML(t, ro, filterKeys){
     // the same way an auto-generated card's own tag sits above it, rather than as a plain line
     // inside the card competing with the title for the same kind of weight
     return time
-      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji('🗺️'), 'Plan', time)}${card}</div>`
+      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), 'Plan', time)}${card}</div>`
       : card;
   };
   const taskCard = s => `
@@ -10784,7 +10810,7 @@ function planDaysHTML(t, ro, filterKeys){
     const editFn = `App.accomGapForm('${g.firstNight}','${g.checkout}')`;
     return `
       <div class="task-date">${esc(when)}</div>
-      <div class="task-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="${editFn}"
+      <div class="task-pill itin-gap-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="${editFn}"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${editFn}}"`}>
         <span class="task-pill-text">${secEmoji('🛏️')} <strong>${n} Night${n===1?'':'s'} with No Accommodation</strong></span>
         ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
@@ -11611,6 +11637,21 @@ const BOOKING_SERVICE_COLORS = {
 function bookingButtonStyle(url){
   const color = BOOKING_SERVICE_COLORS[detectBookingService(url)];
   return color ? ` style="background:${color};border-color:${color}"` : '';
+}
+/* Airbnb's favicon is a raster image with its own baked-in background square, and its baked-in
+   red doesn't quite match this app's #FF385C - two different shades of "Airbnb red" on the same
+   card. Font Awesome's own airbnb glyph has neither problem: it's a flat, backgroundless icon
+   that can be coloured to match exactly. The header logo gets that exact brand colour; the one
+   sitting on the button itself is left uncoloured so it inherits the button's own white text
+   colour instead, reading as part of the button rather than a separate red badge on top of it.
+   No other booking site has a Font Awesome brand glyph, so those keep their favicon as before. */
+function bookingLogoFor(url, label, restoreText){
+  return detectBookingService(url)==='Airbnb'
+    ? `<i class="icon card-logo-icon fa-brands fa-airbnb" style="color:${BOOKING_SERVICE_COLORS.Airbnb}" aria-label="${esc(label||restoreText||'Airbnb')}"></i>`
+    : siteLogoFor(url, label, restoreText);
+}
+function bookingIconFor(url){
+  return detectBookingService(url)==='Airbnb' ? fab('airbnb') : faviconFor(url);
 }
 /* just the place, for the Route tab - "Stay in Mount Martha" or "Airbnb in Lisbon" reads as
    "Mount Martha"/"Lisbon" there, the same way a flight reads "Melbourne" not "Flight to
