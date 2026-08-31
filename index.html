@@ -34,10 +34,8 @@
   --ink:#3A281F; --body-c:#5C463A; --muted:#8C7568;
   --line:#EDE0D3; --line-strong:#D9C4AE;
   --paper:#FFFBF6; --bg:#FBF2E8;
-  /* red/amber/green completion scale - same three colours Plants' own watering status
-     already uses (plant-water-status.red/.yellow/.green), reused here for any other
-     "how far along is this" percentage the app shows, so the same colour always means
-     the same thing wherever it shows up */
+  /* red/amber/green completion scale, used for any "how far along is this" percentage the
+     app shows, so the same colour always means the same thing wherever it shows up */
   --rag-red:#C0392B; --rag-yellow:#8A6402; --rag-green:#1F7A3D;
   --radius:4px; --radius-sm:4px;
   --page-top:12px; /* the gap above every page title, on top of .wrap's own top padding */
@@ -534,23 +532,7 @@ a{color:var(--brand-dark);}
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .plant-emoji.plant-icon-img{width:40px; height:40px; object-fit:cover; border-radius:8px;}
 .plant-name{font-family:var(--font-head); font-weight:700; font-size:1.14rem; color:var(--ink); overflow-wrap:anywhere;}
-/* the single most prominent thing on the card after the name (plantHealthBadgeHTML) - a filled
-   pill rather than plain coloured text, since this is meant to be read before anything else
-   below it, not just skimmed along with the rest. Same three colours the water-status chip and
-   button below it use, so nothing on the card can disagree about which state it's in. Sits at
-   the head row's right edge now there's a whole row to itself rather than stacked under the
-   name, so it's the first thing the eye lands on beside the name itself. */
-.plant-health-badge{display:inline-block; flex-shrink:0; padding:4px 12px; border-radius:20px; font-weight:700; font-size:.72rem;}
-.plant-health-badge.green{background:var(--brand-tint); color:#1F7A3D;}
-.plant-health-badge.yellow{background:#FDF2D9; color:#8A6402;}
-.plant-health-badge.red{background:#FCEBE9; color:#C0392B;}
 .plant-stage-label{color:var(--muted); font-size:.7rem; margin-top:1px;}
-/* water status + the sprout estimate side by side, wrapping to their own line on a narrow phone
-   rather than the card's forced-centered single column the old grid tile used */
-.plant-card-wide-stats{display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; margin-bottom:10px;}
-.plant-card-wide-tips{list-style:none; margin:10px 0 0; padding:10px 0 0; border-top:1px solid var(--line);
-  display:flex; flex-direction:column; gap:6px;}
-.plant-card-wide-tips li{display:flex; align-items:flex-start; gap:8px; font-size:.78rem; line-height:1.4; color:var(--ink);}
 /* the detail page's own picker (plantStagePickerHTML) - every stage gets its own labelled,
    full-width button, one per row, since this page has the room the compact grid card
    doesn't. Only the current stage is highlighted; the rest read as plain, equally tappable
@@ -560,15 +542,6 @@ a{color:var(--brand-dark);}
   border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--paper);
   cursor:pointer; padding:10px 14px; font:inherit; font-weight:600; font-size:.82rem; color:var(--ink);}
 .plant-stage-btn.on{border-color:var(--brand); background:var(--brand-tint); color:var(--brand);}
-/* the same red/amber/green verdict as the health badge above, phrased for water specifically
-   (plantWaterStatusHTML) - red reuses the badge's own red, green the water-drop blue #2E86DE
-   already used for the button's border throughout this page (moist soil, not "all clear", so it
-   doesn't borrow the badge's green). */
-.plant-water-status{font-size:.68rem; font-weight:700; margin-top:2px;}
-.plant-water-status.green{color:#2E86DE;}
-.plant-water-status.yellow{color:#8A6402;}
-.plant-water-status.red{color:#C0392B;}
-.plant-germ-label{color:var(--muted); font-size:.68rem; margin-top:1px;}
 /* the full Plants page card's own button - a name plus the water drop underneath it, rather
    than an icon-only circle, since there's room here and it reads more clearly than an emoji
    alone. Filled rather than outlined once there's something to actually do (overdue), so the
@@ -1555,10 +1528,10 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.72';
+const APP_VERSION = '2.29.73';
 const CHANGELOG = [
-  {version:'2.29.72', notes:[
-    "Plants grid card now matches the Figma design: icon, name and growth stage, and the water button all sit on the one row, the same as the mock - the button's own blue (actionable) and grey (already watered) now use the mock's exact colours too, not the app's own slightly darker blue. Everything the card already tracked beyond that (health badge, water status, germination countdown, care tips) is kept, just as a second row underneath rather than crowding the top one.",
+  {version:'2.29.73', notes:[
+    "Plants grid card now matches the Figma design exactly: icon, name and growth stage, and the water button, one row, nothing else - the health badge, water-status chip, germination countdown and care tips that used to fill out a second row are gone from this list (still there on a vegetable's own detail page, one tap away). The stats row above the list (Total Plants/Need Water/Germinating/Ready To Harvest) is gone too, and the Add button now reads \"+ New Vegetable\" to match the mock's own wording.",
   ]},
   {version:'2.29.71', notes:[
     "Itinerary flight/accommodation cards: real logos instead of emoji on the Google Maps and View Details buttons (Google's own icon, and the booking site's own favicon), and dropped the generic plane/pin emoji from the header whenever the airline or booking site's own logo is already sat right next to it - the two were reading as one thing said twice.",
@@ -4670,9 +4643,9 @@ function beenMapHTML(trips){
   </div>`;
 }
 
-/* four glanceable numbers above the Been list, same plain-tile grid Plants' own dashboard stats
-   use (see plantsDashboardStatsHTML) - purely informational, no destination to tap through to
-   since it's the exact same list right below. Reflects the full unfiltered Been list regardless
+/* four glanceable numbers above the Been list, a plain-tile grid - purely informational, no
+   destination to tap through to since it's the exact same list right below. Reflects the full
+   unfiltered Been list regardless
    of what's typed into the search box above it - a search narrowing the list shouldn't make "how
    many countries have I been to" appear to shrink too. Longest Trip only appears once at least
    one trip actually has both a start and end date to measure from. */
@@ -7495,22 +7468,6 @@ const PLANT_HEALTH_META = {
   yellow: {emoji:'🟡', label:'Check Today'},
   red: {emoji:'🔴', label:'Needs Water'},
 };
-/* the most prominent thing on the card after the name, per the redesign brief - a single glance
-   at colour + label should be enough to know whether this vegetable needs anything right now. */
-function plantHealthBadgeHTML(p){
-  const state = plantHealthState(p); if(!state) return '';
-  const m = PLANT_HEALTH_META[state];
-  return `<div class="plant-health-badge ${state}">${m.emoji} ${m.label}</div>`;
-}
-/* the same three-state verdict as the health badge, phrased for water specifically rather than
-   "the plant" generally - a short icon-led chip rather than the "Should feel dry/moist" prose
-   line this replaces, and now three states instead of two so there's a heads-up state instead of
-   jumping straight from "fine" to "overdue" with nothing in between. */
-function plantWaterStatusHTML(p){
-  const state = plantHealthState(p); if(!state) return '';
-  const text = state==='red' ? 'Water Needed' : state==='yellow' ? 'Check Today' : 'Soil Moist';
-  return `<div class="plant-water-status ${state}">💧 ${text}</div>`;
-}
 /* how many whole days a vegetable's been growing, preferring the edit form's own Planted date
    (p.plantedDate - the grower's actual answer to "when did you sow this") over guessing from the
    stage-change log, which only exists as a fallback for a plant that predates this reading it
@@ -7792,21 +7749,6 @@ function plantsSorted(){
     return (a.name||'').localeCompare(b.name||'');
   });
 }
-/* the four counts above the grid - purely informational (no destination to tap through to, it's
-   all the exact same list right below), so plain tiles rather than the app's usual clickable
-   dash-widget ones. Recomputed by drawPlantsGrid on every redraw, same as the grid itself, so
-   watering/adding/deleting a vegetable keeps these in sync automatically. */
-function plantsDashboardStatsHTML(){
-  const list = DB.plants||[];
-  const stats = [
-    ['🌱', list.length, 'Total Plants'],
-    ['💧', list.filter(p => plantHealthState(p)==='red').length, 'Need Water'],
-    ['⏳', list.filter(p => !!plantGerminationInfo(p)).length, 'Germinating'],
-    ['🌾', list.filter(p => plantStageKey(p.stage)==='ready').length, 'Ready To Harvest'],
-  ];
-  return `<div class="plants-stats">${stats.map(([icon,n,label]) => `
-    <div class="plants-stat-tile"><span class="plants-stat-icon" aria-hidden="true">${icon}</span><span class="plants-stat-text">${n} ${esc(label)}</span></div>`).join('')}</div>`;
-}
 /* the couple of seconds right after a tap (PLANT_UNDO_TIMERS) is the one time the button shows
    something other than "log a watering" - an accidental tap is common (it's a small target
    sitting right where a card is otherwise all tap-to-open), so it turns into a plain "undo that"
@@ -7867,17 +7809,14 @@ function plantWaterButtonHTML(p, sm, compact){
     : `<button type="button" class="${cls}"
         onclick="event.stopPropagation();App.plantWater('${esc(p.id)}')"><span class="plant-water-btn-text">${compact?'Watered Today':`I've Watered It`}${timeSuffix}</span>${compact?'':`<span class="plant-water-btn-emoji" aria-hidden="true">💧</span>`}</button>`;
 }
-/* the card, top to bottom: icon, name and its growth stage stacked next to it, and the water
-   button, all on the one head row - matching the Figma mock's own plain single-row card
-   exactly. The health badge, a water-status chip, a germination countdown and a few of the
-   same care tips the detail page's own checklist shows follow underneath, kept rather than
-   dropped (per your call to keep the page's existing depth) but as secondary content below the
-   row that has to read the same as the mock at a glance. */
+/* the grid card, exactly the Figma mock's own layout and nothing past it: icon, name and its
+   growth stage, and the water button, one row. The health badge, water-status chip,
+   germination countdown and care tips this card used to also carry are still there for a
+   vegetable that has them - on its own detail page (App.plantForm's own view), one tap away -
+   just not on this list any more, so the list itself reads exactly like the mock. */
 function plantCardHTML(p){
   const href = '#/plant/'+encodeURIComponent(p.id);
   const unplanted = p.stage===PLANT_STAGE_DEFAULT;
-  const g = plantGerminationInfo(p);
-  const tips = unplanted ? [] : plantCareTips(plantCareDataFor(p)).slice(0,3);
   return `
     <div class="card plant-card-wide${unplanted?' plant-unplanted':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
@@ -7889,12 +7828,6 @@ function plantCardHTML(p){
         </div>
         ${plantWaterButtonHTML(p, false, true)}
       </div>
-      ${!unplanted ? `<div class="plant-card-wide-stats">
-        ${plantHealthBadgeHTML(p)}
-        ${plantWaterStatusHTML(p)}
-        ${g ? `<div class="plant-germ-label">⏳ Day ${g.day} &middot; ${g.min} to ${g.max} days to sprout</div>` : ''}
-      </div>` : ''}
-      ${tips.length ? `<ul class="plant-card-wide-tips">${tips.map(t=>`<li><span aria-hidden="true">${t.icon}</span>${esc(t.text)}</li>`).join('')}</ul>` : ''}
     </div>`;
 }
 function drawPlantsGrid(){
@@ -7903,17 +7836,18 @@ function drawPlantsGrid(){
   grid.innerHTML = list.length
     ? `<div class="plants-list">${list.map(plantCardHTML).join('')}</div>`
     : `<div class="empty" style="margin-top:40px">No Vegetables Yet<br><span class="muted small">Add one to start tracking its growth and watering.</span></div>`;
-  const statsRoot = $('#plants-stats'); if(statsRoot) statsRoot.innerHTML = plantsDashboardStatsHTML();
 }
+/* no stats row above the grid any more - the Figma mock's own Plants page goes straight from
+   the title into the list, so this does too now. The counts it used to show (total/need water/
+   germinating/ready to harvest) are still true of the data, just not spelled out here. */
 function renderPlants(){
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Plants</span>
-        <button class="btn sm primary" onclick="App.plantForm()">+ Add Vegetable</button>
+        <button class="btn sm primary" onclick="App.plantForm()">+ New Vegetable</button>
       </div>
     </div>
-    <div id="plants-stats"></div>
     <div id="plants-grid"></div>`;
   drawPlantsGrid();
   loadPlantsCloud(cloud => {
@@ -7992,8 +7926,7 @@ function plantCombinedTimelineHTML(p){
     </details>
     ${plantTimelineHTML(p)}`;
 }
-/* the card keeps this to a single icon+word chip (plantWaterStatusHTML) - full sentences live
-   here instead, one labelled row per known growing condition, only for a vegetable this app
+/* full sentences, one labelled row per known growing condition, only for a vegetable this app
    actually has care data for (see PLANT_CARE_DATA). Nothing shown for a vegetable with none,
    rather than guessing at conditions nobody's supplied. */
 /* setup decisions (spacing, pot size) are dropped entirely here, not just de-emphasised - by the
