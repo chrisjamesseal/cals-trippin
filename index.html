@@ -1551,8 +1551,11 @@ const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.70';
+const APP_VERSION = '2.29.71';
 const CHANGELOG = [
+  {version:'2.29.71', notes:[
+    "Itinerary flight/accommodation cards: real logos instead of emoji on the Google Maps and View Details buttons (Google's own icon, and the booking site's own favicon), and dropped the generic plane/pin emoji from the header whenever the airline or booking site's own logo is already sat right next to it - the two were reading as one thing said twice.",
+  ]},
   {version:'2.29.70', notes:[
     "Tasks now reads the same way the Itinerary does: a plain dashed pill per outstanding thing (a not-booked flight/ferry/car/stay, an empty Itinerary day, a run of unbooked nights), its date above it, tapping it straight into the real form for whatever it is. A run of unbooked nights now names the place it's still in (\"Accommodation in Corfu\") rather than just a night count.",
     "Fixed the route map only ever placing one of several stops: a bare town name (especially a locally-spelled one, like \"Kerkira\" for Corfu) is often too ambiguous for the geocoder on its own - it's now tried qualified with each of the trip's own countries first, which resolves far more of them.",
@@ -10739,7 +10742,7 @@ function planDaysHTML(t, ro, filterKeys){
     <div class="flight-strip itin-flight">
       <div class="flight-head">
         <span class="itin-time">${f.depTime?esc(f.depTime):''}</span>
-        <strong class="head-with-logo">${logo}<span>${secEmoji('✈️')} ${esc(f.from||'?')} → ${esc(f.to||'?')}</span></strong>
+        <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(f.from||'?')} → ${esc(f.to||'?')}</span></strong>
         ${f.seats?`<span class="itin-seats">${esc(f.seats)}</span>`:''}
       </div>
       <div class="itin-route-name">${esc(fromName)} → ${esc(toName)}</div>
@@ -10789,7 +10792,7 @@ function planDaysHTML(t, ro, filterKeys){
     <div class="flight-strip itin-flight">
       <div class="flight-head">
         <span class="itin-time">${primaryTime?esc(primaryTime):''}</span>
-        <strong class="head-with-logo">${logo}<span>${secEmoji('📍')} ${esc(accomCityName(ac))}</span></strong>
+        <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('📍')+' '}${esc(accomCityName(ac))}</span></strong>
         ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
       </div>
       ${ac.address?`<div class="itin-route-name">${esc(ac.address)}</div>`:''}
@@ -10799,8 +10802,8 @@ function planDaysHTML(t, ro, filterKeys){
       </div>`:''}
       ${ac.ref?`<div class="itin-ref">Booking Reference: <strong>${esc(ac.ref)}</strong></div>`:''}
       ${mapsUrl||ac.bookingUrl?`<div class="itin-actions">
-        ${mapsUrl?`<a class="btn itin-action-btn" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('📍')} Google Maps</a>`:''}
-        ${ac.bookingUrl?`<a class="btn itin-action-btn primary" href="${esc(ac.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${secEmoji('❤️')} View Details</a>`:''}
+        ${mapsUrl?`<a class="btn itin-action-btn" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${mapIcon(mapsUrl)} Google Maps</a>`:''}
+        ${ac.bookingUrl?`<a class="btn itin-action-btn primary" href="${esc(ac.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${faviconFor(ac.bookingUrl)} View Details</a>`:''}
       </div>`:''}
     </div>`;
   };
