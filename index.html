@@ -985,10 +985,11 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    just reads as a stray/broken icon rather than anything intentional. */
 input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button{display:none !important;}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
-/* a field hidden by the "Not Booked Yet?" toggle (see undecidedFieldHTML) - collapses to
-   nothing rather than leaving a gap, and lets its .grid2 row's other field take the full row */
-.hide-undecided{display:none;}
-.grid2:has(>.hide-undecided){grid-template-columns:1fr;}
+/* a field faded by the "Not Booked Yet?" toggle (see undecidedFieldHTML) - a detail a
+   booking itself would tell you (an airline, a seat, a booking ref) rather than a plan
+   decision you'd already have made, so it reads as not-yet-relevant without disappearing:
+   still there, still fillable if you happen to know it early, just visually backed off */
+.undecided-fade{opacity:.4; transition:opacity .15s ease;}
 .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
 @media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr;}}
 /* two halves of one value (hours + minutes, a time) read as a pair, so they stay side by
@@ -1445,6 +1446,12 @@ body.kb-open .tabbar.on{display:none;}
 .plan-day{margin:40px 0 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .plan-day:first-child{margin-top:4px;}
 .wx-chip{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
+/* the Today pill and weather chip that can trail a day heading - grouped so they always sit
+   the same distance from the heading text and from each other, and vertical-align:middle so
+   two pills of slightly different heights (see .status-pill vs .wx-chip's own padding/font-size)
+   still line up against the heading's own text instead of sitting low against its baseline */
+.plan-day-badges{display:inline-flex; align-items:center; gap:8px; margin-left:8px; vertical-align:middle;}
+.plan-day-badges .status-pill, .plan-day-badges .wx-chip{vertical-align:middle;}
 .wx-emoji{font-size:.9rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 /* a touch more room between cards than elsewhere, same reasoning as the day gap above */
@@ -1619,8 +1626,15 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.95';
+const APP_VERSION = '2.29.96';
 const CHANGELOG = [
+  {version:'2.29.96', notes:[
+    "A booked travel leg's own connector line (taxi, train, bus, drive, walk) now reads as time - icon - duration - destination (\"14:00 - 🚆 2 Hours to London Gatwick\") - the icon already says which mode it is, so the line no longer repeats it in words too once there's a duration to show instead. Every other leading-time line on the Itinerary (a flight's Arrive pill, an accommodation's Check Out pill, a Tasks row) now uses the same \"HH:MM - \" formatting for consistency.",
+    "\"Not Booked Yet?\" now fades out the fields a booking itself would tell you (an airline, a company, a booking ref, a boarding pass/document) instead of the flight form's old hide-it-entirely behaviour - live as you toggle it, extended to the Ferry, Car Hire and Accommodation forms too, which never had this before.",
+    "Removed \"Shows dashed here and lists it in Tasks, until you've booked it.\" from under the Not Booked Yet toggle.",
+    "Fixed the Today pill and weather chip on a day heading sitting flush against the heading text and each other, and not lining up against it - grouped with consistent spacing and vertical alignment now.",
+    "The Car Hire card on the Itinerary now matches the Accommodation card's own rich style - a real white card, calendar/clock rows for pick-up and drop-off, and a Google Maps link - instead of the older plain flat text.",
+  ]},
   {version:'2.29.95', notes:[
     "Every trip tab (Tasks, Travel, Accommodation, Ideas, Packing, Polls, Money, Photos, Docs & Links, Notes, Contacts) now keeps its mobile-width column on desktop too, centred with room either side, the same treatment the Itinerary already had - only Overview keeps the wide 3-column layout, since its stat tiles actually want the extra width.",
     "Fixed the Itinerary's day-heading divider showing doubled-up on a collapsed day - it only shows now while that day's actually open, since a collapsed day already has its own divider from the row below it.",
@@ -10044,7 +10058,7 @@ function undecidedItemsHTML(t, ro){
       ${r.dateLine?`<div class="task-date">${esc(r.dateLine)}</div>`:''}
       <div class="task-pill${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
-        <span class="task-pill-text">${r.time?`<span class="task-pill-time">${esc(r.time)} </span>`:''}${r.icon?r.icon+' ':''}<strong${r.undecided?' class="text-undecided"':''}>${r.title}</strong></span>
+        <span class="task-pill-text">${r.time?`<span class="task-pill-time">${esc(r.time)} -</span> `:''}${r.icon?r.icon+' ':''}<strong${r.undecided?' class="text-undecided"':''}>${r.title}</strong></span>
         ${!ro?`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`:''}
       </div>
     </div>`}));
@@ -10580,17 +10594,16 @@ function whenOptionsHTML(initWhen){
    outstanding rather than a real plan), and it shows in Tasks too - not as a separate stored
    record, just this same item read straight out of its own array, so editing or deleting it
    in either place is editing or deleting the one thing, nothing to keep in sync. */
-/* hideClass, when given, is a class shared by whichever fields don't make sense before there's
-   an actual booking (an airline, a departure time) - ticking the toggle hides them live, since
-   nothing else re-renders the form to pick that up. Fields that stay meaningful either way (the
-   date, the route) aren't marked with it and stay put. */
-function undecidedFieldHTML(id, checked, hideClass){
-  const onchange = hideClass ? ` onchange="document.querySelectorAll('.${hideClass}').forEach(el=>el.classList.toggle('hide-undecided',this.checked))"` : '';
+/* fadeClass, when given, is a class shared by whichever fields don't make sense before there's
+   an actual booking (an airline, a booking ref, a boarding pass) - ticking the toggle fades
+   them live, since nothing else re-renders the form to pick that up. Fields that stay
+   meaningful either way (the date, the route) aren't marked with it and stay put. */
+function undecidedFieldHTML(id, checked, fadeClass){
+  const onchange = fadeClass ? ` onchange="document.querySelectorAll('.${fadeClass}').forEach(el=>el.classList.toggle('undecided-fade',this.checked))"` : '';
   return `<div class="field">
     <label class="switch-row"><span>🎫 Not Booked Yet?</span>
       <span class="switch"><input type="checkbox" id="${id}" ${checked?'checked':''}${onchange}><span class="knob"></span></span>
     </label>
-    <p class="muted small" style="margin-top:4px">Shows dashed here and lists it in Tasks, until you've booked it.</p>
   </div>`;
 }
 const TRAVEL_MODES = {
@@ -10892,7 +10905,7 @@ function planDaysHTML(t, ro, filterKeys){
       ${itinFlightCardHTML(s)}
     </div>
     ${!s.f.undecided?planConnectorHTML(dur, ICONS.flight):''}
-    ${!s.f.undecided && s.f.to?`<div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>${s.f.arrTime?`<span class="plan-arrive-time">${esc(s.f.arrTime)}</span> `:''}${arriveFlag?arriveFlag+' ':''}Arrive in ${esc(toName)}</div>`:''}`;
+    ${!s.f.undecided && s.f.to?`<div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>${s.f.arrTime?`<span class="plan-arrive-time">${esc(s.f.arrTime)} -</span> `:''}${arriveFlag?arriveFlag+' ':''}Arrive in ${esc(toName)}</div>`:''}`;
   };
   const autoFerryCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.ferryForm(${s.fi})`)}>
@@ -10945,7 +10958,7 @@ function planDaysHTML(t, ro, filterKeys){
     }
     // check-out day, for a stay that started on an earlier day already showing its own card
     return `
-    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)}</span> `:''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac))}</div>`;
+    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac))}</div>`;
   };
   /* A flight is a booked thing with a time you have to make, so it earns a card. Everything
      else - a ferry, a train, a bus, a taxi, driving yourself - is not that: you turn up and go,
@@ -10973,22 +10986,23 @@ function planDaysHTML(t, ro, filterKeys){
       // "✈️ 3 Hours") rather than its own dashed, bordered box - still tappable straight through
       // to the edit form, just without a card's visual weight for something this quick to add
       const dur = s.durationH||s.durationM ? (s.durationH||0)*60+(s.durationM||0) : null;
-      /* named by how you're getting there rather than by both ends: "Bus to Kassiopi" is what
-         you'd say, where "Corfu Town → Kassiopi" is a timetable entry. A duration, when there
-         is one, reads straight into that same line ("45 minutes taxi to Airbnb") rather than as
-         its own line underneath - the exact figure that was typed in, not the connector row's
-         rounded-to-the-hour phrasing (a 45-minute taxi isn't "1 Hour"). */
+      /* the exact figure that was typed in, not the connector row's rounded-to-the-hour
+         phrasing (a 45-minute taxi isn't "1 Hour") - and once there's a duration, the icon's
+         already saying which mode this is, so the line reads as just the duration and
+         destination ("2 Hours to London Gatwick") rather than repeating the mode in words too.
+         Only falls back to naming the mode ("Bus to Kassiopi") when there's no duration typed
+         in yet for the icon to stand in for. */
       const modeUndecided = !s.mode || s.mode==='undecided';
       const durWords = exactDurationWords(dur);
-      const way = durWords ? (s.mode==='walk' ? 'walk' : mode.label.toLowerCase()) : (s.mode==='walk' ? 'Walk' : mode.label);
-      const wayPrefixed = durWords ? `${durWords} ${way}` : way;
+      const durWordsCap = durWords.replace(/\b(hour|hours|minute|minutes)\b/g, w => w[0].toUpperCase()+w.slice(1));
+      const way = durWordsCap || mode.label;
       const line = modeUndecided
                  ? (s.to ? `Travel to ${esc(s.to)} not decided` : 'Travel not decided')
-                 : s.to ? `${wayPrefixed} to ${esc(s.to)}`
-                 : s.from ? `${wayPrefixed} from ${esc(s.from)}`
-                 : wayPrefixed;
+                 : s.to ? `${way} to ${esc(s.to)}`
+                 : s.from ? `${way} from ${esc(s.from)}`
+                 : way;
       return `
-      <div class="plan-connector${s.notBooked?' text-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${mode.icon} ${line}</div>`;
+      <div class="plan-connector${s.notBooked?' text-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}</div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -11650,7 +11664,7 @@ function tabPlan(t, ro){
         <div class="route-head-row${isOpen?' open':''}">
           <div style="min-width:0">
             ${dateLine?`<div class="muted small">${esc(dateLine)}</div>`:''}
-            <strong>${headingHTML}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</strong>
+            <strong>${headingHTML}${(k===todayKey||(k&&!rough))?`<span class="plan-day-badges">${k===todayKey?`<span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</span>`:''}</strong>
           </div>
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
         </div>
@@ -12199,18 +12213,30 @@ function carStripHTML(c, i, actionsHTML){
       </div>
     </div>`;
   }
+  // matches the Itinerary's other rich cards (itinAccomCardHTML) for consistency - a real
+  // bordered white card (.itin-flight) instead of the plain flat text .route-days otherwise
+  // strips every .flight-strip down to (see the CSS comment above .route-days .itin-flight),
+  // pick-up/drop-off as their own calendar/clock rows the same way a stay's check-in/check-out
+  // are, and a Google Maps link for the pick-up spot - the one a traveller actually needs to
+  // navigate to that day, same as an accommodation's own Maps button.
+  const mapsUrl = c.pickupLoc ? googleMapsUrl(c.pickupLoc) : '';
   return `
-    <div class="flight-strip">
+    <div class="flight-strip itin-flight">
       <div class="flight-head">
-        <strong${!c.company?' class="text-undecided"':''}>${!c.company?'❓ ':''}${esc(c.company||'Car hire')}</strong>
-        <span class="btn-row" style="align-items:center" onclick="event.stopPropagation()">${actionsHTML||''}</span>
+        <strong class="head-with-logo">${secEmoji('🚗')}<span${!c.company?' class="text-undecided"':''}>${!c.company?'❓ ':''}${esc(c.company||'Car Hire')}</span></strong>
       </div>
-      <div class="flight-body loc-stack">
-        ${addrRow(c.pickupLoc, pickWhen)}
-        <div class="loc-arrow-down">${fa('arrow-down')}</div>
-        ${addrRow(c.dropoffLoc||c.pickupLoc, dropWhen)}
+      <div class="itin-route-name">${esc(c.pickupLoc||'?')} → ${esc(c.dropoffLoc||c.pickupLoc||'?')}</div>
+      <div class="itin-stay-dates">
+        ${c.pickupDate?`<span>${ICONS.calendar}${esc(fmtDateOrdinal(c.pickupDate))}${c.pickupTime?` ${fa('clock')}Pick Up: ${esc(c.pickupTime)}`:''}</span>`:''}
+        ${c.dropoffDate?`<span>to ${ICONS.calendar}${esc(fmtDateOrdinal(c.dropoffDate))}${c.dropoffTime?` ${fa('clock')}Drop Off: ${esc(c.dropoffTime)}`:''}</span>`:''}
       </div>
-      ${(c.ref||c.note||c.doc)?`<div class="flight-meta">${c.ref?`<span>Ref <strong>${esc(c.ref)}</strong></span>`:''}${c.note?`<span>${esc(c.note)}</span>`:''}${travelDocLink('carHire',i,c.doc)}</div>`:''}
+      ${c.ref?`<div class="itin-ref">Booking Reference: <strong>${esc(c.ref)}</strong></div>`:''}
+      ${c.note?`<p class="small muted" style="margin:-6px 0 12px">${esc(c.note)}</p>`:''}
+      ${mapsUrl||c.doc||actionsHTML?`<div class="itin-actions" onclick="event.stopPropagation()">
+        ${mapsUrl?`<a class="btn itin-action-btn" href="${mapsUrl}" target="_blank" rel="noopener">${mapIcon(mapsUrl)} Google Maps</a>`:''}
+        ${c.doc?travelDocLink('carHire',i,c.doc):''}
+        ${actionsHTML?`<div class="btn-row" style="justify-content:flex-end">${actionsHTML}</div>`:''}
+      </div>`:''}
     </div>`;
 }
 function tabTravel(t, ro){
@@ -12597,8 +12623,11 @@ App.attachDoc = input => {
     downscaleToDataURL(file, 1800, 0.85, dataUrl => { FORM_DOC = {name:file.name, kind:'img', size:dataUrl?Math.round(dataUrl.length*.75):0, dataUrl}; paintDocStatus(); });
   }
 };
-function attachField(){
-  return `<div class="field"><label class="label">Boarding pass / document</label>
+// fadeClass/checked: there's no document/boarding pass to attach before a booking exists, so
+// this fades along with whichever other fields the form marks unknowable-until-booked (see
+// undecidedFieldHTML) - callers with no such toggle (or nothing to fade) just omit both
+function attachField(fadeClass, checked){
+  return `<div class="field${fadeClass?' '+fadeClass+(checked?' undecided-fade':''):''}"><label class="label">Boarding pass / document</label>
     <div id="doc-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">${docStatusHTML()}</div>
     <label class="btn sm" style="cursor:pointer">${ICONS.upload} ${FORM_DOC?'Replace file':'Attach file'}<input type="file" accept="application/pdf,image/*" style="display:none" onchange="App.attachDoc(this)"></label></div>`;
 }
@@ -12646,9 +12675,9 @@ App.flightForm = i => {
   const inc = f.includes || [];
   openModal(`
     <h2>${i>=0?'Edit Flight':'Add Flight'}</h2>
-    ${undecidedFieldHTML('fl-undecided', f.undecided, 'fl-hide-undecided')}
+    ${undecidedFieldHTML('fl-undecided', f.undecided, 'fl-fade-undecided')}
     <div class="grid2">
-      <div class="fl-hide-undecided${f.undecided?' hide-undecided':''}">${airlineFieldHTML('fl-air', f.airline)}</div>
+      <div class="fl-fade-undecided${f.undecided?' undecided-fade':''}">${airlineFieldHTML('fl-air', f.airline)}</div>
       <div class="field"><label class="label">Flight no.</label><input id="fl-no" type="text" value="${esc(f.flightNo||'')}" placeholder="BA432"></div>
     </div>
     <div class="field"><label class="label">Date</label><input id="fl-date" type="date" value="${esc(f.date||todayStr())}"></div>
@@ -12657,18 +12686,18 @@ App.flightForm = i => {
       <div class="field"><label class="label">To (airport)</label><input id="fl-to" type="text" list="airport-list" value="${esc(airportInputVal(f.to))}" placeholder="Start typing a city or code"></div>
     </div>
     ${airportDatalist()}
-    <div class="grid2 fl-hide-undecided${f.undecided?' hide-undecided':''}">
+    <div class="grid2 fl-fade-undecided${f.undecided?' undecided-fade':''}">
       <div class="field"><label class="label">Departs</label><input id="fl-dep" type="time" value="${esc(f.depTime||'')}"></div>
       <div class="field"><label class="label">Arrives</label><input id="fl-arr" type="time" value="${esc(f.arrTime||'')}"></div>
     </div>
-    <div class="grid2">
+    <div class="grid2 fl-fade-undecided${f.undecided?' undecided-fade':''}">
       <div class="field"><label class="label">Booking ref</label><input id="fl-ref" type="text" value="${esc(f.ref||'')}"></div>
       <div class="field"><label class="label">Seat(s)</label><input id="fl-seats" type="text" value="${esc(f.seats||'')}" placeholder="e.g. 23B / 32E"></div>
     </div>
     <div class="field"><label class="label">Included with the ticket</label>
       <div class="chips">${FLIGHT_INCLUDES.map(x=>`<label class="chip pick ${inc.includes(x)?'on':''}" style="cursor:pointer"><input type="checkbox" class="fl-inc" value="${esc(x)}" ${inc.includes(x)?'checked':''} style="display:none" onchange="this.closest('.chip').classList.toggle('on',this.checked)">${esc(x)}</label>`).join('')}</div>
     </div>
-    ${attachField()}
+    ${attachField('fl-fade-undecided', f.undecided)}
     <div class="modal-actions">
       <button class="btn primary" style="width:100%" onclick="App.saveFlight(${i})">Save Flight</button>
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteFlightFromForm(${i})">Delete Flight</button>`:''}
@@ -12714,20 +12743,20 @@ App.ferryForm = i => {
   FORM_DOC = (i>=0 && t.ferries[i] && t.ferries[i].doc) || null;
   openModal(`
     <h2>${i>=0?'Edit Ferry':'Add Ferry'}</h2>
-    ${undecidedFieldHTML('fy-undecided', f.undecided)}
-    <div class="field"><label class="label">Operator</label><input id="fy-op" type="text" value="${esc(f.operator||'')}" placeholder="e.g. Blue Star Ferries"></div>
+    ${undecidedFieldHTML('fy-undecided', f.undecided, 'fy-fade-undecided')}
+    <div class="field fy-fade-undecided${f.undecided?' undecided-fade':''}"><label class="label">Operator</label><input id="fy-op" type="text" value="${esc(f.operator||'')}" placeholder="e.g. Blue Star Ferries"></div>
     <div class="grid3">
       <div class="field"><label class="label">Date</label><input id="fy-date" type="date" value="${esc(f.date||todayStr())}"></div>
       <div class="field"><label class="label">From (port)</label><input id="fy-from" type="text" value="${esc(f.from||'')}" placeholder="Corfu"></div>
       <div class="field"><label class="label">To (port)</label><input id="fy-to" type="text" value="${esc(f.to||'')}" placeholder="Saranda"></div>
     </div>
-    <div class="grid3">
+    <div class="grid3 fy-fade-undecided${f.undecided?' undecided-fade':''}">
       <div class="field"><label class="label">Departs</label><input id="fy-dep" type="time" value="${esc(f.depTime||'')}"></div>
       <div class="field"><label class="label">Arrives</label><input id="fy-arr" type="time" value="${esc(f.arrTime||'')}"></div>
       <div class="field"><label class="label">Booking ref</label><input id="fy-ref" type="text" value="${esc(f.ref||'')}"></div>
     </div>
     <div class="field"><label class="label">Note</label><input id="fy-note" type="text" value="${esc(f.note||'')}" placeholder="Foot passenger? Vehicle?"></div>
-    ${attachField()}
+    ${attachField('fy-fade-undecided', f.undecided)}
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveFerry(${i})">Save Ferry</button></div>`, {autofocus:false});
 };
 App.saveFerry = i => {
@@ -12766,23 +12795,23 @@ App.carForm = i => {
   FORM_DOC = (i>=0 && t.carHire[i] && t.carHire[i].doc) || null;
   openModal(`
     <h2>${i>=0?'Edit Car Hire':'Add Car Hire'}</h2>
-    ${undecidedFieldHTML('cr-undecided', c.undecided)}
-    <div class="field"><label class="label">Company</label><input id="cr-co" type="text" value="${esc(c.company||'')}" placeholder="e.g. Hertz"></div>
+    ${undecidedFieldHTML('cr-undecided', c.undecided, 'cr-fade-undecided')}
+    <div class="field cr-fade-undecided${c.undecided?' undecided-fade':''}"><label class="label">Company</label><input id="cr-co" type="text" value="${esc(c.company||'')}" placeholder="e.g. Hertz"></div>
     <div class="field"><label class="label">Pick-up location</label><input id="cr-ploc" type="text" value="${esc(c.pickupLoc||'')}" placeholder="e.g. Corfu Airport"></div>
     <div class="grid2">
       <div class="field"><label class="label">Pick-up date</label><input id="cr-pdate" type="date" value="${esc(c.pickupDate||todayStr())}"></div>
-      <div class="field"><label class="label">Pick-up time</label><input id="cr-ptime" type="time" value="${esc(c.pickupTime||'')}"></div>
+      <div class="field cr-fade-undecided${c.undecided?' undecided-fade':''}"><label class="label">Pick-up time</label><input id="cr-ptime" type="time" value="${esc(c.pickupTime||'')}"></div>
     </div>
     <div class="field"><label class="label">Drop-off location</label><input id="cr-dloc" type="text" value="${esc(c.dropoffLoc||'')}" placeholder="Same as pick-up if blank"></div>
     <div class="grid2">
       <div class="field"><label class="label">Drop-off date</label><input id="cr-ddate" type="date" value="${esc(c.dropoffDate||'')}"></div>
-      <div class="field"><label class="label">Drop-off time</label><input id="cr-dtime" type="time" value="${esc(c.dropoffTime||'')}"></div>
+      <div class="field cr-fade-undecided${c.undecided?' undecided-fade':''}"><label class="label">Drop-off time</label><input id="cr-dtime" type="time" value="${esc(c.dropoffTime||'')}"></div>
     </div>
     <div class="grid2">
-      <div class="field"><label class="label">Booking ref</label><input id="cr-ref" type="text" value="${esc(c.ref||'')}"></div>
+      <div class="field cr-fade-undecided${c.undecided?' undecided-fade':''}"><label class="label">Booking ref</label><input id="cr-ref" type="text" value="${esc(c.ref||'')}"></div>
       <div class="field"><label class="label">Note</label><input id="cr-note" type="text" value="${esc(c.note||'')}" placeholder="Driver? Insurance?"></div>
     </div>
-    ${attachField()}
+    ${attachField('cr-fade-undecided', c.undecided)}
     <div class="modal-actions"><button class="btn primary" style="width:100%" onclick="App.saveCar(${i})">Save Car Hire</button></div>`, {autofocus:false});
 };
 App.saveCar = i => {
@@ -12825,7 +12854,7 @@ App.accomForm = (i, prefill) => {
   const a = (i>=0 && t.accommodations[i]) || prefill || {};
   openModal(`
     <h2>${i>=0?'Edit Accommodation':'Add Accommodation'}</h2>
-    ${undecidedFieldHTML('ac-undecided', a.undecided)}
+    ${undecidedFieldHTML('ac-undecided', a.undecided, 'ac-fade-undecided')}
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…" oninput="App.accomAutoName()"></div>
     <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name (fills in automatically once you add a link or address)"</div>
     <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}" oninput="App.accomAutoName()"></div>
@@ -12839,7 +12868,7 @@ App.accomForm = (i, prefill) => {
       <div class="field"><label class="label">Check-out date</label><input id="ac-out" type="date" value="${esc(a.checkout||'')}"></div>
       <div class="field"><label class="label">Check-out time</label><input id="ac-out-time" type="time" value="${esc(a.checkoutTime||'')}"></div>
     </div>
-    <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
+    <div class="field ac-fade-undecided${a.undecided?' undecided-fade':''}"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
     <div class="modal-actions">
       <button class="btn primary" style="width:100%" onclick="App.saveAccom(${i})">Save</button>
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.delAccom(${i})">Delete Accommodation</button>`:''}
