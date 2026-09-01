@@ -6,7 +6,8 @@
 > `/spotify-search` plus the `/spotify-login-url` `/spotify-callback`
 > `/spotify-refresh` `/spotify-me` `/spotify-top-tracks` group for Music's artist search, Artists
 > checklist and Songs tab, `/letterboxd-diary` for Films' Letterboxd sync, `/ai-stop-summary` for
-> the Itinerary's AI-written stop summaries, and `/branch-earnings` for Home's Made Today/This
+> the Itinerary's AI-written stop summaries, `/ai-day-ideas` for its "Suggest Ideas" button on an
+> empty day, and `/branch-earnings` for Home's Made Today/This
 > Week card. Deploying this once turns all of them on. (Board Games and the Games tab's Wishlist aren't here - see "Connect BoardGameGeek" and
 > "Connect RAWG" below for where those actually live and their own one-time setup.)
 
@@ -318,7 +319,9 @@ quietly and the stop's own cards are shown exactly as normal either way, no erro
 the app. If it was working and stops, the most likely causes are the Anthropic account running
 out of credit or the key being revoked; `POST` to `/ai-stop-summary` directly (with a JSON body
 like `{"place":"Test","when":"1 Jan","nights":1,"days":[]}`) to see the actual error rather than
-guessing.
+guessing. The Itinerary's "Suggest Ideas" button (on a day with nothing planned) shares the same
+`ANTHROPIC_API_KEY` and fails the same quiet way - `POST` to `/ai-day-ideas` directly (with a
+JSON body like `{"place":"Test","when":"1 Jan"}`) to debug it the same way.
 
 If Home's Made Today/This Week card just doesn't appear at all, that's by design when Branch
 isn't configured yet (see "Connect Branch" above) - `loadDashboardBranch` fails quiet rather

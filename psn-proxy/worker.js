@@ -836,6 +836,59 @@ async function fetchAiStopSummary(env, body){
   return {summary: text};
 }
 
+/* AI day-idea suggestions - the "Suggest Ideas" button on an empty Itinerary day (nothing
+   booked or planned) sends its place/date over and gets back a short list of things to do, each
+   with a one-line reason, tailored to that spot rather than a generic bucket list. Same
+   Anthropic setup as fetchAiStopSummary above (same shared worker, same trip-owner API credits,
+   same 503-if-unconfigured, same nothing-stored-server-side), just asked for structured JSON
+   back instead of a paragraph so the app can turn each one into its own tappable "+ Add" chip. */
+async function fetchAiDayIdeas(env, body){
+  if(!env.ANTHROPIC_API_KEY){
+    throw Object.assign(new Error("AI suggestions aren't configured - add ANTHROPIC_API_KEY as a Worker secret"), {status:503});
+  }
+  const place = (body && body.place || '').trim();
+  if(!place) throw Object.assign(new Error('place is required'), {status:400});
+  const when = (body && body.when) || '';
+  const prompt = `You're suggesting things to do for a couple's trip-planning app. They have a free, `
+    + `unplanned day in ${place}${when?` (${when})`:''}.\n\n`
+    + `Suggest exactly 4 specific, real things they could do that day - a mix of sights, food, or `
+    + `activities genuinely local to ${place}, not generic tourist-brochure filler. For each, give a short `
+    + `title (5 words or fewer, no leading emoji) and a one-sentence reason it's worth it (20 words or fewer).\n\n`
+    + `Respond with ONLY a JSON array, no other text, no markdown fences: `
+    + `[{"title":"...","note":"..."}, ...]`;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 400,
+      messages: [{role: 'user', content: prompt}],
+    }),
+  });
+  if(!res.ok){
+    const errBody = await res.text().catch(() => '');
+    throw new Error('Anthropic API returned status ' + res.status + (errBody ? ': ' + errBody.slice(0, 300) : ''));
+  }
+  const data = await res.json();
+  const text = (data.content || []).map(b => b.text || '').join('').trim();
+  if(!text) throw new Error('Anthropic API returned an empty response');
+  // Haiku is asked for bare JSON but occasionally still wraps it in a ```json fence anyway -
+  // strip that rather than fail the whole request over formatting
+  const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  let ideas;
+  try{ ideas = JSON.parse(stripped); }
+  catch(e){ throw new Error('Anthropic API returned unparseable JSON'); }
+  if(!Array.isArray(ideas) || !ideas.length) throw new Error('Anthropic API returned no ideas');
+  ideas = ideas.filter(x => x && x.title).slice(0, 4)
+    .map(x => ({title: String(x.title).slice(0,80), note: x.note ? String(x.note).slice(0,200) : ''}));
+  if(!ideas.length) throw new Error('Anthropic API returned no usable ideas');
+  return {ideas};
+}
+
 export default {
   async fetch(request, env, ctx){
     if(request.method === 'OPTIONS') return new Response(null, {headers: corsHeaders(env)});
@@ -939,6 +992,10 @@ export default {
       if(request.method === 'POST' && url.pathname === '/ai-stop-summary'){
         const body = await request.json().catch(() => ({}));
         return json(await fetchAiStopSummary(env, body), 200, env);
+      }
+      if(request.method === 'POST' && url.pathname === '/ai-day-ideas'){
+        const body = await request.json().catch(() => ({}));
+        return json(await fetchAiDayIdeas(env, body), 200, env);
       }
       if(request.method === 'GET' && url.pathname === '/branch-earnings'){
         // personal financial data, changes through the day - not cached, and (see this
