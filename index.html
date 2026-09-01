@@ -1179,13 +1179,12 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    just doubled the edge into a messy ring around it */
 .card-logo{width:26px; height:26px; flex-shrink:0; border-radius:6px; object-fit:contain;
   transform:translateY(-1px);}
-/* the airline favicon on a flight card's own header - much smaller than logoSquare's usual 26px
-   footprint, just a small mark next to the route rather than a competing visual */
+/* the airline/booking-site favicon on a flight or accommodation card's own header - much
+   smaller than logoSquare's usual 26px footprint, just a small mark next to the route/city
+   rather than a competing visual. Also used bare (no .card-logo) on the Airbnb Font Awesome
+   glyph, which sizes off font-size rather than width/height. */
 .card-logo.card-logo-sm{width:12px; height:12px; border-radius:3px; transform:none;}
-/* the airline/booking service name in its own brand colour, standing in for a favicon logo
-   (see airlineLogoFor/bookingLogoFor) - no fixed box, just sized and weighted to sit inline
-   with the rest of the card title */
-.card-logo-text{font-size:.95rem; font-weight:700; white-space:nowrap; flex-shrink:0;}
+.icon.card-logo-sm{font-size:12px;}
 .flight-body{padding:14px; display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:start;}
 /* accommodation runs down the card rather than across it, but shares the flight card's
    strip/head shell so the two read as the same kind of thing on the Itinerary */
@@ -1479,7 +1478,11 @@ body.kb-open .tabbar.on{display:none;}
 .plan-card-photo>.btn-row{padding-bottom:18px;}
 .plan-img-wrap{position:relative;}
 .plan-img{width:100%; max-height:220px; object-fit:cover; display:block;}
-.plan-img-map{position:absolute; bottom:10px; right:10px; background:none; box-shadow:none;}
+/* a solid brand-coloured circle behind the icon again (not just the bare icon floating on the
+   photo) - overflow:hidden clips the favicon's own square image into that same circle rather
+   than showing its corners past the edge */
+.plan-img-map{position:absolute; bottom:10px; right:10px; background:var(--brand); box-shadow:var(--shadow);
+  border-radius:50%; overflow:hidden;}
 .btn.icon-only.plan-img-map{padding:8px;}
 .plan-img-map .fav{width:28px; height:28px;}
 .plan-img-map .sec-emoji{font-size:1.4rem;}
@@ -1583,8 +1586,15 @@ const CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.85';
+const APP_VERSION = '2.29.86';
 const CHANGELOG = [
+  {version:'2.29.86', notes:[
+    "Fixed a real bug behind the Itinerary sometimes reading \"Travel to London\" (or wherever you're flying from) at the very start of a trip: the day heading was picking up the auto-suggested \"Travel to the airport\" reminder card and reading its own destination field, which for that card is the airport you're LEAVING FROM, not the one you're flying to. It now only ever reads from a real arrival (a flight/ferry landing, or a car pickup).",
+    "The Airbnb logo (and every other booking site's) is back to its own real logo/favicon instead of its name in coloured text - same revert as the airline logo, and the same small size.",
+    "A timed stop's title (\"Castle Walk & Sunset\") no longer shows twice - it's back to living just once, in the tag above the card (\"🏰 Castle Walk & Sunset - Evening\"), with the card itself starting straight from its notes/photo instead of repeating the title and emoji inside too.",
+    "The Google Maps button on a stop's photo has its filled circle back (in the app's own brand colour) instead of just a bare icon floating on the image.",
+    "Games/PS5/PS4 also get the sticky Add Game button at the bottom of the screen now, matching Films/Theatre/Music/Growing.",
+  ]},
   {version:'2.29.85', notes:[
     "Itinerary: the airline logo is back to the airline's own favicon (not its name in coloured text), just small - 12px, sat right next to the departure time instead of with extra space between them. Fixed a bug where a stop's own title on the Itinerary was showing twice (once above the card, once inside it) - the tag above the card now just says \"Plan\" the way it was always meant to.",
     "A day built around a single planned stop (\"Beach Day\", \"Castle Walk & Sunset\") now names that activity in its own day heading, not just the place it falls in.",
@@ -5044,13 +5054,15 @@ function renderGames(){
   // in) were both replaced - fall back for anything still holding one of those values
   if((CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) || CUR_GAMES_TAB==='psn' || CUR_GAMES_TAB==='wishlist') CUR_GAMES_TAB = 'ps5';
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
+  const showAdd = CUR_GAMES_TAB!=='board';
+  $('#app').classList.toggle('has-sticky-add', showAdd);
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow">
       <span class="crumb-here">Games</span>
-      ${CUR_GAMES_TAB!=='board'?`<button class="btn sm primary" onclick="App.wlAddOpen()">+ Add Game</button>`:''}
     </div></div>
     <div class="subtabs">${tab('ps5',fab('playstation')+' PS5')}${tab('ps4',fab('playstation')+' PS4')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
-    <div id="games-body"></div>`;
+    <div id="games-body"></div>
+    ${showAdd?`<div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="App.wlAddOpen()">+ Add Game</button></div></div>`:''}`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
   renderPsnGames();
 }
@@ -10882,13 +10894,18 @@ function planDaysHTML(t, ro, filterKeys){
     // head keeps no margin below it - otherwise the bottom padding stacks on top of that
     // margin and reads as lopsided against the plain top padding above the title
     const hasBelow = !!(s.notes || s.location || hasImage || mapHref);
-    const card = `
-    <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro&&!time?' plan-click':''}"${!time?' '+clickAttrs(`App.planForm(${s._i})`):''}>
+    // once there's a time, the tag above the card already carries the name+emoji (see below) -
+    // repeating both again as the card's own title would just say the same thing twice, so the
+    // card's head is dropped entirely and its content starts straight from location/notes/image
+    const head = time ? '' : `
       <div class="section-head" style="margin-bottom:${hasBelow?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}</h3>
         </div>
-      </div>
+      </div>`;
+    const card = `
+    <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro&&!time?' plan-click':''}"${!time?' '+clickAttrs(`App.planForm(${s._i})`):''}>
+      ${head}
       ${s.location && !s.mapsUrl ? `<div class="small accom-addr plan-meta-line" style="margin-bottom:10px">${secEmoji('📍')}<span>${esc(s.location)}</span></div>` : ''}
       ${s.notes?`<p class="small plan-notes" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${hasImage ? `<div class="plan-img-wrap">
@@ -10897,11 +10914,11 @@ function planDaysHTML(t, ro, filterKeys){
       </div>`
       : mapHref ? `<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${mapBtnHTML()}</div>` : ''}
     </div>`;
-    // the time - "Evening", or a set clock time - reads as "Plan - Evening" above the card,
-    // the same way an auto-generated card's own tag sits above it, rather than as a plain line
-    // inside the card competing with the title for the same kind of weight
+    // the time - "Evening", or a set clock time - reads as "🏰 Castle Walk & Sunset - Evening"
+    // above the card, the same way an auto-generated card's own tag sits above it; the card
+    // itself no longer repeats the name once this tag is showing (see head, above)
     return time
-      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), 'Plan', time)}${card}</div>`
+      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), s.name, time)}${card}</div>`
       : card;
   };
   const taskCard = s => `
@@ -10987,7 +11004,15 @@ function flagForPlace(t, address){
 function dayPlaceInfo(t, k, dayItems, rough){
   const checkin = dayItems.find(s=>s._autoStay==='checkin');
   const checkout = dayItems.find(s=>s._autoStay==='checkout');
-  const journeyIn = dayItems.find(s=>s._autoFlight || s._autoFerry || s._autoCar==='pickup' || s.kind==='travel');
+  // the real arrival markers (_autoFlight/_autoFerry/_autoCar pickup) always win regardless of
+  // array order - a plain kind:'travel' entry only fills in when none of those exist, and never
+  // when it's the auto-suggested "Travel to [departure airport]" reminder (see planDayGroups,
+  // where that reminder is pushed alongside its own flight and carries the same fi): its own
+  // `to` is the airport you're LEAVING FROM, not arriving at, so treating it as this day's
+  // "place" showed the departure city (e.g. home) instead of the destination you're travelling
+  // to that day.
+  const journeyIn = dayItems.find(s=>s._autoFlight || s._autoFerry || s._autoCar==='pickup')
+    || dayItems.find(s=>s.kind==='travel' && s.fi==null);
   let ac = checkin ? checkin.ac : checkout ? checkout.ac : null;
   if(!ac && !rough && k){
     ac = (t.accommodations||[]).find(a=>a.checkin && a.checkout && k>a.checkin && k<a.checkout) || null;
@@ -11810,8 +11835,8 @@ function logoSquare(domain, label, restoreText, extraClass){
     alt="${esc(label||'')}" loading="lazy" data-restore="${esc(restoreText||label||'')}"
     onerror="App.cardLogoFail(this)" onload="App.cardLogoCheck(this)">`;
 }
-function siteLogoFor(url, label, restoreText){
-  try{ return logoSquare(new URL(url).hostname, label, restoreText); }catch(e){ return ''; }
+function siteLogoFor(url, label, restoreText, extraClass){
+  try{ return logoSquare(new URL(url).hostname, label, restoreText, extraClass); }catch(e){ return ''; }
 }
 /* back to the airline's own favicon (not its name in brand-coloured text - reverted per
    feedback, "looks better with the logo on"), just smaller than logoSquare's usual 26px
@@ -11873,11 +11898,13 @@ function bookingButtonStyle(url){
    (say) could show up on the same card. Text sidesteps both problems at once, and works for
    every recognised service, not just the one (Airbnb) with its own Font Awesome brand glyph.
    Falls back to the old favicon for a booking link this app doesn't recognise at all. */
+/* back to the real logo (Airbnb's own Font Awesome brand glyph, or the booking site's own
+   favicon) instead of the service's name in coloured text - same "logo, not text" revert as
+   airlineLogoFor, and the same small size (see .card-logo-sm). */
 function bookingLogoFor(url, label, restoreText){
-  const service = detectBookingService(url);
-  return service
-    ? `<span class="card-logo-text" style="color:${BOOKING_SERVICE_COLORS[service]}">${esc(service)}</span>`
-    : siteLogoFor(url, label, restoreText);
+  return detectBookingService(url)==='Airbnb'
+    ? `<i class="icon card-logo-sm fa-brands fa-airbnb" style="color:${BOOKING_SERVICE_COLORS.Airbnb}" aria-label="${esc(label||restoreText||'Airbnb')}"></i>`
+    : siteLogoFor(url, label, restoreText, 'card-logo-sm');
 }
 function bookingIconFor(url){
   return detectBookingService(url)==='Airbnb' ? fab('airbnb') : faviconFor(url);
