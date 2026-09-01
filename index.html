@@ -676,7 +676,8 @@ a{color:var(--brand-dark);}
 .route-body .head-with-logo{display:flex;}
 /* the accordion header row - name/dates on the left, edit icon + chevron on the right, all on
    one line until it has to wrap */
-.route-head-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.route-head-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding-bottom:12px; border-bottom:1px solid var(--line);}
 .route-head-row>div:first-child{flex:1; min-width:0;}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
@@ -819,6 +820,17 @@ a{color:var(--brand-dark);}
 .ai-summary-refresh{background:none; border:none; padding:6px 0 0; margin:0; color:var(--muted); font-size:.78rem;
   display:flex; align-items:center; gap:5px; cursor:pointer;}
 .ai-summary-refresh:hover{color:var(--brand-dark);}
+/* the "Suggest Ideas" button on a Nothing Planned pill, and the AI's own suggestions once
+   they've loaded - see App.aiSuggestDayIdeas/emptyDayCard */
+.ai-idea-btn{background:none; border:none; padding:0; margin:0; color:var(--brand); font-size:.82rem;
+  font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap;}
+.ai-idea-btn:disabled{color:var(--muted); cursor:default;}
+.ai-idea-list{display:flex; flex-direction:column; gap:8px; margin:8px 0 4px;}
+.ai-idea-chip{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
+  background:var(--brand-ghost); border:1px solid var(--brand-tint); border-radius:var(--radius);
+  padding:10px 12px; text-align:left; cursor:pointer; color:var(--brand);}
+.ai-idea-chip-body{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.ai-idea-chip-body strong{color:var(--ink); font-size:.9rem;}
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:10px;}
 .gig-card{padding:14px; margin-bottom:0;}
@@ -1598,8 +1610,16 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.93';
+const APP_VERSION = '2.29.94';
 const CHANGELOG = [
+  {version:'2.29.94', notes:[
+    "Fixed a Location's flag bleeding onto an unrelated day - it no longer backfills onto a travel/arrival day at all (the destination is its own explicit place, nothing to do with which Location's date range the day falls in), and on a stay day it only fills in when exactly one Location covers that day, not whichever one happened to match first when two overlapped.",
+    "Empty-day \"Nothing Planned\" now reads in red, matching every other still-outstanding item on the Itinerary.",
+    "Added a thin divider under each day's own heading on the Itinerary.",
+    "Fixed Back from the Location form (opened from Edit Trip) exiting straight past Edit Trip to the page underneath - it returns to Edit Trip now, the same way it already did everywhere else on the app.",
+    "The Accommodation tab's own cards now match the Itinerary's richer accommodation card - time, a Nights pill, the address, calendar/clock check-in/check-out rows, and full-width Google Maps/View Details buttons instead of the older icon-row layout.",
+    "Added a \"Suggest Ideas\" button to a day with nothing planned - a short, AI-written list of things to do for that day's place, each one tap away from becoming a Stop. Same optional Anthropic setup as the Itinerary's AI stop summaries.",
+  ]},
   {version:'2.29.93', notes:[
     "Taxi/drive/walk/bus/train legs now show their mode's real icon instead of an emoji, and read in regular (not bold) weight, matching a flight's own duration line.",
     "Fixed the route map's numbered pins skipping a number (\"1, 2, 4\") whenever one stop's place name couldn't be geocoded - they're numbered by how many actually resolved now, so the sequence never has a gap with nothing on the map to explain it.",
@@ -3818,6 +3838,12 @@ function airlineFieldHTML(id, value, label){
 
 /* ================= modal ================= */
 let _lastFocus = null;
+/* a stack of "reopen this screen" callbacks - only ever pushed by a screen that knowingly opens
+   a further screen on top of itself (e.g. Edit Trip opening the Location form), so Back unwinds
+   one nested screen at a time instead of exiting straight past it to the page underneath. Every
+   other modal (the overwhelming majority, opened directly from a page rather than from inside
+   another modal) leaves this empty and keeps the old exit-on-Back behaviour untouched. */
+let MODAL_STACK = [];
 function modalOpen(){ return !!$('#modal-root').firstChild; }
 /* every text field in the app gets a small × button (shown once it has a value) that clears
    it, wired up generically here rather than in each of the many form templates */
@@ -3860,6 +3886,7 @@ function openModal(html, opts){
 }
 function closeModal(){
   if(!modalOpen()) return;
+  if(MODAL_STACK.length){ const back = MODAL_STACK.pop(); back(); return; }
   $('#modal-root').innerHTML=''; document.body.style.overflow='';
   if(_lastFocus && _lastFocus.focus){ try{ _lastFocus.focus(); }catch(e){} }
   _lastFocus = null;
@@ -7500,6 +7527,8 @@ function delTheatreWatchlistImpl(id){
 }
 
 function route(){
+  // a real navigation always exits any modal outright, never just steps back one nested screen
+  MODAL_STACK = [];
   closeModal(); closeMenu();
   // #app is reused across routes (innerHTML swapped, not replaced), so a data-tab left over
   // from a previous trip visit would otherwise persist onto the hub/Places pages too - same
@@ -9420,7 +9449,7 @@ App.tripForm = () => {
     </div>
     <div class="field"><label class="label">Locations</label>
       <p class="muted small" style="margin:-2px 0 10px">What dates you'll be in each place (city or country) - so the Itinerary can name and flag every day, even ones with nothing else booked yet.</p>
-      ${locationsSummaryHTML(t, false)}
+      ${locationsSummaryHTML(t, false, true)}
     </div>
     <div class="field"><label class="label">People</label>
       <div style="display:flex;gap:8px">
@@ -9978,7 +10007,7 @@ function undecidedItemsHTML(t, ro){
   const gapFirstNights = new Set(stayGaps(t).map(g=>g.firstNight));
   dKeys.forEach(k=>{
     if(dGroups[k].length===0 && !gapFirstNights.has(k)){
-      rows.push({dateLine: dateLineFor(k), icon:'', title:'Nothing Planned', time:'',
+      rows.push({dateLine: dateLineFor(k), icon:'', title:'Nothing Planned', time:'', undecided:true,
         editFn:`App.planGapForm('${k}', ${rough})`, sortKey:k});
     }
   });
@@ -10000,7 +10029,7 @@ function undecidedItemsHTML(t, ro){
       ${r.dateLine?`<div class="task-date">${esc(r.dateLine)}</div>`:''}
       <div class="task-pill${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
-        <span class="task-pill-text">${r.time?`<span class="task-pill-time">${esc(r.time)} </span>`:''}${r.icon?r.icon+' ':''}<strong>${r.title}</strong></span>
+        <span class="task-pill-text">${r.time?`<span class="task-pill-time">${esc(r.time)} </span>`:''}${r.icon?r.icon+' ':''}<strong${r.undecided?' class="text-undecided"':''}>${r.title}</strong></span>
         ${!ro?`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`:''}
       </div>
     </div>`}));
@@ -11019,13 +11048,29 @@ function planDaysHTML(t, ro, filterKeys){
   /* the same dashed task-pill as the Tasks tab's own "Nothing Planned" row (see
      undecidedItemsHTML) - a day nothing's been added to yet reads as one quiet tappable line
      sitting right where the gap falls, not a heading plus its own pair of buttons; the day's
-     own accordion heading already carries the date, so this doesn't repeat it. */
-  const emptyDayCard = k => `
+     own accordion heading already carries the date, so this doesn't repeat it. A "Suggest
+     Ideas" button sits alongside it (own tap target, stopping the pill's own onclick) for a
+     day with genuinely nothing else to go on - see App.aiSuggestDayIdeas. */
+  const emptyDayCard = k => {
+    const ideas = AI_IDEAS_RESULTS[k];
+    const pending = AI_IDEAS_PENDING.has(k);
+    const failed = AI_IDEAS_FAILED.has(k);
+    return `
     <div class="task-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="App.addMenu('${k}', ${rough})"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.addMenu('${k}', ${rough})}"`}>
-      <span class="task-pill-text"><strong>Nothing Planned</strong></span>
-      ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
-    </div>`;
+      <span class="task-pill-text"><strong class="text-undecided">Nothing Planned</strong></span>
+      <span style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        ${!ro?`<button type="button" class="ai-idea-btn" ${pending?'disabled':''} onclick="event.stopPropagation();App.aiSuggestDayIdeas('${k}', ${rough})">${fa('sparkles')} ${pending?'Thinking…':'Suggest Ideas'}</button>`:''}
+        ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
+      </span>
+    </div>
+    ${ideas?`<div class="ai-idea-list">${ideas.map((idea,idx)=>`
+      <button type="button" class="ai-idea-chip" onclick="event.stopPropagation();App.addIdeaStop('${k}', ${rough}, ${idx})">
+        <span class="ai-idea-chip-body"><strong>${esc(idea.title)}</strong>${idea.note?`<span class="muted small">${esc(idea.note)}</span>`:''}</span>
+        ${fa('circle-plus')}
+      </button>`).join('')}</div>`:''}
+    ${failed&&!pending?`<p class="small muted" style="margin:-8px 0 4px">Couldn't get suggestions - try again.</p>`:''}`;
+  };
   /* a night nobody's booked anywhere for - shown once, on its first night, as the same dashed
      task-pill as everything else still-outstanding on this page (the Accommodation tab keeps
      its own fuller stayGapCardHTML for its own list of full-size booked-stay cards, where a
@@ -11114,11 +11159,19 @@ function dayPlaceInfo(t, k, dayItems, rough){
   // only ever reads a country out of the address text itself ("Corfu, Greece"), and most real
   // addresses don't spell that out (just a street, town and postcode), so a multi-country trip
   // otherwise goes flagless despite the Location entry saying exactly what country this is.
+  // Backfilling a Location's flag onto a day that already has its own real place only makes
+  // sense when there's exactly one Location covering that day (two overlapping ranges - e.g. a
+  // checkout day that's also the next Location's first day - can't be resolved by picking
+  // whichever happens to come first) AND that place is a genuine stay, not somewhere the day is
+  // just travelling to/through - a journey's destination (arriving===true) is its own explicit
+  // place and has nothing to do with which Location's date range the calendar day falls in.
   if(k){
-    const loc = (t.locations||[]).find(l => keyWithinLocation(k, rough, l));
-    if(loc){
-      if(!place) place = loc.name;
-      if(!flag && loc.country) flag = (countryByCode(loc.country)||{}).flag || '';
+    const locs = (t.locations||[]).filter(l => keyWithinLocation(k, rough, l));
+    if(!place && locs.length){
+      place = locs[0].name;
+      if(!flag && locs[0].country) flag = (countryByCode(locs[0].country)||{}).flag || '';
+    } else if(place && !arriving && !flag && locs.length===1 && locs[0].country){
+      flag = (countryByCode(locs[0].country)||{}).flag || '';
     }
   }
   return {place, flag, arriving};
@@ -11515,6 +11568,44 @@ App.aiRegenSummary = key => {
   AI_SUMMARY_FAILED.delete(key);
   aiRequestSummary(t, dayKeyFromOpenKey(key), key);
 };
+/* AI idea suggestions for a day with nothing planned - the "Suggest Ideas" button on the
+   Nothing Planned pill (see emptyDayCard). Same shared worker/Anthropic setup as the AI day
+   summaries above, just asked for a short structured list instead of a paragraph. Results are
+   kept in memory only (not persisted on the trip, unlike aiSummaries) - they're a jumping-off
+   point for filling the day, not a fact worth syncing across devices, and a stale suggestion
+   sitting around after the day's since been planned would be worse than just asking again. */
+let AI_IDEAS_PENDING = new Set();
+let AI_IDEAS_FAILED = new Set();
+let AI_IDEAS_RESULTS = {};
+App.aiSuggestDayIdeas = async (key, rough) => {
+  const t = getTrip(CUR_TRIP_ID); if(!t || AI_IDEAS_PENDING.has(key)) return;
+  AI_IDEAS_PENDING.add(key);
+  AI_IDEAS_FAILED.delete(key);
+  renderTab(t);
+  try{
+    const {groups} = planDayGroups(t);
+    const {place} = dayPlaceInfo(t, key, groups[key]||[], rough);
+    const res = await fetch(psnUrl('/ai-day-ideas'), {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({place: place || t.name, when: key ? planDayLabel(t, key, rough) : 'Anytime'}),
+    });
+    if(!res.ok) throw new Error('request failed');
+    const data = await res.json();
+    if(!data.ideas || !data.ideas.length) throw new Error('no ideas');
+    AI_IDEAS_RESULTS[key] = data.ideas;
+  }catch(e){
+    AI_IDEAS_FAILED.add(key);
+  }
+  AI_IDEAS_PENDING.delete(key);
+  if(CUR_TAB==='plan' && CUR_TRIP_ID===t.id) renderTab(t);
+};
+// turns one suggested idea straight into a prefilled Add Stop form, same as picking one off
+// the Ideas board (planWhenFor) - looked up from the in-memory results rather than round-
+// tripped through an onclick attribute, so a title/note with a quote in it can't break the HTML
+App.addIdeaStop = (key, rough, idx) => {
+  const idea = (AI_IDEAS_RESULTS[key]||[])[idx]; if(!idea) return;
+  App.planForm(-1, Object.assign(planWhenFor(key, rough), {name: idea.title, notes: idea.note||''}));
+};
 /* ================= TAB: itinerary (day-by-day, one accordion per day) =================
    Every day of the trip is its own row now, not each place you stay - its date, which place
    it's in, and whether anything's actually scheduled on it, all sat on the heading whether the
@@ -11561,7 +11652,7 @@ function tabPlan(t, ro){
    itself in every day heading it covers (see dayPlaceInfo's own fallback) rather than reading
    as several blank "Day N"s in a row. Shown as a tappable-to-edit chip row so they're never
    write-only - the same place you add one from is where you go back to change or remove it. */
-function locationsSummaryHTML(t, ro){
+function locationsSummaryHTML(t, ro, nested){
   const locs = t.locations || [];
   if(!locs.length && ro) return '';
   const rough = hasRoughWhen(t);
@@ -11571,12 +11662,15 @@ function locationsSummaryHTML(t, ro){
   // earliest first - the order they were added in isn't necessarily the order they fall in
   const sorted = locs.map((loc,i) => ({loc,i}))
     .sort((a,b) => (rough ? a.loc.fromDay-b.loc.fromDay : (a.loc.fromDate||'').localeCompare(b.loc.fromDate||'')));
+  // nested (true when this chip row is shown inside the Edit Trip modal rather than directly on
+  // the Itinerary page) so App.locationForm knows to push a way back onto MODAL_STACK - see
+  // openModal/closeModal
   const chips = sorted.map(({loc,i}) => `
-    <button type="button" class="chip location-chip" ${ro?'disabled':`onclick="App.locationForm(${i})"`}>
+    <button type="button" class="chip location-chip" ${ro?'disabled':`onclick="App.locationForm(${i}, ${!!nested})"`}>
       ${loc.country ? esc((countryByCode(loc.country)||{}).flag||'')+' ' : ''}<strong>${esc(loc.name)}</strong>
       <span class="muted small">${esc(rangeLabel(loc))}</span>
     </button>`).join('');
-  const addChip = !ro ? `<button type="button" class="chip location-chip location-chip-add" onclick="App.locationForm(-1)">${fa('plus')} New Location</button>` : '';
+  const addChip = !ro ? `<button type="button" class="chip location-chip location-chip-add" onclick="App.locationForm(-1, ${!!nested})">${fa('plus')} New Location</button>` : '';
   return locs.length || addChip ? `<div class="location-chips">${chips}${addChip}</div>` : '';
 }
 /* A stop or travel leg is pinned to a date on a normal trip and to a day number on one
@@ -11858,8 +11952,9 @@ App.saveTravelLeg = i => {
    and, optionally, a country for the flag, so dayPlaceInfo has something to fall back on for a
    day with nothing else logged. Managed from Edit Trip, alongside Countries - defining who's
    going where and when is trip-wide planning, not a specific day's own to-do. */
-App.locationForm = i => {
+App.locationForm = (i, nested) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  if(nested) MODAL_STACK.push(()=>App.tripForm());
   const loc = (i>=0 ? (t.locations||[])[i] : null) || {};
   const rough = hasRoughWhen(t);
   const dayField = (p, label, cur) => rough
@@ -11884,7 +11979,9 @@ App.locationForm = i => {
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteLocationFromForm(${i})">Delete Location</button>`:''}
     </div>`, {autofocus:false});
 };
-App.deleteLocationFromForm = i => { closeModal(); App.delLocation(i); };
+// delete the location before Back unwinds to Edit Trip (rather than after), so the screen
+// MODAL_STACK pops back to already reflects the removal instead of showing the stale list
+App.deleteLocationFromForm = i => { App.delLocation(i); closeModal(); };
 App.saveLocation = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const name = $('#loc-name').value.trim();
@@ -12270,55 +12367,14 @@ function autoAccomName(url, address){
 function accomCardHTML(a, opts){
   opts = opts || {};
   const arrivalSuffix = a.arrivalTime ? ` (arriving ${esc(a.arrivalTime)})` : '';
-  /* the year lands once, on the check-out, with each end's time tucked in after its own date:
-     "23 September 15:00 - 25 September 2026 11:00" */
-  const p = a.checkin && a.checkout ? rangeParts(a.checkin, a.checkout) : null;
-  const stayRange = p
-    ? `${p.from}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix} - ${p.to}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
-    : a.checkin ? `${fmtDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix}`
-    : a.checkout ? `${fmtDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}`
-    : '';
-  /* the head's right-hand slot mirrors a flight's date. On the Accommodation tab, where both
-     ends are spelled out in the body anyway, it carries the check-in date instead. On the
-     Itinerary's compact card it's a Maps link instead - the outer "Accommodation - 23:00" tag
-     already carries this end's specific time, so repeating it here (as "From 15:00") was just
-     the property's generic check-in window standing in for the useful thing, a way there. */
-  const headNote = opts.phase==='checkin'  ? (a.checkinTime  ? 'From '+a.checkinTime   : 'Check in')
-                 : opts.phase==='checkout' ? (a.checkoutTime ? 'Until '+a.checkoutTime : 'Check out')
-                 : '';
-  /* every button here is its own icon: a favicon, a map pin, a link, a pencil, a bin. The
-     labels were saying what the icons already say, and three of them wrapped onto two lines
-     each on a phone. */
-  const iconBtn = (inner, label, attrs) =>
-    `<a class="btn icon-only" ${attrs} aria-label="${esc(label)}" title="${esc(label)}">${inner}</a>`;
-  const mapsUrl = a.address ? googleMapsUrl(a.address) : '';
-  const bookingBtn = a.bookingUrl ? iconBtn(faviconFor(a.bookingUrl), 'View Booking',
-      `href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"`) : '';
-  const mapBtn = mapsUrl ? iconBtn(mapIcon(mapsUrl), 'Open Map',
-      `href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()"`) : '';
-  const copyBtn = a.address
-      ? `<button type="button" class="btn icon-only" onclick="event.stopPropagation();App.copyText('${jsArg(a.address)}',this)" aria-label="Copy address" title="Copy address">${secEmoji('\u{1F517}')}</button>`
-      : '';
-  /* the two ends of the stay, a line each. They used to share one line that also repeated the
-     check-in date already sitting up in the head. */
+  /* the two ends of the stay, a line each - used by the not-yet-booked card below, which has
+     no address/ref/booking site yet to justify the fuller Itinerary-style layout below it. */
   const inLine  = a.checkin  ? `${fmtDate(a.checkin)}${a.checkinTime?' '+esc(a.checkinTime):''}${arrivalSuffix}` : '';
   const outLine = a.checkout ? `${fmtDate(a.checkout)}${a.checkoutTime?' '+esc(a.checkoutTime):''}` : '';
   const stayLine = (label, value) => value
     ? `<div class="small accom-when"><span class="accom-when-label">${label}</span><span>${value}</span></div>` : '';
-  /* the compact itinerary card folds both footer buttons into the head instead of a row below:
-     the logo becomes the booking link itself, and Maps takes the right-hand slot - between the
-     two there's nothing left for the footer row to do, so it drops entirely and the card is
-     just the one line. */
-  const logoInner = a.bookingUrl ? siteLogoFor(a.bookingUrl, '', a.name||'Accommodation') : '';
-  const logo = (opts.compact && a.bookingUrl)
-    ? `<a href="${esc(a.bookingUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="View Booking" title="View Booking">${logoInner}</a>`
-    : logoInner;
-  /* "Airbnb in Palaiokastritsa" said the same thing twice once the logo is doing the "Airbnb"
-     part - only strips the exact auto-filled pattern, so a name typed or edited by hand is
-     left alone */
   const service = detectBookingService(a.bookingUrl);
-  const displayName = (opts.compact && service && a.name && a.name.toLowerCase().startsWith((service+' in ').toLowerCase()))
-    ? a.name.slice(service.length+4) : (a.name||'Accommodation');
+  const displayName = a.name || 'Accommodation';
   // not booked yet: just the name (or the address's city, once there's an address) and the
   // dates - a favicon, ref, booking/map/copy buttons all describe a booking that doesn't exist
   if(a.undecided){
@@ -12332,19 +12388,39 @@ function accomCardHTML(a, opts){
       ${bodyInner ? `<div class="accom-body">${bodyInner}</div>` : ''}
     </div>`;
   }
-  const headRight = opts.compact ? (mapBtn ? `<a class="accom-head-map" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${mapIcon(mapsUrl)}</a>` : '')
-    : headNote ? `<span class="muted small">${esc(headNote)}</span>` : '';
-  const bodyInner = (opts.showDates!==false ? stayLine('In', inLine) + stayLine('Out', outLine) : '')
-    + (a.ref?`<div class="btn-row" style="margin-top:10px"><span class="chip">Ref: ${esc(a.ref)}</span></div>`:'')
-    + (!opts.compact && (bookingBtn || mapBtn || copyBtn || opts.rowActions)
-        ? `<div class="btn-row accom-btns" onclick="event.stopPropagation()">${bookingBtn}${mapBtn}${copyBtn}${opts.rowActions||''}</div>` : '');
+  const mapsUrl = a.address ? googleMapsUrl(a.address) : '';
+  const nights = a.checkin && a.checkout
+    ? Math.max(1, Math.round((new Date(a.checkout+'T00:00:00')-new Date(a.checkin+'T00:00:00'))/86400000)) : 0;
+  // matches the Itinerary's own rich accommodation card (itinAccomCardHTML) for consistency -
+  // time + logo + name + a Nights chip up top, the address, both ends of the stay as
+  // calendar/clock rows, the booking reference, then full-width Google Maps/View Details
+  // buttons (colour-matched to the booking service). Edit/Remove (only ever passed on the
+  // Accommodation tab - the Itinerary's own card is tap-to-edit as a whole, so it never sends
+  // rowActions) get their own row underneath rather than the small icon-only row this used to
+  // share with the booking/map/copy buttons, since those three are now the two full-width
+  // buttons below instead.
+  const richLogo = a.bookingUrl ? bookingLogoFor(a.bookingUrl, '', a.name||'Accommodation') : '';
+  const primaryTime = a.arrivalTime || a.checkinTime;
+  const bodyInner = `
+      ${a.address?`<div class="itin-route-name">${esc(a.address)}</div>`:''}
+      ${a.checkin?`<div class="itin-stay-dates"${BOOKING_SERVICE_COLORS[service]?` style="--stay-icon-color:${BOOKING_SERVICE_COLORS[service]}"`:''}>
+        <span>${ICONS.calendar}${esc(fmtDateOrdinal(a.checkin))}${a.checkinTime?` ${fa('clock')}Check In: ${esc(a.checkinTime)}`:''}</span>
+        ${a.checkout?`<span>to ${ICONS.calendar}${esc(fmtDateOrdinal(a.checkout))}${a.checkoutTime?` ${fa('clock')}Check Out: ${esc(a.checkoutTime)}`:''}</span>`:''}
+      </div>`:''}
+      ${a.ref?`<div class="itin-ref">Booking Reference: <strong>${esc(a.ref)}</strong></div>`:''}
+      ${mapsUrl||a.bookingUrl||opts.rowActions?`<div class="itin-actions" onclick="event.stopPropagation()">
+        ${mapsUrl?`<a class="btn itin-action-btn" href="${mapsUrl}" target="_blank" rel="noopener">${mapIcon(mapsUrl)} Google Maps</a>`:''}
+        ${a.bookingUrl?`<a class="btn itin-action-btn primary" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener"${bookingButtonStyle(a.bookingUrl)}>${bookingIconFor(a.bookingUrl)} View Details</a>`:''}
+        ${opts.rowActions?`<div class="btn-row" style="justify-content:flex-end">${opts.rowActions}</div>`:''}
+      </div>`:''}`;
   return `
-    <div class="flight-strip">
+    <div class="flight-strip itin-flight">
       <div class="flight-head">
-        <strong class="head-with-logo">${logo}<span${!a.name?' class="text-undecided"':''}>${!a.name?'❓ ':''}${esc(displayName)}</span></strong>
-        ${headRight}
+        <span class="itin-time">${primaryTime?esc(primaryTime):''}</span>
+        <strong class="head-with-logo">${richLogo}<span${!a.name?' class="text-undecided"':''}>${!a.name?'❓ ':(richLogo?'':secEmoji('📍')+' ')}${esc(displayName)}</span></strong>
+        ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
       </div>
-      ${bodyInner ? `<div class="accom-body">${bodyInner}</div>` : ''}
+      ${bodyInner}
     </div>`;
 }
 const DAY_MS = 86400000;
