@@ -541,7 +541,7 @@ a{color:var(--brand-dark);}
    enough (water status, day/sprout estimate, the Watered button, a few care tips) that most
    visits shouldn't need a tap into the detail page at all - a narrow grid column had no room for
    any of that. */
-.plants-list{display:flex; flex-direction:column; gap:8px;}
+.plants-list{display:flex; flex-direction:column; gap:4px;}
 .plant-card-wide{cursor:pointer; padding:14px 18px;}
 /* a vegetable still on "Not Planted" isn't actually being grown yet - fading the whole card
    makes that read at a glance down the list, without needing to open it to check */
@@ -1588,8 +1588,12 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.87';
+const APP_VERSION = '2.29.88';
 const CHANGELOG = [
+  {version:'2.29.88', notes:[
+    "Actually fixed the route map's \"API KEY REQUIRED\" watermark this time - the key was reaching the browser fine, but the tile URL was sending it as the wrong query parameter name (CARTO reads \"key\", not \"api_key\"), so it was being silently ignored as if no key had been sent at all.",
+    "Plants page: less space between vegetable cards in the list.",
+  ]},
   {version:'2.29.87', notes:[
     "The CartoDB API key for the route map's tiles can now actually be set as a Vercel environment variable (CARTO_API_KEY) instead of needing to be pasted into index.html directly - a new tiny api/carto-key.js hands it to the browser at startup. Nothing to do if you'd already pasted it in the file; it still works, this just adds the other way of setting it.",
   ]},
@@ -11170,8 +11174,11 @@ function resolveRouteStopPins(t, numbered, onUpdate){
 /* CartoDB now gates its Voyager tiles behind an API key even for light personal use - see
    CARTO_API_KEY's own comment up in config. */
 function cartoTileUrl(){
+  /* CARTO's raster tile endpoint reads the key off a "key" query param, not "api_key" - the
+     latter silently gets treated the same as no key at all, watermark included, rather than
+     erroring, which is what made this so easy to ship wrong in the first place. */
   return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-    + (CARTO_API_KEY ? '?api_key='+encodeURIComponent(CARTO_API_KEY) : '');
+    + (CARTO_API_KEY ? '?key='+encodeURIComponent(CARTO_API_KEY) : '');
 }
 /* the map is a route overview, not the literal day-by-day list routeStops itself feeds the
    Itinerary tab with - so a trailing flight/ferry/car leg with no stay after it (flying home at

@@ -12,7 +12,11 @@
 export const config = { runtime: 'edge' };
 
 export default async function handler(){
-  return new Response(JSON.stringify({key: process.env.CARTO_API_KEY || ''}), {
+  /* defends against the key having been pasted into Vercel's env var field with wrapping
+     quotes/whitespace picked up in the copy-paste - see bggHeaders() in board-games.js for the
+     same defense against the same class of paste artifact */
+  const key = (process.env.CARTO_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+  return new Response(JSON.stringify({key}), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
