@@ -1598,8 +1598,15 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.92';
+const APP_VERSION = '2.29.93';
 const CHANGELOG = [
+  {version:'2.29.93', notes:[
+    "Taxi/drive/walk/bus/train legs now show their mode's real icon instead of an emoji, and read in regular (not bold) weight, matching a flight's own duration line.",
+    "Fixed the route map's numbered pins skipping a number (\"1, 2, 4\") whenever one stop's place name couldn't be geocoded - they're numbered by how many actually resolved now, so the sequence never has a gap with nothing on the map to explain it.",
+    "Fixed a day's flag not showing on the Itinerary even with a real stay booked - flagForPlace only ever reads a country out of the address text itself, and most real addresses don't spell that out (just a street, town and postcode). A matching Location entry's own flag now fills that in even when the place itself already came from real data.",
+    "Locations (the chip row above the Itinerary's day list) now sort earliest-first instead of by the order they were added.",
+    "Locations moved into Edit Trip, alongside Countries - defining what dates you'll be where is trip-wide planning, not a specific day's own to-do, so it no longer lives in the Add to Itinerary menu.",
+  ]},
   {version:'2.29.92', notes:[
     "New Location: added to the Add to Itinerary menu - name a stretch of days (\"Melbourne, Day 1-6\") with an optional country for the flag, so every day in that range shows a place and flag on the Itinerary even with nothing else booked yet. Only fills in a day that has nothing else logged - a real stay or travel leg always wins. Manage them from the chip row above the day list.",
   ]},
@@ -9411,6 +9418,10 @@ App.tripForm = () => {
       ${countryDatalist()}
       <div class="chips" id="et-country-pills" style="margin-top:10px"></div>
     </div>
+    <div class="field"><label class="label">Locations</label>
+      <p class="muted small" style="margin:-2px 0 10px">What dates you'll be in each place (city or country) - so the Itinerary can name and flag every day, even ones with nothing else booked yet.</p>
+      ${locationsSummaryHTML(t, false)}
+    </div>
     <div class="field"><label class="label">People</label>
       <div style="display:flex;gap:8px">
         <input type="text" id="et-person" placeholder="e.g. Jordan" style="flex:1"
@@ -9671,10 +9682,6 @@ App.addMenu = (key, rough) => {
       <button type="button" class="add-choice" onclick="${hasDay?`App.planGapForm('${esc(key)}',${!!rough})`:'App.planForm(-1)'}">
         <span class="add-choice-emoji" aria-hidden="true">📍</span>
         <span class="add-choice-body"><strong>Add Stop</strong><span class="muted small">Something to do on a specific day</span></span>
-      </button>
-      <button type="button" class="add-choice" onclick="${hasDay?`App.locationForm(-1, locationWhenFor('${esc(key)}',${!!rough}))`:'App.locationForm(-1)'}">
-        <span class="add-choice-emoji" aria-hidden="true">🚩</span>
-        <span class="add-choice-body"><strong>New Location</strong><span class="muted small">Name a stretch of days ("Melbourne, Day 1-6") so its flag shows even with nothing else booked</span></span>
       </button>
     </div>`, {autofocus:false});
 };
@@ -10937,7 +10944,7 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.from ? `${wayPrefixed} from ${esc(s.from)}`
                  : wayPrefixed;
       return `
-      <div class="plan-connector${s.notBooked?' text-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${secEmoji(mode.emoji)} <strong>${line}</strong></div>`;
+      <div class="plan-connector${s.notBooked?' text-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${mode.icon} ${line}</div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -11100,12 +11107,19 @@ function dayPlaceInfo(t, k, dayItems, rough){
       : journeyIn.to;
     if(dest){ place = dest; flag = flagForPlace(t, dest); arriving = true; }
   }
-  // last resort: a manually defined Location range (App.locationForm) covering this day - real
-  // stay/travel data above always wins over one of these, since that's the more specific,
-  // actually-booked answer; this only fills in a day that would otherwise sit placeless
-  if(!place && k){
+  // a manually defined Location range (App.locationForm) covering this day - real stay/travel
+  // data above always wins on the place itself, since that's the more specific, actually-booked
+  // answer; a Location only fills in the name when there's nothing else to go on. Its flag is
+  // still worth pulling in even when the day already has a real place, though - flagForPlace
+  // only ever reads a country out of the address text itself ("Corfu, Greece"), and most real
+  // addresses don't spell that out (just a street, town and postcode), so a multi-country trip
+  // otherwise goes flagless despite the Location entry saying exactly what country this is.
+  if(k){
     const loc = (t.locations||[]).find(l => keyWithinLocation(k, rough, l));
-    if(loc){ place = loc.name; flag = loc.country ? ((countryByCode(loc.country)||{}).flag||'') : ''; }
+    if(loc){
+      if(!place) place = loc.name;
+      if(!flag && loc.country) flag = (countryByCode(loc.country)||{}).flag || '';
+    }
   }
   return {place, flag, arriving};
 }
@@ -11365,9 +11379,15 @@ function initRouteMap(t){
   const redraw = pins => {
     if(ROUTE_MAP !== map) return;   // a later render superseded this map already
     layers.forEach(l=>map.removeLayer(l)); layers = [];
+    // numbered 1, 2, 3... by how many have actually resolved so far, not by numbered's own
+    // array index - a stop whose place name a geocoder can't find (an odd address, a village
+    // too small for it to know) would otherwise leave a gap in the sequence ("1, 2, 4") with no
+    // pin 3 anywhere on the map to explain it
+    let shown = 0;
     numbered.forEach((s,idx)=>{
       const p = pins[idx]; if(!p) return;
-      const icon = L.divIcon({className:'', html:`<div class="route-map-pin">${idx+1}</div>`, iconSize:[26,26], iconAnchor:[13,13]});
+      shown++;
+      const icon = L.divIcon({className:'', html:`<div class="route-map-pin">${shown}</div>`, iconSize:[26,26], iconAnchor:[13,13]});
       layers.push(L.marker([p.lat,p.lon], {icon}).addTo(map));
     });
     const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
@@ -11548,7 +11568,10 @@ function locationsSummaryHTML(t, ro){
   const rangeLabel = loc => rough
     ? `Day ${loc.fromDay}${loc.toDay && loc.toDay!==loc.fromDay ? '–'+loc.toDay : ''}`
     : fmtRange(loc.fromDate, loc.toDate || loc.fromDate);
-  const chips = locs.map((loc,i) => `
+  // earliest first - the order they were added in isn't necessarily the order they fall in
+  const sorted = locs.map((loc,i) => ({loc,i}))
+    .sort((a,b) => (rough ? a.loc.fromDay-b.loc.fromDay : (a.loc.fromDate||'').localeCompare(b.loc.fromDate||'')));
+  const chips = sorted.map(({loc,i}) => `
     <button type="button" class="chip location-chip" ${ro?'disabled':`onclick="App.locationForm(${i})"`}>
       ${loc.country ? esc((countryByCode(loc.country)||{}).flag||'')+' ' : ''}<strong>${esc(loc.name)}</strong>
       <span class="muted small">${esc(rangeLabel(loc))}</span>
@@ -11626,11 +11649,6 @@ App.planWhenChange = () => {
 App.planGapForm = (key, rough) => App.planForm(-1, planWhenFor(key, rough));
 /* the day a gap card belongs to, in the shape the stop form wants */
 function planWhenFor(key, rough){ return rough ? {day:+String(key).slice(1)} : {date:key}; }
-/* App.locationForm's own prefill shape - both ends of the range default to the day it was
-   opened from, still fully editable either way */
-function locationWhenFor(key, rough){
-  return rough ? {fromDay:+String(key).slice(1), toDay:+String(key).slice(1)} : {fromDate:key, toDate:key};
-}
 /* Ideas are added to the Itinerary from the Ideas tab, which has no idea which day you came
    from, so the day is parked here on the way over and used to pre-fill the form when you pick
    one. It survives adding several ideas to the same day, and is dropped as soon as you go
@@ -11838,11 +11856,11 @@ App.saveTravelLeg = i => {
 };
 /* a manually-defined stretch of the trip ("Melbourne, Day 1-6") - not a booking, just a name
    and, optionally, a country for the flag, so dayPlaceInfo has something to fall back on for a
-   day with nothing else logged. prefill (from App.addMenu, opened on a specific day) seeds both
-   ends of the range to that day, still fully editable either way. */
-App.locationForm = (i, prefill) => {
+   day with nothing else logged. Managed from Edit Trip, alongside Countries - defining who's
+   going where and when is trip-wide planning, not a specific day's own to-do. */
+App.locationForm = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
-  const loc = (i>=0 ? (t.locations||[])[i] : null) || prefill || {};
+  const loc = (i>=0 ? (t.locations||[])[i] : null) || {};
   const rough = hasRoughWhen(t);
   const dayField = (p, label, cur) => rough
     ? `<div class="field"><label class="label" for="${p}-day">${label}</label>
@@ -11885,7 +11903,10 @@ App.saveLocation = i => {
   const loc = {id: existing ? existing.id : uid(), name, country, fromDay, toDay, fromDate, toDate};
   if(i>=0) t.locations[i] = loc; else t.locations.push(loc);
   logEdit('Itinerary', (i>=0?'edited location: ':'added location: ')+name);
-  save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Location saved':'Location added');
+  // stays on whichever tab this was opened from (Edit Trip's own Countries section, or the
+  // Itinerary's own chip row) rather than forcing a jump to the Itinerary - unlike a travel leg
+  // or stop, a Location is as much trip-wide planning as it is itinerary content
+  save(); closeModal(); rerender(); toast(i>=0?'Location saved':'Location added');
 };
 App.delLocation = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
