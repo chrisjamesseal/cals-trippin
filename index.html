@@ -187,7 +187,7 @@ a{color:var(--brand-dark);}
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s, border-color .1s;
 }
-.hub-card:hover,.hub-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
+.hub-card:hover,.hub-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
 .hub-emoji{font-size:1.4rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .hub-text{display:flex; align-items:baseline; gap:5px; min-width:0; flex-wrap:wrap; line-height:1.2;}
@@ -785,14 +785,6 @@ a{color:var(--brand-dark);}
 .plan-arrive-pill{background:#fff; border-radius:var(--radius); padding:11px 12px; margin:0 0 20px;
   font-weight:700; font-size:.9rem; color:var(--ink);}
 .plan-arrive-time{font-weight:400;}
-/* a simple travel leg (train/bus/taxi/drive/not-decided) - a dashed box rather than the slim
-   one-line .plan-leg this replaces inside the Itinerary's day view, matching the Figma mock's
-   own treatment for anything short of a real flight/ferry card */
-.plan-leg-box{display:flex; align-items:center; justify-content:space-between; gap:10px;
-  background:var(--bg); border:1px dashed var(--muted); border-radius:var(--radius);
-  padding:11px 12px; margin-bottom:20px;}
-.plan-leg-box-text{color:var(--ink); font-size:.9rem; overflow-wrap:anywhere;}
-.plan-leg-box-plus{color:var(--brand); flex-shrink:0; font-size:1.05rem; line-height:1;}
 /* the route map (initRouteMap) - a Leaflet/OSM view sat above the stop list, its pins the only
    numbering left once the list below dropped its own (see the comment above .route-list).
    Only rendered once there's a real booked stop to plot; skipped rather than shown empty for a
@@ -807,6 +799,11 @@ a{color:var(--brand-dark);}
 .route-map-pin{width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   font-size:.78rem; font-weight:700; line-height:1; background:var(--brand); color:#fff; border:2px solid #fff;
   box-shadow:0 1px 4px rgba(0,0,0,.35);}
+/* the reset-view control (initRouteMap's own ResetControl) - styled to sit alongside Leaflet's
+   own zoom buttons rather than pull in leaflet-bar's CSS for a single button */
+.route-map-reset{width:30px; height:30px; border:none; border-radius:4px; background:#fff; color:var(--ink);
+  box-shadow:0 1px 4px rgba(0,0,0,.4); cursor:pointer; font-size:.85rem; display:flex; align-items:center; justify-content:center;}
+.route-map-reset:hover{color:var(--brand);}
 /* the AI stop summary (aiSummaryHTML) - a tinted callout so it reads as an added extra sat
    above the day-by-day cards, not just another card in the same list */
 .ai-summary{background:var(--brand-ghost); border:1px solid var(--brand-tint); border-radius:var(--radius);
@@ -1595,8 +1592,15 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.90';
+const APP_VERSION = '2.29.91';
 const CHANGELOG = [
+  {version:'2.29.91', notes:[
+    "Fixed the route map dropping a numbered stop whenever it was the trip's very last leg (a flight/ferry/car hire with nothing booked after it) - it's back to getting its own numbered pin, so a flight's dashed line no longer trails off to a stop that was never drawn.",
+    "Added a reset-view button to the route map, now that a toggle no longer snaps its zoom back on its own - a manual pan/zoom needed a way back to the fitted view.",
+    "Taxi/drive/walk/bus/train legs read as a single plain line now (matching a flight's own \"✈️ 3 Hours\" connector row) instead of their own dashed, bordered box.",
+    "Clicking Open All on the Itinerary now scrolls back to the top of the page.",
+    "Removed the red hover/focus border on the Home hub cards (Itinerary, Tasks, etc.) - it was also sticking on mobile after a tap.",
+  ]},
   {version:'2.29.90', notes:[
     "Fixed the route map visibly resetting to its default zoomed-out view every time you opened or closed a day on the Itinerary - it now keeps whatever view you left it at across a toggle, instead of snapping back to fit every time.",
     "Add Travel's From/To fields now suggest every place already named on the trip - a stay's city, a flight's airports, a ferry's ports, a car hire's pickup/drop-off, another travel leg's own From/To - not just stops and mood board ideas.",
@@ -10901,10 +10905,9 @@ function planDaysHTML(t, ro, filterKeys){
                  : `App.stayTravelForm(${s.aci})`;
     if(!booked){
       // a simple leg - train, bus, taxi, driving yourself, or not decided yet - reads as a
-      // dashed box (the Figma mock's own treatment for anything short of a real flight/ferry
-      // card), the bare time and the mode's own emoji on the left, a plus on the right as a
-      // quiet "there's more to fill in here" cue rather than an edit affordance that's really
-      // any different from tapping the rest of the box
+      // single plain line, the same style as the connector row between two cards (planConnectorHTML,
+      // "✈️ 3 Hours") rather than its own dashed, bordered box - still tappable straight through
+      // to the edit form, just without a card's visual weight for something this quick to add
       const dur = s.durationH||s.durationM ? (s.durationH||0)*60+(s.durationM||0) : null;
       /* named by how you're getting there rather than by both ends: "Bus to Kassiopi" is what
          you'd say, where "Corfu Town → Kassiopi" is a timetable entry. A duration, when there
@@ -10921,10 +10924,7 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.from ? `${wayPrefixed} from ${esc(s.from)}`
                  : wayPrefixed;
       return `
-      <div class="plan-leg-box${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
-        <span class="plan-leg-box-text${s.notBooked?' text-undecided':''}">${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${secEmoji(mode.emoji)} <strong>${line}</strong></span>
-        <span class="plan-leg-box-plus" aria-hidden="true">${fa('circle-plus')}</span>
-      </div>`;
+      <div class="plan-connector${s.notBooked?' text-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${secEmoji(mode.emoji)} <strong>${line}</strong></div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -11146,6 +11146,9 @@ App.toggleAllDays = () => {
     if(opening) ROUTE_OPEN.add(key); else ROUTE_OPEN.delete(key);
   });
   rerender();
+  // every day just expanded (or collapsed) below wherever the page happened to be scrolled to -
+  // back to the top so the change reads as "Day 1 onwards", not a jump into the middle of it
+  window.scrollTo(0,0);
 };
 App.routeToggle = key => {
   if(ROUTE_OPEN.has(key)) ROUTE_OPEN.delete(key); else ROUTE_OPEN.add(key);
@@ -11166,6 +11169,7 @@ App.routeToggle = key => {
    map's DOM node each time, so this just makes a fresh Leaflet map every time it's called
    rather than trying to update one in place. */
 let ROUTE_MAP = null;
+let ROUTE_MAP_PTS = [];   // the current map's own numbered-stop coordinates, for the reset-view control
 /* the geocoding half of a route map, shared by the full Itinerary map (initRouteMap) and the
    small preview on a Next Trip dashboard tile (initDashTripMap) - resolves each of a trip's
    numbered stops to a lat/lon, from the shared WX_LIST_GEO cache where possible, calling
@@ -11259,15 +11263,16 @@ function addCartoLayer(map){
   else glMap.once('load', ()=>tuneCartoLabels(glMap));
   return gl;
 }
-/* the map is a route overview of where you're actually staying, not the literal day-by-day
-   list routeStops itself feeds the Itinerary tab with - so only real stay locations get a
-   numbered pin here. A flight/ferry/car leg isn't one of the numbers: its arrival is already
-   the same place the next stay's pin marks, and a departure airport (often the one at home,
-   well outside the trip's own area) would otherwise pull the map's own framing out to fit it.
-   Flights still show on the map, just as their own dashed line, kept out of that framing
-   entirely - see mapFlightLines/resolveFlightLineCoords below. */
+/* the map is a route overview, not the literal day-by-day list routeStops itself feeds the
+   Itinerary tab with - every journey still gets its own numbered pin same as a stay does (a leg
+   with nothing booked at the other end yet, no accommodation logged, is still a real place on
+   the route - often the only record of it, so dropping it left the map showing a dashed flight
+   line trailing off to a pin that was never drawn). Flights on top of that draw their own dashed
+   line (see mapFlightLines/resolveFlightLineCoords below), kept out of the map's framing
+   entirely so a departure airport far outside the trip's own area never pulls the zoom out to
+   fit it - additive, not a replacement for a flight's own numbered stop. */
 function mapRouteStops(t){
-  return routeStops(t).filter(s=>!s.gap && !s.journey);
+  return routeStops(t).filter(s=>!s.gap);
 }
 /* every flight leg with both ends known, resolved to real place names the same geocoder every
    other pin already uses - not stored coordinates, since AIRPORTS only carries a name/timezone
@@ -11337,12 +11342,27 @@ function initRouteMap(t){
     });
     const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
     if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
+    ROUTE_MAP_PTS = pts;   // so the reset-view control can re-fit without waiting on pins again
     // only the first time this trip's map is shown this session - once there's a prior view to
     // carry over, further redraws (a toggle, a new pin resolving) place pins in that same view
     // instead of snapping the camera back to fit them
     if(pts.length && !priorView) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
   };
   resolveRouteStopPins(t, numbered, redraw);
+  /* a manual way back to the fitted view - now that a re-render (an accordion toggle) no longer
+     re-fits on its own (see priorView above), a pan/zoom you made has nothing else to undo it */
+  const ResetControl = L.Control.extend({
+    options:{position:'topright'},
+    onAdd: () => {
+      const btn = L.DomUtil.create('button', 'route-map-reset');
+      btn.type = 'button'; btn.setAttribute('aria-label','Reset map view'); btn.title = 'Reset view';
+      btn.innerHTML = fa('expand');
+      L.DomEvent.disableClickPropagation(btn);
+      btn.onclick = () => { if(ROUTE_MAP_PTS.length) map.fitBounds(ROUTE_MAP_PTS.length>1?ROUTE_MAP_PTS:[ROUTE_MAP_PTS[0]], {padding:[28,28], maxZoom:11}); };
+      return btn;
+    }
+  });
+  new ResetControl().addTo(map);
 }
 /* the small, non-interactive map preview on a Next Trip dashboard tile - same pin-resolution as
    the full Itinerary map, just plain dots instead of numbered pins and no zoom/drag controls,
