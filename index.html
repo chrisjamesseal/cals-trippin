@@ -24,6 +24,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.12.0/maplibre-gl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -959,6 +962,10 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .field-clear{position:absolute; right:0; top:50%; transform:translateY(-50%); display:none; align-items:center; justify-content:center;
   width:40px; height:40px; border:none; background:none; color:var(--muted); cursor:pointer; border-radius:50%; padding:0; font-size:.8rem;}
 .field-clear:hover{background:var(--brand-ghost); color:var(--brand-dark);}
+/* Chrome adds its own dropdown-arrow affordance to any input wired to a <datalist> (list="…") -
+   every field already gets the × clear button above, so a second, native arrow on top of that
+   just reads as a stray/broken icon rather than anything intentional. */
+input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button{display:none !important;}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
 /* a field hidden by the "Not Booked Yet?" toggle (see undecidedFieldHTML) - collapses to
    nothing rather than leaving a gap, and lets its .grid2 row's other field take the full row */
@@ -1588,8 +1595,19 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.88';
+const APP_VERSION = '2.29.90';
 const CHANGELOG = [
+  {version:'2.29.90', notes:[
+    "Fixed the route map visibly resetting to its default zoomed-out view every time you opened or closed a day on the Itinerary - it now keeps whatever view you left it at across a toggle, instead of snapping back to fit every time.",
+    "Add Travel's From/To fields now suggest every place already named on the trip - a stay's city, a flight's airports, a ferry's ports, a car hire's pickup/drop-off, another travel leg's own From/To - not just stops and mood board ideas.",
+    "Removed a stray native dropdown arrow that showed up on any field with suggestions (From/To on Add Travel, Location on a stop) - every field already has its own × to clear it.",
+    "A taxi, drive, walk, bus or train leg with a duration set now reads its exact length straight into the line itself (\"45 minutes taxi to Airbnb\") instead of a separate line underneath that rounded to the nearest hour (so 45 minutes was showing as \"1 Hour\").",
+    "Removed the beach emoji from \"Nothing Planned\" - it now reads as plain text with no icon.",
+  ]},
+  {version:'2.29.89', notes:[
+    "The Itinerary/Next Trip route map now renders with real place labels instead of CartoDB's plain pre-drawn tiles - place names show in English (or the closest Latin form) at every zoom instead of switching to the local script once you zoom in on a stop, and city/town names now show at zoom levels where they used to be hidden, so a long route (say, coast to coast) isn't just a blank country outline. Falls back to the old tiles automatically if the new map library can't load.",
+    "Flights now show on the route map too, as a dashed line from the departure airport - they're no longer one of the numbered stops (that's for places you're actually staying), and a distant departure airport no longer pulls the map's own zoom/framing out to fit it.",
+  ]},
   {version:'2.29.88', notes:[
     "Actually fixed the route map's \"API KEY REQUIRED\" watermark this time - the key was reaching the browser fine, but the tile URL was sending it as the wrong query parameter name (CARTO reads \"key\", not \"api_key\"), so it was being silently ignored as if no key had been sent at all.",
     "Plants page: less space between vegetable cards in the list.",
@@ -9936,7 +9954,7 @@ function undecidedItemsHTML(t, ro){
   const gapFirstNights = new Set(stayGaps(t).map(g=>g.firstNight));
   dKeys.forEach(k=>{
     if(dGroups[k].length===0 && !gapFirstNights.has(k)){
-      rows.push({dateLine: dateLineFor(k), icon:secEmoji('🏖️'), title:'Nothing Planned', time:'',
+      rows.push({dateLine: dateLineFor(k), icon:'', title:'Nothing Planned', time:'',
         editFn:`App.planGapForm('${k}', ${rough})`, sortKey:k});
     }
   });
@@ -9958,7 +9976,7 @@ function undecidedItemsHTML(t, ro){
       ${r.dateLine?`<div class="task-date">${esc(r.dateLine)}</div>`:''}
       <div class="task-pill${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
-        <span class="task-pill-text">${r.time?`<span class="task-pill-time">${esc(r.time)} </span>`:''}${r.icon} <strong>${r.title}</strong></span>
+        <span class="task-pill-text">${r.time?`<span class="task-pill-time">${esc(r.time)} </span>`:''}${r.icon?r.icon+' ':''}<strong>${r.title}</strong></span>
         ${!ro?`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`:''}
       </div>
     </div>`}));
@@ -10545,6 +10563,16 @@ function hoursWordLabel(mins){
   if(h<=0) return '';
   return `${h} Hour${h===1?'':'s'}`;
 }
+/* the exact stored duration, spelled out in lowercase words ("45 minutes", "1 hour 15 minutes")
+   for folding straight into a leg box's own line ("45 minutes taxi to Airbnb") - unlike
+   hoursWordLabel's rounded-to-the-hour connector phrasing, this is the one place on the page
+   that duration is the whole point of the line, so it says exactly what was typed in rather
+   than rounding a 45-minute taxi up to "1 Hour". */
+function exactDurationWords(mins){
+  if(!mins) return '';
+  const h = Math.floor(mins/60), m = mins%60;
+  return [h?`${h} hour${h===1?'':'s'}`:'', m?`${m} minute${m===1?'':'s'}`:''].filter(Boolean).join(' ');
+}
 /* the connector row itself, sat between two cards in a day's timeline - a leg's own stored
    duration (durationH/M) wins when it has one, since that's a fact rather than a guess;
    otherwise it's worked out from the two clock times either side, when both are known. Returns
@@ -10872,27 +10900,31 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.fi!=null ? `App.airportTravelForm(${s.fi})`
                  : `App.stayTravelForm(${s.aci})`;
     if(!booked){
-      /* named by how you're getting there rather than by both ends: "Bus to Kassiopi" is what
-         you'd say, where "Corfu Town → Kassiopi" is a timetable entry */
-      const modeUndecided = !s.mode || s.mode==='undecided';
-      const way = s.mode==='walk' ? 'Walk' : mode.label;
-      const line = modeUndecided
-                 ? (s.to ? `Travel to ${esc(s.to)} not decided` : 'Travel not decided')
-                 : s.to ? `${way} to ${esc(s.to)}`
-                 : s.from ? `${way} from ${esc(s.from)}`
-                 : way;
       // a simple leg - train, bus, taxi, driving yourself, or not decided yet - reads as a
       // dashed box (the Figma mock's own treatment for anything short of a real flight/ferry
       // card), the bare time and the mode's own emoji on the left, a plus on the right as a
       // quiet "there's more to fill in here" cue rather than an edit affordance that's really
       // any different from tapping the rest of the box
       const dur = s.durationH||s.durationM ? (s.durationH||0)*60+(s.durationM||0) : null;
+      /* named by how you're getting there rather than by both ends: "Bus to Kassiopi" is what
+         you'd say, where "Corfu Town → Kassiopi" is a timetable entry. A duration, when there
+         is one, reads straight into that same line ("45 minutes taxi to Airbnb") rather than as
+         its own line underneath - the exact figure that was typed in, not the connector row's
+         rounded-to-the-hour phrasing (a 45-minute taxi isn't "1 Hour"). */
+      const modeUndecided = !s.mode || s.mode==='undecided';
+      const durWords = exactDurationWords(dur);
+      const way = durWords ? (s.mode==='walk' ? 'walk' : mode.label.toLowerCase()) : (s.mode==='walk' ? 'Walk' : mode.label);
+      const wayPrefixed = durWords ? `${durWords} ${way}` : way;
+      const line = modeUndecided
+                 ? (s.to ? `Travel to ${esc(s.to)} not decided` : 'Travel not decided')
+                 : s.to ? `${wayPrefixed} to ${esc(s.to)}`
+                 : s.from ? `${wayPrefixed} from ${esc(s.from)}`
+                 : wayPrefixed;
       return `
       <div class="plan-leg-box${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
         <span class="plan-leg-box-text${s.notBooked?' text-undecided':''}">${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${secEmoji(mode.emoji)} <strong>${line}</strong></span>
         <span class="plan-leg-box-plus" aria-hidden="true">${fa('circle-plus')}</span>
-      </div>
-      ${planConnectorHTML(dur, mode.icon)}`;
+      </div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -10971,7 +11003,7 @@ function planDaysHTML(t, ro, filterKeys){
   const emptyDayCard = k => `
     <div class="task-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="App.addMenu('${k}', ${rough})"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.addMenu('${k}', ${rough})}"`}>
-      <span class="task-pill-text">${secEmoji('\u{1F3D6}️')} <strong>Nothing Planned</strong></span>
+      <span class="task-pill-text"><strong>Nothing Planned</strong></span>
       ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
     </div>`;
   /* a night nobody's booked anywhere for - shown once, on its first night, as the same dashed
@@ -11176,29 +11208,124 @@ function resolveRouteStopPins(t, numbered, onUpdate){
 function cartoTileUrl(){
   /* CARTO's raster tile endpoint reads the key off a "key" query param, not "api_key" - the
      latter silently gets treated the same as no key at all, watermark included, rather than
-     erroring, which is what made this so easy to ship wrong in the first place. */
+     erroring, which is what made this so easy to ship wrong in the first place. Only used as a
+     fallback now (see addCartoLayer) if MapLibre GL itself fails to load. */
   return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
     + (CARTO_API_KEY ? '?key='+encodeURIComponent(CARTO_API_KEY) : '');
 }
-/* the map is a route overview, not the literal day-by-day list routeStops itself feeds the
-   Itinerary tab with - so a trailing flight/ferry/car leg with no stay after it (flying home at
-   the end of the trip) is dropped off the end here, rather than plotting a "destination" that's
-   really just the trip winding down. A leading journey (the outbound flight itself) stays put -
-   that's still the first real place the trip actually goes to, not somewhere it's leaving from. */
+function cartoVectorStyleUrl(){
+  return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'
+    + (CARTO_API_KEY ? '?key='+encodeURIComponent(CARTO_API_KEY) : '');
+}
+/* CARTO's Voyager vector style already prefers name_en for country/state/continent labels, but
+   for the town/village/hamlet/suburb tier - and the big-city labels once you're zoomed in past
+   z13 - it switches over to the plain OSM "name" tag, i.e. whatever language that place's own
+   OSM entry happens to be tagged in (Greek for a Greek village, say). Pinning text-field to
+   always read name_en, falling back to name only when a place has no English form at all, keeps
+   that consistent at every zoom instead of flipping to local script the moment you zoom in on a
+   stop. Road and POI labels have no name_en in this vector schema to begin with, so nothing to
+   override there - those still show whatever OSM has. Layer ids are the style's own, checked
+   against github.com/CartoDB/basemap-styles/blob/master/mapboxgl/voyager.json. */
+const CARTO_LATIN_LABEL_LAYERS = ['place_hamlet','place_suburbs','place_villages','place_town',
+  'place_city_r6','place_city_r5','watername_lake','watername_lake_line'];
+/* the same style also keeps most city/town labels hidden until fairly zoomed in - fine for a
+   dense city map, but it's why a whole-country route (Adelaide to Sydney, say) shows next to
+   nothing but the country name. Dropping each place-label tier's own minzoom by a couple of
+   levels surfaces them sooner, without changing what shows once you are zoomed in on a stop. */
+const CARTO_MINZOOM_OVERRIDES = {place_city_r6:6, place_city_r5:6, place_city_dot_r7:4,
+  place_city_dot_r4:3, place_town:6, place_villages:8, place_capital_dot_z7:5, place_state:3};
+function tuneCartoLabels(glMap){
+  CARTO_LATIN_LABEL_LAYERS.forEach(id => {
+    if(!glMap.getLayer(id)) return;
+    try{ glMap.setLayoutProperty(id, 'text-field', ['coalesce', ['get','name_en'], ['get','name']]); }catch(e){}
+  });
+  Object.entries(CARTO_MINZOOM_OVERRIDES).forEach(([id,minzoom]) => {
+    if(!glMap.getLayer(id)) return;
+    try{ glMap.setLayerZoomRange(id, minzoom, 24); }catch(e){}
+  });
+}
+/* the actual base layer every route map adds - MapLibre GL's vector rendering (via the
+   maplibre-gl-leaflet bridge, so the rest of this file keeps using plain Leaflet markers/lines/
+   fitBounds untouched) when it's loaded, falling back to the old plain raster tiles otherwise
+   (CartoDB's tile CDN being unreachable, or the CDN serving MapLibre GL itself being down) - a
+   watermarked-but-working map beats a blank one. */
+function addCartoLayer(map){
+  if(typeof L.maplibreGL !== 'function'){
+    return L.tileLayer(cartoTileUrl(), { maxZoom: 20, subdomains: 'abcd' }).addTo(map);
+  }
+  const gl = L.maplibreGL({style: cartoVectorStyleUrl(), attributionControl:false}).addTo(map);
+  const glMap = gl.getMaplibreMap();
+  if(glMap.isStyleLoaded()) tuneCartoLabels(glMap);
+  else glMap.once('load', ()=>tuneCartoLabels(glMap));
+  return gl;
+}
+/* the map is a route overview of where you're actually staying, not the literal day-by-day
+   list routeStops itself feeds the Itinerary tab with - so only real stay locations get a
+   numbered pin here. A flight/ferry/car leg isn't one of the numbers: its arrival is already
+   the same place the next stay's pin marks, and a departure airport (often the one at home,
+   well outside the trip's own area) would otherwise pull the map's own framing out to fit it.
+   Flights still show on the map, just as their own dashed line, kept out of that framing
+   entirely - see mapFlightLines/resolveFlightLineCoords below. */
 function mapRouteStops(t){
-  const stops = routeStops(t).filter(s=>!s.gap);
-  while(stops.length && stops[stops.length-1].journey) stops.pop();
-  return stops;
+  return routeStops(t).filter(s=>!s.gap && !s.journey);
+}
+/* every flight leg with both ends known, resolved to real place names the same geocoder every
+   other pin already uses - not stored coordinates, since AIRPORTS only carries a name/timezone
+   per code (see AIRPORT_TZ's own comment on why that's kept separate), and a name is all
+   wxResolve needs anyway. */
+function mapFlightLines(t){
+  return (t.flights||[]).filter(f=>f.from && f.to)
+    .map(f=>({from: airportName(f.from)||f.from, to: airportName(f.to)||f.to}));
+}
+/* resolves each flight leg's two endpoints independently (rather than reusing
+   resolveRouteStopPins, which is shaped around one place per numbered stop) and calls
+   onUpdate(coords) once a given leg has both ends in - coords[idx] is null until then, then
+   [fromGeo, toGeo]. */
+function resolveFlightLineCoords(lines, onUpdate){
+  const coords = new Array(lines.length).fill(null);
+  lines.forEach((l,idx)=>{
+    let from=null, to=null;
+    const maybeUpdate = () => { if(from && to){ coords[idx] = [from, to]; onUpdate(coords); } };
+    wxResolve([l.from], geo=>{ from = geo; maybeUpdate(); });
+    wxResolve([l.to], geo=>{ to = geo; maybeUpdate(); });
+  });
+  return coords;
 }
 function initRouteMap(t){
-  if(ROUTE_MAP){ try{ ROUTE_MAP.remove(); }catch(e){} ROUTE_MAP = null; }
+  /* every accordion toggle on the Itinerary tab re-renders the whole tab body (see the comment
+     above ROUTE_MAP), which throws away this map's DOM node and forces a new Leaflet map to be
+     made from scratch - carrying the old one's center/zoom into the new one, and skipping the
+     fitBounds below once there's a prior view to carry over, is what keeps a toggle from
+     visibly snapping the map back to its default framing every time you open/close a day. */
+  let priorView = null;
+  if(ROUTE_MAP){
+    try{ priorView = {center: ROUTE_MAP.getCenter(), zoom: ROUTE_MAP.getZoom()}; }catch(e){}
+    try{ ROUTE_MAP.remove(); }catch(e){}
+    ROUTE_MAP = null;
+  }
   const el = document.getElementById('route-map');
   if(!el || typeof L === 'undefined') return;
   const numbered = mapRouteStops(t);
   if(!numbered.length) return;
-  const map = L.map(el, {scrollWheelZoom:false, attributionControl:false}).setView([20,0], 2);
+  const map = L.map(el, {scrollWheelZoom:false, attributionControl:false})
+    .setView(priorView ? priorView.center : [20,0], priorView ? priorView.zoom : 2);
   ROUTE_MAP = map;
-  L.tileLayer(cartoTileUrl(), { maxZoom: 20, subdomains: 'abcd' }).addTo(map);
+  addCartoLayer(map);
+  /* drawn first so the numbered pins/route line below always sit on top of it, and resolved
+     independently of the numbered stops - a flight's own geocoding never holds up or feeds into
+     fitBounds, so the map's framing is exactly what it'd be with the flight lines left out. */
+  let flightLayers = [];
+  const redrawFlights = coords => {
+    if(ROUTE_MAP !== map) return;
+    flightLayers.forEach(l=>map.removeLayer(l)); flightLayers = [];
+    coords.forEach(pair=>{
+      if(!pair) return;
+      flightLayers.push(L.polyline([[pair[0].lat,pair[0].lon],[pair[1].lat,pair[1].lon]],
+        {color:'#C1502E', weight:2, opacity:.45, dashArray:'2 8'}).addTo(map));
+    });
+  };
+  const flightLines = mapFlightLines(t);
+  if(flightLines.length) resolveFlightLineCoords(flightLines, redrawFlights);
   let layers = [];
   const redraw = pins => {
     if(ROUTE_MAP !== map) return;   // a later render superseded this map already
@@ -11210,7 +11337,10 @@ function initRouteMap(t){
     });
     const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
     if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
-    if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
+    // only the first time this trip's map is shown this session - once there's a prior view to
+    // carry over, further redraws (a toggle, a new pin resolving) place pins in that same view
+    // instead of snapping the camera back to fit them
+    if(pts.length && !priorView) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
   };
   resolveRouteStopPins(t, numbered, redraw);
 }
@@ -11226,7 +11356,7 @@ function initDashTripMaps(){
     if(!numbered.length) return;
     const map = L.map(el, {scrollWheelZoom:false, dragging:false, zoomControl:false,
       attributionControl:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false}).setView([20,0], 2);
-    L.tileLayer(cartoTileUrl(), {maxZoom:20, subdomains:'abcd'}).addTo(map);
+    addCartoLayer(map);
     let layers = [];
     const redraw = pins => {
       layers.forEach(l=>map.removeLayer(l)); layers = [];
@@ -11377,10 +11507,25 @@ function readDayOrDate(p){
   const d = $('#'+p+'-day');
   return d ? {date:'', day:+d.value} : {date: $('#'+p+'-date').value, day:0};
 }
+/* every place already named somewhere on this trip, so From/To on a travel leg (or a stop's own
+   location field) can suggest a name you've already typed once rather than making you retype it
+   identically - a stay's own city, a flight's airports, a ferry's ports, a car hire's pickup/
+   drop-off, another travel leg's own from/to, alongside the stops and mood board ideas this
+   already covered. */
 function locationDatalist(t){
   const set = new Set();
-  (t.itinerary||[]).forEach(s=>{ if(s.location) set.add(s.location); });
+  (t.itinerary||[]).forEach(s=>{
+    if(s.location) set.add(s.location);
+    if(s.kind==='travel'){ if(s.from) set.add(s.from); if(s.to) set.add(s.to); }
+  });
   (t.moodBoard||[]).forEach(m=>{ if(m.title) set.add(m.title.replace(/^(Do|Eat|Tip):\s*/,'')); });
+  (t.accommodations||[]).forEach(a=>{ const c = accomCityName(a); if(c) set.add(c); });
+  (t.flights||[]).forEach(f=>{
+    if(f.from) set.add(airportName(f.from)||f.from);
+    if(f.to) set.add(airportName(f.to)||f.to);
+  });
+  (t.ferries||[]).forEach(f=>{ if(f.from) set.add(f.from); if(f.to) set.add(f.to); });
+  (t.carHire||[]).forEach(c=>{ if(c.pickupLoc) set.add(c.pickupLoc); if(c.dropoffLoc) set.add(c.dropoffLoc); });
   return `<datalist id="loc-list">${[...set].map(l=>`<option value="${esc(l)}">`).join('')}</datalist>`;
 }
 let PLAN_IMG = null;   // pending stop image while the form is open
