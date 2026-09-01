@@ -676,8 +676,11 @@ a{color:var(--brand-dark);}
 .route-body .head-with-logo{display:flex;}
 /* the accordion header row - name/dates on the left, edit icon + chevron on the right, all on
    one line until it has to wrap */
-.route-head-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-  padding-bottom:12px; border-bottom:1px solid var(--line);}
+.route-head-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+/* only when the accordion's actually open - .route-item already carries its own bottom border
+   to separate one day from the next, so a collapsed day (nothing between that border and this
+   one) would otherwise show as a doubled-up line instead of the day's usual single divider */
+.route-head-row.open{padding-bottom:12px; border-bottom:1px solid var(--line);}
 .route-head-row>div:first-child{flex:1; min-width:0;}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
@@ -1503,7 +1506,7 @@ body.kb-open .tabbar.on{display:none;}
 /* a solid brand-coloured circle behind the icon again (not just the bare icon floating on the
    photo) - overflow:hidden clips the favicon's own square image into that same circle rather
    than showing its corners past the edge */
-.plan-img-map{position:absolute; bottom:10px; right:10px; background:var(--brand); box-shadow:var(--shadow);
+.plan-img-map{position:absolute; bottom:10px; right:10px; background:var(--line-strong); box-shadow:var(--shadow);
   border-radius:50%; overflow:hidden;}
 .btn.icon-only.plan-img-map{padding:8px;}
 .plan-img-map .fav{width:28px; height:28px;}
@@ -1552,11 +1555,17 @@ body.kb-open .tabbar.on{display:none;}
   .tabbar.on{display:none!important;}
   .wrap{max-width:1160px; margin:0; padding:calc(14px + env(safe-area-inset-top)) 40px 96px 32px; flex:1; min-width:0;}
   .dash-grid{grid-template-columns:repeat(3,1fr);}
-  /* Itinerary reads as a stack of phone-width cards, not a dashboard - the wide 3-column
-     layout the rest of the trip's pages use doesn't suit it, so it keeps its mobile width
-     instead, sitting centred with room either side (which just shrinks on its own as the
-     window narrows, right down to the sidebar breakpoint above) */
-  .wrap[data-tab="plan"]{max-width:560px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 24px 96px;}
+  /* every trip tab reads as a stack of phone-width cards, not a dashboard - the wide 3-column
+     layout only suits the trip's own Overview (its stat tiles genuinely want the extra
+     columns); every other tab is single-column content top to bottom same as it is on mobile,
+     so it keeps that mobile width on desktop too, sitting centred with room either side (which
+     just shrinks on its own as the window narrows, right down to the sidebar breakpoint above)
+     instead of stretching that same single column out full-width */
+  .wrap[data-tab="plan"], .wrap[data-tab="tasks"], .wrap[data-tab="travel"],
+  .wrap[data-tab="stay"], .wrap[data-tab="mood"], .wrap[data-tab="pack"],
+  .wrap[data-tab="polls"], .wrap[data-tab="money"], .wrap[data-tab="photos"],
+  .wrap[data-tab="docs"], .wrap[data-tab="notes"], .wrap[data-tab="contacts"]
+  {max-width:560px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 24px 96px;}
 }
 @media(min-width:768px) and (max-width:1279px){
   .sidebar{width:216px;}
@@ -1610,8 +1619,14 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.94';
+const APP_VERSION = '2.29.95';
 const CHANGELOG = [
+  {version:'2.29.95', notes:[
+    "Every trip tab (Tasks, Travel, Accommodation, Ideas, Packing, Polls, Money, Photos, Docs & Links, Notes, Contacts) now keeps its mobile-width column on desktop too, centred with room either side, the same treatment the Itinerary already had - only Overview keeps the wide 3-column layout, since its stat tiles actually want the extra width.",
+    "Fixed the Itinerary's day-heading divider showing doubled-up on a collapsed day - it only shows now while that day's actually open, since a collapsed day already has its own divider from the row below it.",
+    "Fixed the \"Couldn't get suggestions\" message overlapping the Nothing Planned pill's own dashed border.",
+    "The Google Maps pin on a stop's photo is the app's own light-brown line colour now instead of brand red.",
+  ]},
   {version:'2.29.94', notes:[
     "Fixed a Location's flag bleeding onto an unrelated day - it no longer backfills onto a travel/arrival day at all (the destination is its own explicit place, nothing to do with which Location's date range the day falls in), and on a stay day it only fills in when exactly one Location covers that day, not whichever one happened to match first when two overlapped.",
     "Empty-day \"Nothing Planned\" now reads in red, matching every other still-outstanding item on the Itinerary.",
@@ -11069,7 +11084,7 @@ function planDaysHTML(t, ro, filterKeys){
         <span class="ai-idea-chip-body"><strong>${esc(idea.title)}</strong>${idea.note?`<span class="muted small">${esc(idea.note)}</span>`:''}</span>
         ${fa('circle-plus')}
       </button>`).join('')}</div>`:''}
-    ${failed&&!pending?`<p class="small muted" style="margin:-8px 0 4px">Couldn't get suggestions - try again.</p>`:''}`;
+    ${failed&&!pending?`<p class="small muted" style="margin:8px 0 4px">Couldn't get suggestions - try again.</p>`:''}`;
   };
   /* a night nobody's booked anywhere for - shown once, on its first night, as the same dashed
      task-pill as everything else still-outstanding on this page (the Accommodation tab keeps
@@ -11632,7 +11647,7 @@ function tabPlan(t, ro){
     return `
     <div class="route-item">
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
-        <div class="route-head-row">
+        <div class="route-head-row${isOpen?' open':''}">
           <div style="min-width:0">
             ${dateLine?`<div class="muted small">${esc(dateLine)}</div>`:''}
             <strong>${headingHTML}${k===todayKey?` <span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</strong>
