@@ -187,7 +187,7 @@ a{color:var(--brand-dark);}
   border:1px solid var(--line); border-radius:var(--radius); background:var(--paper);
   box-shadow:var(--shadow); transition:transform .1s, box-shadow .1s, border-color .1s;
 }
-.hub-card:hover,.hub-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
+.hub-card:hover,.hub-card:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
 .hub-emoji{font-size:1.4rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .hub-text{display:flex; align-items:baseline; gap:5px; min-width:0; flex-wrap:wrap; line-height:1.2;}
@@ -785,14 +785,6 @@ a{color:var(--brand-dark);}
 .plan-arrive-pill{background:#fff; border-radius:var(--radius); padding:11px 12px; margin:0 0 20px;
   font-weight:700; font-size:.9rem; color:var(--ink);}
 .plan-arrive-time{font-weight:400;}
-/* a simple travel leg (train/bus/taxi/drive/not-decided) - a dashed box rather than the slim
-   one-line .plan-leg this replaces inside the Itinerary's day view, matching the Figma mock's
-   own treatment for anything short of a real flight/ferry card */
-.plan-leg-box{display:flex; align-items:center; justify-content:space-between; gap:10px;
-  background:var(--bg); border:1px dashed var(--muted); border-radius:var(--radius);
-  padding:11px 12px; margin-bottom:20px;}
-.plan-leg-box-text{color:var(--ink); font-size:.9rem; overflow-wrap:anywhere;}
-.plan-leg-box-plus{color:var(--brand); flex-shrink:0; font-size:1.05rem; line-height:1;}
 /* the route map (initRouteMap) - a Leaflet/OSM view sat above the stop list, its pins the only
    numbering left once the list below dropped its own (see the comment above .route-list).
    Only rendered once there's a real booked stop to plot; skipped rather than shown empty for a
@@ -807,6 +799,17 @@ a{color:var(--brand-dark);}
 .route-map-pin{width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   font-size:.78rem; font-weight:700; line-height:1; background:var(--brand); color:#fff; border:2px solid #fff;
   box-shadow:0 1px 4px rgba(0,0,0,.35);}
+/* the reset-view control (initRouteMap's own ResetControl) - styled to sit alongside Leaflet's
+   own zoom buttons rather than pull in leaflet-bar's CSS for a single button */
+.route-map-reset{width:30px; height:30px; border:none; border-radius:4px; background:#fff; color:var(--ink);
+  box-shadow:0 1px 4px rgba(0,0,0,.4); cursor:pointer; font-size:.85rem; display:flex; align-items:center; justify-content:center;}
+.route-map-reset:hover{color:var(--brand);}
+/* the trip's own defined Locations (locationsSummaryHTML) - a day with no real booking still
+   reads as somewhere, and its own flag, once one of these date ranges covers it (see
+   dayPlaceInfo's own fallback) rather than sitting blank the way an unbooked stretch used to. */
+.location-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;}
+.location-chip{cursor:pointer; font:inherit;}
+.location-chip-add{color:var(--brand); border-color:var(--brand-tint); background:var(--brand-ghost);}
 /* the AI stop summary (aiSummaryHTML) - a tinted callout so it reads as an added extra sat
    above the day-by-day cards, not just another card in the same list */
 .ai-summary{background:var(--brand-ghost); border:1px solid var(--brand-tint); border-radius:var(--radius);
@@ -1595,8 +1598,18 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.90';
+const APP_VERSION = '2.29.92';
 const CHANGELOG = [
+  {version:'2.29.92', notes:[
+    "New Location: added to the Add to Itinerary menu - name a stretch of days (\"Melbourne, Day 1-6\") with an optional country for the flag, so every day in that range shows a place and flag on the Itinerary even with nothing else booked yet. Only fills in a day that has nothing else logged - a real stay or travel leg always wins. Manage them from the chip row above the day list.",
+  ]},
+  {version:'2.29.91', notes:[
+    "Fixed the route map dropping a numbered stop whenever it was the trip's very last leg (a flight/ferry/car hire with nothing booked after it) - it's back to getting its own numbered pin, so a flight's dashed line no longer trails off to a stop that was never drawn.",
+    "Added a reset-view button to the route map, now that a toggle no longer snaps its zoom back on its own - a manual pan/zoom needed a way back to the fitted view.",
+    "Taxi/drive/walk/bus/train legs read as a single plain line now (matching a flight's own \"✈️ 3 Hours\" connector row) instead of their own dashed, bordered box.",
+    "Clicking Open All on the Itinerary now scrolls back to the top of the page.",
+    "Removed the red hover/focus border on the Home hub cards (Itinerary, Tasks, etc.) - it was also sticking on mobile after a tap.",
+  ]},
   {version:'2.29.90', notes:[
     "Fixed the route map visibly resetting to its default zoomed-out view every time you opened or closed a day on the Itinerary - it now keeps whatever view you left it at across a toggle, instead of snapping back to fit every time.",
     "Add Travel's From/To fields now suggest every place already named on the trip - a stay's city, a flight's airports, a ferry's ports, a car hire's pickup/drop-off, another travel leg's own From/To - not just stops and mood board ideas.",
@@ -3180,7 +3193,7 @@ function getTrip(id){ return DB.trips.find(t=>t.id===id); }
 function normalizeTrip(t){
   if(!t) return t;
   ['countries','flights','ferries','carHire','accommodations','documents','docLinks',
-   'itinerary','receipts','moodBoard','participants','editLog','polls','packing','tasks'].forEach(k=>{
+   'itinerary','receipts','moodBoard','participants','editLog','polls','packing','tasks','locations'].forEach(k=>{
     if(!Array.isArray(t[k])) t[k] = [];
   });
   t.notes = t.notes || {};
@@ -9659,6 +9672,10 @@ App.addMenu = (key, rough) => {
         <span class="add-choice-emoji" aria-hidden="true">📍</span>
         <span class="add-choice-body"><strong>Add Stop</strong><span class="muted small">Something to do on a specific day</span></span>
       </button>
+      <button type="button" class="add-choice" onclick="${hasDay?`App.locationForm(-1, locationWhenFor('${esc(key)}',${!!rough}))`:'App.locationForm(-1)'}">
+        <span class="add-choice-emoji" aria-hidden="true">🚩</span>
+        <span class="add-choice-body"><strong>New Location</strong><span class="muted small">Name a stretch of days ("Melbourne, Day 1-6") so its flag shows even with nothing else booked</span></span>
+      </button>
     </div>`, {autofocus:false});
 };
 function rerender(){
@@ -10901,10 +10918,9 @@ function planDaysHTML(t, ro, filterKeys){
                  : `App.stayTravelForm(${s.aci})`;
     if(!booked){
       // a simple leg - train, bus, taxi, driving yourself, or not decided yet - reads as a
-      // dashed box (the Figma mock's own treatment for anything short of a real flight/ferry
-      // card), the bare time and the mode's own emoji on the left, a plus on the right as a
-      // quiet "there's more to fill in here" cue rather than an edit affordance that's really
-      // any different from tapping the rest of the box
+      // single plain line, the same style as the connector row between two cards (planConnectorHTML,
+      // "✈️ 3 Hours") rather than its own dashed, bordered box - still tappable straight through
+      // to the edit form, just without a card's visual weight for something this quick to add
       const dur = s.durationH||s.durationM ? (s.durationH||0)*60+(s.durationM||0) : null;
       /* named by how you're getting there rather than by both ends: "Bus to Kassiopi" is what
          you'd say, where "Corfu Town → Kassiopi" is a timetable entry. A duration, when there
@@ -10921,10 +10937,7 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.from ? `${wayPrefixed} from ${esc(s.from)}`
                  : wayPrefixed;
       return `
-      <div class="plan-leg-box${!ro?' plan-click':''}" ${clickAttrs(editFn)}>
-        <span class="plan-leg-box-text${s.notBooked?' text-undecided':''}">${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${secEmoji(mode.emoji)} <strong>${line}</strong></span>
-        <span class="plan-leg-box-plus" aria-hidden="true">${fa('circle-plus')}</span>
-      </div>`;
+      <div class="plan-connector${s.notBooked?' text-undecided':''}${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} </span>`:''}${secEmoji(mode.emoji)} <strong>${line}</strong></div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -11087,7 +11100,24 @@ function dayPlaceInfo(t, k, dayItems, rough){
       : journeyIn.to;
     if(dest){ place = dest; flag = flagForPlace(t, dest); arriving = true; }
   }
+  // last resort: a manually defined Location range (App.locationForm) covering this day - real
+  // stay/travel data above always wins over one of these, since that's the more specific,
+  // actually-booked answer; this only fills in a day that would otherwise sit placeless
+  if(!place && k){
+    const loc = (t.locations||[]).find(l => keyWithinLocation(k, rough, l));
+    if(loc){ place = loc.name; flag = loc.country ? ((countryByCode(loc.country)||{}).flag||'') : ''; }
+  }
   return {place, flag, arriving};
+}
+/* whether day key k (a 'YYYY-MM-DD' date, or a rough 'd3' day key) falls inside a Location
+   entry's own from/to range - mirrors how every other day-or-date pair on this page is read
+   (see dayOrDateFieldHTML/readDayOrDate), just as a closed range instead of a single point. */
+function keyWithinLocation(k, rough, loc){
+  if(rough){
+    const day = +k.slice(1);
+    return !!(loc.fromDay && loc.toDay) && day>=loc.fromDay && day<=loc.toDay;
+  }
+  return !!(loc.fromDate && loc.toDate) && k>=loc.fromDate && k<=loc.toDate;
 }
 /* the Itinerary's own day heading - a small "23rd September 2026" date line above a bold
    "Day 1 - Travel to 🇬🇷 Corfu" (dropping the verb once you're just staying somewhere rather
@@ -11146,6 +11176,9 @@ App.toggleAllDays = () => {
     if(opening) ROUTE_OPEN.add(key); else ROUTE_OPEN.delete(key);
   });
   rerender();
+  // every day just expanded (or collapsed) below wherever the page happened to be scrolled to -
+  // back to the top so the change reads as "Day 1 onwards", not a jump into the middle of it
+  window.scrollTo(0,0);
 };
 App.routeToggle = key => {
   if(ROUTE_OPEN.has(key)) ROUTE_OPEN.delete(key); else ROUTE_OPEN.add(key);
@@ -11166,6 +11199,7 @@ App.routeToggle = key => {
    map's DOM node each time, so this just makes a fresh Leaflet map every time it's called
    rather than trying to update one in place. */
 let ROUTE_MAP = null;
+let ROUTE_MAP_PTS = [];   // the current map's own numbered-stop coordinates, for the reset-view control
 /* the geocoding half of a route map, shared by the full Itinerary map (initRouteMap) and the
    small preview on a Next Trip dashboard tile (initDashTripMap) - resolves each of a trip's
    numbered stops to a lat/lon, from the shared WX_LIST_GEO cache where possible, calling
@@ -11259,15 +11293,16 @@ function addCartoLayer(map){
   else glMap.once('load', ()=>tuneCartoLabels(glMap));
   return gl;
 }
-/* the map is a route overview of where you're actually staying, not the literal day-by-day
-   list routeStops itself feeds the Itinerary tab with - so only real stay locations get a
-   numbered pin here. A flight/ferry/car leg isn't one of the numbers: its arrival is already
-   the same place the next stay's pin marks, and a departure airport (often the one at home,
-   well outside the trip's own area) would otherwise pull the map's own framing out to fit it.
-   Flights still show on the map, just as their own dashed line, kept out of that framing
-   entirely - see mapFlightLines/resolveFlightLineCoords below. */
+/* the map is a route overview, not the literal day-by-day list routeStops itself feeds the
+   Itinerary tab with - every journey still gets its own numbered pin same as a stay does (a leg
+   with nothing booked at the other end yet, no accommodation logged, is still a real place on
+   the route - often the only record of it, so dropping it left the map showing a dashed flight
+   line trailing off to a pin that was never drawn). Flights on top of that draw their own dashed
+   line (see mapFlightLines/resolveFlightLineCoords below), kept out of the map's framing
+   entirely so a departure airport far outside the trip's own area never pulls the zoom out to
+   fit it - additive, not a replacement for a flight's own numbered stop. */
 function mapRouteStops(t){
-  return routeStops(t).filter(s=>!s.gap && !s.journey);
+  return routeStops(t).filter(s=>!s.gap);
 }
 /* every flight leg with both ends known, resolved to real place names the same geocoder every
    other pin already uses - not stored coordinates, since AIRPORTS only carries a name/timezone
@@ -11337,12 +11372,27 @@ function initRouteMap(t){
     });
     const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
     if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
+    ROUTE_MAP_PTS = pts;   // so the reset-view control can re-fit without waiting on pins again
     // only the first time this trip's map is shown this session - once there's a prior view to
     // carry over, further redraws (a toggle, a new pin resolving) place pins in that same view
     // instead of snapping the camera back to fit them
     if(pts.length && !priorView) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
   };
   resolveRouteStopPins(t, numbered, redraw);
+  /* a manual way back to the fitted view - now that a re-render (an accordion toggle) no longer
+     re-fits on its own (see priorView above), a pan/zoom you made has nothing else to undo it */
+  const ResetControl = L.Control.extend({
+    options:{position:'topright'},
+    onAdd: () => {
+      const btn = L.DomUtil.create('button', 'route-map-reset');
+      btn.type = 'button'; btn.setAttribute('aria-label','Reset map view'); btn.title = 'Reset view';
+      btn.innerHTML = fa('expand');
+      L.DomEvent.disableClickPropagation(btn);
+      btn.onclick = () => { if(ROUTE_MAP_PTS.length) map.fitBounds(ROUTE_MAP_PTS.length>1?ROUTE_MAP_PTS:[ROUTE_MAP_PTS[0]], {padding:[28,28], maxZoom:11}); };
+      return btn;
+    }
+  });
+  new ResetControl().addTo(map);
 }
 /* the small, non-interactive map preview on a Next Trip dashboard tile - same pin-resolution as
    the full Itinerary map, just plain dots instead of numbered pins and no zoom/drag controls,
@@ -11484,7 +11534,27 @@ function tabPlan(t, ro){
   };
   const hasNumbered = (t.accommodations||[]).some(a=>a.checkin);
   const mapHTML = hasNumbered ? `<div class="route-map-wrap"><div id="route-map" class="route-map"></div></div>` : '';
-  return `${mapHTML}<div class="route-list">${keys.map(dayRow).join('')}</div>`;
+  return `${mapHTML}${locationsSummaryHTML(t, ro)}<div class="route-list">${keys.map(dayRow).join('')}</div>`;
+}
+/* the trip's own manually-defined Locations (App.locationForm) - a date range with a name and,
+   optionally, a country for the flag, so a stretch with nothing else booked yet still names
+   itself in every day heading it covers (see dayPlaceInfo's own fallback) rather than reading
+   as several blank "Day N"s in a row. Shown as a tappable-to-edit chip row so they're never
+   write-only - the same place you add one from is where you go back to change or remove it. */
+function locationsSummaryHTML(t, ro){
+  const locs = t.locations || [];
+  if(!locs.length && ro) return '';
+  const rough = hasRoughWhen(t);
+  const rangeLabel = loc => rough
+    ? `Day ${loc.fromDay}${loc.toDay && loc.toDay!==loc.fromDay ? '–'+loc.toDay : ''}`
+    : fmtRange(loc.fromDate, loc.toDate || loc.fromDate);
+  const chips = locs.map((loc,i) => `
+    <button type="button" class="chip location-chip" ${ro?'disabled':`onclick="App.locationForm(${i})"`}>
+      ${loc.country ? esc((countryByCode(loc.country)||{}).flag||'')+' ' : ''}<strong>${esc(loc.name)}</strong>
+      <span class="muted small">${esc(rangeLabel(loc))}</span>
+    </button>`).join('');
+  const addChip = !ro ? `<button type="button" class="chip location-chip location-chip-add" onclick="App.locationForm(-1)">${fa('plus')} New Location</button>` : '';
+  return locs.length || addChip ? `<div class="location-chips">${chips}${addChip}</div>` : '';
 }
 /* A stop or travel leg is pinned to a date on a normal trip and to a day number on one
    that's still only "next summer". Same slot in the form either way, so the layout doesn't
@@ -11556,6 +11626,11 @@ App.planWhenChange = () => {
 App.planGapForm = (key, rough) => App.planForm(-1, planWhenFor(key, rough));
 /* the day a gap card belongs to, in the shape the stop form wants */
 function planWhenFor(key, rough){ return rough ? {day:+String(key).slice(1)} : {date:key}; }
+/* App.locationForm's own prefill shape - both ends of the range default to the day it was
+   opened from, still fully editable either way */
+function locationWhenFor(key, rough){
+  return rough ? {fromDay:+String(key).slice(1), toDay:+String(key).slice(1)} : {fromDate:key, toDate:key};
+}
 /* Ideas are added to the Itinerary from the Ideas tab, which has no idea which day you came
    from, so the day is parked here on the way over and used to pre-fill the form when you pick
    one. It survives adding several ideas to the same day, and is dropped as soon as you go
@@ -11760,6 +11835,72 @@ App.saveTravelLeg = i => {
   TRAVEL_AUTO_LINK = null;
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
+};
+/* a manually-defined stretch of the trip ("Melbourne, Day 1-6") - not a booking, just a name
+   and, optionally, a country for the flag, so dayPlaceInfo has something to fall back on for a
+   day with nothing else logged. prefill (from App.addMenu, opened on a specific day) seeds both
+   ends of the range to that day, still fully editable either way. */
+App.locationForm = (i, prefill) => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const loc = (i>=0 ? (t.locations||[])[i] : null) || prefill || {};
+  const rough = hasRoughWhen(t);
+  const dayField = (p, label, cur) => rough
+    ? `<div class="field"><label class="label" for="${p}-day">${label}</label>
+        <select id="${p}-day">${Array.from({length:Math.max(roughTripDays(t)||14, cur||0)},(_,i)=>i+1)
+          .map(n=>`<option value="${n}" ${n===(cur||1)?'selected':''}>Day ${n}</option>`).join('')}</select></div>`
+    : `<div class="field"><label class="label" for="${p}-date">${label}</label>
+        <input id="${p}-date" type="date" value="${esc(cur||t.startDate||todayStr())}"></div>`;
+  openModal(`
+    <h2>${i>=0?'Edit Location':'New Location'}</h2>
+    <div class="field"><label class="label" for="loc-name">Place</label>
+      <input id="loc-name" type="text" list="loc-list" value="${esc(loc.name||'')}" placeholder="e.g. Melbourne"></div>
+    <div class="field"><label class="label" for="loc-country">Country (for the flag)</label>
+      <input id="loc-country" type="text" list="country-list" value="${esc(loc.country?((countryByCode(loc.country)||{}).name||''):'')}" placeholder="Start typing a country"></div>
+    ${countryDatalist()}${locationDatalist(t)}
+    <div class="grid2">
+      ${dayField('loc-from', 'From', rough ? loc.fromDay : loc.fromDate)}
+      ${dayField('loc-to', 'To', rough ? (loc.toDay||loc.fromDay) : (loc.toDate||loc.fromDate))}
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" style="width:100%" onclick="App.saveLocation(${i})">${i>=0?'Save':'Add Location'}</button>
+      ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteLocationFromForm(${i})">Delete Location</button>`:''}
+    </div>`, {autofocus:false});
+};
+App.deleteLocationFromForm = i => { closeModal(); App.delLocation(i); };
+App.saveLocation = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const name = $('#loc-name').value.trim();
+  if(!name) return markErr('#loc-name', 'Add a place name');
+  const countryName = $('#loc-country').value.trim();
+  const country = countryName ? ((countryByName(countryName)||{}).code || '') : '';
+  const rough = hasRoughWhen(t);
+  const fromDay = rough ? +$('#loc-from-day').value : 0;
+  const toDay = rough ? +$('#loc-to-day').value : 0;
+  const fromDate = rough ? '' : $('#loc-from-date').value;
+  const toDate = rough ? '' : $('#loc-to-date').value;
+  if(rough && toDay < fromDay) return markErr('#loc-to-day', "End day is before the start day");
+  if(!rough && toDate < fromDate) return markErr('#loc-to-date', "End date is before the start date");
+  t.locations = t.locations || [];
+  const existing = i>=0 ? t.locations[i] : null;
+  const loc = {id: existing ? existing.id : uid(), name, country, fromDay, toDay, fromDate, toDate};
+  if(i>=0) t.locations[i] = loc; else t.locations.push(loc);
+  logEdit('Itinerary', (i>=0?'edited location: ':'added location: ')+name);
+  save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Location saved':'Location added');
+};
+App.delLocation = i => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  const tripId = t.id;
+  const removed = t.locations[i];
+  t.locations.splice(i,1);
+  logEdit('Itinerary', 'removed location: '+(removed?removed.name:''));
+  save(); rerender();
+  toast('Location removed', ()=>{
+    const t2 = getTrip(tripId); if(!t2) return;
+    t2.locations = t2.locations || [];
+    t2.locations.splice(Math.min(i,t2.locations.length),0,removed);
+    logEdit('Itinerary', 'restored location: '+(removed?removed.name:''));
+    save(); rerender();
+  });
 };
 /* the auto "travel to the airport" card opens the exact same Add Travel form, pre-filled
    with the departure airport as the destination, an empty starting point, the flight's date
