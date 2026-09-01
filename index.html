@@ -455,9 +455,13 @@ a{color:var(--brand-dark);}
    gets everywhere else on the dashboard (the label still reaches a screen reader via aria-label
    on the tile itself) and shrinks its padding/gap to actually fit four across on a phone. */
 .dash-stat-grid .dash-widget{padding:12px 10px;}
-.dash-stat-grid .dash-widget-row{gap:6px;}
+.dash-stat-grid .dash-widget-row{gap:6px; justify-content:center;}
 .dash-stat-grid .dash-item-flags{font-size:1.15rem;}
 .dash-stat-grid .dash-item-title{font-size:.95rem;}
+/* the Plants tile's text ("Watering Needed"/"Watering Done"/"Start Growing") is a full phrase,
+   not a bare count like its six neighbours - a single column crushes it onto two cramped lines,
+   so it gets the width of two */
+.dash-stat-grid #dash-plants-slot{grid-column:span 2;}
 /* Branch's earnings card - full width rather than squeezed into the 2-column stat grid above,
    since it's carrying two figures (today/this week) side by side, not one. Reuses the same
    .dash-stat-num/.dash-stat-label look each stat tile already has, just two of them sharing one
@@ -721,14 +725,17 @@ a{color:var(--brand-dark);}
    soak up the parent's own space-between, those two were the only children left on the row and
    got pushed to opposite corners instead. Seats (when there is one) still lands on the right,
    off its own margin-left:auto rather than the parent's justify-content. */
-.route-days .flight-head{justify-content:flex-start; gap:10px;}
+.route-days .flight-head{justify-content:flex-start; gap:5px;}
 .route-days .head-with-logo{align-items:center;}
 /* time+logo+title sit together on one row now (not spread to opposite corners any more), so the
    "pin the title to the top in case the right side wraps under itself" override above doesn't
    apply here - centering the logo against the time/route text next to it is what actually reads
    as aligned. */
 .route-days .flight-head .head-with-logo{align-self:center; padding-top:0;}
-.itin-time{color:var(--ink); font-size:.85rem; margin-right:8px;}
+/* no own margin-right here any more - the flex row's own gap (above) already spaces this from
+   whatever sits next to it (the logo, or the route name when there's no logo), so a second
+   margin on top of that gap was doubling the airline icon's distance from the time. */
+.itin-time{color:var(--ink); font-size:.85rem;}
 .itin-seats{color:var(--ink); font-size:.85rem; margin-left:auto;}
 .itin-seats .icon{margin-right:5px;}
 .itin-route-name{font-weight:700; color:var(--ink); font-size:.9rem; margin-bottom:12px;}
@@ -807,8 +814,8 @@ a{color:var(--brand-dark);}
   display:flex; align-items:center; gap:5px; cursor:pointer;}
 .ai-summary-refresh:hover{color:var(--brand-dark);}
 /* ---------- gigs (live music) ---------- */
-.gig-list{display:flex; flex-direction:column; gap:4px;}
-.gig-card{padding:14px;}
+.gig-list{display:flex; flex-direction:column; gap:10px;}
+.gig-card{padding:14px; margin-bottom:0;}
 .gig-top{display:flex; gap:12px; align-items:center;}
 .gig-cover{width:56px; height:56px; flex-shrink:0; border-radius:50%; object-fit:cover;
   border:1px solid var(--line); background:var(--bg);}
@@ -1125,8 +1132,12 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
 .task-block{border-bottom:1px solid var(--line); padding-bottom:18px; margin-bottom:18px;}
 .task-block:last-child{border-bottom:none; margin-bottom:0; padding-bottom:0;}
 .task-date{color:var(--muted); font-size:.85rem; margin:0 0 14px;}
+/* same dashed weight/tint every other "still needs deciding" card wears (.gap-card,
+   .card-undecided, .task-unscheduled) - this used to be a plain 1px grey dash, thinner and
+   flatter than its siblings, so a page with several of these (an empty day, an unbooked leg)
+   sat next to ones that didn't quite match. */
 .task-pill{display:flex; align-items:center; justify-content:space-between; gap:10px;
-  background:var(--bg); border:1px solid var(--muted); border-style:dashed; border-radius:var(--radius);
+  background:var(--bg); border:2px dashed rgba(192,57,43,.35); border-radius:var(--radius);
   padding:11px 12px;}
 .task-pill-text{color:var(--ink); font-size:.9rem;}
 .task-pill-time{color:var(--ink); font-weight:400;}
@@ -1168,6 +1179,9 @@ input:focus,select:focus,textarea:focus{outline:none; border-color:var(--brand);
    just doubled the edge into a messy ring around it */
 .card-logo{width:26px; height:26px; flex-shrink:0; border-radius:6px; object-fit:contain;
   transform:translateY(-1px);}
+/* the airline favicon on a flight card's own header - much smaller than logoSquare's usual 26px
+   footprint, just a small mark next to the route rather than a competing visual */
+.card-logo.card-logo-sm{width:12px; height:12px; border-radius:3px; transform:none;}
 /* the airline/booking service name in its own brand colour, standing in for a favicon logo
    (see airlineLogoFor/bookingLogoFor) - no fixed box, just sized and weighted to sit inline
    with the rest of the card title */
@@ -1466,7 +1480,7 @@ body.kb-open .tabbar.on{display:none;}
 .plan-img-wrap{position:relative;}
 .plan-img{width:100%; max-height:220px; object-fit:cover; display:block;}
 .plan-img-map{position:absolute; bottom:10px; right:10px; background:none; box-shadow:none;}
-.btn.icon-only.plan-img-map{padding:0;}
+.btn.icon-only.plan-img-map{padding:8px;}
 .plan-img-map .fav{width:28px; height:28px;}
 .plan-img-map .sec-emoji{font-size:1.4rem;}
 /* an icon sitting beside a line of text rather than above a title, so it wants the text's own
@@ -1569,8 +1583,19 @@ const CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.84';
+const APP_VERSION = '2.29.85';
 const CHANGELOG = [
+  {version:'2.29.85', notes:[
+    "Itinerary: the airline logo is back to the airline's own favicon (not its name in coloured text), just small - 12px, sat right next to the departure time instead of with extra space between them. Fixed a bug where a stop's own title on the Itinerary was showing twice (once above the card, once inside it) - the tag above the card now just says \"Plan\" the way it was always meant to.",
+    "A day built around a single planned stop (\"Beach Day\", \"Castle Walk & Sunset\") now names that activity in its own day heading, not just the place it falls in.",
+    "The route map (both the full Itinerary one and the new Next Trip preview) no longer plots the trip's own return flight/ferry/car-hire leg home - it's an overview of where the trip actually goes, not the flight back at the end of it.",
+    "Add Travel's own Flight option now opens the real Flight form (same fields as Add Flight itself - airline, seats, boarding pass) instead of a bare from/to/date leg with none of that.",
+    "The plus on an empty day's \"Nothing Planned\" pill now opens the same Browse Ideas/Add Travel/Add Stop menu as the sticky Add to Itinerary button, pre-filled to that day, instead of jumping straight to a blank stop form.",
+    "Home dashboard: only the next upcoming trip shows now (was up to 3), the top stat row's icon+number is centred, and the Plants tile spans two columns so its longer \"Watering Needed\"/\"Watering Done\" text has room.",
+    "Films/Theatre/Music/Growing (renamed from Plants) each get a sticky Add button at the bottom of the screen, matching the Itinerary's own - Add Film, Log Show, Add Gig, New Plant. Music's own Gigs tab is the default and first tab now, and an upcoming gig no longer shows faded like something you haven't got to yet.",
+    "Growing's own watering/stage-change timeline entries can now have their date and time corrected after the fact (a pencil icon next to each entry's own delete), for whenever you forget to log something in the moment.",
+    "Cleaned up a few smaller things: the Google Maps icon on a stop's photo has some breathing room around it again, the Itinerary summary reads \"3 Legs Planned\" instead of \"3 Travel Legs Planned\", ideas can now carry their own location (used when you turn one into a stop), the PS5/PS4 tabs use the real PlayStation glyph instead of a generic controller emoji, and every dashed \"still needs deciding\" card/pill on the Itinerary (gaps, unbooked legs, empty days) now shares the same border weight and colour.",
+  ]},
   {version:'2.29.84', notes:[
     "Fixed the PlayStation Play List going missing: tapping Home's own Play Next board game widget silently left the Games tab parked on Board Games from then on, so the next tap of the Games icon (bottom bar/sidebar) landed there instead of PS5 - where the Play List actually lives. The Games icon now always opens on PS5, while the in-page Back buttons on a game/board game's own detail page still return to whichever subtab you came from.",
     "Home dashboard: Next Gig and Play Next (board game) now show their image above the title, matching Watch Next's own poster-above layout, instead of beside it in a row.",
@@ -3959,9 +3984,6 @@ function dashTripItemHTML(t){
       <div class="dash-item-sub">Next Trip</div>
     </div>`;
 }
-/* shows a handful of upcoming trips rather than just the very next one, in a shuffled order
-   each visit - more tiles to work with for the masonry to balance out, and the dashboard
-   doesn't look identical every time you open it */
 function dashTripWidgetsHTML(){
   const trips = dashUpcomingTrips();
   if(!trips.length) return `
@@ -3971,9 +3993,8 @@ function dashTripWidgetsHTML(){
       <div class="dash-item-title">No Trips Booked</div>
       <div class="dash-item-sub">Plan your next one</div>
     </div>`;
-  const shuffled = trips.slice();
-  for(let i=shuffled.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]; }
-  return shuffled.slice(0,3).map(dashTripItemHTML).join('');
+  // just the one soonest trip - "Next Trip" means the next trip, not a handful of upcoming ones
+  return dashTripItemHTML(trips[0]);
 }
 /* Spotify's own three listening windows, reused as an approximate cutoff for gigs/games too -
    not exact to the day, but close enough to answer "how many lately" for the same picker */
@@ -5028,7 +5049,7 @@ function renderGames(){
       <span class="crumb-here">Games</span>
       ${CUR_GAMES_TAB!=='board'?`<button class="btn sm primary" onclick="App.wlAddOpen()">+ Add Game</button>`:''}
     </div></div>
-    <div class="subtabs">${tab('ps5','🎮 PS5')}${tab('ps4','🎮 PS4')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
+    <div class="subtabs">${tab('ps5',fab('playstation')+' PS5')}${tab('ps4',fab('playstation')+' PS4')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
     <div id="games-body"></div>`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
   renderPsnGames();
@@ -5732,21 +5753,22 @@ function handleSpotifyRedirect(){
     .catch(()=>{});
 }
 let SPOTIFY_ARTISTS = null;   // last /spotify-me fetch, held so switching subtabs doesn't refetch
-let CUR_GIGS_TAB = 'artists';
+let CUR_GIGS_TAB = 'log';
 function renderGigs(){
   const tab = (k, label) => `<button class="subtab${CUR_GIGS_TAB===k?' on':''}" onclick="App.gigsTab('${k}')">${label}</button>`;
+  $('#app').classList.add('has-sticky-add');
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Music</span>
-        <button class="btn sm primary" onclick="App.gigForm(-1)">+ Add Gig</button>
       </div>
     </div>
     <div class="gigs-subtabs">
-      <div class="gigs-subtabs-row gigs-subtabs-row-fill">${tab('notseen','⭐ Not Seen')}${tab('log','☑ Gigs')}</div>
+      <div class="gigs-subtabs-row gigs-subtabs-row-fill">${tab('log','☑ Gigs')}${tab('notseen','⭐ Not Seen')}</div>
       <div class="gigs-subtabs-row gigs-subtabs-row-fill">${tab('artists','🎤 Artists')}${tab('songs','🎵 Songs')}</div>
     </div>
-    <div id="gigs-body"></div>`;
+    <div id="gigs-body"></div>
+    <div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="App.gigForm(-1)">+ Add Gig</button></div></div>`;
   if(CUR_GIGS_TAB==='log') drawGigsList();
   else if(CUR_GIGS_TAB==='songs') renderSongs();
   else renderGigsArtists();
@@ -5926,9 +5948,8 @@ function drawGigsList(){
 }
 function gigCardHTML(g, i){
   const facts = [g.city, g.date?fmtShortDate(g.date):''].filter(Boolean).join(' · ');
-  const isFuture = g.date && g.date > todayStr();
   return `
-    <div class="card gig-card${isFuture?' been-upcoming':''}">
+    <div class="card gig-card">
       <div class="gig-top">
         ${g.image ? `<img class="gig-cover" src="${esc(g.image)}" alt="" loading="lazy">`
                    : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">${fa('microphone')}</span>`}
@@ -6224,15 +6245,17 @@ function streamingServicesChipsHTML(){
 let CUR_FILMS_TAB = 'diary';
 function renderFilms(){
   const tab = (k, label) => `<button class="subtab${CUR_FILMS_TAB===k?' on':''}" onclick="App.filmsTab('${k}')">${label}</button>`;
+  const showAdd = CUR_FILMS_TAB==='diary'||CUR_FILMS_TAB==='watchlist';
+  $('#app').classList.toggle('has-sticky-add', showAdd);
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        ${(CUR_FILMS_TAB==='diary'||CUR_FILMS_TAB==='watchlist')?`<button class="btn sm primary" onclick="App.fwAddFilm()">+ Add Film</button>`:''}
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','📊 Stats')}</div>
-    <div id="films-body"></div>`;
+    <div id="films-body"></div>
+    ${showAdd?`<div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="App.fwAddFilm()">+ Add Film</button></div></div>`:''}`;
   if(CUR_FILMS_TAB==='watchlist'){ renderFilmsWatchlist(); return; }
   if(CUR_FILMS_TAB==='stats'){ renderFilmsStats(); return; }
   renderFilmsDiary();
@@ -7191,16 +7214,16 @@ function saveTheatreWatchlist(){ saveLocal(); pushTheatreWatchlist(); }
 let CUR_THEATRE_TAB = 'diary';
 function renderTheatre(){
   const tab = (k, label) => `<button class="subtab${CUR_THEATRE_TAB===k?' on':''}" onclick="App.theatreTab('${k}')">${label}</button>`;
+  $('#app').classList.add('has-sticky-add');
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Theatre</span>
-        ${CUR_THEATRE_TAB==='diary'?`<button class="btn sm primary" onclick="App.theatreForm(-1)">+ Log Show</button>`
-          :`<button class="btn sm primary" onclick="App.theatreWatchlistForm(-1)">+ Add Show</button>`}
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎭 Seen')}${tab('watchlist','⭐ Want to See')}</div>
-    <div id="theatre-body"></div>`;
+    <div id="theatre-body"></div>
+    <div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="${CUR_THEATRE_TAB==='diary'?'App.theatreForm(-1)':'App.theatreWatchlistForm(-1)'}">${CUR_THEATRE_TAB==='diary'?'+ Log Show':'+ Add Show'}</button></div></div>`;
   if(CUR_THEATRE_TAB==='watchlist'){ renderTheatreWatchlist(); return; }
   renderTheatreDiary();
 }
@@ -7404,8 +7427,11 @@ function delTheatreWatchlistImpl(id){
 function route(){
   closeModal(); closeMenu();
   // #app is reused across routes (innerHTML swapped, not replaced), so a data-tab left over
-  // from a previous trip visit would otherwise persist onto the hub/Places pages too
-  const appEl = $('#app'); if(appEl) delete appEl.dataset.tab;
+  // from a previous trip visit would otherwise persist onto the hub/Places pages too - same
+  // reasoning for has-sticky-add (Itinerary/Gigs/Films/Theatre/Plants each opt back into it
+  // themselves if their own new route still wants it, rather than it lingering onto whatever
+  // renders next just because the last page happened to have a sticky Add bar)
+  const appEl = $('#app'); if(appEl){ delete appEl.dataset.tab; appEl.classList.remove('has-sticky-add'); }
   // baseline for every route - a page that isn't a trip (Games, Design...) has no other call
   // to renderSidebar of its own; the trip route below overrides this with the fuller trip menu
   renderSidebar(null);
@@ -7806,20 +7832,21 @@ function drawPlantsGrid(){
   const list = plantsSorted();
   grid.innerHTML = list.length
     ? `<div class="plants-list">${list.map(plantCardHTML).join('')}</div>`
-    : `<div class="empty" style="margin-top:40px">No Vegetables Yet<br><span class="muted small">Add one to start tracking its growth and watering.</span></div>`;
+    : `<div class="empty" style="margin-top:40px">No Plants Yet<br><span class="muted small">Add one to start tracking its growth and watering.</span></div>`;
 }
 /* no stats row above the grid any more - the Figma mock's own Plants page goes straight from
    the title into the list, so this does too now. The counts it used to show (total/need water/
    germinating/ready to harvest) are still true of the data, just not spelled out here. */
 function renderPlants(){
+  $('#app').classList.add('has-sticky-add');
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
-        <span class="crumb-here">Plants</span>
-        <button class="btn sm primary" onclick="App.plantForm()">+ New Vegetable</button>
+        <span class="crumb-here">Growing</span>
       </div>
     </div>
-    <div id="plants-grid"></div>`;
+    <div id="plants-grid"></div>
+    <div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="App.plantForm()">+ New Plant</button></div></div>`;
   drawPlantsGrid();
   loadPlantsCloud(cloud => {
     DB.plants = Array.isArray(cloud) ? cloud : [];
@@ -7852,6 +7879,7 @@ function plantTimelineHTML(p){
     const label = ev.type==='water' ? 'Watered' : 'Set to '+esc(stageInfo.label||ev.stage);
     const emoji = ev.type==='water' ? '💧' : (stageInfo.emoji||'🌱');
     const deleteLabel = 'Delete "'+label+'" logged '+fmtDate(ev.ts.slice(0,10));
+    const editLabel = 'Edit date/time for "'+label+'" logged '+fmtDate(ev.ts.slice(0,10));
     // just the plain-English description here, not a day-count/range restating it in numbers too
     const detail = ev===currentStageEvent
       ? esc(plantJourneyStepDescription(idx, p))
@@ -7862,6 +7890,8 @@ function plantTimelineHTML(p){
         <div class="plant-timeline-body">
           <div class="plant-timeline-row">
             <span class="plant-timeline-text"><strong>${label}</strong><span>${esc(fmtDate(ev.ts.slice(0,10)))} &middot; ${esc(hhmm(ev.ts))}</span></span>
+            <button type="button" class="iconbtn" aria-label="${esc(editLabel)}" title="Edit date/time"
+              onclick="App.plantEditLogEntry('${esc(p.id)}','${ev.type}','${esc(ev.ts)}')">${fa('pen')}</button>
             <button type="button" class="iconbtn plant-timeline-delete" aria-label="${esc(deleteLabel)}" title="Delete"
               onclick="App.plantDeleteLogEntry('${esc(p.id)}','${ev.type}','${esc(ev.ts)}')">${fa('trash')}</button>
           </div>
@@ -8283,6 +8313,44 @@ function plantDeleteLogEntryImpl(id, type, ts){
   drawDashPlantsSlot();
   drawPlantDetail(id);
 }
+/* a plain date+time pair, prefilled from the entry's own timestamp - easy to get wrong logging
+   in the moment (forgot to water yesterday, only remembered and tapped the button today), so
+   this is just a correction, not a new event: same id/type/ts identifying which row it is,
+   same array, just its own ts field changed in place. */
+function plantEditLogEntryImpl(id, type, ts){
+  const d = new Date(ts);
+  openModal(`
+    <h2>Edit ${type==='water'?'Watering':'Stage Change'} Time</h2>
+    <div class="field"><label class="label" for="ple-date">Date</label>
+      <input id="ple-date" type="date" value="${esc(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))}"></div>
+    <div class="field"><label class="label" for="ple-time">Time</label>
+      <input id="ple-time" type="time" value="${esc(String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'))}"></div>
+    <button class="btn primary" style="width:100%" onclick="App.plantSaveLogEntryEdit('${esc(id)}','${type}','${esc(ts)}')">Save</button>`);
+}
+function plantSaveLogEntryEditImpl(id, type, oldTs){
+  const p = (DB.plants||[]).find(x=>x.id===id); if(!p) return;
+  const dateVal = $('#ple-date').value, timeVal = $('#ple-time').value;
+  if(!dateVal || !timeVal) return markErr('#ple-date','Set both a date and time');
+  const [y,mo,da] = dateVal.split('-').map(Number), [h,mi] = timeVal.split(':').map(Number);
+  const newTs = new Date(y,mo-1,da,h,mi).toISOString();
+  if(type==='water'){
+    const idx = (p.waterings||[]).indexOf(oldTs);
+    if(idx>-1) p.waterings[idx] = newTs;
+  } else {
+    p.stageChanges = Array.isArray(p.stageChanges) ? p.stageChanges : [];
+    const idx = p.stageChanges.findIndex(e=>e.ts===oldTs);
+    if(idx>-1) p.stageChanges[idx] = {...p.stageChanges[idx], ts:newTs};
+    // moving a stage change around can change which one is now the most recent - the plant's
+    // own current stage always has to track that, same reasoning as deleting one does above
+    const latest = [...p.stageChanges].sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];
+    p.stage = latest ? latest.stage : PLANT_STAGE_DEFAULT;
+  }
+  savePlants();
+  closeModal();
+  drawPlantsGrid();
+  drawDashPlantsSlot();
+  drawPlantDetail(id);
+}
 /* appends rather than overwrites - watering twice in one day (a hot spell, a top-up after
    forgetting the morning one) is a normal thing to want, not an edge case to guard against, so
    there's no "already watered today" check here blocking a second tap */
@@ -8582,6 +8650,8 @@ App.plantWater = plantWaterImpl;
 App.plantUndoWater = plantUndoWaterImpl;
 App.plantSetStage = plantSetStageImpl;
 App.plantDeleteLogEntry = plantDeleteLogEntryImpl;
+App.plantEditLogEntry = plantEditLogEntryImpl;
+App.plantSaveLogEntryEdit = plantSaveLogEntryEditImpl;
 App.plantPickEmoji = plantPickEmojiImpl;
 App.plantAttachIcon = plantAttachIconImpl;
 App.plantClearIcon = plantClearIconImpl;
@@ -9401,7 +9471,7 @@ function sidebarGlobalNav(inTrip){
     + item('Theatre','🎭',"App.goTheatre()", onTheatre)
     + item('Music','🎤',"App.goGigs()", onGigs)
     + item('Games','🎮',"App.goGames()", onGames)
-    + item('Plants','🥕',"App.goPlants()", onPlants);
+    + item('Growing','🥕',"App.goPlants()", onPlants);
 }
 function renderSidebar(t){
   const root = $('#sidebar-root'); if(!root) return;
@@ -9443,7 +9513,7 @@ function renderTabbar(){
     + item('Theatre','🎭',go("App.goTheatre()"), onTheatre && !menuOpen, false)
     + item('Music','🎤',go("App.goGigs()"), onGigs && !menuOpen, false)
     + item('Games','🎮',go("App.goGames()"), onGames && !menuOpen, false)
-    + item('Plants','🥕',go("App.goPlants()"), onPlants && !menuOpen, false);
+    + item('Growing','🥕',go("App.goPlants()"), onPlants && !menuOpen, false);
   /* anything that has to sit on top of the bar (the Places search, the hub's height) needs
      its real height, inset and all, not a number that was right on one phone */
   document.documentElement.style.setProperty('--bar-h', bar.offsetHeight+'px');
@@ -9513,19 +9583,24 @@ function crumbAction(t){
    same three destinations the old inline buttons went to (Ideas is a whole tab, not a form,
    since that's where you browse and pin ideas before turning one into a stop), just picked
    from a proper full screen instead of three buttons squeezed into the breadcrumb row */
-App.addMenu = () => {
+/* key/rough (optional): which day this was opened from - the empty-day "Nothing Planned" pill
+   passes these through so whichever choice is picked lands pre-filled on that same day, instead
+   of dropping back to a dateless/Anytime entry the way the sticky Add bar's own plain call
+   (no args) still does. */
+App.addMenu = (key, rough) => {
+  const hasDay = key!=null;
   openModal(`
     <h2>Add to Itinerary</h2>
     <div class="add-choice-list">
-      <button type="button" class="add-choice" onclick="closeModal();App.tab('mood')">
+      <button type="button" class="add-choice" onclick="${hasDay?`closeModal();App.ideasForDay('${esc(key)}',${!!rough})`:`closeModal();App.tab('mood')`}">
         <span class="add-choice-emoji" aria-hidden="true">💡</span>
         <span class="add-choice-body"><strong>Browse Ideas</strong><span class="muted small">Pin somewhere, then turn it into a stop when you're ready</span></span>
       </button>
-      <button type="button" class="add-choice" onclick="App.travelLegForm(-1)">
+      <button type="button" class="add-choice" onclick="${hasDay?`App.travelLegForm(-1, planWhenFor('${esc(key)}',${!!rough}))`:'App.travelLegForm(-1)'}">
         <span class="add-choice-emoji" aria-hidden="true">🚌</span>
         <span class="add-choice-body"><strong>Add Travel</strong><span class="muted small">A flight, ferry, drive or other leg between places</span></span>
       </button>
-      <button type="button" class="add-choice" onclick="App.planForm(-1)">
+      <button type="button" class="add-choice" onclick="${hasDay?`App.planGapForm('${esc(key)}',${!!rough})`:'App.planForm(-1)'}">
         <span class="add-choice-emoji" aria-hidden="true">📍</span>
         <span class="add-choice-body"><strong>Add Stop</strong><span class="muted small">Something to do on a specific day</span></span>
       </button>
@@ -9566,7 +9641,7 @@ function tabHome(t, ro){
      don't inflate the count; a plan that's only travel still isn't "nothing planned" though */
   const nLegs = (t.itinerary||[]).length - nStops;
   const planSum = nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned')
-    : nLegs ? nLegs+(nLegs===1?' Travel Leg Planned':' Travel Legs Planned')
+    : nLegs ? nLegs+(nLegs===1?' Leg Planned':' Legs Planned')
     : 'Nothing Planned Yet';
   const tasks = t.tasks||[];
   const openTasks = tasks.filter(x=>!x.done).length;
@@ -10826,7 +10901,7 @@ function planDaysHTML(t, ro, filterKeys){
     // the same way an auto-generated card's own tag sits above it, rather than as a plain line
     // inside the card competing with the title for the same kind of weight
     return time
-      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), s.name, time)}${card}</div>`
+      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), 'Plan', time)}${card}</div>`
       : card;
   };
   const taskCard = s => `
@@ -10852,8 +10927,8 @@ function planDaysHTML(t, ro, filterKeys){
      sitting right where the gap falls, not a heading plus its own pair of buttons; the day's
      own accordion heading already carries the date, so this doesn't repeat it. */
   const emptyDayCard = k => `
-    <div class="task-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="App.planGapForm('${k}', ${rough})"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.planGapForm('${k}', ${rough})}"`}>
+    <div class="task-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="App.addMenu('${k}', ${rough})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.addMenu('${k}', ${rough})}"`}>
       <span class="task-pill-text">${secEmoji('\u{1F3D6}️')} <strong>Nothing Planned</strong></span>
       ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
     </div>`;
@@ -10946,12 +11021,19 @@ function dayNarrative(t, k, dayItems, rough){
     : t.startDate ? Math.max(0, Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1)
     : 0;
   const {place, flag, arriving} = dayPlaceInfo(t, k, dayItems, rough);
+  // a day built around a single planned stop ("Beach Day", "Castle Walk & Sunset") reads better
+  // naming that activity than just the place it happens to fall in - only picked when there's
+  // exactly one stop that day, since guessing which of several is the "main" one would be a
+  // coin flip. Same routing dayItems already gets sorted into elsewhere (see `card` just below)
+  // for what counts as a plain stop rather than an auto-generated travel/stay/task card.
+  const stops = dayItems.filter(s => !s._autoFlight && !s._autoFerry && !s._autoCar && !s._autoStay && s.kind!=='travel' && s.kind!=='task');
+  const activityText = stops.length===1 ? ` - ${esc(stops[0].name)}` : '';
   const placeText = place ? ` - ${arriving?'Travel to ':''}${flag?flag+' ':''}${esc(place)}` : '';
   // a trip with real booking dates but no start date set yet (still being put together) has
   // nothing to count "Day N" from - the date itself stands in for it, same as this heading
   // would have shown before it grew a day number at all, rather than inventing a "Day ?"
   const dayLabel = num ? `Day ${num}` : fmtDate(k);
-  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${placeText}`};
+  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${activityText}${placeText}`};
 }
 /* which stop/gap accordions are open - a UI-only choice, not trip data, so it's a plain
    module variable rather than anything saved or synced; resets on reload same as the rest of
@@ -11045,11 +11127,21 @@ function cartoTileUrl(){
   return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
     + (CARTO_API_KEY ? '?api_key='+encodeURIComponent(CARTO_API_KEY) : '');
 }
+/* the map is a route overview, not the literal day-by-day list routeStops itself feeds the
+   Itinerary tab with - so a trailing flight/ferry/car leg with no stay after it (flying home at
+   the end of the trip) is dropped off the end here, rather than plotting a "destination" that's
+   really just the trip winding down. A leading journey (the outbound flight itself) stays put -
+   that's still the first real place the trip actually goes to, not somewhere it's leaving from. */
+function mapRouteStops(t){
+  const stops = routeStops(t).filter(s=>!s.gap);
+  while(stops.length && stops[stops.length-1].journey) stops.pop();
+  return stops;
+}
 function initRouteMap(t){
   if(ROUTE_MAP){ try{ ROUTE_MAP.remove(); }catch(e){} ROUTE_MAP = null; }
   const el = document.getElementById('route-map');
   if(!el || typeof L === 'undefined') return;
-  const numbered = routeStops(t).filter(s=>!s.gap);
+  const numbered = mapRouteStops(t);
   if(!numbered.length) return;
   const map = L.map(el, {scrollWheelZoom:false, attributionControl:false}).setView([20,0], 2);
   ROUTE_MAP = map;
@@ -11077,7 +11169,7 @@ function initDashTripMaps(){
   document.querySelectorAll('.dash-trip-map[data-trip-id]').forEach(el=>{
     if(typeof L === 'undefined') return;
     const t = getTrip(el.dataset.tripId); if(!t) return;
-    const numbered = routeStops(t).filter(s=>!s.gap);
+    const numbered = mapRouteStops(t);
     if(!numbered.length) return;
     const map = L.map(el, {scrollWheelZoom:false, dragging:false, zoomControl:false,
       attributionControl:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false}).setView([20,0], 2);
@@ -11362,6 +11454,11 @@ App.setTravelTiming = k => {
   });
 };
 App.setTravelMode = k => {
+  // a flight picked here isn't a plain travel leg with its own bare from/to/date fields - it's
+  // the same Flight type the Flights tab itself builds (airline, seats, boarding pass, the
+  // works), so picking it hands straight off to that form instead of continuing in this one,
+  // rather than saving a second, thinner "flight" that doesn't share any of that.
+  if(k==='flight'){ closeModal(); App.flightForm(-1); return; }
   $('#tv-mode').value = k;
   document.querySelectorAll('.mode-picker .mode-pick').forEach(el => {
     const on = el.dataset.mode === k;
@@ -11492,7 +11589,7 @@ App.planFromIdea = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const m = (t.moodBoard||[])[i]; if(!m) return;
   const name = (m.title||'').replace(/^(Do|Eat|Tip):\s*/,'');
-  App.planForm(-1, {name, emoji: m.emoji||'', notes: m.text||'', location: name,
+  App.planForm(-1, {name, emoji: m.emoji||'', notes: m.text||'', location: m.location || name,
     mapsUrl: m.mapsUrl||'', image: m.dataUrl||null, ...(PENDING_PLAN_WHEN||{})}, i);
 };
 App.removeIdeaFromItinerary = i => {
@@ -11707,22 +11804,21 @@ function airlineButtonStyle(airline){
    but that's exactly what a "no icon" response looks like. Either way, restoreText is what the
    caller wanted showing if there'd been no logo at all, so losing the logo just falls back to
    that rather than leaving a gap. */
-function logoSquare(domain, label, restoreText){
+function logoSquare(domain, label, restoreText, extraClass){
   if(!domain) return '';
-  return `<img class="card-logo" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128"
+  return `<img class="card-logo${extraClass?' '+extraClass:''}" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128"
     alt="${esc(label||'')}" loading="lazy" data-restore="${esc(restoreText||label||'')}"
     onerror="App.cardLogoFail(this)" onload="App.cardLogoCheck(this)">`;
 }
 function siteLogoFor(url, label, restoreText){
   try{ return logoSquare(new URL(url).hostname, label, restoreText); }catch(e){ return ''; }
 }
-/* the airline's own name, in its own brand colour where known, instead of a favicon image -
-   works for every airline (not just the ones with a mapped site to fetch a favicon from), and
-   reads as a proper brand mark rather than a small, sometimes-blank logo square. */
-function airlineLogoFor(name){
-  if(!name) return '';
-  const color = AIRLINE_COLORS[name];
-  return `<span class="card-logo-text"${color?` style="color:${color}"`:''}>${esc(name)}</span>`;
+/* back to the airline's own favicon (not its name in brand-coloured text - reverted per
+   feedback, "looks better with the logo on"), just smaller than logoSquare's usual 26px
+   footprint - see .card-logo-sm. */
+function airlineLogoFor(name, restoreText){
+  const site = AIRLINE_SITES[name];
+  return site ? logoSquare(site, name, restoreText, 'card-logo-sm') : '';
 }
 function faviconFor(url){
   try{ const h = new URL(url).hostname; return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy">`; }
@@ -13064,6 +13160,9 @@ App.moodForm = i => {
     <div class="field"><label class="label" for="md-title">Title</label><input id="md-title" type="text" value="${esc(m.title||'')}" placeholder="e.g. Sunset at Miradouro" oninput="App.ideaTitleTyped()"></div>
     ${ideaEmojiFieldHTML(emoji)}
     <div class="field"><label class="label" for="md-video">TikTok or Instagram link</label><input id="md-video" type="url" value="${esc(m.videoUrl||'')}" placeholder="https://www.tiktok.com/@user/video/…"></div>
+    <div class="field"><label class="label" for="md-loc">Location</label>
+      <input id="md-loc" type="text" list="loc-list" value="${esc(m.location||'')}" placeholder="e.g. Blue Eye Spring, Saranda"></div>
+    ${locationDatalist(t)}
     <div class="field"><label class="label" for="md-maps">Google Maps link</label><input id="md-maps" type="url" value="${esc(m.mapsUrl||'')}" placeholder="https://maps.google.com/…"></div>
     <div class="field"><label class="label">Image</label>
       <div id="md-img-status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0">${moodImgStatus()}</div>
@@ -13081,11 +13180,12 @@ App.saveMood = i => {
   if(videoUrl && !/^https?:\/\//i.test(videoUrl)) videoUrl = 'https://' + videoUrl;
   let mapsUrl = $('#md-maps').value.trim();
   if(mapsUrl && !/^https?:\/\//i.test(mapsUrl)) mapsUrl = 'https://' + mapsUrl;
+  const location = $('#md-loc').value.trim();
   if(!title && !videoUrl && !mapsUrl && !MOOD_IMG) return markErr('#md-title','Add a title, video link, maps link or image');
   t.moodBoard = t.moodBoard||[];
   const emoji = (($('#md-emoji')||{}).value||'').trim() || ideaEmojiFor(title);
   const idea = {id: i>=0 && t.moodBoard[i] ? t.moodBoard[i].id : uid(),
-    title, emoji, videoUrl, mapsUrl, ...(MOOD_IMG?{dataUrl:MOOD_IMG}:{})};
+    title, emoji, videoUrl, mapsUrl, location, ...(MOOD_IMG?{dataUrl:MOOD_IMG}:{})};
   if(i>=0) t.moodBoard[i]=idea; else t.moodBoard.push(idea);
   MOOD_IMG = null;
   logEdit('Ideas', (i>=0?'edited ':'added ')+(title||videoUrl||'an idea'));
