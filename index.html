@@ -1575,9 +1575,11 @@ const SYNC_BLOB_CAP = 1024 * 1024; // only sync files/images smaller than this i
 const PSN_PROXY_URL = 'https://mytrips.chrisjseal.workers.dev';
 /* Optional: the Itinerary route map and the Next Trip dashboard preview both use CartoDB's
    Voyager map tiles, which now require an API key even for light personal use - get a free one
-   at https://carto.com/basemaps (Auth → API Keys) and paste it below. Leave blank and the map
-   still loads, just watermarked "API key required" across the tiles instead of the real map. */
-const CARTO_API_KEY = '';
+   at https://carto.com/basemaps (Auth → API Keys). Set it as the CARTO_API_KEY environment
+   variable on this Vercel project (see api/carto-key.js) rather than pasting it here - this
+   starts blank and is filled in by loadCartoKey() once that resolves. Left unset on Vercel, the
+   map still loads, just watermarked "API key required" across the tiles instead of the real map. */
+let CARTO_API_KEY = '';
 /* one shared PIN for the whole site, in place of per-trip secret links, change this and
    give the new one to your group. This is a static site with no backend, so the check is
    client-side only: it keeps casual visitors out, but it is NOT real security against
@@ -1586,8 +1588,11 @@ const CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.86';
+const APP_VERSION = '2.29.87';
 const CHANGELOG = [
+  {version:'2.29.87', notes:[
+    "The CartoDB API key for the route map's tiles can now actually be set as a Vercel environment variable (CARTO_API_KEY) instead of needing to be pasted into index.html directly - a new tiny api/carto-key.js hands it to the browser at startup. Nothing to do if you'd already pasted it in the file; it still works, this just adds the other way of setting it.",
+  ]},
   {version:'2.29.86', notes:[
     "Fixed a real bug behind the Itinerary sometimes reading \"Travel to London\" (or wherever you're flying from) at the very start of a trip: the day heading was picking up the auto-suggested \"Travel to the airport\" reminder card and reading its own destination field, which for that card is the airport you're LEAVING FROM, not the one you're flying to. It now only ever reads from a real arrival (a flight/ferry landing, or a car pickup).",
     "The Airbnb logo (and every other booking site's) is back to its own real logo/favicon instead of its name in coloured text - same revert as the airline logo, and the same small size.",
@@ -3918,7 +3923,23 @@ window.addEventListener('DOMContentLoaded', ()=>{
   if(DB.trips.length){ DB.trips.forEach(normalizeTrip); saveLocal(); }
   initCloud();
   handleSpotifyRedirect().then(route);
+  loadCartoKey();
 });
+/* fetches the CartoDB API key from CARTO_API_KEY's own Vercel env var (see api/carto-key.js) -
+   this is a static site with no build step, so a Vercel env var can't reach the plain
+   CARTO_API_KEY constant below on its own; this is what actually gets it there. Fires once at
+   startup, independent of whether a map happens to be showing yet - if one already is (rare
+   this early, but possible on a reload straight into a trip's Itinerary or Home), it's
+   re-initialised with the real key once this resolves instead of staying stuck watermarked
+   until the next navigation. */
+function loadCartoKey(){
+  fetch('/api/carto-key').then(r=>r.ok?r.json():null).then(data=>{
+    if(!data || !data.key) return;
+    CARTO_API_KEY = data.key;
+    if(ROUTE_MAP){ const t = getTrip(CUR_TRIP_ID); if(t) initRouteMap(t); }
+    if(document.querySelector('.dash-trip-map[data-trip-id]')) initDashTripMaps();
+  }).catch(()=>{});
+}
 function stopSub(){ if(tripSub){ try{ tripSub.ref.off('value', tripSub.cb); }catch(e){} tripSub=null; } }
 /* opening the changelog leaves whatever trip/home page was showing untouched underneath
    (no stopSub, no CUR_TRIP_ID reset), a second tap just restores the hash from before */
