@@ -1649,8 +1649,12 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.35.0';
+const APP_VERSION = '2.36.0';
 const CHANGELOG = [
+  {version:'2.36.0', notes:[
+    'An accommodation\'s check-in card now names the specific place its own address is at alongside the broader place it\'s in ("Palaiokastritsa, Corfu"), not just the broader one, whenever the address gives a clean enough guess to be worth adding - everywhere that name is used, not just the check-in card itself.',
+    'Fixed a day heading repeating the same place twice ("Travel to Airbnb in Sarandë, Sarandë") when a manual travel leg\'s own destination already had the day\'s broader place name baked into it.',
+  ]},
   {version:'2.35.0', notes:[
     'A "Travel to" day heading now combines a manual travel leg\'s own more specific destination with the broader place a check-in already named that day ("Travel to Kerkira, Corfu"), instead of the broader name silently swallowing it.',
     'Fixed a flight home showing the trip\'s own country flag on its destination ("Travel to 🇦🇺 London Heathrow" on an Australia trip) - a known airport now carries its own real country instead of falling back to a guess that only makes sense for a domestic leg.',
@@ -11275,15 +11279,21 @@ function dayPlaceInfo(t, k, dayItems, rough){
     // a known airport's own country beats flagForPlace's guesswork - see AIRPORT_COUNTRY
     const airportFlag = journeyIn._autoFlight ? (countryByCode(AIRPORT_COUNTRY[String(journeyIn.f.to||'').toUpperCase()])||{}).flag : '';
     if(dest){ place = dest; flag = airportFlag || flagForPlace(t, dest); arriving = true; }
-  } else if(journeyIn && journeyIn.kind==='travel' && journeyIn.to && place
-    && journeyIn.to.trim().toLowerCase() !== place.toLowerCase()){
-    // a check-in already names the day's broad place (a Location's own name, "Corfu"), but a
-    // manually added travel leg into it sometimes carries a more specific destination of its
-    // own ("Kerkira", the actual town there) - worth keeping both ("Kerkira, Corfu") rather than
-    // letting the broader Location name silently swallow it. Scoped to a plain travel leg, not
-    // the auto-generated flight/ferry/car ones, since an airport name in front of the city
-    // ("Corfu Airport, Corfu") reads redundant rather than more specific.
-    place = journeyIn.to.trim() + ', ' + place;
+  } else if(journeyIn && journeyIn.kind==='travel' && journeyIn.to && place){
+    // a check-in already names the day's broad place (a Location's own name, "Corfu", or by now
+    // possibly already "Palaiokastritsa, Corfu" - see accomCityName's own specific/broad
+    // combining), but a manually added travel leg into it sometimes carries a more specific
+    // destination of its own ("Kerkira", the actual town there) - worth keeping both ("Kerkira,
+    // Corfu") rather than letting the broader name silently swallow it. Scoped to a plain travel
+    // leg, not the auto-generated flight/ferry/car ones, since an airport name in front of the
+    // city ("Corfu Airport, Corfu") reads redundant rather than more specific. Skipped whenever
+    // either side already contains the other, checked both ways round - a leg typed as "Airbnb
+    // in Sarandë" already has the broad place baked into it (appending ", Sarandë" just repeated
+    // it), and a check-in's own place can just as easily already have swallowed the leg's own
+    // specific destination the other way (accomCityName's "Kerkira, Corfu" already contains the
+    // leg's own "Kerkira") - either way, nothing left to add.
+    const dest = journeyIn.to.trim(), destL = dest.toLowerCase(), placeL = place.toLowerCase();
+    if(!destL.includes(placeL) && !placeL.includes(destL)) place = dest + ', ' + place;
   }
   // a manually defined Location range (App.locationForm) covering this day - real stay/travel
   // data above always wins on the place itself, since that's the more specific, actually-booked
@@ -12530,12 +12540,23 @@ function bookingIconFor(url){
 /* just the place, for the Route tab - "Stay in Mount Martha" or "Airbnb in Lisbon" reads as
    "Mount Martha"/"Lisbon" there, the same way a flight reads "Melbourne" not "Flight to
    Melbourne". A Location covering the stay's check-in date (App.locationForm) is the most
-   reliable source when there's exactly one covering it - a booking's own address is often
-   just a street and postcode with no town-level segment to split out at all ("Qarku i
-   Vlorës 9701"), which would otherwise come back unchanged as if it were the place name.
-   Falling back to the address guess, then to stripping "X in " off the name, covers a
-   booking outside any defined Location, or with no address saved yet either. */
+   reliable source for the broad place - a booking's own address is often just a street and
+   postcode with no town-level segment to split out at all ("Qarku i Vlorës 9701"), which would
+   otherwise come back unchanged as if it were the place name. When the address guess does look
+   like a real, clean place name and it's more specific than the Location's own broader one
+   ("Palaiokastritsa" inside a "Corfu" Location), both are kept ("Palaiokastritsa, Corfu") - same
+   "specific, broad" shape as a manual travel leg's own destination combining with it elsewhere
+   (see dayPlaceInfo). Falling back to the address guess alone, then to stripping "X in " off the
+   name, covers a booking outside any defined Location, or with no address saved yet either. */
 function accomCityName(a, t){
+  const fromAddr = guessCityFromAddress(a.address);
+  // a clean guess reads as an actual place name - no leftover digits (a postcode/district
+  // reference guessCityFromAddress couldn't fully strip, like "Qarku i Vlorës 9701") and not a
+  // whole sentence's worth of words - worth combining with the broader Location name below;
+  // anything else is better left out entirely, the same call this always made before there was
+  // a broader name to weigh it against.
+  const looksClean = fromAddr && !/\d/.test(fromAddr) && fromAddr.split(/\s+/).length<=4;
+  let broad = '';
   if(t && a.checkin){
     const rough = hasRoughWhen(t);
     const k = rough ? roughDayKey(t, a.checkin) : a.checkin;
@@ -12547,9 +12568,10 @@ function accomCityName(a, t){
        destination over the day's other candidates. */
     const match = locs.length===1 ? locs[0]
       : locs.find(l => rough ? l.fromDay===+k.slice(1) : l.fromDate===k);
-    if(match && match.name) return match.name;
+    if(match && match.name) broad = match.name;
   }
-  const fromAddr = guessCityFromAddress(a.address);
+  if(looksClean && broad && fromAddr.toLowerCase()!==broad.toLowerCase()) return fromAddr+', '+broad;
+  if(broad) return broad;
   if(fromAddr) return fromAddr;
   const m = /\bin\s+(.+)$/i.exec(a.name||'');
   return (m ? m[1].trim() : (a.name||'')) || 'Accommodation';
