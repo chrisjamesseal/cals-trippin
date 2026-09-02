@@ -1649,8 +1649,13 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.36.0';
+const APP_VERSION = '2.37.0';
 const CHANGELOG = [
+  {version:'2.37.0', notes:[
+    'A check-out pill now names the specific place being left ("Check Out of Kerkira Airbnb") instead of just the booking site on its own.',
+    'A check-out day that\'s also the day of a departing flight, ferry, or drive now shows as that travel day ("Travel to London Gatwick") instead of just the city being checked out of.',
+    'Fixed a "Travel to" heading missing its flag whenever the day fell exactly on the boundary between two trip locations - the day you actually arrive somewhere now always gets that place\'s flag.',
+  ]},
   {version:'2.36.0', notes:[
     'An accommodation\'s check-in card now names the specific place its own address is at alongside the broader place it\'s in ("Palaiokastritsa, Corfu"), not just the broader one, whenever the address gives a clean enough guess to be worth adding - everywhere that name is used, not just the check-in card itself.',
     'Fixed a day heading repeating the same place twice ("Travel to Airbnb in Sarandë, Sarandë") when a manual travel leg\'s own destination already had the day\'s broader place name baked into it.',
@@ -11056,12 +11061,14 @@ function planDaysHTML(t, ro, filterKeys){
       </div>`;
     }
     // check-out day, for a stay that started on an earlier day already showing its own card -
-    // names the booking itself ("Airbnb", "Booking.com"), the same word its own check-in card
-    // leads with, rather than the city (already said on the check-in day, and on this same
-    // day's own heading) - falls back to the city for a stay with no recognised booking site
+    // "Check Out of Kerkira Airbnb" - the specific place (just that, not the broader ", Corfu"
+    // accomCityName may have tacked on - already said in full on the check-in day and this same
+    // day's own heading) alongside the booking itself, or "Accommodation" for one with no
+    // recognised booking site, the same word its own check-in card falls back to.
     const service = detectBookingService(s.ac.bookingUrl);
+    const specificName = accomCityName(s.ac, t).split(',')[0].trim();
     return `
-    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('🚪')} Check Out of ${esc(service || accomCityName(s.ac, t))}</div>`;
+    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('🚪')} Check Out of ${esc(specificName)} ${esc(service || 'Accommodation')}</div>`;
   };
   /* A flight is a booked thing with a time you have to make, so it earns a card. Everything
      else - a ferry, a train, a bus, a taxi, driving yourself - is not that: you turn up and go,
@@ -11257,7 +11264,11 @@ function dayPlaceInfo(t, k, dayItems, rough){
   // to that day.
   const journeyIn = dayItems.find(s=>s._autoFlight || s._autoFerry || s._autoCar==='pickup')
     || dayItems.find(s=>s.kind==='travel' && s.fi==null);
-  let ac = checkin ? checkin.ac : checkout ? checkout.ac : null;
+  // a check-out day that's ALSO the day of a real departure (the flight/ferry/car/travel leg
+  // taking you onward, home included) is a travel day first - the checkout's own city just says
+  // where you were, not what the day's actually about, so it only supplies the day's place when
+  // there's no journey leaving that same day to override it with (see the journeyIn branch below)
+  let ac = checkin ? checkin.ac : (checkout && !journeyIn) ? checkout.ac : null;
   if(!ac && !rough && k){
     ac = (t.accommodations||[]).find(a=>a.checkin && a.checkout && k>a.checkin && k<a.checkout) || null;
   }
@@ -11304,22 +11315,27 @@ function dayPlaceInfo(t, k, dayItems, rough){
   // otherwise goes flagless despite the Location entry saying exactly what country this is.
   // Backfilling a Location's flag onto a day that already has its own real place only makes
   // sense when there's exactly one Location covering that day - two overlapping ranges (e.g. a
-  // checkout day that's also the next Location's first day) can't be resolved by picking
-  // whichever happens to come first, so neither gets to lend its flag. This applies the same
-  // way to a travel/arrival day as a stay day: "Travel to Tirana" earns Albania's flag exactly
-  // when Tirana falls inside a single Albania-tagged Location, same as any other day there -
-  // the destination itself isn't re-verified against the Location's country (no geocoding to
+  // checkout day that's also the next Location's first day) resolves the same way accomCityName
+  // already breaks that same tie - whichever Location's own range actually starts today (you're
+  // arriving into that one, not leaving the other), falling back to the first when neither does.
+  // This applies the same way to a travel/arrival day as a stay day: "Travel to Sarandë" earns
+  // Albania's flag exactly when Sarandë falls inside an Albania-tagged Location, same as any
+  // other day there - a checkout/arrival boundary day is precisely the case most likely to need
+  // it, since that's when a fresh "Travel to X" heading has nothing else to source a flag from.
+  // The destination itself isn't re-verified against the Location's country (no geocoding to
   // check "London Gatwick" isn't really in Albania), so a journey through an edge that happens
   // to be the wrong side of a Location's date boundary can still pick up a mismatched flag; the
   // trade-off favours the common case (a domestic transfer within one Location) over the rare
   // one (a transit stop just outside the trip's next leg).
   if(k){
     const locs = (t.locations||[]).filter(l => keyWithinLocation(k, rough, l));
-    if(!place && locs.length){
-      place = locs[0].name;
-      if(!flag && locs[0].country) flag = (countryByCode(locs[0].country)||{}).flag || '';
-    } else if(place && !flag && locs.length===1 && locs[0].country){
-      flag = (countryByCode(locs[0].country)||{}).flag || '';
+    const arrivingMatch = locs.length===1 ? locs[0]
+      : locs.find(l => rough ? l.fromDay===+k.slice(1) : l.fromDate===k) || locs[0];
+    if(!place && arrivingMatch){
+      place = arrivingMatch.name;
+      if(!flag && arrivingMatch.country) flag = (countryByCode(arrivingMatch.country)||{}).flag || '';
+    } else if(place && !flag && arrivingMatch && arrivingMatch.country){
+      flag = (countryByCode(arrivingMatch.country)||{}).flag || '';
     }
   }
   return {place, flag, arriving, travelMode};
