@@ -692,20 +692,22 @@ a{color:var(--brand-dark);}
 .route-days h3{font-family:var(--font-body);}
 .route-days .plan-day{margin:24px 0 14px;}
 .route-days .plan-day:first-child{margin-top:10px;}
-/* every auto-generated card (flight/ferry/car/stay) and every plain plan-card (a manually
-   added stop, a task, a booked travel leg) sheds its box once it's inside a stop's own expanded
-   detail - the label above each one (the auto-tag, or the card's own heading) already says
-   what it is, so the bordered/shadowed box around it was framing the same "this is a thing"
-   message a second time, on every single item on a busy day. Left as a plain block with the
-   same internal layout, it reads exactly as clearly with far less visual weight, and the full
-   width the box's own padding used to eat into goes back to the content.
-   .card-undecided and .gap-card are both left alone: the first already wins here on
-   !important, and the second (a dashed prompt to add a stop/accommodation, not an info card)
-   is deliberately still boxed so it reads as something to act on rather than more text. */
+/* the auto-generated flight/ferry/car/stay cards keep their own box (see .flight-strip.itin-flight
+   further down) - the label above each one (the auto-tag, or the card's own heading) already
+   says what it is, but they're real bookings worth setting apart from the plain text around
+   them regardless. .card-undecided and .gap-card are both left alone too: the first already
+   wins here on !important, and the second (a dashed prompt to add a stop/accommodation, not an
+   info card) is deliberately styled as something to act on rather than an info card. */
 .route-days .flight-strip{border:none; box-shadow:none; background:none; border-radius:0; margin-bottom:0;}
 .route-days .flight-head{background:none; border-bottom:none; padding:0 0 8px;}
 .route-days .flight-body,.route-days .accom-body{padding:0;}
-.route-days .card.plan-card:not(.gap-card):not(.plan-travel){border:none; box-shadow:none; background:none; padding:0; margin-bottom:20px;}
+/* general rule across the Itinerary: everything gets a real white card - a stop, a task, a
+   travel leg booked as a flight (.plan-travel - travelCard's own BOOKED_MODES check). A leg
+   that isn't flying (taxi, bus, train, drive, walk, not decided yet) never reaches this class
+   at all - it renders as a single plain connector line instead (see travelCard's own !booked
+   branch), which was always unboxed and stays that way; nothing extra needed here to exempt
+   it. */
+.route-days .card.plan-card{background:#fff;}
 /* a not-yet-booked flight/ferry/car/stay/travel leg inside a day's own detail keeps its box
    (same reasoning as .gap-card just above - it's a prompt to go fill something in, not a card
    already saying what it is), but reads with the page's own muted/paper tones instead of red:
@@ -1638,8 +1640,14 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.99';
+const APP_VERSION = '2.30.0';
 const CHANGELOG = [
+  {version:'2.30.0', notes:[
+    'A stop\'s location no longer sits on its own line under a pin emoji - it now reads as part of the title ("Beach Day - Corfu Beach"), with a plain Google Maps icon (no button box round it) right-aligned against it instead of its own row below.',
+    'Stops and tasks on the Itinerary now get a real white card each, matching the flight/accommodation cards next to them - the only thing that still reads as a plain line is a travel leg that isn\'t a flight (a taxi, a walk, a ferry with no dedicated booking...).',
+    'A stay\'s Check Out pill now names the booking itself ("Check Out of Airbnb") instead of the city, which the day\'s own heading and the check-in card already said.',
+    'Fixed "Midday" sorting before an exact 11:00 on the same day - it\'s pegged to 12:00 now, so an 11:00 check-out correctly comes first.',
+  ]},
   {version:'2.29.99', notes:[
     "Fixed the Itinerary's own flight/accommodation cards showing flush against the page instead of standing out as white cards - a specificity slip from the last white-card fix meant .flight-strip's own plain background quietly won out over it again.",
     "A flight/car hire that lands you exactly where a same-day accommodation check-in already puts you (the airport you flew into, the counter you picked the car up at) no longer earns its own separate numbered pin on the route map - it's the same arrival as the stay's own pin, not a second stop, so the map's numbering no longer skipped straight to 3, 4, 5 with nothing shown for 1 or 2.",
@@ -10593,7 +10601,7 @@ function mapQuery(t, name){
 function mapsSearchUrl(t, name){ return 'https://www.google.com/maps/search/?api=1&query='+mapQuery(t, name); }
 /* '00:00' puts an all-day thing at the head of its day, which is where it belongs when
    everything else that day has a real time */
-const PLAN_PERIODS = {allday:['All day','00:00'], morning:['Morning','06:00'], midday:['Midday','11:00'],
+const PLAN_PERIODS = {allday:['All day','00:00'], morning:['Morning','06:00'], midday:['Midday','12:00'],
   afternoon:['Afternoon','13:00'], evening:['Evening','19:00']};
 const PLAN_PERIOD_ORDER = ['allday','morning','midday','afternoon','evening'];
 /* the same five options (plus "Specific time...") wherever a When picker appears - stops,
@@ -10952,9 +10960,13 @@ function planDaysHTML(t, ro, filterKeys){
         ${itinAccomCardHTML(s.ac)}
       </div>`;
     }
-    // check-out day, for a stay that started on an earlier day already showing its own card
+    // check-out day, for a stay that started on an earlier day already showing its own card -
+    // names the booking itself ("Airbnb", "Booking.com"), the same word its own check-in card
+    // leads with, rather than the city (already said on the check-in day, and on this same
+    // day's own heading) - falls back to the city for a stay with no recognised booking site
+    const service = detectBookingService(s.ac.bookingUrl);
     return `
-    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac, t))}</div>`;
+    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('👋')} Check Out of ${esc(service || accomCityName(s.ac, t))}</div>`;
   };
   /* A flight is a booked thing with a time you have to make, so it earns a card. Everything
      else - a ferry, a train, a bus, a taxi, driving yourself - is not that: you turn up and go,
@@ -11021,36 +11033,48 @@ function planDaysHTML(t, ro, filterKeys){
     const hasImage = !!s.image;
     const mapHref = s.mapsUrl || (s.location ? mapsSearchUrl(t, s.location) : '');
     const time = timeBadge(s);
+    // the location reads as part of the name, not a separate line under it with its own pin
+    // emoji - "Beach Day - Corfu Beach", the same "title - place" shape the day heading above
+    // it already uses
+    const titleText = s.name + (s.location ? ' - '+s.location : '');
     const mapBtnHTML = cls => mapHref ? `<a class="btn icon-only${cls?' '+cls:''}" href="${esc(mapHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${mapIcon(mapHref)}</a>` : '';
+    // a plain icon, not a bordered/backgrounded button - it sits inline on the title's own row
+    // (see head, below), right-aligned there by .section-head's own space-between, rather than
+    // getting a full button's worth of visual weight for what's just a shortcut off the title
+    const mapIconLink = mapHref ? `<a class="iconbtn" href="${esc(mapHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${mapIcon(mapHref)}</a>` : '';
     // a title-only card (nothing following it at all) has nothing to space away from, so the
     // head keeps no margin below it - otherwise the bottom padding stacks on top of that
     // margin and reads as lopsided against the plain top padding above the title
-    const hasBelow = !!(s.notes || s.location || hasImage || mapHref);
-    // once there's a time, the tag above the card already carries the name+emoji (see below) -
-    // repeating both again as the card's own title would just say the same thing twice, so the
-    // card's head is dropped entirely and its content starts straight from location/notes/image
+    const hasBelow = !!(s.notes || hasImage);
+    // once there's a time, the tag above the card already carries the name+location+emoji (see
+    // below) - repeating it all again as the card's own title would just say the same thing
+    // twice, so the card's head is dropped entirely and its content starts straight from
+    // notes/image
     const head = time ? '' : `
       <div class="section-head" style="margin-bottom:${hasBelow?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}</h3>
+          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(titleText)}</h3>
         </div>
+        ${!hasImage ? mapIconLink : ''}
       </div>`;
     const card = `
     <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro&&!time?' plan-click':''}"${!time?' '+clickAttrs(`App.planForm(${s._i})`):''}>
       ${head}
-      ${s.location && !s.mapsUrl ? `<div class="small accom-addr plan-meta-line" style="margin-bottom:10px">${secEmoji('📍')}<span>${esc(s.location)}</span></div>` : ''}
       ${s.notes?`<p class="small plan-notes" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${hasImage ? `<div class="plan-img-wrap">
         <img class="plan-img" src="${s.image}" alt="${esc(s.name)}">
         ${mapBtnHTML('plan-img-map')}
       </div>`
-      : mapHref ? `<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${mapBtnHTML()}</div>` : ''}
+      // time-badged stops drop the head entirely (see above), so the icon never got its row
+      // there - falls back to a row of its own, same as before this card ever had a title row
+      // to right-align against
+      : time && mapHref ? `<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${mapBtnHTML()}</div>` : ''}
     </div>`;
     // the time - "Evening", or a set clock time - reads as "🏰 Castle Walk & Sunset - Evening"
     // above the card, the same way an auto-generated card's own tag sits above it; the card
     // itself no longer repeats the name once this tag is showing (see head, above)
     return time
-      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), s.name, time)}${card}</div>`
+      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), titleText, time)}${card}</div>`
       : card;
   };
   const taskCard = s => `
