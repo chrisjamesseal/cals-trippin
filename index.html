@@ -1649,8 +1649,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.38.0';
+const APP_VERSION = '2.39.0';
 const CHANGELOG = [
+  {version:'2.39.0', notes:[
+    'A day heading no longer repeats the broader place name ("Corfu") once an earlier day in the same stretch has already said it - a run of days at the same Airbnb now reads "Palaiokastritsa" on the later ones instead of "Palaiokastritsa, Corfu" every time.'
+  ]},
   {version:'2.38.0', notes:[
     'Add/Edit Travel now has an "Add as Task" toggle at the top: switch it on and Save drops the leg into Tasks instead of booking it, keeping the mode, from/to, duration and link, and flags it in red wherever it shows on the Itinerary.'
   ]},
@@ -11370,8 +11373,16 @@ function keyWithinLocation(k, rough, loc){
    which everywhere else it's used just wants a short "Day N" for something read out of
    context - this is the one heading on the page itself, so it gets the full date and the
    place along with it. */
-function dayNarrative(t, k, dayItems, rough){
-  if(!k) return {dateLine:'', headingHTML:'Anytime'};
+// the broader half of a "specific, broad" place name ("Palaiokastritsa, Corfu" -> "Corfu"),
+// or the whole thing when there's no comma to split on - what dayNarrative compares against
+// the previous day's broad name to decide whether this day still needs to say it
+function placeBroadPart(place){
+  if(!place) return '';
+  const parts = place.split(',');
+  return parts[parts.length-1].trim();
+}
+function dayNarrative(t, k, dayItems, rough, prevBroad){
+  if(!k) return {dateLine:'', headingHTML:'Anytime', broad:prevBroad};
   const num = rough ? +k.slice(1)
     : t.startDate ? Math.max(0, Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1)
     : 0;
@@ -11384,12 +11395,23 @@ function dayNarrative(t, k, dayItems, rough){
   const stops = dayItems.filter(s => !s._autoFlight && !s._autoFerry && !s._autoCar && !s._autoStay && s.kind!=='travel' && s.kind!=='task');
   const activityText = stops.length===1 ? ` - ${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
   const travelEmoji = arriving && travelMode && TRAVEL_MODES[travelMode] ? TRAVEL_MODES[travelMode].emoji+' ' : '';
-  const placeText = place ? ` - ${arriving?travelEmoji+'Travel to ':''}${flag?flag+' ':''}${esc(place)}` : '';
+  // once a broad place ("Corfu") has headed a day already, a later day in the same stretch
+  // only needs its own more specific part repeated, not the broad one again - dropped only
+  // when a specific part actually survives the split, so a day whose place IS just the broad
+  // name (nothing more specific to fall back on) still shows it rather than going blank
+  const broad = placeBroadPart(place);
+  let displayPlace = place;
+  if(place && broad && prevBroad && broad.toLowerCase()===prevBroad.toLowerCase()){
+    const specific = place.slice(0, place.length-broad.length).replace(/,\s*$/, '').trim();
+    if(specific) displayPlace = specific;
+  }
+  const placeText = displayPlace ? ` - ${arriving?travelEmoji+'Travel to ':''}${flag?flag+' ':''}${esc(displayPlace)}` : '';
   // a trip with real booking dates but no start date set yet (still being put together) has
   // nothing to count "Day N" from - the date itself stands in for it, same as this heading
   // would have shown before it grew a day number at all, rather than inventing a "Day ?"
   const dayLabel = num ? `Day ${num}` : fmtDate(k);
-  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${activityText}${placeText}`};
+  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${activityText}${placeText}`,
+    broad: broad || prevBroad};
 }
 /* which stop/gap accordions are open - a UI-only choice, not trip data, so it's a plain
    module variable rather than anything saved or synced; resets on reload same as the rest of
@@ -11828,12 +11850,17 @@ function tabPlan(t, ro){
       <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`;
   }
   const todayKey = todayStr();
+  // the broad place ("Corfu") the previous day's heading already said - threaded day to day
+  // in the same chronological order the headings render in, so a run of days in one place
+  // only spells that broad part out once (see dayNarrative/placeBroadPart)
+  let lastBroad = null;
   const dayRow = k => {
     const dayItems = groups[k] || [];
     const openKey = 'day:'+(k||'any');
     const isOpen = ROUTE_OPEN.has(openKey);
     const toggleFn = `App.routeToggle('${openKey}')`;
-    const {dateLine, headingHTML} = dayNarrative(t, k, dayItems, rough);
+    const {dateLine, headingHTML, broad} = dayNarrative(t, k, dayItems, rough, lastBroad);
+    lastBroad = broad;
     return `
     <div class="route-item">
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
