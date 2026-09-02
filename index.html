@@ -1641,8 +1641,12 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.33.0';
+const APP_VERSION = '2.34.0';
 const CHANGELOG = [
+  {version:'2.34.0', notes:[
+    'Fixed the route map showing the previous trip\'s pan/zoom (sometimes a completely different part of the world) when switching straight from one trip\'s Itinerary to another\'s - the carried-over view was only ever meant for reopening the same trip\'s own map, not a different one.',
+    'Left-aligned the accommodation card\'s hotel-emoji placeholder to match the calendar icon on the date row below it.',
+  ]},
   {version:'2.33.0', notes:[
     'The route map now waits for every stop to finish geocoding before framing itself, instead of fitting to whichever had resolved first - fixes it loading zoomed in tighter than it should, with the reset button (which always had every pin in by the time you tapped it) the only way to see the real framing.',
     'The Itinerary map (and its Locations chip row) now shows for a trip with Locations set up but nothing booked or planned yet - it used to wait on a real accommodation or itinerary entry before showing anything at all.',
@@ -10970,8 +10974,10 @@ function planDaysHTML(t, ro, filterKeys){
     const nights = ac.checkin && ac.checkout
       ? Math.max(1, Math.round((new Date(ac.checkout+'T00:00:00')-new Date(ac.checkin+'T00:00:00'))/86400000)) : 0;
     // no booking link yet to pull a real logo from - a plain hotel emoji stands in for it until
-    // one's added, rather than the name reading with no icon in front of it at all
-    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : secEmoji('🏨');
+    // one's added, rather than the name reading with no icon in front of it at all. Nudged left
+    // a couple of px - the emoji glyph itself carries more left-side padding than a real logo
+    // or the calendar icon on the date row underneath it, so it reads as indented against them
+    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : `<span class="sec-emoji" aria-hidden="true" style="margin-left:-3px">🏨</span>`;
     const primaryTime = ac.arrivalTime || ac.checkinTime;
     const cityName = accomCityName(ac, t);
     return `
@@ -11344,6 +11350,7 @@ App.routeToggle = key => {
    map's DOM node each time, so this just makes a fresh Leaflet map every time it's called
    rather than trying to update one in place. */
 let ROUTE_MAP = null;
+let ROUTE_MAP_TRIP_ID = null;   // which trip ROUTE_MAP is currently showing - see initRouteMap
 let ROUTE_MAP_PTS = [];   // the current map's own numbered-stop coordinates, for the reset-view control
 /* the geocoding half of a route map, shared by the full Itinerary map (initRouteMap) and the
    small preview on a Next Trip dashboard tile (initDashTripMap) - resolves each of a trip's
@@ -11509,10 +11516,17 @@ function initRouteMap(t){
      above ROUTE_MAP), which throws away this map's DOM node and forces a new Leaflet map to be
      made from scratch - carrying the old one's center/zoom into the new one, and skipping the
      fitBounds below once there's a prior view to carry over, is what keeps a toggle from
-     visibly snapping the map back to its default framing every time you open/close a day. */
+     visibly snapping the map back to its default framing every time you open/close a day. Only
+     worth carrying over for that same trip though - switching to a different trip's Itinerary
+     re-runs this the same way a toggle does, and that trip's last pan/zoom has nothing to do
+     with this one; carrying it over anyway used to leave a freshly opened trip's map stuck
+     showing wherever the last trip happened to be panned to, since a carried-over view also
+     skips the fitBounds below that would otherwise have corrected it. */
   let priorView = null;
   if(ROUTE_MAP){
-    try{ priorView = {center: ROUTE_MAP.getCenter(), zoom: ROUTE_MAP.getZoom()}; }catch(e){}
+    if(ROUTE_MAP_TRIP_ID === t.id){
+      try{ priorView = {center: ROUTE_MAP.getCenter(), zoom: ROUTE_MAP.getZoom()}; }catch(e){}
+    }
     try{ ROUTE_MAP.remove(); }catch(e){}
     ROUTE_MAP = null;
   }
@@ -11523,6 +11537,7 @@ function initRouteMap(t){
   const map = L.map(el, {scrollWheelZoom:false, attributionControl:false})
     .setView(priorView ? priorView.center : [20,0], priorView ? priorView.zoom : 2);
   ROUTE_MAP = map;
+  ROUTE_MAP_TRIP_ID = t.id;
   addCartoLayer(map);
   /* drawn first so the numbered pins/route line below always sit on top of it, and resolved
      independently of the numbered stops - a flight's own geocoding never holds up or feeds into
