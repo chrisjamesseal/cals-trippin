@@ -3391,10 +3391,11 @@ function fileSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.rou
 /* ISO 3166-1 alpha-2 codes; names come from Intl.DisplayNames, flags from regional indicators.
    Plus a small set of "user-assigned" codes (the XA-XZ range ISO guarantees will never be
    handed to a real country) for places that are commonly tracked as their own "country" on a
-   travel checklist despite having no ISO code of their own: England, Scotland and Wales use
-   their real Unicode flag emoji; XI (Northern Ireland) mirrors the code the UK/EU already use
-   for it in customs contexts. There is no Northern Ireland flag emoji, so this shows the Irish
-   tricolour by preference (note that is the Republic's flag; NI is part of the UK). */
+   travel checklist despite having no ISO code of their own: Scotland and Wales use their real
+   Unicode flag emoji; England (XE) uses the UK flag rather than the St George's cross; XI
+   (Northern Ireland) mirrors the code the UK/EU already use for it in customs contexts. There
+   is no Northern Ireland flag emoji, so this shows the Irish tricolour by preference (note
+   that is the Republic's flag; NI is part of the UK). */
 const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CK CL CM CN CO CR CU CV CW CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FK FM FO FR GA GD GE GG GH GI GL GM GN GQ GR GT GW GY HK HN HR HT HU ID IE IL IM IN IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MO MQ MR MS MT MU MV MW MX MY MZ NA NC NE NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PR PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WS YE ZA ZM ZW XE XS XW XI').split(' ');
 /* a few codes where different browsers' Intl.DisplayNames disagree or add a disambiguating
    suffix (e.g. some render CN as "China mainland", HK/MO with a "SAR China" suffix), pinned
@@ -3407,7 +3408,7 @@ const CUSTOM_COUNTRY_NAMES = {XE:'England', XS:'Scotland', XW:'Wales', XI:'North
   TR:'Turkey', CI:'Ivory Coast'};
 /* so typing the name the browser used to show still finds the country */
 const COUNTRY_NAME_ALIASES = {'türkiye':'TR', 'turkiye':'TR', 'côte d’ivoire':'CI', "côte d'ivoire":'CI', 'cote d’ivoire':'CI', "cote d'ivoire":'CI'};
-const CUSTOM_COUNTRY_FLAGS = {XE:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', XS:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', XW:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}', XI:'\u{1F1EE}\u{1F1EA}'};
+const CUSTOM_COUNTRY_FLAGS = {XE:'\u{1F1EC}\u{1F1E7}', XS:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', XW:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}', XI:'\u{1F1EE}\u{1F1EA}'};
 const flagEmoji = c => CUSTOM_COUNTRY_FLAGS[c] || c.replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
 const COUNTRIES = (()=>{
   let dn = null;
