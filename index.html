@@ -125,7 +125,7 @@ a{color:var(--brand-dark);}
 .btn-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
 .iconbtn{border:none; background:none; cursor:pointer; font-size:1rem; padding:4px 8px; line-height:1; color:var(--muted); border-radius:8px;}
 .iconbtn:hover{color:var(--ink); background:var(--bg);}
-.iconbtn:focus-visible{outline:2px solid var(--brand); outline-offset:-2px;}
+.iconbtn:focus-visible{outline:none;}
 .iconbtn.edit, .iconbtn.del{
   width:36px; height:36px; padding:0; flex-shrink:0; background:none;
   display:inline-flex; align-items:center; justify-content:center;
@@ -842,17 +842,6 @@ a{color:var(--brand-dark);}
 .ai-summary-refresh{background:none; border:none; padding:6px 0 0; margin:0; color:var(--muted); font-size:.78rem;
   display:flex; align-items:center; gap:5px; cursor:pointer;}
 .ai-summary-refresh:hover{color:var(--brand-dark);}
-/* the "Suggest Ideas" button on a Nothing Planned pill, and the AI's own suggestions once
-   they've loaded - see App.aiSuggestDayIdeas/emptyDayCard */
-.ai-idea-btn{background:none; border:none; padding:0; margin:0; color:var(--brand); font-size:.82rem;
-  font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap;}
-.ai-idea-btn:disabled{color:var(--muted); cursor:default;}
-.ai-idea-list{display:flex; flex-direction:column; gap:8px; margin:8px 0 4px;}
-.ai-idea-chip{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
-  background:var(--brand-ghost); border:1px solid var(--brand-tint); border-radius:var(--radius);
-  padding:10px 12px; text-align:left; cursor:pointer; color:var(--brand);}
-.ai-idea-chip-body{display:flex; flex-direction:column; gap:2px; min-width:0;}
-.ai-idea-chip-body strong{color:var(--ink); font-size:.9rem;}
 /* ---------- gigs (live music) ---------- */
 .gig-list{display:flex; flex-direction:column; gap:10px;}
 .gig-card{padding:14px; margin-bottom:0;}
@@ -926,13 +915,13 @@ a{color:var(--brand-dark);}
 .want-opt{flex:1; text-align:center; padding:7px 4px; font-size:.68rem; font-weight:700;
   color:var(--muted); cursor:pointer; user-select:none; white-space:nowrap;}
 .want-opt.on{background:var(--brand-tint); color:var(--brand-dark);}
-.want-opt:focus-visible{outline:2px solid var(--brand); outline-offset:-2px;}
+.want-opt:focus-visible{outline:none;}
 /* a country already on a booked trip has nothing left to toggle - Going is locked on, and the
    other two options along with it, rather than pulling Going out into a pill of its own */
 .want-switch.locked .want-opt{cursor:default;}
 .place-actions.finder{display:block;}
 .trip-card .trip-flags{margin-bottom:4px;}
-.trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
+.trip-card:focus-visible{outline:none; transform:translateY(-2px); box-shadow:var(--shadow-lift);}
 
 /* ---------- section menu (replaces the old scrolling tab strip) ----------
    .menu-item/.menu-sep are shared with the desktop sidebar (renderSidebar renders tripNavItems/
@@ -1028,7 +1017,7 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
    own default focus ring, which reads as a stray reddish outline stuck on a Places card long
    after you've tapped its Been/Want-to-Go icon and moved on (focus, unlike hover, doesn't clear
    itself on a touch screen) */
-.chip.pick:focus-visible{outline:none; border-color:var(--brand);}
+.chip.pick:focus-visible{outline:none;}
 .mode-picker{display:flex; flex-wrap:wrap; gap:8px;}
 .mode-pick{padding:8px 10px; font-size:1rem; line-height:1;}
 .chip.country{padding:5px 12px;}
@@ -1345,7 +1334,8 @@ details .d-body{padding:14px 16px;}
   display:flex; flex-direction:column; align-items:flex-start; gap:10px;
   transition:transform .1s, box-shadow .1s, border-color .1s;
 }
-.dash-tile:hover,.dash-tile:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand); outline:none;}
+.dash-tile:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
+.dash-tile:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
 .dash-tile > .dash-icon{font-size:1.5rem; color:var(--brand);}
 /* emoji carry their own colour, so they only need sizing; the slightly larger size and
    flat line-height keep them optically level with the icon-font tiles they replaced */
@@ -1443,7 +1433,8 @@ body.kb-open .tabbar.on{display:none;}
   border:1px solid var(--line-strong); border-radius:10px; background:var(--paper);
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
 }
-.emoji-pick:hover,.emoji-pick:focus-visible{border-color:var(--brand); outline:none;}
+.emoji-pick:hover{border-color:var(--brand);}
+.emoji-pick:focus-visible{outline:none;}
 .emoji-pick.on{border-color:var(--brand); background:var(--brand-tint);}
 
 /* ---------- trip status pill ---------- */
@@ -1495,7 +1486,8 @@ body.kb-open .tabbar.on{display:none;}
 .pack-row .iconbtn{flex-shrink:0; align-self:center;}
 .pack-check{flex-shrink:0; width:21px; height:21px; border:2px solid var(--line-strong); border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:.66rem; color:#fff; background:var(--paper);}
 .pack-check[role=checkbox]{cursor:pointer;}
-.pack-check[role=checkbox]:hover,.pack-check[role=checkbox]:focus-visible{border-color:var(--brand); outline:none;}
+.pack-check[role=checkbox]:hover{border-color:var(--brand);}
+.pack-check[role=checkbox]:focus-visible{outline:none;}
 .pack-check.on{background:var(--brand); border-color:var(--brand);}
 .pack-text{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px;}
 .pack-label{font-size:.88rem; overflow-wrap:anywhere;}
@@ -1507,7 +1499,8 @@ body.kb-open .tabbar.on{display:none;}
 .poll-card{margin-bottom:14px;}
 .poll-opt{position:relative; overflow:hidden; border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:9px 12px; margin-bottom:8px; background:var(--paper);}
 .poll-opt[role=button]{cursor:pointer;}
-.poll-opt[role=button]:hover,.poll-opt[role=button]:focus-visible{border-color:var(--brand); outline:none;}
+.poll-opt[role=button]:hover{border-color:var(--brand);}
+.poll-opt[role=button]:focus-visible{outline:none;}
 .poll-opt.picked{border-color:var(--brand); background:var(--brand-ghost);}
 .poll-opt.won{border-color:var(--brand); }
 .poll-bar{position:absolute; inset:0 auto 0 0; background:var(--brand-tint); transition:width .2s; z-index:0;}
@@ -1548,7 +1541,7 @@ body.kb-open .tabbar.on{display:none;}
 @media (hover:hover){
   .plan-auto.plan-click:hover .flight-strip,.plan-auto.plan-click:hover .card,.card.plan-click:hover{border-color:var(--brand);}
 }
-.plan-auto.plan-click:focus-visible .flight-strip,.plan-auto.plan-click:focus-visible .card,.card.plan-click:focus-visible{outline:none; border-color:var(--brand);}
+.plan-auto.plan-click:focus-visible .flight-strip,.plan-auto.plan-click:focus-visible .card,.card.plan-click:focus-visible{outline:none;}
 .plan-travel-icon{font-size:1.1rem; color:var(--brand); flex-shrink:0; display:inline-flex;}
 .plan-travel-icon .sec-emoji{font-size:1.05rem;}
 /* the emoji leading a stop's title shouldn't scale with the heading */
@@ -1587,6 +1580,13 @@ body.kb-open .tabbar.on{display:none;}
   .wrap[data-tab="polls"], .wrap[data-tab="money"], .wrap[data-tab="photos"],
   .wrap[data-tab="docs"], .wrap[data-tab="notes"], .wrap[data-tab="contacts"]
   {max-width:560px; margin:0 auto; padding:calc(14px + env(safe-area-inset-top)) 24px 96px;}
+  /* Watch Next's poster is sized to fill a phone-width tile - on the wider desktop grid that
+     same 50% width blows it up well past every other widget's own image, so it drops to the
+     same small fixed size Last Seen's poster already uses there */
+  .dash-watchnext-poster{width:38px; height:57px;}
+  /* Next Trip's map preview gets more room to actually read as a map once the desktop grid
+     isn't squeezing it down to a sliver of phone-width space */
+  .dash-trip-map{height:220px;}
 }
 @media(min-width:768px) and (max-width:1279px){
   .sidebar{width:216px;}
@@ -1640,8 +1640,19 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.30.0';
+const APP_VERSION = '2.31.0';
 const CHANGELOG = [
+  {version:'2.31.0', notes:[
+    'Removed the AI Suggest Ideas button from an empty Itinerary day.',
+    'A timed stop now leads with when it happens ("Evening - 🏰 Castle Walk & Sunset"), inside the card with proper padding either side, and its place sits on its own line underneath instead of tacked onto a title with no room left for it.',
+    'An accommodation\'s check-in card now reads "15:00 - [logo] Sarandë" - a dash between the time and the place, same as every other timed line on the page.',
+    'A day named after its one planned stop ("Beach Day", "Castle Walk & Sunset") now carries that stop\'s own emoji in the heading too, not just on its card.',
+    'A "Travel to" day heading now leads with the mode that got you there - ✈️, ⛴️, 🚆... - same as every travel card already shows.',
+    'Fixed the route map still starting its numbering at 2 or 3 instead of 1 - the outbound flight out from home was earning its own pin same as the return flight already didn\'t, when neither is really a stop on the trip itself.',
+    'Removed the stray coloured outline a tapped card, icon button, or chip was left wearing on mobile until something else was tapped - a focus state that was never meant to persist, across the whole app.',
+    'Every page within a trip now has its own address-bar link (#/trip/:id/itinerary, /travel, /accommodation...), not just the trip\'s own Overview - switching tabs updates it live, so copying the URL at any point links straight back to that same page.',
+    'Watch Next\'s poster matches Last Seen\'s smaller size on desktop, and Next Trip\'s map preview is taller there too - both were sized for a phone-width tile even on the wider desktop grid.',
+  ]},
   {version:'2.30.0', notes:[
     'A stop\'s location no longer sits on its own line under a pin emoji - it now reads as part of the title ("Beach Day - Corfu Beach"), with a plain Google Maps icon (no button box round it) right-aligned against it instead of its own row below.',
     'Stops and tasks on the Itinerary now get a real white card each, matching the flight/accommodation cards next to them - the only thing that still reads as a plain line is a travel leg that isn\'t a flight (a taxi, a walk, a ferry with no dedicated booking...).',
@@ -7689,7 +7700,8 @@ function route(){
           $('#app').innerHTML = `<div class="empty" style="margin-top:40px">This trip link appears to be broken or incomplete.<br>Ask whoever set it up to send it again.</div>`;
     }
   } else if(h.startsWith('#/trip/')){
-    openTrip(h.slice(7).split('/')[0]);
+    const parts = h.slice(7).split('/');
+    openTrip(parts[0], parts[1]);
   } else if(h === '#/trips'){
     CUR_TRIP_ID = null; stopSub(); renderHome();
   } else {
@@ -7698,8 +7710,10 @@ function route(){
   }
   window.scrollTo(0,0);
 }
-function openTrip(id){
-  CUR_TAB = 'home';   // opening a trip always lands on the dashboard
+function openTrip(id, slug){
+  // an explicit tab slug in the URL (#/trip/:id/itinerary) opens straight there - anything
+  // unrecognised (or none at all) falls back to the dashboard, same as it always has
+  CUR_TAB = (slug && SLUG_TABS[slug]) || 'home';
   CUR_TRIP_ID = id;
   // 'busy' until the real .info/connected listener (in initCloud) confirms the connection,
   // don't claim Synced before Firebase has actually said so
@@ -9449,6 +9463,12 @@ const TABS = [
   ['notes','Notes'],
   ['contacts','Contacts']
 ];
+// a friendly URL slug per tab (#/trip/:id/itinerary, not #/trip/:id/plan) so any page within a
+// trip has its own shareable link - home has none, the bare #/trip/:id already means that.
+// Built off TABS itself so every tab always gets one without needing its own separate list kept
+// in sync; SLUG_TABS is just that map read the other way, for turning a URL back into a tab key.
+const TAB_SLUGS = Object.fromEntries(TABS.filter(x=>x[0]!=='home').map(([k,label])=>[k, label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')]));
+const SLUG_TABS = Object.fromEntries(Object.entries(TAB_SLUGS).map(([k,slug])=>[slug,k]));
 function renderTrip(t){
   const ro = readOnly(t);
   if(!TABS.some(x=>x[0]===CUR_TAB)) CUR_TAB='home';
@@ -9708,9 +9728,12 @@ App.tab = k => {
   CUR_TAB = k;
   const t = getTrip(CUR_TRIP_ID);
   if(t){
-    // e.g. jumping to a tab from the Places page: fix the address bar without a real
-    // 'hashchange' (that would re-run route()/openTrip(), which resets CUR_TAB to 'home')
-    if(location.hash !== '#/trip/'+CUR_TRIP_ID) history.replaceState(null, '', location.pathname + '#/trip/' + CUR_TRIP_ID);
+    // keeps the address bar naming whichever tab you're actually on (#/trip/:id/itinerary) so
+    // it's always a link straight back to this same page - a plain replaceState, not a real
+    // 'hashchange', since that would re-run route()/openTrip() and fight this same call over
+    // what CUR_TAB should be
+    const wantHash = '#/trip/' + CUR_TRIP_ID + (TAB_SLUGS[k] ? '/' + TAB_SLUGS[k] : '');
+    if(location.hash !== wantHash) history.replaceState(null, '', location.pathname + wantHash);
     renderTrip(t);
     renderTabbar();   // this path skips route(), so the bar's active slot needs telling
   }
@@ -10936,7 +10959,7 @@ function planDaysHTML(t, ro, filterKeys){
     return `
     <div class="flight-strip itin-flight">
       <div class="flight-head">
-        <span class="itin-time">${primaryTime?esc(primaryTime):''}</span>
+        <span class="itin-time">${primaryTime?esc(primaryTime)+' -':''}</span>
         <strong class="head-with-logo">${logo}<span>${esc(cityName)}</span></strong>
         ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
       </div>
@@ -11033,10 +11056,6 @@ function planDaysHTML(t, ro, filterKeys){
     const hasImage = !!s.image;
     const mapHref = s.mapsUrl || (s.location ? mapsSearchUrl(t, s.location) : '');
     const time = timeBadge(s);
-    // the location reads as part of the name, not a separate line under it with its own pin
-    // emoji - "Beach Day - Corfu Beach", the same "title - place" shape the day heading above
-    // it already uses
-    const titleText = s.name + (s.location ? ' - '+s.location : '');
     const mapBtnHTML = cls => mapHref ? `<a class="btn icon-only${cls?' '+cls:''}" href="${esc(mapHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="Open Map" title="Open Map">${mapIcon(mapHref)}</a>` : '';
     // a plain icon, not a bordered/backgrounded button - it sits inline on the title's own row
     // (see head, below), right-aligned there by .section-head's own space-between, rather than
@@ -11046,36 +11065,33 @@ function planDaysHTML(t, ro, filterKeys){
     // head keeps no margin below it - otherwise the bottom padding stacks on top of that
     // margin and reads as lopsided against the plain top padding above the title
     const hasBelow = !!(s.notes || hasImage);
-    // once there's a time, the tag above the card already carries the name+location+emoji (see
-    // below) - repeating it all again as the card's own title would just say the same thing
-    // twice, so the card's head is dropped entirely and its content starts straight from
-    // notes/image
-    const head = time ? '' : `
-      <div class="section-head" style="margin-bottom:${hasBelow?'4px':'0'}">
+    // a timed stop leads with when it happens - "Evening - 🏰 Castle Walk & Sunset" - the same
+    // "time - name" shape every other timed line on this page already uses (the Check Out pill,
+    // the flight/ferry auto-tags); its place is its own line underneath rather than folded into
+    // the title, since a title already carrying a time has no room left to also read naturally
+    // with a place tacked on the end of it. An untimed stop has no such crowding, so it keeps the
+    // place folded into the title instead ("Beach Day - Corfu Beach"), same as the day heading
+    // above it already reads.
+    const titleHTML = time
+      ? `${esc(time)} - ${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}`
+      : `${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${s.location?' - '+esc(s.location):''}`;
+    const head = `
+      <div class="section-head" style="margin-bottom:${hasBelow||(time&&s.location)?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(titleText)}</h3>
+          <h3>${titleHTML}</h3>
         </div>
         ${!hasImage ? mapIconLink : ''}
-      </div>`;
-    const card = `
-    <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro&&!time?' plan-click':''}"${!time?' '+clickAttrs(`App.planForm(${s._i})`):''}>
+      </div>
+      ${time&&s.location?`<p class="small muted plan-location" style="margin:0 0 ${hasBelow?'8px':'0'}">${esc(s.location)}</p>`:''}`;
+    return `
+    <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       ${head}
       ${s.notes?`<p class="small plan-notes" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${hasImage ? `<div class="plan-img-wrap">
         <img class="plan-img" src="${s.image}" alt="${esc(s.name)}">
         ${mapBtnHTML('plan-img-map')}
-      </div>`
-      // time-badged stops drop the head entirely (see above), so the icon never got its row
-      // there - falls back to a row of its own, same as before this card ever had a title row
-      // to right-align against
-      : time && mapHref ? `<div class="btn-row" style="margin-top:8px" onclick="event.stopPropagation()">${mapBtnHTML()}</div>` : ''}
+      </div>` : ''}
     </div>`;
-    // the time - "Evening", or a set clock time - reads as "🏰 Castle Walk & Sunset - Evening"
-    // above the card, the same way an auto-generated card's own tag sits above it; the card
-    // itself no longer repeats the name once this tag is showing (see head, above)
-    return time
-      ? `<div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>${autoTag(secEmoji(s.emoji || ideaEmojiFor(s.name)), titleText, time)}${card}</div>`
-      : card;
   };
   const taskCard = s => `
     <div class="card plan-card task-card${s.unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
@@ -11098,29 +11114,13 @@ function planDaysHTML(t, ro, filterKeys){
   /* the same dashed task-pill as the Tasks tab's own "Nothing Planned" row (see
      undecidedItemsHTML) - a day nothing's been added to yet reads as one quiet tappable line
      sitting right where the gap falls, not a heading plus its own pair of buttons; the day's
-     own accordion heading already carries the date, so this doesn't repeat it. A "Suggest
-     Ideas" button sits alongside it (own tap target, stopping the pill's own onclick) for a
-     day with genuinely nothing else to go on - see App.aiSuggestDayIdeas. */
-  const emptyDayCard = k => {
-    const ideas = AI_IDEAS_RESULTS[k];
-    const pending = AI_IDEAS_PENDING.has(k);
-    const failed = AI_IDEAS_FAILED.has(k);
-    return `
+     own accordion heading already carries the date, so this doesn't repeat it. */
+  const emptyDayCard = k => `
     <div class="task-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="App.addMenu('${k}', ${rough})"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.addMenu('${k}', ${rough})}"`}>
       <span class="task-pill-text"><strong class="text-undecided">Nothing Planned</strong></span>
-      <span style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-        ${!ro?`<button type="button" class="ai-idea-btn" ${pending?'disabled':''} onclick="event.stopPropagation();App.aiSuggestDayIdeas('${k}', ${rough})">${fa('sparkles')} ${pending?'Thinking…':'Suggest Ideas'}</button>`:''}
-        ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
-      </span>
-    </div>
-    ${ideas?`<div class="ai-idea-list">${ideas.map((idea,idx)=>`
-      <button type="button" class="ai-idea-chip" onclick="event.stopPropagation();App.addIdeaStop('${k}', ${rough}, ${idx})">
-        <span class="ai-idea-chip-body"><strong>${esc(idea.title)}</strong>${idea.note?`<span class="muted small">${esc(idea.note)}</span>`:''}</span>
-        ${fa('circle-plus')}
-      </button>`).join('')}</div>`:''}
-    ${failed&&!pending?`<p class="small muted" style="margin:8px 0 4px">Couldn't get suggestions - try again.</p>`:''}`;
-  };
+      ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
+    </div>`;
   /* a night nobody's booked anywhere for - shown once, on its first night, as the same dashed
      task-pill as everything else still-outstanding on this page (the Accommodation tab keeps
      its own fuller stayGapCardHTML for its own list of full-size booked-stay cards, where a
@@ -11195,6 +11195,10 @@ function dayPlaceInfo(t, k, dayItems, rough){
   // travel leg supplying its own destination below, ever earns the "Travel to" verb; a same-day
   // travel leg to somewhere else entirely used to flip this on regardless of what "place" was
   let arriving = !!checkin;
+  // the mode of whatever journey actually landed you here today, for the "Travel to" verb's own
+  // leading emoji below - read off the same journeyIn regardless of whether it's also the day's
+  // "place" (a check-in already covering that) or the only source of it
+  let travelMode = journeyIn ? (journeyIn._autoFlight ? 'flight' : journeyIn._autoFerry ? 'ferry' : journeyIn._autoCar ? 'drive' : journeyIn.mode) : '';
   if(!place && journeyIn){
     const dest = journeyIn._autoFlight ? (airportName(journeyIn.f.to)||journeyIn.f.to)
       : journeyIn._autoFerry ? journeyIn.f.to
@@ -11229,7 +11233,7 @@ function dayPlaceInfo(t, k, dayItems, rough){
       flag = (countryByCode(locs[0].country)||{}).flag || '';
     }
   }
-  return {place, flag, arriving};
+  return {place, flag, arriving, travelMode};
 }
 /* whether day key k (a 'YYYY-MM-DD' date, or a rough 'd3' day key) falls inside a Location
    entry's own from/to range - mirrors how every other day-or-date pair on this page is read
@@ -11254,15 +11258,16 @@ function dayNarrative(t, k, dayItems, rough){
   const num = rough ? +k.slice(1)
     : t.startDate ? Math.max(0, Math.round((new Date(k+'T00:00:00') - new Date(t.startDate+'T00:00:00'))/86400000) + 1)
     : 0;
-  const {place, flag, arriving} = dayPlaceInfo(t, k, dayItems, rough);
+  const {place, flag, arriving, travelMode} = dayPlaceInfo(t, k, dayItems, rough);
   // a day built around a single planned stop ("Beach Day", "Castle Walk & Sunset") reads better
   // naming that activity than just the place it happens to fall in - only picked when there's
   // exactly one stop that day, since guessing which of several is the "main" one would be a
   // coin flip. Same routing dayItems already gets sorted into elsewhere (see `card` just below)
   // for what counts as a plain stop rather than an auto-generated travel/stay/task card.
   const stops = dayItems.filter(s => !s._autoFlight && !s._autoFerry && !s._autoCar && !s._autoStay && s.kind!=='travel' && s.kind!=='task');
-  const activityText = stops.length===1 ? ` - ${esc(stops[0].name)}` : '';
-  const placeText = place ? ` - ${arriving?'Travel to ':''}${flag?flag+' ':''}${esc(place)}` : '';
+  const activityText = stops.length===1 ? ` - ${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
+  const travelEmoji = arriving && travelMode && TRAVEL_MODES[travelMode] ? TRAVEL_MODES[travelMode].emoji+' ' : '';
+  const placeText = place ? ` - ${arriving?travelEmoji+'Travel to ':''}${flag?flag+' ':''}${esc(place)}` : '';
   // a trip with real booking dates but no start date set yet (still being put together) has
   // nothing to count "Day N" from - the date itself stands in for it, same as this heading
   // would have shown before it grew a day number at all, rather than inventing a "Day ?"
@@ -11425,10 +11430,13 @@ function addCartoLayer(map){
    fit it - additive, not a replacement for a flight's own numbered stop. */
 function mapRouteStops(t){
   let stops = routeStops(t).filter(s=>!s.gap);
-  // the very last leg of a trip is normally the flight/ferry/drive home - not a stop on the
-  // trip itself, just the way out of it, so it doesn't earn a numbered pin (its own dashed
-  // flight line, see mapFlightLines, still draws - just without a numbered pin at the far end)
+  // the very first and very last legs of a trip are normally the flight out from home and the
+  // flight back to it - neither is a stop on the trip itself, just the way in and out of it, so
+  // neither earns a numbered pin (their own dashed flight lines, see mapFlightLines, still draw
+  // - just without a numbered pin at either end). The destination the outbound leg lands at is
+  // still on the map - it's whatever's booked to stay there, one entry later in this same list.
   if(stops.length && stops[stops.length-1].journey) stops.pop();
+  if(stops.length && stops[0].journey) stops.shift();
   // a journey landing on the same day an accommodation's own check-in already puts you
   // somewhere (the flight that got you to the airport, or the car hire you picked up there,
   // on the same day you checked into a stay) is the same arrival as that check-in, not a
@@ -11519,7 +11527,17 @@ function initRouteMap(t){
     // only the first time this trip's map is shown this session - once there's a prior view to
     // carry over, further redraws (a toggle, a new pin resolving) place pins in that same view
     // instead of snapping the camera back to fit them
-    if(pts.length && !priorView) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
+    if(pts.length && !priorView){
+      // a stop's coordinates are often already cached (wxGeoGet), so this first redraw can fire
+      // synchronously, in the same tick the map's own container was just inserted via innerHTML
+      // - Leaflet's internal size cache can still be stale/zero at that exact instant, which
+      // fitBounds silently trusts, framing the route tighter than it should be. invalidateSize
+      // forces a fresh read of the container's actual current size first, so the fit that
+      // follows uses real numbers - same fix the reset button never needed, since by the time
+      // anyone taps it the page has long since settled.
+      map.invalidateSize();
+      map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
+    }
   };
   resolveRouteStopPins(t, numbered, redraw);
   /* a manual way back to the fitted view - now that a re-render (an accordion toggle) no longer
@@ -11637,44 +11655,6 @@ App.aiRegenSummary = key => {
   if(t.aiSummaries) delete t.aiSummaries[key];
   AI_SUMMARY_FAILED.delete(key);
   aiRequestSummary(t, dayKeyFromOpenKey(key), key);
-};
-/* AI idea suggestions for a day with nothing planned - the "Suggest Ideas" button on the
-   Nothing Planned pill (see emptyDayCard). Same shared worker/Anthropic setup as the AI day
-   summaries above, just asked for a short structured list instead of a paragraph. Results are
-   kept in memory only (not persisted on the trip, unlike aiSummaries) - they're a jumping-off
-   point for filling the day, not a fact worth syncing across devices, and a stale suggestion
-   sitting around after the day's since been planned would be worse than just asking again. */
-let AI_IDEAS_PENDING = new Set();
-let AI_IDEAS_FAILED = new Set();
-let AI_IDEAS_RESULTS = {};
-App.aiSuggestDayIdeas = async (key, rough) => {
-  const t = getTrip(CUR_TRIP_ID); if(!t || AI_IDEAS_PENDING.has(key)) return;
-  AI_IDEAS_PENDING.add(key);
-  AI_IDEAS_FAILED.delete(key);
-  renderTab(t);
-  try{
-    const {groups} = planDayGroups(t);
-    const {place} = dayPlaceInfo(t, key, groups[key]||[], rough);
-    const res = await fetch(psnUrl('/ai-day-ideas'), {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({place: place || t.name, when: key ? planDayLabel(t, key, rough) : 'Anytime'}),
-    });
-    if(!res.ok) throw new Error('request failed');
-    const data = await res.json();
-    if(!data.ideas || !data.ideas.length) throw new Error('no ideas');
-    AI_IDEAS_RESULTS[key] = data.ideas;
-  }catch(e){
-    AI_IDEAS_FAILED.add(key);
-  }
-  AI_IDEAS_PENDING.delete(key);
-  if(CUR_TAB==='plan' && CUR_TRIP_ID===t.id) renderTab(t);
-};
-// turns one suggested idea straight into a prefilled Add Stop form, same as picking one off
-// the Ideas board (planWhenFor) - looked up from the in-memory results rather than round-
-// tripped through an onclick attribute, so a title/note with a quote in it can't break the HTML
-App.addIdeaStop = (key, rough, idx) => {
-  const idea = (AI_IDEAS_RESULTS[key]||[])[idx]; if(!idea) return;
-  App.planForm(-1, Object.assign(planWhenFor(key, rough), {name: idea.title, notes: idea.note||''}));
 };
 /* ================= TAB: itinerary (day-by-day, one accordion per day) =================
    Every day of the trip is its own row now, not each place you stay - its date, which place
