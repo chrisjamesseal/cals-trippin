@@ -826,8 +826,8 @@ a{color:var(--brand-dark);}
    reads as somewhere, and its own flag, once one of these date ranges covers it (see
    dayPlaceInfo's own fallback) rather than sitting blank the way an unbooked stretch used to. */
 .location-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;}
-.location-chip{cursor:pointer; font:inherit;}
-.location-chip-add{color:var(--brand); border-color:var(--brand-tint); background:var(--brand-ghost);}
+.chip.location-chip{cursor:pointer; font:inherit; background:#fff;}
+.chip.location-chip-add{color:var(--brand); border-color:var(--brand-tint); background:var(--brand-ghost);}
 /* the AI stop summary (aiSummaryHTML) - a tinted callout so it reads as an added extra sat
    above the day-by-day cards, not just another card in the same list */
 .ai-summary{background:var(--brand-ghost); border:1px solid var(--brand-tint); border-radius:var(--radius);
@@ -1635,8 +1635,13 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.97';
+const APP_VERSION = '2.29.98';
 const CHANGELOG = [
+  {version:'2.29.98', notes:[
+    "Fixed the route map sometimes placing a stop's pin on the wrong continent entirely - a place name qualified with the wrong one of a multi-country trip's countries (\"Tirane, Greece\" instead of \"Tirane, Albania\") could still get an actual, just wrong, match back from the geocoder, which then won outright instead of falling through to the correctly-qualified candidate.",
+    'Gave the Itinerary route map\'s Location chips (Corfu, Sarandë…) their white card background back.',
+    'An accommodation with an address too vague to guess a town from (just a district and postcode, say) now falls back to whichever of the trip\'s own Locations covers its check-in date for its card title, instead of showing the raw address back unchanged.',
+  ]},
   {version:'2.29.97', notes:[
     'Removed the "Not Booked Yet?" toggle entirely, from every form (Flight, Ferry, Car Hire, Accommodation, Travel) and everywhere it showed - the dashed cards, the Tasks list, the dashboard\'s Things to Book count. A booking either exists or it doesn\'t.',
     'Added an optional Link field to Flights, Ferries, Car Hire and Travel - a booking confirmation, timetable or check-in page - shown as a small icon on the card once set.',
@@ -10386,7 +10391,10 @@ App.delPoll = pollId => {
    move); forecasts are fetched fresh each session so they don't go stale. Every failure
    path ends the same way: no weather shown, the itinerary itself is never affected. */
 const WX_FORECAST_DAYS = 16;
-const WX_GEO_KEY = 'calstrippin_wx_geo';
+/* _v2: bumped once, to drop any geocode wrongly cached under the old country-mismatch bug
+   below (see wxResolve) - a fresh cache re-resolves everyone's stops through the fixed check
+   rather than replaying a bad lat/lon forever from what's already in their browser. */
+const WX_GEO_KEY = 'calstrippin_wx_geo_v2';
 const WX_STATE = {};   // place -> {status:'loading'|'ok'|'fail', days:{'YYYY-MM-DD':{...}}, label}
 /* WMO weather codes, grouped down to the handful of conditions worth showing on a trip plan.
    Emoji rather than icon-font glyphs: the weather is the one thing on the page that is
@@ -10478,7 +10486,17 @@ function wxResolve(cands, cb){
       .then(r=>r.json())
       .then(j=>{
         const r0 = j && j.results && j.results[0];
-        if(!r0 || typeof r0.latitude !== 'number'){ wxGeoSet(place, false); return tryNext(); }
+        /* a candidate deliberately qualified with a country ("Tirane, Albania" - see
+           resolveRouteStopPins) is worse than useless if the API's fuzzy name search ignores
+           the qualifier and matches some unrelated, similar-sounding place in a different
+           country instead (this is what put a pin in the middle of Africa for a Balkan trip):
+           reject that as a miss too, the same as no result at all, so the next candidate - the
+           correctly-qualified one, or the bare name - gets a turn rather than the API's own
+           says-so being taken at face value. */
+        const qualifier = place.includes(',') ? place.split(',').pop().trim().toLowerCase() : '';
+        const gotCountry = (r0 && r0.country || '').toLowerCase();
+        const wrongCountry = qualifier && gotCountry && gotCountry !== qualifier;
+        if(!r0 || typeof r0.latitude !== 'number' || wrongCountry){ wxGeoSet(place, false); return tryNext(); }
         // "Greece, Greece" reads badly, so only add the country when it differs from the name
         const label = (r0.country && r0.country !== r0.name) ? r0.name+', '+r0.country : r0.name;
         const geo = {lat:r0.latitude, lon:r0.longitude, label};
@@ -10898,7 +10916,7 @@ function planDaysHTML(t, ro, filterKeys){
       ? Math.max(1, Math.round((new Date(ac.checkout+'T00:00:00')-new Date(ac.checkin+'T00:00:00'))/86400000)) : 0;
     const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : '';
     const primaryTime = ac.arrivalTime || ac.checkinTime;
-    const cityName = accomCityName(ac);
+    const cityName = accomCityName(ac, t);
     return `
     <div class="flight-strip itin-flight">
       <div class="flight-head">
@@ -10928,7 +10946,7 @@ function planDaysHTML(t, ro, filterKeys){
     }
     // check-out day, for a stay that started on an earlier day already showing its own card
     return `
-    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac))}</div>`;
+    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('👋')} Check Out of ${esc(accomCityName(s.ac, t))}</div>`;
   };
   /* A flight is a booked thing with a time you have to make, so it earns a card. Everything
      else - a ferry, a train, a bus, a taxi, driving yourself - is not that: you turn up and go,
@@ -11139,7 +11157,7 @@ function dayPlaceInfo(t, k, dayItems, rough){
   if(!ac && !rough && k){
     ac = (t.accommodations||[]).find(a=>a.checkin && a.checkout && k>a.checkin && k<a.checkout) || null;
   }
-  let place = ac ? accomCityName(ac) : '';
+  let place = ac ? accomCityName(ac, t) : '';
   let flag = ac ? flagForPlace(t, ac.address) : '';
   // a check-out-only day's place is where you're LEAVING, not arriving - only a check-in, or a
   // travel leg supplying its own destination below, ever earns the "Travel to" verb; a same-day
@@ -11716,7 +11734,7 @@ function locationDatalist(t){
     if(s.kind==='travel'){ if(s.from) set.add(s.from); if(s.to) set.add(s.to); }
   });
   (t.moodBoard||[]).forEach(m=>{ if(m.title) set.add(m.title.replace(/^(Do|Eat|Tip):\s*/,'')); });
-  (t.accommodations||[]).forEach(a=>{ const c = accomCityName(a); if(c) set.add(c); });
+  (t.accommodations||[]).forEach(a=>{ const c = accomCityName(a, t); if(c) set.add(c); });
   (t.flights||[]).forEach(f=>{
     if(f.from) set.add(airportName(f.from)||f.from);
     if(f.to) set.add(airportName(f.to)||f.to);
@@ -12319,9 +12337,26 @@ function bookingIconFor(url){
 }
 /* just the place, for the Route tab - "Stay in Mount Martha" or "Airbnb in Lisbon" reads as
    "Mount Martha"/"Lisbon" there, the same way a flight reads "Melbourne" not "Flight to
-   Melbourne". The address is the more reliable source when there is one; falling back to
-   stripping "X in " off the name covers a booking with no address saved yet. */
-function accomCityName(a){
+   Melbourne". A Location covering the stay's check-in date (App.locationForm) is the most
+   reliable source when there's exactly one covering it - a booking's own address is often
+   just a street and postcode with no town-level segment to split out at all ("Qarku i
+   Vlorës 9701"), which would otherwise come back unchanged as if it were the place name.
+   Falling back to the address guess, then to stripping "X in " off the name, covers a
+   booking outside any defined Location, or with no address saved yet either. */
+function accomCityName(a, t){
+  if(t && a.checkin){
+    const rough = hasRoughWhen(t);
+    const k = rough ? roughDayKey(t, a.checkin) : a.checkin;
+    const locs = (t.locations||[]).filter(l => keyWithinLocation(k, rough, l));
+    /* a check-in date that's also the tail end of the PREVIOUS Location's own range (you're
+       checking out of one place and into the next on the same day) covers two Locations at
+       once - resolves to whichever one you're actually arriving into that day (its own range
+       starts here), not the one you're leaving, the same way dayPlaceInfo prefers a journey's
+       destination over the day's other candidates. */
+    const match = locs.length===1 ? locs[0]
+      : locs.find(l => rough ? l.fromDay===+k.slice(1) : l.fromDate===k);
+    if(match && match.name) return match.name;
+  }
   const fromAddr = guessCityFromAddress(a.address);
   if(fromAddr) return fromAddr;
   const m = /\bin\s+(.+)$/i.exec(a.name||'');
@@ -12420,7 +12455,7 @@ function stayGaps(t){ return rangeGaps(t, t.accommodations); }
 function gapPlaceName(t, g){
   const accs = t.accommodations||[];
   const ac = accs.find(a=>a.checkout===g.firstNight) || accs.find(a=>a.checkin===g.checkout);
-  return ac ? accomCityName(ac) : '';
+  return ac ? accomCityName(ac, t) : '';
 }
 function stayGapCardHTML(g, ro){
   const n = g.nights;
@@ -12484,7 +12519,7 @@ function routeStops(t){
       const nights = a.checkout
         ? Math.max(1, Math.round((new Date(a.checkout+'T00:00:00') - new Date(a.checkin+'T00:00:00'))/DAY_MS))
         : 1;
-      return {date:a.checkin, gap:false, journey:false, i, name:accomCityName(a),
+      return {date:a.checkin, gap:false, journey:false, i, name:accomCityName(a, t),
         when: a.checkout ? fmtRange(a.checkin, a.checkout) : fmtDate(a.checkin), nights};
     });
   const journeys = routeJourneys(t).map(j=>({...j, gap:false, journey:true, nights:0}));
