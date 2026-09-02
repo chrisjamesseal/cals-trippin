@@ -739,7 +739,10 @@ a{color:var(--brand-dark);}
    background actually beats .flight-strip's plain-card var(--paper) one - same specificity,
    single class each, otherwise leaves it to source order, which .flight-strip happened to win,
    quietly downgrading every one of these cards to --paper instead of white. */
-.flight-strip.itin-flight{background:#fff; border-radius:var(--radius); padding:8px 12px 12px;}
+/* left/right padding matches .plan-card-photo's own section-head gutter (18px) - these two
+   card types sit stacked on the same page and used to read as inconsistently indented against
+   each other */
+.flight-strip.itin-flight{background:#fff; border-radius:var(--radius); padding:8px 18px 12px;}
 .itin-flight .flight-head{padding:0 0 10px;}
 .route-days .itin-flight{margin-bottom:20px;}
 /* time, logo and route title sit together on the left as one group - without a seats chip to
@@ -796,10 +799,6 @@ a{color:var(--brand-dark);}
 .itin-gap-pill .task-pill-text{display:flex; align-items:flex-start; gap:8px;}
 .itin-gap-pill-body{display:flex; flex-direction:column; gap:2px;}
 .itin-gap-pill-date{color:var(--muted); font-size:.8rem; font-weight:400;}
-/* the image below is full-bleed to the card's own edges; the body copy above it keeps the
-   card's normal text gutter everywhere else, but right against a photo that gutter reads as
-   the two being out of step, so it drops to flush with the image's own left edge instead */
-.plan-card-photo>p.plan-notes{padding-left:0; padding-right:0;}
 /* the connector between two cards in a day's timeline ("✈️ 3 Hours") and the plain white
    pill marking a moment rather than a booking ("21:10 🇬🇷 Arrive in Corfu", "Check Out of
    Palaiokastritsa") - see planConnectorHTML/autoFlightCard/autoStayCard */
@@ -1517,10 +1516,12 @@ body.kb-open .tabbar.on{display:none;}
 .plan-card-photo>.btn-row{padding-bottom:18px;}
 .plan-img-wrap{position:relative;}
 .plan-img{width:100%; max-height:220px; object-fit:cover; display:block;}
-/* a solid brand-coloured circle behind the icon again (not just the bare icon floating on the
-   photo) - overflow:hidden clips the favicon's own square image into that same circle rather
-   than showing its corners past the edge */
-.plan-img-map{position:absolute; bottom:10px; right:10px; background:var(--line-strong); box-shadow:var(--shadow);
+/* a solid circle behind the icon again (not just the bare icon floating on the photo) - the
+   same light background the Google Maps button itself uses elsewhere on the page (.itin-
+   action-btn), not the darker tan this used to be, so the two read as the same shortcut.
+   overflow:hidden clips the favicon's own square image into that same circle rather than
+   showing its corners past the edge */
+.plan-img-map{position:absolute; bottom:10px; right:10px; background:var(--bg); box-shadow:var(--shadow);
   border-radius:50%; overflow:hidden;}
 .btn.icon-only.plan-img-map{padding:8px;}
 .plan-img-map .fav{width:28px; height:28px;}
@@ -1640,8 +1641,14 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.31.0';
+const APP_VERSION = '2.32.0';
 const CHANGELOG = [
+  {version:'2.32.0', notes:[
+    'The route map\'s numbered stops are now read straight off the trip\'s own Locations list instead of re-derived from accommodations and flights - fixes the numbering still starting at 2 or 3 in some trips, and a stop\'s pin landing nowhere near the place it named.',
+    'A timed stop\'s "15:00 - Sarandë" title now matches the accommodation card it sits next to - a plain time before a bold name, not the whole line bold - and the two cards share the same left/right padding.',
+    'A stop\'s notes text no longer sits flush against the card edge under a photo - same padding as everything else in the card.',
+    'The Google Maps icon overlaid on a stop\'s photo now uses the same light background as the Google Maps button elsewhere on the page, instead of a darker tan.',
+  ]},
   {version:'2.31.0', notes:[
     'Removed the AI Suggest Ideas button from an empty Itinerary day.',
     'A timed stop now leads with when it happens ("Evening - 🏰 Castle Walk & Sunset"), inside the card with proper padding either side, and its place sits on its own line underneath instead of tacked onto a title with no room left for it.',
@@ -11067,18 +11074,18 @@ function planDaysHTML(t, ro, filterKeys){
     const hasBelow = !!(s.notes || hasImage);
     // a timed stop leads with when it happens - "Evening - 🏰 Castle Walk & Sunset" - the same
     // "time - name" shape every other timed line on this page already uses (the Check Out pill,
-    // the flight/ferry auto-tags); its place is its own line underneath rather than folded into
-    // the title, since a title already carrying a time has no room left to also read naturally
-    // with a place tacked on the end of it. An untimed stop has no such crowding, so it keeps the
-    // place folded into the title instead ("Beach Day - Corfu Beach"), same as the day heading
-    // above it already reads.
-    const titleHTML = time
-      ? `${esc(time)} - ${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}`
-      : `${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${s.location?' - '+esc(s.location):''}`;
+    // the flight/ferry auto-tags), in the same plain, non-bold weight as the accommodation
+    // card's own leading time (.itin-time) rather than getting swept up into the bold heading
+    // next to it. Its place is its own line underneath rather than folded into the title, since
+    // a title already carrying a time has no room left to also read naturally with a place
+    // tacked on the end of it. An untimed stop has no such crowding, so it keeps the place folded
+    // into the title instead ("Beach Day - Corfu Beach"), same as the day heading above it
+    // already reads.
     const head = `
       <div class="section-head" style="margin-bottom:${hasBelow||(time&&s.location)?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <h3>${titleHTML}</h3>
+          ${time?`<span class="itin-time">${esc(time)} -</span>`:''}
+          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${!time&&s.location?' - '+esc(s.location):''}</h3>
         </div>
         ${!hasImage ? mapIconLink : ''}
       </div>
@@ -11429,22 +11436,28 @@ function addCartoLayer(map){
    entirely so a departure airport far outside the trip's own area never pulls the zoom out to
    fit it - additive, not a replacement for a flight's own numbered stop. */
 function mapRouteStops(t){
+  // a trip's own Locations list - name, country, date range, see locationsSummaryHTML - already
+  // says exactly which places the route visits and in what order, so it's what the map counts
+  // off now rather than re-deriving stops from accommodations/journeys the way this used to.
+  // That derivation needed an ever-growing pile of same-day dedup heuristics (a flight landing
+  // the same day a stay starts, a ferry doubling as that stay's own arrival, the outbound flight
+  // out from home and the one back to it neither being a real stop...) and still found new ways
+  // to number a route 2, 3, 4 instead of 1, 2, 3, or place a pin nowhere near the place it named.
+  // journey:true on each of these isn't a real journey - it just tells resolveRouteStopPins
+  // there's no accommodation record to pull a full address from, only the Location's own name
+  // (qualified by the trip's countries) to geocode.
+  const locs = t.locations || [];
+  if(locs.length){
+    const rough = hasRoughWhen(t);
+    return [...locs]
+      .sort((a,b) => rough ? (a.fromDay||0)-(b.fromDay||0) : (a.fromDate||'9999').localeCompare(b.fromDate||'9999'))
+      .map(loc => ({name: loc.name, journey:true}));
+  }
+  // no Locations set up on this trip - fall back to the old accommodations/journeys derivation
+  // so the map still shows something rather than going blank.
   let stops = routeStops(t).filter(s=>!s.gap);
-  // the very first and very last legs of a trip are normally the flight out from home and the
-  // flight back to it - neither is a stop on the trip itself, just the way in and out of it, so
-  // neither earns a numbered pin (their own dashed flight lines, see mapFlightLines, still draw
-  // - just without a numbered pin at either end). The destination the outbound leg lands at is
-  // still on the map - it's whatever's booked to stay there, one entry later in this same list.
   if(stops.length && stops[stops.length-1].journey) stops.pop();
   if(stops.length && stops[0].journey) stops.shift();
-  // a journey landing on the same day an accommodation's own check-in already puts you
-  // somewhere (the flight that got you to the airport, or the car hire you picked up there,
-  // on the same day you checked into a stay) is the same arrival as that check-in, not a
-  // second place on the route - without this, the flight and the pick-up each got their own
-  // pin sitting right on top of (or right beside) the stay's, and only whichever one drew
-  // last was visible, so the numbering looked like it skipped straight to 3, 4, 5 with 1 and 2
-  // nowhere to be seen. A journey with no same-day check-in - nothing booked at the other end
-  // yet - still keeps its own pin, same as before.
   const checkinDates = new Set((t.accommodations||[]).map(a=>a.checkin).filter(Boolean));
   stops = stops.filter(s => !(s.journey && checkinDates.has(s.date)));
   return stops;
