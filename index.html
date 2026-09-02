@@ -707,7 +707,7 @@ a{color:var(--brand-dark);}
    at all - it renders as a single plain connector line instead (see travelCard's own !booked
    branch), which was always unboxed and stays that way; nothing extra needed here to exempt
    it. */
-.route-days .card.plan-card{background:#fff;}
+.route-days .card.plan-card{background:#fff; padding-top:9px;}
 /* a not-yet-booked flight/ferry/car/stay/travel leg inside a day's own detail keeps its box
    (same reasoning as .gap-card just above - it's a prompt to go fill something in, not a card
    already saying what it is), but reads with the page's own muted/paper tones instead of red:
@@ -1641,8 +1641,17 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.32.0';
+const APP_VERSION = '2.33.0';
 const CHANGELOG = [
+  {version:'2.33.0', notes:[
+    'The route map now waits for every stop to finish geocoding before framing itself, instead of fitting to whichever had resolved first - fixes it loading zoomed in tighter than it should, with the reset button (which always had every pin in by the time you tapped it) the only way to see the real framing.',
+    'The Itinerary map (and its Locations chip row) now shows for a trip with Locations set up but nothing booked or planned yet - it used to wait on a real accommodation or itinerary entry before showing anything at all.',
+    'Each pin on the route map now names its place on tap, rather than just a bare number.',
+    'Added an optional "Map location" field to a trip Location - a more specific address to geocode instead of the bare place name, for when the map keeps placing it somewhere wrong (a small preview map right there in the form shows where it\'ll land before you save).',
+    'An accommodation card with no booking link yet shows a hotel emoji in place of a blank space where its logo would go, and its title reads "15:00 - Sarandë" - a plain time before a bold name - matching a timed stop\'s own title elsewhere on the page.',
+    'A flight card\'s time now has the same trailing dash every other timed line on the Itinerary uses.',
+    'A stop card\'s top padding is tighter, and the Check Out pill\'s wave emoji is now a door.',
+  ]},
   {version:'2.32.0', notes:[
     'The route map\'s numbered stops are now read straight off the trip\'s own Locations list instead of re-derived from accommodations and flights - fixes the numbering still starting at 2 or 3 in some trips, and a stop\'s pin landing nowhere near the place it named.',
     'A timed stop\'s "15:00 - Sarandë" title now matches the accommodation card it sits next to - a plain time before a bold name, not the whole line bold - and the two cards share the same left/right padding.',
@@ -10917,7 +10926,7 @@ function planDaysHTML(t, ro, filterKeys){
     return `
     <div class="flight-strip itin-flight">
       <div class="flight-head">
-        <span class="itin-time">${f.depTime?esc(f.depTime):''}</span>
+        <span class="itin-time">${f.depTime?esc(f.depTime)+' -':''}</span>
         <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(fromName)} → ${esc(toName)}</span></strong>
         ${f.seats?`<span class="itin-seats"><i class="icon fa-solid fa-chair"${AIRLINE_COLORS[f.airline]?` style="color:${AIRLINE_COLORS[f.airline]}"`:''}></i>${esc(f.seats)}</span>`:''}
       </div>
@@ -10960,7 +10969,9 @@ function planDaysHTML(t, ro, filterKeys){
     const mapsUrl = ac.address ? googleMapsUrl(ac.address) : '';
     const nights = ac.checkin && ac.checkout
       ? Math.max(1, Math.round((new Date(ac.checkout+'T00:00:00')-new Date(ac.checkin+'T00:00:00'))/86400000)) : 0;
-    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : '';
+    // no booking link yet to pull a real logo from - a plain hotel emoji stands in for it until
+    // one's added, rather than the name reading with no icon in front of it at all
+    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : secEmoji('🏨');
     const primaryTime = ac.arrivalTime || ac.checkinTime;
     const cityName = accomCityName(ac, t);
     return `
@@ -10996,7 +11007,7 @@ function planDaysHTML(t, ro, filterKeys){
     // day's own heading) - falls back to the city for a stay with no recognised booking site
     const service = detectBookingService(s.ac.bookingUrl);
     return `
-    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('👋')} Check Out of ${esc(service || accomCityName(s.ac, t))}</div>`;
+    <div class="plan-arrive-pill${!ro?' plan-click':''}" ${clickAttrs(`App.accomForm(${s.aci})`)}>${s.time?`<span class="plan-arrive-time">${esc(s.time)} -</span> `:''}${secEmoji('🚪')} Check Out of ${esc(service || accomCityName(s.ac, t))}</div>`;
   };
   /* A flight is a booked thing with a time you have to make, so it earns a card. Everything
      else - a ferry, a train, a bus, a taxi, driving yourself - is not that: you turn up and go,
@@ -11337,12 +11348,20 @@ let ROUTE_MAP_PTS = [];   // the current map's own numbered-stop coordinates, fo
 /* the geocoding half of a route map, shared by the full Itinerary map (initRouteMap) and the
    small preview on a Next Trip dashboard tile (initDashTripMap) - resolves each of a trip's
    numbered stops to a lat/lon, from the shared WX_LIST_GEO cache where possible, calling
-   onUpdate(pins) every time a new one comes in (from cache synchronously, or async once a
-   geocode request returns) so the caller can redraw as pins arrive rather than waiting for all
-   of them. Returns the (initially all-null) pins array the caller's onUpdate reads from. */
+   onUpdate(pins, settled) every time one settles, successfully or not (from cache
+   synchronously, or async once a geocode request returns) so the caller can redraw as pins
+   arrive rather than waiting for all of them - settled counts every attempt that's finished
+   either way, so a caller that only wants to act once everything's in (see initRouteMap's own
+   fitBounds) can tell that apart from "still waiting on one". Returns the (initially all-null)
+   pins array the caller's onUpdate reads from. */
 function resolveRouteStopPins(t, numbered, onUpdate){
   const pins = new Array(numbered.length).fill(null);
+  let settled = 0;
   numbered.forEach((s,idx)=>{
+    // a Location's own optional address (see App.locationForm) exists specifically to fix a
+    // bare place name the geocoder keeps mismatching, so it's tried first, ahead of even the
+    // country-qualified name below
+    const override = s.address ? [s.address] : [];
     /* the stop's own display name (accomCityName - already what heads the list below) goes
        first: it's usually the more specific of the two, since an address with no street/house
        number ("Palaiokastritsa, Corfu, Greece") only leaves the region once the country's
@@ -11351,7 +11370,7 @@ function resolveRouteStopPins(t, numbered, onUpdate){
        House") the geocoder won't recognise on its own - and a booking with no address at all
        would otherwise never get a pin, which this also covers since the name is tried either
        way. */
-    const fromAddress = s.journey ? [] : wxStayPlaces(t.accommodations[s.i]);
+    const fromAddress = (s.address || s.journey) ? [] : wxStayPlaces(t.accommodations[s.i]);
     /* a bare town name ("Kerkira") is often too ambiguous, or too locally-spelled, for the
        geocoder to place on its own - qualifying it with each of the trip's own countries first
        (tried in order, only one needs to hit) resolves it far more often than the bare name
@@ -11359,14 +11378,15 @@ function resolveRouteStopPins(t, numbered, onUpdate){
        particular stop is actually in. */
     const countryQualified = (t.countries||[]).map(c=>(countryByCode(c)||{}).name).filter(Boolean)
       .map(name => `${s.name}, ${name}`);
-    const cands = [...new Set([...countryQualified, s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())])];
+    const cands = [...new Set([...override, ...countryQualified, s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())])];
     const listKey = cands.join('|');
     const known = WX_LIST_GEO[listKey];
-    if(known){ pins[idx] = known; onUpdate(pins); return; }
-    if(known === false) return;
+    if(known){ pins[idx] = known; settled++; onUpdate(pins, settled); return; }
+    if(known === false){ settled++; onUpdate(pins, settled); return; }
     wxResolve(cands, geo=>{
       WX_LIST_GEO[listKey] = geo || false;
-      if(geo){ pins[idx] = geo; onUpdate(pins); }
+      if(geo) pins[idx] = geo;
+      settled++; onUpdate(pins, settled);
     });
   });
   return pins;
@@ -11451,7 +11471,7 @@ function mapRouteStops(t){
     const rough = hasRoughWhen(t);
     return [...locs]
       .sort((a,b) => rough ? (a.fromDay||0)-(b.fromDay||0) : (a.fromDate||'9999').localeCompare(b.fromDate||'9999'))
-      .map(loc => ({name: loc.name, journey:true}));
+      .map(loc => ({name: loc.name, address: loc.address||'', journey:true}));
   }
   // no Locations set up on this trip - fall back to the old accommodations/journeys derivation
   // so the map still shows something rather than going blank.
@@ -11520,7 +11540,7 @@ function initRouteMap(t){
   const flightLines = mapFlightLines(t);
   if(flightLines.length) resolveFlightLineCoords(flightLines, redrawFlights);
   let layers = [];
-  const redraw = pins => {
+  const redraw = (pins, settled) => {
     if(ROUTE_MAP !== map) return;   // a later render superseded this map already
     layers.forEach(l=>map.removeLayer(l)); layers = [];
     // numbered 1, 2, 3... by how many have actually resolved so far, not by numbered's own
@@ -11532,15 +11552,23 @@ function initRouteMap(t){
       const p = pins[idx]; if(!p) return;
       shown++;
       const icon = L.divIcon({className:'', html:`<div class="route-map-pin">${shown}</div>`, iconSize:[26,26], iconAnchor:[13,13]});
-      layers.push(L.marker([p.lat,p.lon], {icon}).addTo(map));
+      // labelled with the place's own name on tap/hover - the numbers alone only line up with
+      // the chip row below if you count them out, and a pin sitting somewhere unexpected is a
+      // lot easier to spot as wrong when it says what it thinks it is
+      layers.push(L.marker([p.lat,p.lon], {icon}).bindTooltip(esc(s.name), {direction:'top', offset:[0,-10]}).addTo(map));
     });
     const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
     if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
     ROUTE_MAP_PTS = pts;   // so the reset-view control can re-fit without waiting on pins again
     // only the first time this trip's map is shown this session - once there's a prior view to
     // carry over, further redraws (a toggle, a new pin resolving) place pins in that same view
-    // instead of snapping the camera back to fit them
-    if(pts.length && !priorView){
+    // instead of snapping the camera back to fit them. Waits for every stop to have settled
+    // (resolved or given up on), not just whichever have come in so far - fitting to an early,
+    // partial set of points used to frame the route tighter than it should be, and since a
+    // later redraw with more points arriving doesn't widen an already-set view once one's been
+    // carried over from a toggle, that premature fit could stick around as the permanent one -
+    // this is exactly what tapping the reset control used to fix, so it's now just the default.
+    if(pts.length && !priorView && settled === numbered.length){
       // a stop's coordinates are often already cached (wxGeoGet), so this first redraw can fire
       // synchronously, in the same tick the map's own container was just inserted via innerHTML
       // - Leaflet's internal size cache can still be stale/zero at that exact instant, which
@@ -11582,12 +11610,15 @@ function initDashTripMaps(){
       attributionControl:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false}).setView([20,0], 2);
     addCartoLayer(map);
     let layers = [];
-    const redraw = pins => {
+    const redraw = (pins, settled) => {
       layers.forEach(l=>map.removeLayer(l)); layers = [];
       const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
       pts.forEach(pt => layers.push(L.circleMarker(pt, {radius:5, color:'#fff', weight:2, fillColor:'#C1502E', fillOpacity:1}).addTo(map)));
       if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:2, opacity:.7}).addTo(map));
-      if(pts.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[14,14], maxZoom:9});
+      // waits for every stop to settle before fitting, same reasoning as the full map (see
+      // initRouteMap) - otherwise this glance-sized preview can end up permanently framed on
+      // whichever pins happened to resolve first
+      if(pts.length && settled === numbered.length) map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[14,14], maxZoom:9});
     };
     resolveRouteStopPins(t, numbered, redraw);
   });
@@ -11680,7 +11711,10 @@ App.aiRegenSummary = key => {
 function tabPlan(t, ro){
   const {groups, keys, rough, hasAny} = planDayGroups(t);
   if(hasAny) routeOpenAllDaysByDefault(t, keys);
-  if(!hasAny){
+  // a trip with Locations set up but nothing else booked or planned yet still has a map and a
+  // Locations row worth showing (see mapHTML/locationsSummaryHTML below) - only a trip with
+  // truly nothing at all, Locations included, falls back to the plain empty state
+  if(!hasAny && !(t.locations||[]).length){
     return `<div class="empty">Nothing planned yet.${!ro?`<br><br><span class="btn-row" style="justify-content:center">
       <button class="btn" onclick="App.tab('mood')">Browse Ideas</button>
       <button class="btn primary" onclick="App.planForm(-1)">+ Add Stop</button></span>`:''}</div>`;
@@ -11706,7 +11740,11 @@ function tabPlan(t, ro){
       </div>
     </div>`;
   };
-  const hasNumbered = (t.accommodations||[]).some(a=>a.checkin);
+  // whether the map actually has anything to show - the real check now that its numbered
+  // stops come straight from Locations (see mapRouteStops) rather than needing a booked
+  // accommodation first, which used to leave a trip with Locations set up but nothing booked
+  // yet showing no map at all
+  const hasNumbered = mapRouteStops(t).length > 0;
   const mapHTML = hasNumbered ? `<div class="route-map-wrap"><div id="route-map" class="route-map"></div></div>` : '';
   return `${mapHTML}${locationsSummaryHTML(t, ro)}<div class="route-list">${keys.map(dayRow).join('')}</div>`;
 }
@@ -12032,6 +12070,12 @@ App.locationForm = (i, nested) => {
     <div class="field"><label class="label" for="loc-country">Country (for the flag)</label>
       <input id="loc-country" type="text" list="country-list" value="${esc(loc.country?((countryByCode(loc.country)||{}).name||''):'')}" placeholder="Start typing a country"></div>
     ${countryDatalist()}${locationDatalist(t)}
+    <div class="field"><label class="label" for="loc-address">Map location (optional)</label>
+      <input id="loc-address" type="text" value="${esc(loc.address||'')}" placeholder="A more specific address, if the map keeps getting this place wrong">
+      <button type="button" class="btn sm" style="margin-top:8px" onclick="App.previewLocationMap()">${fa('map')} Preview on Map</button></div>
+    <div id="loc-map-preview-wrap" style="display:none;margin-bottom:16px">
+      <div id="loc-map-preview" class="dash-trip-map" style="height:160px"></div>
+    </div>
     <div class="grid2">
       ${dayField('loc-from', 'From', rough ? loc.fromDay : loc.fromDate)}
       ${dayField('loc-to', 'To', rough ? (loc.toDay||loc.fromDay) : (loc.toDate||loc.fromDate))}
@@ -12040,6 +12084,44 @@ App.locationForm = (i, nested) => {
       <button class="btn primary" style="width:100%" onclick="App.saveLocation(${i})">${i>=0?'Save':'Add Location'}</button>
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteLocationFromForm(${i})">Delete Location</button>`:''}
     </div>`, {autofocus:false});
+  // an existing location with a name already worth showing - preview it straight away rather
+  // than making Edit Location's first tap be the same "Preview on Map" a brand new one needs
+  if(i>=0 && loc.name) App.previewLocationMap();
+};
+/* a small single-pin Leaflet preview inside the Location form itself - the same candidate order
+   resolveRouteStopPins uses (the optional address override first, then the name qualified by
+   the country picked here, then the bare name), so what you see here is what the real route map
+   will actually show once this is saved. Lets a mismatched place ("Sarandë" landing somewhere
+   in mainland Greece) get caught and fixed with a more specific address right here, instead of
+   only showing up later on the Itinerary's own map. */
+let LOCATION_FORM_MAP = null;
+App.previewLocationMap = () => {
+  const wrap = $('#loc-map-preview-wrap'), el = $('#loc-map-preview');
+  const nameEl = $('#loc-name'), countryEl = $('#loc-country'), addrEl = $('#loc-address');
+  if(!wrap || !el || !nameEl) return;
+  const name = nameEl.value.trim();
+  if(!name){ wrap.style.display = 'none'; return; }
+  const countryName = (countryEl && countryEl.value.trim()) || '';
+  const address = (addrEl && addrEl.value.trim()) || '';
+  const cands = [...new Set([address, countryName?`${name}, ${countryName}`:'', name].filter(Boolean))];
+  wrap.style.display = 'block';
+  if(LOCATION_FORM_MAP){ try{ LOCATION_FORM_MAP.remove(); }catch(e){} LOCATION_FORM_MAP = null; }
+  el.innerHTML = '';
+  if(typeof L === 'undefined'){ el.innerHTML = '<p class="small muted" style="padding:10px">Map unavailable right now.</p>'; return; }
+  el.innerHTML = '<p class="small muted" style="padding:10px">Looking it up…</p>';
+  wxResolve(cands, geo => {
+    // the field(s) this was resolving for may have changed (or the modal closed) by the time a
+    // live geocode request comes back - bail rather than draw a stale preview over new typing
+    if(!$('#loc-map-preview') || $('#loc-name').value.trim() !== name) return;
+    el.innerHTML = '';
+    if(!geo){ el.innerHTML = '<p class="small muted" style="padding:10px">Couldn\'t find this place - try adding a more specific address above.</p>'; return; }
+    const map = L.map(el, {scrollWheelZoom:false, dragging:false, zoomControl:false,
+      attributionControl:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false}).setView([geo.lat, geo.lon], 11);
+    LOCATION_FORM_MAP = map;
+    addCartoLayer(map);
+    L.circleMarker([geo.lat, geo.lon], {radius:6, color:'#fff', weight:2, fillColor:'#C1502E', fillOpacity:1}).addTo(map);
+    map.invalidateSize();
+  });
 };
 // delete the location before Back unwinds to Edit Trip (rather than after), so the screen
 // MODAL_STACK pops back to already reflects the removal instead of showing the stale list
@@ -12050,6 +12132,7 @@ App.saveLocation = i => {
   if(!name) return markErr('#loc-name', 'Add a place name');
   const countryName = $('#loc-country').value.trim();
   const country = countryName ? ((countryByName(countryName)||{}).code || '') : '';
+  const address = ($('#loc-address') && $('#loc-address').value.trim()) || '';
   const rough = hasRoughWhen(t);
   const fromDay = rough ? +$('#loc-from-day').value : 0;
   const toDay = rough ? +$('#loc-to-day').value : 0;
@@ -12059,7 +12142,7 @@ App.saveLocation = i => {
   if(!rough && toDate < fromDate) return markErr('#loc-to-date', "End date is before the start date");
   t.locations = t.locations || [];
   const existing = i>=0 ? t.locations[i] : null;
-  const loc = {id: existing ? existing.id : uid(), name, country, fromDay, toDay, fromDate, toDate};
+  const loc = {id: existing ? existing.id : uid(), name, country, address, fromDay, toDay, fromDate, toDate};
   if(i>=0) t.locations[i] = loc; else t.locations.push(loc);
   logEdit('Itinerary', (i>=0?'edited location: ':'added location: ')+name);
   // stays on whichever tab this was opened from (Edit Trip's own Countries section, or the
