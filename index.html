@@ -727,14 +727,17 @@ a{color:var(--brand-dark);}
    worth setting apart from the plain text around them, same as the Figma mock's own white
    cards for a flight and a stay. */
 /* unscoped (not just .route-days) - this card looks the same wherever it's used (Itinerary,
-   Accommodation tab, Travel tab); outside .route-days the background/border-radius just repeat
-   what .flight-strip's own base rule already gives it, but the padding doesn't have a base of
-   its own anywhere else, so without this rule reaching there too, a day's worth of inner
-   content (the address, the dates, the actions row) sat flush against the card's own edges
-   while the header above it kept its own 14px inset - misaligned against everything below it,
-   and a lopsided empty-looking gap wherever an actions row (edit/delete) was the last thing in
-   the card, with nothing else nearby to visually balance its own real 8px gap against. */
-.itin-flight{background:#fff; border-radius:var(--radius); padding:8px 12px 12px;}
+   Accommodation tab, Travel tab); the padding doesn't have a base of its own anywhere else, so
+   without this rule reaching there too, a day's worth of inner content (the address, the
+   dates, the actions row) sat flush against the card's own edges while the header above it
+   kept its own 14px inset - misaligned against everything below it, and a lopsided
+   empty-looking gap wherever an actions row (edit/delete) was the last thing in the card, with
+   nothing else nearby to visually balance its own real 8px gap against. Compounded with
+   .flight-strip (".flight-strip.itin-flight", not just ".itin-flight") so its own white
+   background actually beats .flight-strip's plain-card var(--paper) one - same specificity,
+   single class each, otherwise leaves it to source order, which .flight-strip happened to win,
+   quietly downgrading every one of these cards to --paper instead of white. */
+.flight-strip.itin-flight{background:#fff; border-radius:var(--radius); padding:8px 12px 12px;}
 .itin-flight .flight-head{padding:0 0 10px;}
 .route-days .itin-flight{margin-bottom:20px;}
 /* time, logo and route title sit together on the left as one group - without a seats chip to
@@ -1635,8 +1638,13 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.29.98';
+const APP_VERSION = '2.29.99';
 const CHANGELOG = [
+  {version:'2.29.99', notes:[
+    "Fixed the Itinerary's own flight/accommodation cards showing flush against the page instead of standing out as white cards - a specificity slip from the last white-card fix meant .flight-strip's own plain background quietly won out over it again.",
+    "A flight/car hire that lands you exactly where a same-day accommodation check-in already puts you (the airport you flew into, the counter you picked the car up at) no longer earns its own separate numbered pin on the route map - it's the same arrival as the stay's own pin, not a second stop, so the map's numbering no longer skipped straight to 3, 4, 5 with nothing shown for 1 or 2.",
+    "Removed the + New Location button from the Itinerary page's own Location chips - still there from the Locations field on Edit Trip, which is where adding one belongs.",
+  ]},
   {version:'2.29.98', notes:[
     "Fixed the route map sometimes placing a stop's pin on the wrong continent entirely - a place name qualified with the wrong one of a multi-country trip's countries (\"Tirane, Greece\" instead of \"Tirane, Albania\") could still get an actual, just wrong, match back from the geocoder, which then won outright instead of falling through to the correctly-qualified candidate.",
     'Gave the Itinerary route map\'s Location chips (Corfu, Sarandë…) their white card background back.',
@@ -11392,11 +11400,21 @@ function addCartoLayer(map){
    entirely so a departure airport far outside the trip's own area never pulls the zoom out to
    fit it - additive, not a replacement for a flight's own numbered stop. */
 function mapRouteStops(t){
-  const stops = routeStops(t).filter(s=>!s.gap);
+  let stops = routeStops(t).filter(s=>!s.gap);
   // the very last leg of a trip is normally the flight/ferry/drive home - not a stop on the
   // trip itself, just the way out of it, so it doesn't earn a numbered pin (its own dashed
   // flight line, see mapFlightLines, still draws - just without a numbered pin at the far end)
   if(stops.length && stops[stops.length-1].journey) stops.pop();
+  // a journey landing on the same day an accommodation's own check-in already puts you
+  // somewhere (the flight that got you to the airport, or the car hire you picked up there,
+  // on the same day you checked into a stay) is the same arrival as that check-in, not a
+  // second place on the route - without this, the flight and the pick-up each got their own
+  // pin sitting right on top of (or right beside) the stay's, and only whichever one drew
+  // last was visible, so the numbering looked like it skipped straight to 3, 4, 5 with 1 and 2
+  // nowhere to be seen. A journey with no same-day check-in - nothing booked at the other end
+  // yet - still keeps its own pin, same as before.
+  const checkinDates = new Set((t.accommodations||[]).map(a=>a.checkin).filter(Boolean));
+  stops = stops.filter(s => !(s.journey && checkinDates.has(s.date)));
   return stops;
 }
 /* every flight leg with both ends known, resolved to real place names the same geocoder every
@@ -11698,7 +11716,11 @@ function locationsSummaryHTML(t, ro, nested){
       ${loc.country ? esc((countryByCode(loc.country)||{}).flag||'')+' ' : ''}<strong>${esc(loc.name)}</strong>
       <span class="muted small">${esc(rangeLabel(loc))}</span>
     </button>`).join('');
-  const addChip = !ro ? `<button type="button" class="chip location-chip location-chip-add" onclick="App.locationForm(-1, ${!!nested})">${fa('plus')} New Location</button>` : '';
+  // only offered from the Edit Trip modal's own Locations field (nested) - the Itinerary page
+  // itself just reads the list back, the same way it doesn't offer to edit the trip's dates or
+  // countries either; App.locationForm(-1) is still one tap away for anyone who taps an
+  // existing chip there, since Edit Trip already sits behind the trip overview's own edit icon
+  const addChip = (!ro && nested) ? `<button type="button" class="chip location-chip location-chip-add" onclick="App.locationForm(-1, ${!!nested})">${fa('plus')} New Location</button>` : '';
   return locs.length || addChip ? `<div class="location-chips">${chips}${addChip}</div>` : '';
 }
 /* A stop or travel leg is pinned to a date on a normal trip and to a day number on one
