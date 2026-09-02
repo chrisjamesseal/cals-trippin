@@ -774,6 +774,11 @@ a{color:var(--brand-dark);}
    wrapping the reference number onto its own line underneath the label. */
 .itin-ref{font-size:.9rem; color:var(--ink); margin-bottom:12px;}
 .itin-ref strong{display:inline;}
+/* whichever of these ends up last (no ref or actions after the amenities row, or no actions
+   after the ref) drops its own trailing margin - the card's own bottom padding already closes
+   it out, so a flight with nothing further to show doesn't read as having extra empty space
+   under its last line */
+.itin-flight .itin-amenities:last-child,.itin-flight .itin-ref:last-child{margin-bottom:0;}
 .itin-actions{display:flex; flex-direction:column; gap:8px;}
 .itin-action-btn{width:100%; background:var(--bg); color:var(--ink); border:none; border-radius:var(--radius);
   padding:10px 12px; font-weight:700; font-size:.85rem; text-align:center; display:flex; align-items:center;
@@ -818,8 +823,11 @@ a{color:var(--brand-dark);}
 .route-map-wrap{border-radius:var(--radius); overflow:hidden; margin-bottom:18px; border:1px solid var(--line);
   position:relative; z-index:0;}
 .route-map{height:220px; background:var(--paper);}
+/* a see-through fill (rgba, not a plain opacity on the whole pin) so the map label underneath -
+   often the very place name the pin marks - still reads through it, while the number itself and
+   its white outline stay fully solid and legible; rgba mirrors --brand's own colour */
 .route-map-pin{width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  font-size:.78rem; font-weight:700; line-height:1; background:var(--brand); color:#fff; border:2px solid #fff;
+  font-size:.78rem; font-weight:700; line-height:1; background:rgba(193,80,46,.7); color:#fff; border:2px solid #fff;
   box-shadow:0 1px 4px rgba(0,0,0,.35);}
 /* the reset-view control (initRouteMap's own ResetControl) - styled to sit alongside Leaflet's
    own zoom buttons rather than pull in leaflet-bar's CSS for a single button */
@@ -1641,8 +1649,18 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.33.0';
+const APP_VERSION = '2.35.0';
 const CHANGELOG = [
+  {version:'2.35.0', notes:[
+    'A "Travel to" day heading now combines a manual travel leg\'s own more specific destination with the broader place a check-in already named that day ("Travel to Kerkira, Corfu"), instead of the broader name silently swallowing it.',
+    'Fixed a flight home showing the trip\'s own country flag on its destination ("Travel to 🇦🇺 London Heathrow" on an Australia trip) - a known airport now carries its own real country instead of falling back to a guess that only makes sense for a domestic leg.',
+    'The route map\'s numbered pins are a little see-through now, so the place name underneath - often the very place the pin marks - still reads through it, while the number itself stays fully legible.',
+    'Fixed a flight card with no departure time yet reading with extra empty space before its plane emoji, and its amenities row leaving too much empty space below it when nothing else follows.',
+  ]},
+  {version:'2.34.0', notes:[
+    'Fixed the route map showing the previous trip\'s pan/zoom (sometimes a completely different part of the world) when switching straight from one trip\'s Itinerary to another\'s - the carried-over view was only ever meant for reopening the same trip\'s own map, not a different one.',
+    'Left-aligned the accommodation card\'s hotel-emoji placeholder to match the calendar icon on the date row below it.',
+  ]},
   {version:'2.33.0', notes:[
     'The route map now waits for every stop to finish geocoding before framing itself, instead of fitting to whichever had resolved first - fixes it loading zoomed in tighter than it should, with the reset button (which always had every pin in by the time you tapped it) the only way to see the real framing.',
     'The Itinerary map (and its Locations chip row) now shows for a trip with Locations set up but nothing booked or planned yet - it used to wait on a real accommodation or itinerary entry before showing anything at all.',
@@ -3806,6 +3824,36 @@ const AIRPORTS = {
   AKL:'Auckland', WLG:'Wellington', CHC:'Christchurch'
 };
 const airportName = code => AIRPORTS[String(code||'').toUpperCase()] || '';
+/* which country each of AIRPORTS' own codes is actually in - flagForPlace's own "no address to
+   read a country out of, fall back to the trip's single country" guess is wrong exactly for a
+   flight home: its destination is deliberately outside the trip, not the country the rest of
+   the trip is in, so a one-country trip's own flag doesn't belong on it ("Travel to 🇦🇺 London
+   Heathrow" on an Australia trip). A known airport code answers that directly instead of
+   guessing - see dayPlaceInfo's own flight-destination branch. */
+const AIRPORT_COUNTRY = {
+  // the UK has no single code here - see CUSTOM_COUNTRY_NAMES/XE-XS-XW-XI, the same
+  // England/Scotland/Wales/Northern Ireland split every other flag lookup in the app uses
+  LHR:'XE',LGW:'XE',STN:'XE',LTN:'XE',LCY:'XE',MAN:'XE',BHX:'XE',BRS:'XE',NCL:'XE',LPL:'XE',LBA:'XE',
+  EDI:'XS',GLA:'XS', BFS:'XI',
+  DUB:'IE',ORK:'IE',
+  CDG:'FR',ORY:'FR',NCE:'FR',LYS:'FR',MRS:'FR',TLS:'FR',
+  AMS:'NL', BRU:'BE',CRL:'BE', LUX:'LU',
+  FRA:'DE',MUC:'DE',BER:'DE',DUS:'DE',HAM:'DE',CGN:'DE',STR:'DE',
+  MAD:'ES',BCN:'ES',AGP:'ES',PMI:'ES',IBZ:'ES',ALC:'ES',VLC:'ES',SVQ:'ES',BIO:'ES',TFS:'ES',LPA:'ES',ACE:'ES',FUE:'ES',
+  LIS:'PT',OPO:'PT',FAO:'PT',FNC:'PT',
+  FCO:'IT',CIA:'IT',MXP:'IT',LIN:'IT',BGY:'IT',VCE:'IT',NAP:'IT',BLQ:'IT',PSA:'IT',CTA:'IT',PMO:'IT',CAG:'IT',BRI:'IT',SUF:'IT',
+  ATH:'GR',SKG:'GR',HER:'GR',CHQ:'GR',RHO:'GR',JMK:'GR',JTR:'GR',KGS:'GR',ZTH:'GR',PVK:'GR',KVA:'GR',
+  TIA:'AL',
+  VIE:'AT', ZRH:'CH',GVA:'CH', PRG:'CZ', BUD:'HU', WAW:'PL',KRK:'PL',
+  CPH:'DK', ARN:'SE', OSL:'NO', HEL:'FI', KEF:'IS',
+  IST:'TR',SAW:'TR',AYT:'TR',DLM:'TR',BJV:'TR',
+  DXB:'AE',AUH:'AE', DOH:'QA', CAI:'EG', RAK:'MA', TUN:'TN',
+  JFK:'US',EWR:'US',LGA:'US',LAX:'US',SFO:'US',MIA:'US',ORD:'US',BOS:'US',LAS:'US',MCO:'US',
+  YYZ:'CA',YVR:'CA',
+  BKK:'TH', SIN:'SG', HKG:'HK', NRT:'JP',HND:'JP', DPS:'ID',
+  SYD:'AU',MEL:'AU',BNE:'AU',PER:'AU',ADL:'AU',OOL:'AU',CNS:'AU',CBR:'AU',HBA:'AU',DRW:'AU',
+  AKL:'NZ',WLG:'NZ',CHC:'NZ'
+};
 /* IANA timezone for each airport above, keyed the same way - so a flight's shown duration can
    account for the two ends being on different UTC offsets instead of just diffing clock times
    (a London-Corfu flight landing three hours later by the clock is really a three-hour flight,
@@ -10926,7 +10974,7 @@ function planDaysHTML(t, ro, filterKeys){
     return `
     <div class="flight-strip itin-flight">
       <div class="flight-head">
-        <span class="itin-time">${f.depTime?esc(f.depTime)+' -':''}</span>
+        ${f.depTime?`<span class="itin-time">${esc(f.depTime)} -</span>`:''}
         <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(fromName)} → ${esc(toName)}</span></strong>
         ${f.seats?`<span class="itin-seats"><i class="icon fa-solid fa-chair"${AIRLINE_COLORS[f.airline]?` style="color:${AIRLINE_COLORS[f.airline]}"`:''}></i>${esc(f.seats)}</span>`:''}
       </div>
@@ -10970,8 +11018,10 @@ function planDaysHTML(t, ro, filterKeys){
     const nights = ac.checkin && ac.checkout
       ? Math.max(1, Math.round((new Date(ac.checkout+'T00:00:00')-new Date(ac.checkin+'T00:00:00'))/86400000)) : 0;
     // no booking link yet to pull a real logo from - a plain hotel emoji stands in for it until
-    // one's added, rather than the name reading with no icon in front of it at all
-    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : secEmoji('🏨');
+    // one's added, rather than the name reading with no icon in front of it at all. Nudged left
+    // a couple of px - the emoji glyph itself carries more left-side padding than a real logo
+    // or the calendar icon on the date row underneath it, so it reads as indented against them
+    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : `<span class="sec-emoji" aria-hidden="true" style="margin-left:-3px">🏨</span>`;
     const primaryTime = ac.arrivalTime || ac.checkinTime;
     const cityName = accomCityName(ac, t);
     return `
@@ -11222,7 +11272,18 @@ function dayPlaceInfo(t, k, dayItems, rough){
       : journeyIn._autoFerry ? journeyIn.f.to
       : journeyIn._autoCar ? journeyIn.c.pickupLoc
       : journeyIn.to;
-    if(dest){ place = dest; flag = flagForPlace(t, dest); arriving = true; }
+    // a known airport's own country beats flagForPlace's guesswork - see AIRPORT_COUNTRY
+    const airportFlag = journeyIn._autoFlight ? (countryByCode(AIRPORT_COUNTRY[String(journeyIn.f.to||'').toUpperCase()])||{}).flag : '';
+    if(dest){ place = dest; flag = airportFlag || flagForPlace(t, dest); arriving = true; }
+  } else if(journeyIn && journeyIn.kind==='travel' && journeyIn.to && place
+    && journeyIn.to.trim().toLowerCase() !== place.toLowerCase()){
+    // a check-in already names the day's broad place (a Location's own name, "Corfu"), but a
+    // manually added travel leg into it sometimes carries a more specific destination of its
+    // own ("Kerkira", the actual town there) - worth keeping both ("Kerkira, Corfu") rather than
+    // letting the broader Location name silently swallow it. Scoped to a plain travel leg, not
+    // the auto-generated flight/ferry/car ones, since an airport name in front of the city
+    // ("Corfu Airport, Corfu") reads redundant rather than more specific.
+    place = journeyIn.to.trim() + ', ' + place;
   }
   // a manually defined Location range (App.locationForm) covering this day - real stay/travel
   // data above always wins on the place itself, since that's the more specific, actually-booked
@@ -11344,6 +11405,7 @@ App.routeToggle = key => {
    map's DOM node each time, so this just makes a fresh Leaflet map every time it's called
    rather than trying to update one in place. */
 let ROUTE_MAP = null;
+let ROUTE_MAP_TRIP_ID = null;   // which trip ROUTE_MAP is currently showing - see initRouteMap
 let ROUTE_MAP_PTS = [];   // the current map's own numbered-stop coordinates, for the reset-view control
 /* the geocoding half of a route map, shared by the full Itinerary map (initRouteMap) and the
    small preview on a Next Trip dashboard tile (initDashTripMap) - resolves each of a trip's
@@ -11509,10 +11571,17 @@ function initRouteMap(t){
      above ROUTE_MAP), which throws away this map's DOM node and forces a new Leaflet map to be
      made from scratch - carrying the old one's center/zoom into the new one, and skipping the
      fitBounds below once there's a prior view to carry over, is what keeps a toggle from
-     visibly snapping the map back to its default framing every time you open/close a day. */
+     visibly snapping the map back to its default framing every time you open/close a day. Only
+     worth carrying over for that same trip though - switching to a different trip's Itinerary
+     re-runs this the same way a toggle does, and that trip's last pan/zoom has nothing to do
+     with this one; carrying it over anyway used to leave a freshly opened trip's map stuck
+     showing wherever the last trip happened to be panned to, since a carried-over view also
+     skips the fitBounds below that would otherwise have corrected it. */
   let priorView = null;
   if(ROUTE_MAP){
-    try{ priorView = {center: ROUTE_MAP.getCenter(), zoom: ROUTE_MAP.getZoom()}; }catch(e){}
+    if(ROUTE_MAP_TRIP_ID === t.id){
+      try{ priorView = {center: ROUTE_MAP.getCenter(), zoom: ROUTE_MAP.getZoom()}; }catch(e){}
+    }
     try{ ROUTE_MAP.remove(); }catch(e){}
     ROUTE_MAP = null;
   }
@@ -11523,6 +11592,7 @@ function initRouteMap(t){
   const map = L.map(el, {scrollWheelZoom:false, attributionControl:false})
     .setView(priorView ? priorView.center : [20,0], priorView ? priorView.zoom : 2);
   ROUTE_MAP = map;
+  ROUTE_MAP_TRIP_ID = t.id;
   addCartoLayer(map);
   /* drawn first so the numbered pins/route line below always sit on top of it, and resolved
      independently of the numbered stops - a flight's own geocoding never holds up or feeds into
