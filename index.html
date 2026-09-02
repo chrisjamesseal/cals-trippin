@@ -1649,8 +1649,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.37.0';
+const APP_VERSION = '2.38.0';
 const CHANGELOG = [
+  {version:'2.38.0', notes:[
+    'Add/Edit Travel now has an "Add as Task" toggle at the top: switch it on and Save drops the leg into Tasks instead of booking it, keeping the mode, from/to, duration and link, and flags it in red wherever it shows on the Itinerary.'
+  ]},
   {version:'2.37.0', notes:[
     'A check-out pill now names the specific place being left ("Check Out of Kerkira Airbnb") instead of just the booking site on its own.',
     'A check-out day that\'s also the day of a departing flight, ferry, or drive now shows as that travel day ("Travel to London Gatwick") instead of just the city being checked out of.',
@@ -10719,6 +10722,14 @@ const TRAVEL_MODES = {
   bus: {label:'Bus', icon:ICONS.bus, emoji:'🚌'},
   taxi: {label:'Taxi', icon:ICONS.taxi, emoji:'🚕'}
 };
+/* the title a travel leg gets when it's added as a Task instead - "Ferry to Sarande",
+   same phrasing travelCard already uses for an unbooked leg's plain-line summary, so a
+   task grown out of a half-planned journey still reads as recognisably that journey */
+function travelTaskTitle(mode, from, to){
+  const modeUndecided = !mode || mode==='undecided';
+  const way = modeUndecided ? 'Travel' : (TRAVEL_MODES[mode]||TRAVEL_MODES.undecided).label;
+  return to ? `${way} to ${to}` : from ? `${way} from ${from}` : way;
+}
 function itineraryTimeKey(s){ return s.time || (s.period && PLAN_PERIODS[s.period] && PLAN_PERIODS[s.period][1]) || '99:99'; }
 function travelDurationLabel(s){
   const h = s.durationH||0, m = s.durationM||0;
@@ -10904,7 +10915,7 @@ function planDayGroups(t){
     const k = rough ? (task.day?'d'+task.day:'') : (task.date||'');
     if(!k) return;
     (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes,
-      time:task.time||'', period:task.period||'', unscheduled:false, ti});
+      time:task.time||'', period:task.period||'', unscheduled:false, fromTravel:!!task.fromTravel, ti});
   });
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
@@ -11174,11 +11185,11 @@ function planDaysHTML(t, ro, filterKeys){
     </div>`;
   };
   const taskCard = s => `
-    <div class="card plan-card task-card${s.unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
+    <div class="card plan-card task-card${(s.unscheduled||s.fromTravel)?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
       <div class="section-head" style="margin-bottom:0">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="task-flag" aria-hidden="true">☑</span>
-          <h3>${esc(s.title)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
+          <h3${s.fromTravel?' class="text-undecided"':''}>${esc(s.title)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
       </div>
       ${s.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
@@ -12075,6 +12086,12 @@ App.travelLegForm = (i, prefill) => {
     .map(m=>`<option value="${m}" ${m===(s.durationM||0)?'selected':''}>${m} m</option>`).join('');
   openModal(`
     <h2>${i>=0?'Edit Travel':'Add Travel'}</h2>
+    <div class="field">
+      <label class="switch-row"><span>Add as Task</span>
+        <span class="switch"><input type="checkbox" id="tv-as-task" ${s.fromTravel?'checked':''}><span class="knob"></span></span>
+      </label>
+      <p class="muted small" style="margin-top:4px">Keeps everything below, but just drops it in Tasks and flags it red on the Itinerary instead of booking it.</p>
+    </div>
     <div class="field"><label class="label" id="tv-mode-label">Mode</label>
       <input type="hidden" id="tv-mode" value="${s.mode||'undecided'}">
       <div class="mode-picker" role="radiogroup" aria-labelledby="tv-mode-label">${modePicks}</div></div>
@@ -12136,10 +12153,29 @@ App.saveTravelLeg = i => {
   const autoLink = i<0 ? TRAVEL_AUTO_LINK : travelAutoLinkOf(existing);
   const timing = time ? (($('#tv-timing')||{}).value === 'arrive' ? 'arrive' : 'leave') : '';
   const dd = readDayOrDate('tv');
-  const s = {id: existing ? existing.id : uid(), kind:'travel', mode:$('#tv-mode').value,
+  const mode = $('#tv-mode').value;
+  const link = normalizeUrl($('#tv-link').value.trim());
+  /* "Add as Task" doesn't book anything - it just parks the same details (mode, from/to,
+     duration, link) as a Task instead of a travel leg, so it still shows up (in red, as
+     something still outstanding) rather than getting lost. Editing an already-saved leg
+     over into a task removes the leg it came from, same as any other edit replaces what
+     was there rather than leaving a duplicate behind. */
+  if($('#tv-as-task').checked){
+    t.tasks = t.tasks||[];
+    const noteLines = [mode && mode!=='undecided' ? TRAVEL_MODES[mode].label : '',
+      travelDurationLabel({durationH, durationM}), link].filter(Boolean);
+    const task = {id: uid(), title: travelTaskTitle(mode, from, to), date:dd.date, day:dd.day,
+      time, period, notes: noteLines.join('\n'), done:false, fromTravel:true,
+      mode, from, to, durationH, durationM, link};
+    t.tasks.push(task);
+    if(i>=0) t.itinerary.splice(i,1);
+    logEdit('Tasks', 'added task from travel: '+task.title);
+    save(); closeModal(); rerender(); toast('Added to Tasks');
+    return;
+  }
+  const s = {id: existing ? existing.id : uid(), kind:'travel', mode,
              from, to, date:dd.date, day:dd.day, time, period, timing, durationH, durationM,
-             link:normalizeUrl($('#tv-link').value.trim()),
-             ...(autoLink || {})};
+             link, ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
