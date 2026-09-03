@@ -488,6 +488,12 @@ a{color:var(--brand-dark);}
    neighbours above - half the card's width, centred, so there's still room for the title/sub/
    provider-logos underneath without the tile growing as tall as a full-width poster would make it */
 .dash-watchnext-poster{display:block; width:50%; margin:0 0 12px; aspect-ratio:2/3; object-fit:cover; border-radius:var(--radius-sm);}
+/* the same pin-to-top star Watchlist cards use (.iconbtn.pin, see fwMineCardHTML), just sat in
+   the tile's top-right corner instead of a button row, so you can favourite what Home is
+   already showing without leaving for the Watchlist page */
+.dash-watchnext-tile{position:relative;}
+.dash-watchnext-fav{position:absolute; top:8px; right:8px; background:var(--paper); border-radius:50%; box-shadow:var(--shadow);}
+.dash-watchnext-fav.on{color:var(--brand);}
 .dash-item-row .dash-item-flags{font-size:1.5rem; margin-bottom:0; flex-shrink:0;}
 /* Next Gig / Play Next (board game): icon stacked above the title, like Watch Next's own poster,
    rather than beside it - a bigger image reads better as the tile's main visual than a small one
@@ -4353,8 +4359,10 @@ function dashGigWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🎤</div>
       <div class="dash-item-title">No Upcoming Gigs</div>
     </div>`;
+  const i = (DB.gigs||[]).indexOf(g);
   return `
-    <div class="dash-widget dash-widget-item">
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.gigForm(${i})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.gigForm(${i})}">
       ${g.image ? `<img class="dash-item-img-lg round" src="${esc(g.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
       <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
@@ -4576,7 +4584,9 @@ function dashWatchNextNoneStreamingHTML(){
 function dashWatchNextFilmHTML(f, providersData){
   const url = filmLetterboxdUrl(f);
   return `
-    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
+    <a class="dash-widget dash-widget-item dash-watchnext-tile" href="${esc(url)}" target="_blank" rel="noopener">
+      <button type="button" class="iconbtn pin dash-watchnext-fav${f.pinned?' on':''}" aria-label="${f.pinned?'Unfavourite':'Favourite - move to top of Watchlist'}"
+        aria-pressed="${!!f.pinned}" title="${f.pinned?'Unfavourite':'Favourite - move to top of Watchlist'}" onclick="App.dashWatchNextFav('${esc(f.id)}',event)">${fa('star')}</button>
       ${f.image ? `<img class="dash-watchnext-poster" src="${esc(f.image)}" alt="" loading="lazy">`
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
@@ -5492,7 +5502,7 @@ function renderGameDetail(id){
       <div class="crumb-titlerow">
         <span class="crumb-here">
           <button class="crumb-backbtn" onclick="location.hash='#/games'" aria-label="Back to Games">${ICONS.back}</button>
-          ${esc(g.name||'Game')}</span>
+          Game</span>
       </div>
     </div>
     <div class="card game-detail-card">
@@ -7070,10 +7080,15 @@ function reorderFwByAvailability(list){
    dashboard's Last Seen/Watchlist-pick widgets) - a Diary entry synced from Letterboxd or a
    CSV-imported one carries the exact Letterboxd URI (that export's own column / the diary RSS
    guid); one logged by hand or added via TMDb search never has one, so the closest honest
-   fallback is a Letterboxd search for its title - not the exact film page, but still one tap
-   from it, and the best this app can do without its own Letterboxd film-id lookup */
+   fallback is a search for its title - not the exact film page, but still one tap from it, and
+   the best this app can do without its own Letterboxd film-id lookup. That fallback goes via
+   Google rather than letterboxd.com/search/... directly: the Letterboxd app claims universal
+   links for the whole domain but has no route for a search URL, so tapping one with the app
+   installed just opened the app's home screen instead of anything useful. Google isn't
+   universal-linked to the app, so this actually lands - its top result is Letterboxd's own
+   film page nearly every time. */
 function filmLetterboxdUrl(f){
-  return f.link || ('https://letterboxd.com/search/films/'+encodeURIComponent(f.title||'')+'/');
+  return f.link || ('https://www.google.com/search?q='+encodeURIComponent((f.title||'')+' site:letterboxd.com/film'));
 }
 /* UK streaming availability (Watch Next widget, Watchlist cards) - via api/film-providers.js,
    a Vercel function alongside this app rather than the psn-proxy Worker (same TMDB_API_KEY the
@@ -8949,6 +8964,23 @@ App.fwPin = id => {
   f.pinned = !f.pinned;
   saveFilmsWatchlist();
   drawFwMine();
+};
+/* Home's Watch Next tile is a link out to Letterboxd (see dashWatchNextFilmHTML), so its own
+   favourite star has to stop that click reaching the <a> before doing the same pin flip fwPin
+   does - then just flips its own icon in place rather than re-rendering the tile, since a full
+   re-render would run the random/streaming pick over again and could swap the film out from
+   under you */
+App.dashWatchNextFav = (id, ev) => {
+  ev.preventDefault(); ev.stopPropagation();
+  const f = (DB.filmsWatchlist||[]).find(x=>x.id===id); if(!f) return;
+  f.pinned = !f.pinned;
+  saveFilmsWatchlist();
+  const btn = ev.currentTarget;
+  btn.classList.toggle('on', f.pinned);
+  btn.setAttribute('aria-pressed', f.pinned);
+  const label = f.pinned ? 'Unfavourite' : 'Favourite - move to top of Watchlist';
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
 };
 App.filmsImportCsv = filmsImportCsvImpl;
 App.filmsImportCsvFile = filmsImportCsvFileImpl;
@@ -11373,7 +11405,11 @@ function dayNarrative(t, k, dayItems, rough){
   const stops = dayItems.filter(s => !s._autoFlight && !s._autoFerry && !s._autoCar && !s._autoStay && s.kind!=='travel' && s.kind!=='task');
   const activityText = stops.length===1 ? ` - ${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
   const travelEmoji = arriving && travelMode && TRAVEL_MODES[travelMode] ? TRAVEL_MODES[travelMode].emoji+' ' : '';
-  const placeText = place ? ` - ${arriving?travelEmoji+'Travel to ':''}${flag?flag+' ':''}${esc(place)}` : '';
+  // a non-arrival day (you're already there) drops the broader half of a "Palaiokastritsa,
+  // Corfu"-style place - the arrival day's own "Travel to" heading already said which country/
+  // region that specific place is in, so repeating it on every day after just adds noise
+  const placeShown = arriving ? place : (place||'').split(',')[0].trim();
+  const placeText = place ? ` - ${arriving?travelEmoji+'Travel to ':''}${flag?flag+' ':''}${esc(placeShown)}` : '';
   // a trip with real booking dates but no start date set yet (still being put together) has
   // nothing to count "Day N" from - the date itself stands in for it, same as this heading
   // would have shown before it grew a day number at all, rather than inventing a "Day ?"
