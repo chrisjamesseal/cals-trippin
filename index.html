@@ -7081,14 +7081,15 @@ function reorderFwByAvailability(list){
    CSV-imported one carries the exact Letterboxd URI (that export's own column / the diary RSS
    guid); one logged by hand or added via TMDb search never has one, so the closest honest
    fallback is a search for its title - not the exact film page, but still one tap from it, and
-   the best this app can do without its own Letterboxd film-id lookup. That fallback goes via
-   Google rather than letterboxd.com/search/... directly: the Letterboxd app claims universal
-   links for the whole domain but has no route for a search URL, so tapping one with the app
-   installed just opened the app's home screen instead of anything useful. Google isn't
-   universal-linked to the app, so this actually lands - its top result is Letterboxd's own
-   film page nearly every time. */
+   the best this app can do without its own Letterboxd film-id lookup. That fallback used to be
+   a plain letterboxd.com/search/... link, but the Letterboxd app claims universal links for the
+   whole domain with no route for a search URL, so tapping one with the app installed just
+   opened the app's home screen instead of anything useful. Its own x-callback-url scheme has a
+   real search action (see github.com/Letterboxd/letterboxd-ios-x-callback-url) that opens
+   straight into an in-app search instead, which is what this uses now - iOS/the Letterboxd app
+   only, same assumption every other external link here already makes. */
 function filmLetterboxdUrl(f){
-  return f.link || ('https://www.google.com/search?q='+encodeURIComponent((f.title||'')+' site:letterboxd.com/film'));
+  return f.link || ('letterboxd://x-callback-url/search?type=film&query='+encodeURIComponent(f.title||''));
 }
 /* UK streaming availability (Watch Next widget, Watchlist cards) - via api/film-providers.js,
    a Vercel function alongside this app rather than the psn-proxy Worker (same TMDB_API_KEY the
