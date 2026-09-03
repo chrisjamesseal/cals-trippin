@@ -4524,7 +4524,7 @@ function dashLastSeenFilmWidgetHTML(){
       <div class="dash-item-flags" aria-hidden="true">🎬</div>
       <div class="dash-item-title">No Films Yet</div>
     </div>`;
-  const url = filmLetterboxdUrl(f);
+  const url = filmLetterboxdReviewsUrl(f);
   return `
     <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
       <div class="dash-item-row">
@@ -7090,6 +7090,15 @@ function reorderFwByAvailability(list){
    only, same assumption every other external link here already makes. */
 function filmLetterboxdUrl(f){
   return f.link || ('letterboxd://x-callback-url/search?type=film&query='+encodeURIComponent(f.title||''));
+}
+/* Home's Last Seen widget only - a film you've actually watched and rated is worth landing on
+   its Reviews sub-page rather than the plain film page. Only works with a real Letterboxd URI
+   (a synced/CSV-imported entry carries f.link, an exact film URL that takes a /reviews/ suffix
+   like any other Letterboxd sub-page); a hand-logged film with no URI falls back to the same
+   in-app search filmLetterboxdUrl uses, since the x-callback-url scheme has no way to land on
+   one specific film's reviews. */
+function filmLetterboxdReviewsUrl(f){
+  return f.link ? f.link.replace(/\/?$/, '/') + 'reviews/' : filmLetterboxdUrl(f);
 }
 /* UK streaming availability (Watch Next widget, Watchlist cards) - via api/film-providers.js,
    a Vercel function alongside this app rather than the psn-proxy Worker (same TMDB_API_KEY the
