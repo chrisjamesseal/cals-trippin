@@ -671,6 +671,10 @@ a{color:var(--brand-dark);}
 .route-list{display:flex; flex-direction:column;}
 .route-item{border-bottom:1px solid var(--line);}
 .route-item:last-child{border-bottom:none;}
+/* a day that's already happened reads as done, same dimming a completed task already wears -
+   only while its accordion is collapsed, though: opening it to look back over what happened
+   that day shouldn't itself look greyed out */
+.route-item.day-past{opacity:.6;}
 .route-body{display:block; padding:14px 2px;}
 .route-body strong{display:block; font-weight:700; color:var(--ink); font-size:.95rem;}
 .route-body strong.text-undecided{color:#C0392B;}
@@ -1657,7 +1661,8 @@ const APP_VERSION = '2.46.0';
 const CHANGELOG = [
   {version:'2.46.0', notes:[
     'Accommodation now has the same "Add as Task" toggle as Travel: switch it on and it saves normally but only shows in Tasks (in red), rather than as a real booking - it no longer fills its nights on the Itinerary or counts toward Stays Added, and the nights stay an open gap until something real is booked.',
-    'Fixed Tasks sorting by whatever order things happened to be added in in rather than by time - two items on the same day now read in actual clock order (a 14:00 train before a 22:00 taxi, not the other way round).'
+    'Fixed Tasks sorting by whatever order things happened to be added in in rather than by time - two items on the same day now read in actual clock order (a 14:00 train before a 22:00 taxi, not the other way round).',
+    'A day that\'s already gone by now fades on the Itinerary while its accordion is collapsed, same as a completed task - opening it back up to look over what happened reads at full brightness again, not greyed out.'
   ]},
   {version:'2.45.0', notes:[
     'A travel leg flagged "Add as Task" now stays out of the Itinerary entirely, same as a hand-typed task - it only shows in Tasks, instead of also sitting on the Itinerary in red.'
@@ -11927,8 +11932,11 @@ function tabPlan(t, ro){
     const isOpen = ROUTE_OPEN.has(openKey);
     const toggleFn = `App.routeToggle('${openKey}')`;
     const {dateLine, headingHTML} = dayNarrative(t, k, dayItems, rough);
+    // faded while collapsed, same as a completed task - reopening it to look back over the
+    // day shouldn't read as greyed-out, so the fade only applies when it's shut
+    const isPast = k && !rough && k < todayKey && !isOpen;
     return `
-    <div class="route-item">
+    <div class="route-item${isPast?' day-past':''}">
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
         <div class="route-head-row${isOpen?' open':''}">
           <div style="min-width:0">
