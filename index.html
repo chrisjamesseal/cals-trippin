@@ -1203,6 +1203,7 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
 .amount{font-weight:800; white-space:nowrap; color:var(--ink);}
 .flight-strip{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden;}
 .flight-head{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--brand-ghost); flex-wrap:wrap; gap:6px;}
+.flight-strip.plain-head .flight-head{background:none;}
 /* when the right-hand side (pill/date/edit/delete) doesn't fit on one line and wraps under
    itself, the title's own single line would otherwise be vertically centred against that whole
    wrapped block and end up stranded between the two wrapped lines - pin it to the top instead so
@@ -1649,8 +1650,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.39.0';
+const APP_VERSION = '2.40.0';
 const CHANGELOG = [
+  {version:'2.40.0', notes:[
+    'The Accommodation tab\'s cards are now tap-to-edit, same as everywhere else on the app - dropped the separate edit/remove buttons (Delete Accommodation still lives inside the edit form) and the tinted background behind the title.'
+  ]},
   {version:'2.39.0', notes:[
     'A day heading no longer repeats the broader place name ("Corfu") once an earlier day in the same stretch has already said it - a run of days at the same Airbnb now reads "Palaiokastritsa" on the later ones instead of "Palaiokastritsa, Corfu" every time.'
   ]},
@@ -12665,10 +12669,9 @@ function autoAccomName(url, address){
   return '';
 }
 /* the full accommodation card, shared by Accommodation and, read-only, by the Itinerary.
-   opts: headerActions (edit/delete, top-right), footerActions (e.g. a link back to this
-   section), showDates (hide the check-in/out chips when the itinerary already shows the
-   time), compact (icon-only View Booking/Open Map buttons, no label - used by the itinerary,
-   where the favicon/pin are already clear enough and the label is just noise) */
+   opts: plainHead (drops the tinted background behind the title - used by the Accommodation
+   tab, where the whole card is its own tap target now rather than needing edit/delete buttons
+   in the header to stand out against) */
 function accomCardHTML(a, opts){
   opts = opts || {};
   const service = detectBookingService(a.bookingUrl);
@@ -12693,13 +12696,12 @@ function accomCardHTML(a, opts){
         ${a.checkout?`<span class="itin-date-to">to ${ICONS.calendar}${esc(fmtDateOrdinal(a.checkout))}${a.checkoutTime?` ${fa('clock')}Check Out: ${esc(a.checkoutTime)}`:''}</span>`:''}
       </div>`:''}
       ${a.ref?`<div class="itin-ref">Booking Reference: <strong>${esc(a.ref)}</strong></div>`:''}
-      ${mapsUrl||a.bookingUrl||opts.rowActions?`<div class="itin-actions" onclick="event.stopPropagation()">
+      ${mapsUrl||a.bookingUrl?`<div class="itin-actions" onclick="event.stopPropagation()">
         ${mapsUrl?`<a class="btn itin-action-btn" href="${mapsUrl}" target="_blank" rel="noopener">${mapIcon(mapsUrl)} Google Maps</a>`:''}
         ${a.bookingUrl?`<a class="btn itin-action-btn primary" href="${esc(a.bookingUrl)}" target="_blank" rel="noopener"${bookingButtonStyle(a.bookingUrl)}>${bookingIconFor(a.bookingUrl)} View Details</a>`:''}
-        ${opts.rowActions?`<div class="btn-row" style="justify-content:flex-end">${opts.rowActions}</div>`:''}
       </div>`:''}`;
   return `
-    <div class="flight-strip itin-flight">
+    <div class="flight-strip itin-flight${opts.plainHead?' plain-head':''}">
       <div class="flight-head">
         <span class="itin-time">${primaryTime?esc(primaryTime):''}</span>
         <strong class="head-with-logo">${richLogo}<span${!a.name?' class="text-undecided"':''}>${!a.name?'❓ ':''}${esc(displayName)}</span></strong>
@@ -12770,10 +12772,15 @@ function tabStay(t, ro){
     return `<div class="empty">No accommodation added yet.${!ro?'<br><br><button class="btn primary" onclick="App.accomForm(-1)">+ Add Accommodation</button>':''}</div>`;
   }
   /* booked stays and the holes between them, read in date order, so a missing night shows up
-     exactly where it falls rather than in a list of warnings at the bottom */
-  const rows = list.map((a,i)=>({date:a.checkin||'', html: accomCardHTML(a, {
-      rowActions: !ro?`<button type="button" class="btn icon-only" aria-label="Edit accommodation" title="Edit" onclick="App.accomForm(${i})">${ICONS.edit}</button><button type="button" class="btn icon-only danger" aria-label="Remove accommodation" title="Remove" onclick="App.delAccom(${i})">${ICONS.trash}</button>`:''
-    })}))
+     exactly where it falls rather than in a list of warnings at the bottom - each card is a
+     tap target through to its own edit form now (Delete Accommodation lives in there), same
+     as every other card on the Itinerary already works, rather than carrying its own separate
+     edit/delete buttons */
+  const rows = list.map((a,i)=>({date:a.checkin||'', html: `
+    <div class="plan-auto${!ro?' plan-click':''}"${!ro?` role="button" tabindex="0" onclick="App.accomForm(${i})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.accomForm(${i})}"`:''}>
+      ${accomCardHTML(a, {plainHead:true})}
+    </div>`}))
     .concat(gaps.map(g=>({date:g.firstNight, html: stayGapCardHTML(g, ro)})));
   rows.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
   return rows.map(r=>r.html).join('');
