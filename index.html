@@ -1653,8 +1653,12 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.45.0';
+const APP_VERSION = '2.46.0';
 const CHANGELOG = [
+  {version:'2.46.0', notes:[
+    'Accommodation now has the same "Add as Task" toggle as Travel: switch it on and it saves normally but only shows in Tasks (in red), rather than as a real booking - it no longer fills its nights on the Itinerary or counts toward Stays Added, and the nights stay an open gap until something real is booked.',
+    'Fixed Tasks sorting by whatever order things happened to be added in in rather than by time - two items on the same day now read in actual clock order (a 14:00 train before a 22:00 taxi, not the other way round).'
+  ]},
   {version:'2.45.0', notes:[
     'A travel leg flagged "Add as Task" now stays out of the Itinerary entirely, same as a hand-typed task - it only shows in Tasks, instead of also sitting on the Itinerary in red.'
   ]},
@@ -9967,14 +9971,18 @@ function tabHome(t, ro){
   const net = nRec ? computeBalances(t) : null;
   const allSettled = net && Object.values(net).every(v=>Math.abs(v)<0.005);
   const moneySum = !nRec ? 'No receipts yet' : allSettled ? 'All settled' : 'Receipts added';
-  const accoms = t.accommodations||[];
+  // an accommodation flagged "Add as Task" isn't a real booking - it belongs to the Tasks
+  // count below, not here
+  const accoms = (t.accommodations||[]).filter(a=>!a.asTask);
   const staySum = !accoms.length ? 'Not Added Yet' :
     accoms.length===1 ? (accoms[0].name||'1 Stay Added') :
     accoms.length+' Stays Added';
   const nNotes = (n.items||[]).length;
   /* travel legs live in the same itinerary array as the stops but aren't activities, so they
-     don't inflate the count; a plan that's only travel still isn't "nothing planned" though */
-  const nLegs = (t.itinerary||[]).length - nStops;
+     don't inflate the count; a plan that's only travel still isn't "nothing planned" though.
+     One flagged "Add as Task" isn't on the Itinerary at all any more (see planDayGroups), so
+     it doesn't count as a leg planned either - it's in the Tasks count below instead. */
+  const nLegs = (t.itinerary||[]).filter(s=>s.kind==='travel' && !s.asTask).length;
   const planSum = nStops ? nStops+(nStops===1?' Activity Planned':' Activities Planned')
     : nLegs ? nLegs+(nLegs===1?' Leg Planned':' Legs Planned')
     : 'Nothing Planned Yet';
@@ -9988,7 +9996,8 @@ function tabHome(t, ro){
   const gapFirstNights = new Set(gaps.map(g=>g.firstNight));
   const emptyDayCount = planKeys.filter(k => planGroups[k].length===0 && !gapFirstNights.has(k)).length;
   const asTaskLegs = (t.itinerary||[]).filter(leg=>leg.kind==='travel' && leg.asTask).length;
-  const outstanding = openTasks + gaps.length + emptyDayCount + asTaskLegs;
+  const asTaskAccoms = (t.accommodations||[]).filter(a=>a.asTask).length;
+  const outstanding = openTasks + gaps.length + emptyDayCount + asTaskLegs + asTaskAccoms;
   const allBooked = tasks.length>0 && !outstanding;
   const taskSum = outstanding ? outstanding+(outstanding===1?' Thing to Book':' Things to Book')
     : allBooked ? 'All Booked' : 'Nothing Added Yet';
@@ -10232,13 +10241,25 @@ function undecidedItemsHTML(t, ro){
     rows.push({dateLine: dateLineFor(k), icon:mode.icon,
       title: travelTaskTitle(leg.mode, esc(leg.from), esc(leg.to)),
       time: leg.time || (leg.period && PLAN_PERIODS[leg.period] && PLAN_PERIODS[leg.period][0]) || '',
-      undecided:true, editFn:`App.travelLegForm(${li})`, sortKey:k});
+      undecided:true, editFn:`App.travelLegForm(${li})`, sortKey:k, timeKey:itineraryTimeKey(leg)});
+  });
+  /* an accommodation flagged "Add as Task" (App.accomForm) lives only here too, same reasoning
+     as the travel leg above - planDayGroups skips it, this reads it straight back off */
+  (t.accommodations||[]).forEach((ac,aci)=>{
+    if(!ac.asTask) return;
+    const k = rough ? roughDayKey(t, ac.checkin) : (ac.checkin||'');
+    const dateLine = rough ? '' : ac.checkin && ac.checkout ? fmtDateOrdinalRange(ac.checkin, ac.checkout)
+      : ac.checkin ? fmtDateOrdinal(ac.checkin) : '';
+    rows.push({dateLine, icon:secEmoji('🏠'), title: esc(ac.name || 'Accommodation'),
+      time: ac.arrivalTime || ac.checkinTime || '',
+      undecided:true, editFn:`App.accomForm(${aci})`, sortKey:k,
+      timeKey: itineraryTimeKey({time: ac.arrivalTime || ac.checkinTime})});
   });
   /* the whole list reads in day order - a flight/car/accommodation still marked entirely TBC
      (no date at all yet) has nothing to sort by, so it sinks to the end rather than to some
      arbitrary spot by category */
   rows.sort(dayKeyCompare(rough));
-  return rows.map(r => ({sortKey:r.sortKey, html:`
+  return rows.map(r => ({sortKey:r.sortKey, timeKey:r.timeKey, html:`
     <div class="task-block">
       ${r.dateLine?`<div class="task-date">${esc(r.dateLine)}</div>`:''}
       <div class="task-pill${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
@@ -10262,6 +10283,7 @@ function tabTasks(t, ro){
      their own block underneath regardless of when they actually fall */
   const todoRows = todo.map(o => ({
     sortKey: rough ? (o.x.day?'d'+o.x.day:'') : (o.x.date||''),
+    timeKey: itineraryTimeKey(o.x),
     html: taskRowHTML(t,o.x,o.i,ro)
   }));
   const allRows = undecidedRows.concat(todoRows).sort(dayKeyCompare(rough));
@@ -10963,6 +10985,10 @@ function planDayGroups(t){
     }
   });
   (t.accommodations||[]).forEach((ac,aci)=>{
+    // an accommodation flagged "Add as Task" (App.accomForm) belongs to Tasks only, same as
+    // a hand-typed task or a travel leg's own asTask flag - read back out for that list (see
+    // undecidedItemsHTML) rather than also showing here
+    if(ac.asTask) return;
     // your actual arrival time, when you've set one, is what the day should sort by, not
     // the property's generic check-in time
     const ik = rough ? roughDayKey(t, ac.checkin) : ac.checkin, ok = rough ? roughDayKey(t, ac.checkout) : ac.checkout;
@@ -11028,7 +11054,11 @@ function dayKeyCompare(rough){
     if(!ak && !bk) return 0;
     if(!ak) return 1;
     if(!bk) return -1;
-    return rough ? (+ak.slice(1)) - (+bk.slice(1)) : ak.localeCompare(bk);
+    const dateCmp = rough ? (+ak.slice(1)) - (+bk.slice(1)) : ak.localeCompare(bk);
+    // same day: read straight from the clock, not the order things happened to be pushed in
+    // - a 22:00 taxi has to sink below a 14:00 train on the same date, not sit above it
+    if(dateCmp) return dateCmp;
+    return (a.timeKey||'99:99').localeCompare(b.timeKey||'99:99');
   };
 }
 /* one day's own cards - auto-card (flight/ferry/car/stay), stop, task and gap - for inside
@@ -12755,14 +12785,17 @@ function rangeGaps(t, items){
   return gaps.map(g=>({...g, checkout: isoAddDays(g.lastNight,1),
     nights: Math.round((new Date(g.lastNight+'T00:00:00') - new Date(g.firstNight+'T00:00:00'))/DAY_MS) + 1}));
 }
-function stayGaps(t){ return rangeGaps(t, t.accommodations); }
+// an accommodation flagged "Add as Task" isn't a real booking, so it doesn't fill the nights
+// it covers - those stay a gap until something real is booked for them, same as if nothing
+// had been added at all
+function stayGaps(t){ return rangeGaps(t, (t.accommodations||[]).filter(a=>!a.asTask)); }
 /* which place a run of nights with nowhere booked actually falls in - whichever accommodation
    the gap sits right after (you checked out) or right before (you're about to check in), since
    that's where you still are/are headed even though nothing's booked for these nights
    specifically. A gap with nothing booked on either side of it (the whole trip's still empty)
    has nothing to read a place off of, so it's left blank. */
 function gapPlaceName(t, g){
-  const accs = t.accommodations||[];
+  const accs = (t.accommodations||[]).filter(a=>!a.asTask);
   const ac = accs.find(a=>a.checkout===g.firstNight) || accs.find(a=>a.checkin===g.checkout);
   return ac ? accomCityName(ac, t) : '';
 }
@@ -12779,7 +12812,8 @@ function stayGapCardHTML(g, ro){
     </div>`;
 }
 function tabStay(t, ro){
-  const list = t.accommodations||[];
+  const all = t.accommodations||[];
+  const list = all.filter(a=>!a.asTask);
   const gaps = stayGaps(t);
   if(!list.length && !gaps.length){
     return `<div class="empty">No accommodation added yet.${!ro?'<br><br><button class="btn primary" onclick="App.accomForm(-1)">+ Add Accommodation</button>':''}</div>`;
@@ -12788,8 +12822,10 @@ function tabStay(t, ro){
      exactly where it falls rather than in a list of warnings at the bottom - each card is a
      tap target through to its own edit form now (Delete Accommodation lives in there), same
      as every other card on the Itinerary already works, rather than carrying its own separate
-     edit/delete buttons */
-  const rows = list.map((a,i)=>({date:a.checkin||'', html: `
+     edit/delete buttons. One flagged "Add as Task" only shows in Tasks (see
+     undecidedItemsHTML), so it's filtered out here - but the real index into t.accommodations
+     (not the filtered list's own position) is what App.accomForm needs to edit the right one. */
+  const rows = all.map((a,i)=>({a,i})).filter(o=>!o.a.asTask).map(({a,i})=>({date:a.checkin||'', html: `
     <div class="plan-auto${!ro?' plan-click':''}"${!ro?` role="button" tabindex="0" onclick="App.accomForm(${i})"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.accomForm(${i})}"`:''}>
       ${accomCardHTML(a, {plainHead:true})}
@@ -13112,6 +13148,11 @@ App.accomForm = (i, prefill) => {
   const a = (i>=0 && t.accommodations[i]) || prefill || {};
   openModal(`
     <h2>${i>=0?'Edit Accommodation':'Add Accommodation'}</h2>
+    <div class="field">
+      <label class="switch-row"><span>Add as Task</span>
+        <span class="switch"><input type="checkbox" id="ac-as-task" ${a.asTask?'checked':''}><span class="knob"></span></span>
+      </label>
+    </div>
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…" oninput="App.accomAutoName()"></div>
     <div class="field"><label class="label" for="ac-name">Name</label><input id="ac-name" type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name (fills in automatically once you add a link or address)"</div>
     <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}" oninput="App.accomAutoName()"></div>
@@ -13149,7 +13190,7 @@ App.saveAccom = i => {
   const name = $('#ac-name').value.trim() || autoAccomName(url, address);
   if(!name && !address) return markErr('#ac-name','Give it a name or address');
   const a = {id: i>=0 && t.accommodations[i] ? t.accommodations[i].id : uid(),
-    name, address,
+    name, address, asTask:$('#ac-as-task').checked,
     checkin:$('#ac-in').value, checkinTime:$('#ac-in-time').value, arrivalTime:$('#ac-arrival-time').value,
     checkout:$('#ac-out').value, checkoutTime:$('#ac-out-time').value,
     ref:$('#ac-ref').value.trim(), bookingUrl:url};
