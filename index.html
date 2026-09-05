@@ -1656,8 +1656,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.42.0';
+const APP_VERSION = '2.43.0';
 const CHANGELOG = [
+  {version:'2.43.0', notes:[
+    '"Add as Task" no longer turns a travel leg into a separate card on the Itinerary - it now stays exactly as it was (the same plain line), just in red, and is read straight off that leg for the Tasks list rather than stored twice. The toggle also moved to sit under Mode, and dropped its explanation text.'
+  ]},
   {version:'2.42.0', notes:[
     'Removed the Accommodation card\'s divider line under its title (padding unchanged).',
     'Travel\'s "Not Booked Yet" toggle folded back into "Add as Task" - one toggle, same effect: drops it in Tasks and shows red on the Itinerary.'
@@ -9980,7 +9983,8 @@ function tabHome(t, ro){
   const {groups:planGroups, keys:planKeys} = planDayGroups(t);
   const gapFirstNights = new Set(gaps.map(g=>g.firstNight));
   const emptyDayCount = planKeys.filter(k => planGroups[k].length===0 && !gapFirstNights.has(k)).length;
-  const outstanding = openTasks + gaps.length + emptyDayCount;
+  const asTaskLegs = (t.itinerary||[]).filter(leg=>leg.kind==='travel' && leg.asTask).length;
+  const outstanding = openTasks + gaps.length + emptyDayCount + asTaskLegs;
   const allBooked = tasks.length>0 && !outstanding;
   const taskSum = outstanding ? outstanding+(outstanding===1?' Thing to Book':' Things to Book')
     : allBooked ? 'All Booked' : 'Nothing Added Yet';
@@ -10213,6 +10217,18 @@ function undecidedItemsHTML(t, ro){
     rows.push({dateLine: fmtDateOrdinalRange(g.firstNight, g.checkout), icon:secEmoji('🏠'),
       title: place ? `Accommodation in ${esc(place)}` : 'Accommodation', time:'',
       editFn:`App.accomGapForm('${g.firstNight}','${g.checkout}')`, sortKey:g.firstNight});
+  });
+  /* a travel leg flagged "Add as Task" (App.travelLegForm) stays exactly where it already
+     lives - a normal leg on the Itinerary, shown red there - rather than a second record kept
+     in sync with it; this just reads the same leg back out for the Tasks list */
+  (t.itinerary||[]).forEach((leg,li)=>{
+    if(leg.kind!=='travel' || !leg.asTask) return;
+    const mode = TRAVEL_MODES[leg.mode] || TRAVEL_MODES.undecided;
+    const k = rough ? (leg.day?'d'+leg.day:'') : (leg.date||'');
+    rows.push({dateLine: dateLineFor(k), icon:mode.icon,
+      title: travelTaskTitle(leg.mode, esc(leg.from), esc(leg.to)),
+      time: leg.time || (leg.period && PLAN_PERIODS[leg.period] && PLAN_PERIODS[leg.period][0]) || '',
+      undecided:true, editFn:`App.travelLegForm(${li})`, sortKey:k});
   });
   /* the whole list reads in day order - a flight/car/accommodation still marked entirely TBC
      (no date at all yet) has nothing to sort by, so it sinks to the end rather than to some
@@ -10968,7 +10984,7 @@ function planDayGroups(t){
     const k = rough ? (task.day?'d'+task.day:'') : (task.date||'');
     if(!k) return;
     (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes,
-      time:task.time||'', period:task.period||'', unscheduled:false, fromTravel:!!task.fromTravel, ti});
+      time:task.time||'', period:task.period||'', unscheduled:false, ti});
   });
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
@@ -11176,8 +11192,12 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
                  : way;
+      // "Add as Task" (App.travelLegForm) doesn't book anything or change what this line says -
+      // it just flags it the same red as everything else still outstanding, and lists it in
+      // Tasks (see undecidedItemsHTML), read straight off this same leg rather than a second
+      // record kept in sync with it
       return `
-      <div class="plan-connector${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}${s.link?` ${travelLinkHTML(s.link)}`:''}</div>`;
+      <div class="plan-connector${!ro?' plan-click':''}${s.asTask?' text-undecided':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}${s.link?` ${travelLinkHTML(s.link)}`:''}</div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -11238,11 +11258,11 @@ function planDaysHTML(t, ro, filterKeys){
     </div>`;
   };
   const taskCard = s => `
-    <div class="card plan-card task-card${(s.unscheduled||s.fromTravel)?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
+    <div class="card plan-card task-card${s.unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
       <div class="section-head" style="margin-bottom:0">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
           <span class="task-flag" aria-hidden="true">☑</span>
-          <h3${s.fromTravel?' class="text-undecided"':''}>${esc(s.title)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
+          <h3>${esc(s.title)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
         </div>
       </div>
       ${s.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
@@ -12143,15 +12163,14 @@ App.travelLegForm = (i, prefill) => {
     .map(m=>`<option value="${m}" ${m===(s.durationM||0)?'selected':''}>${m} m</option>`).join('');
   openModal(`
     <h2>${i>=0?'Edit Travel':'Add Travel'}</h2>
-    <div class="field">
-      <label class="switch-row"><span>Add as Task</span>
-        <span class="switch"><input type="checkbox" id="tv-as-task" ${s.fromTravel?'checked':''}><span class="knob"></span></span>
-      </label>
-      <p class="muted small" style="margin-top:4px">Keeps everything below, but just drops it in Tasks and flags it red on the Itinerary instead of booking it.</p>
-    </div>
     <div class="field"><label class="label" id="tv-mode-label">Mode</label>
       <input type="hidden" id="tv-mode" value="${s.mode||'undecided'}">
       <div class="mode-picker" role="radiogroup" aria-labelledby="tv-mode-label">${modePicks}</div></div>
+    <div class="field">
+      <label class="switch-row"><span>Add as Task</span>
+        <span class="switch"><input type="checkbox" id="tv-as-task" ${s.asTask?'checked':''}><span class="knob"></span></span>
+      </label>
+    </div>
     <div class="grid2">
       <div class="field"><label class="label" for="tv-from">From</label>
         <input id="tv-from" type="text" list="loc-list" value="${esc(s.from||'')}" placeholder="e.g. Corfu Town"></div>
@@ -12212,27 +12231,9 @@ App.saveTravelLeg = i => {
   const dd = readDayOrDate('tv');
   const mode = $('#tv-mode').value;
   const link = normalizeUrl($('#tv-link').value.trim());
-  /* "Add as Task" doesn't book anything - it just parks the same details (mode, from/to,
-     duration, link) as a Task instead of a travel leg, so it still shows up (in red, as
-     something still outstanding) rather than getting lost. Editing an already-saved leg
-     over into a task removes the leg it came from, same as any other edit replaces what
-     was there rather than leaving a duplicate behind. */
-  if($('#tv-as-task').checked){
-    t.tasks = t.tasks||[];
-    const noteLines = [mode && mode!=='undecided' ? TRAVEL_MODES[mode].label : '',
-      travelDurationLabel({durationH, durationM}), link].filter(Boolean);
-    const task = {id: uid(), title: travelTaskTitle(mode, from, to), date:dd.date, day:dd.day,
-      time, period, notes: noteLines.join('\n'), done:false, fromTravel:true,
-      mode, from, to, durationH, durationM, link};
-    t.tasks.push(task);
-    if(i>=0) t.itinerary.splice(i,1);
-    logEdit('Tasks', 'added task from travel: '+task.title);
-    save(); closeModal(); rerender(); toast('Added to Tasks');
-    return;
-  }
   const s = {id: existing ? existing.id : uid(), kind:'travel', mode,
              from, to, date:dd.date, day:dd.day, time, period, timing, durationH, durationM,
-             link, ...(autoLink || {})};
+             link, asTask:$('#tv-as-task').checked, ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
