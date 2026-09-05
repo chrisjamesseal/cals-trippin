@@ -1650,8 +1650,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.40.0';
+const APP_VERSION = '2.41.0';
 const CHANGELOG = [
+  {version:'2.41.0', notes:[
+    'Add/Edit Travel now has a "Not Booked Yet" toggle: switch it on and the leg saves normally but shows in red on the Itinerary, a reminder it still needs sorting.'
+  ]},
   {version:'2.40.0', notes:[
     'The Accommodation tab\'s cards are now tap-to-edit, same as everywhere else on the app - dropped the separate edit/remove buttons (Delete Accommodation still lives inside the edit form) and the tinted background behind the title.'
   ]},
@@ -11130,8 +11133,11 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
                  : way;
+      // "Not Booked Yet" (App.travelLegForm) flags an otherwise-decided leg the same red as
+      // everything else still outstanding, without changing what it actually says - the mode's
+      // been picked and the details are real, it just isn't sorted yet
       return `
-      <div class="plan-connector${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}${s.link?` ${travelLinkHTML(s.link)}`:''}</div>`;
+      <div class="plan-connector${!ro?' plan-click':''}${s.notBooked?' text-undecided':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}${s.link?` ${travelLinkHTML(s.link)}`:''}</div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -12126,6 +12132,12 @@ App.travelLegForm = (i, prefill) => {
     <div class="field"><label class="label" id="tv-mode-label">Mode</label>
       <input type="hidden" id="tv-mode" value="${s.mode||'undecided'}">
       <div class="mode-picker" role="radiogroup" aria-labelledby="tv-mode-label">${modePicks}</div></div>
+    <div class="field">
+      <label class="switch-row"><span>Not Booked Yet</span>
+        <span class="switch"><input type="checkbox" id="tv-not-booked" ${s.notBooked?'checked':''}><span class="knob"></span></span>
+      </label>
+      <p class="muted small" style="margin-top:4px">Still saves normally, just flags it red on the Itinerary as a reminder it isn't sorted yet.</p>
+    </div>
     <div class="grid2">
       <div class="field"><label class="label" for="tv-from">From</label>
         <input id="tv-from" type="text" list="loc-list" value="${esc(s.from||'')}" placeholder="e.g. Corfu Town"></div>
@@ -12206,7 +12218,7 @@ App.saveTravelLeg = i => {
   }
   const s = {id: existing ? existing.id : uid(), kind:'travel', mode,
              from, to, date:dd.date, day:dd.day, time, period, timing, durationH, durationM,
-             link, ...(autoLink || {})};
+             link, notBooked:$('#tv-not-booked').checked, ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
   logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
