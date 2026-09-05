@@ -1653,10 +1653,13 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.44.0';
+const APP_VERSION = '2.45.0';
 const CHANGELOG = [
+  {version:'2.45.0', notes:[
+    'A travel leg flagged "Add as Task" now stays out of the Itinerary entirely, same as a hand-typed task - it only shows in Tasks, instead of also sitting on the Itinerary in red.'
+  ]},
   {version:'2.44.0', notes:[
-    'Hand-typed Tasks no longer fold into the Itinerary once given a day - they stay in Tasks only, same as a travel leg\'s own "Add as Task" flag already reads straight off the Itinerary instead of duplicating there.',
+    'Hand-typed Tasks no longer fold into the Itinerary once given a day - they stay in Tasks only.',
     'A title-only stop card (nothing below the name - no notes, photo, or timed location line) has less empty space under it now, instead of the same bottom padding as a fuller card.'
   ]},
   {version:'2.43.0', notes:[
@@ -10219,9 +10222,9 @@ function undecidedItemsHTML(t, ro){
       title: place ? `Accommodation in ${esc(place)}` : 'Accommodation', time:'',
       editFn:`App.accomGapForm('${g.firstNight}','${g.checkout}')`, sortKey:g.firstNight});
   });
-  /* a travel leg flagged "Add as Task" (App.travelLegForm) stays exactly where it already
-     lives - a normal leg on the Itinerary, shown red there - rather than a second record kept
-     in sync with it; this just reads the same leg back out for the Tasks list */
+  /* a travel leg flagged "Add as Task" (App.travelLegForm) lives only here - it's read
+     straight off the leg itself (planDayGroups skips it) rather than a second record kept
+     in sync with it, same as a hand-typed task only ever shows in Tasks */
   (t.itinerary||[]).forEach((leg,li)=>{
     if(leg.kind!=='travel' || !leg.asTask) return;
     const mode = TRAVEL_MODES[leg.mode] || TRAVEL_MODES.undecided;
@@ -10918,6 +10921,10 @@ function planDayGroups(t){
      than always landing in Anytime - only something with no date at all falls back to Anytime. */
   const rough = hasRoughWhen(t);
   items.forEach((s,i)=>{
+    // a travel leg flagged "Add as Task" (App.travelLegForm) belongs to Tasks only, same as
+    // a hand-typed task - it's read back out for that list (see undecidedItemsHTML) rather
+    // than also showing here
+    if(s.kind==='travel' && s.asTask) return;
     const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
     (groups[k]=groups[k]||[]).push({...s, _i:i});
   });
@@ -11182,12 +11189,8 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
                  : way;
-      // "Add as Task" (App.travelLegForm) doesn't book anything or change what this line says -
-      // it just flags it the same red as everything else still outstanding, and lists it in
-      // Tasks (see undecidedItemsHTML), read straight off this same leg rather than a second
-      // record kept in sync with it
       return `
-      <div class="plan-connector${!ro?' plan-click':''}${s.asTask?' text-undecided':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}${s.link?` ${travelLinkHTML(s.link)}`:''}</div>`;
+      <div class="plan-connector${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}${s.link?` ${travelLinkHTML(s.link)}`:''}</div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
