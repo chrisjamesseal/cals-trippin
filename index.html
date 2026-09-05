@@ -1158,12 +1158,8 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
    top of each other instead of reading as the one card it is. */
 .card-undecided .flight-head{background:none !important; border-bottom:none !important;}
 .card-undecided h3,.card-undecided .head-with-logo,.card-undecided .head-with-logo span,.card-undecided strong{color:#C0392B;}
-/* a task only wears this while it still needs a day - once it's on the Itinerary it's a
-   plan like any other */
 .task-card{border-left:3px solid var(--line-strong);}
-.task-card.task-unscheduled{border:2px dashed #C0392B; border-left:2px dashed #C0392B; background:none; box-shadow:none;}
 .task-nowhen{color:#C0392B; font-weight:600;}
-.task-flag{font-size:.95rem; line-height:1;}
 .task-card.task-done{border-left-color:var(--line-strong); opacity:.6;}
 .task-card.task-done h3{text-decoration:line-through; color:var(--muted);}
 /* the outstanding-item rows on Tasks (a not-booked flight/ferry/car/stay, an empty Itinerary
@@ -1175,7 +1171,7 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
 .task-block:last-child{border-bottom:none; margin-bottom:0; padding-bottom:0;}
 .task-date{color:var(--muted); font-size:.85rem; margin:0 0 14px;}
 /* same dashed weight/tint every other "still needs deciding" card wears (.gap-card,
-   .card-undecided, .task-unscheduled) - this used to be a plain 1px grey dash, thinner and
+   .card-undecided) - this used to be a plain 1px grey dash, thinner and
    flatter than its siblings, so a page with several of these (an empty day, an unbooked leg)
    sat next to ones that didn't quite match. */
 .task-pill{display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -1485,6 +1481,7 @@ body.kb-open .tabbar.on{display:none;}
 .plan-leg-icon{flex-shrink:0; line-height:1.4;}
 .plan-leg-text{min-width:0; overflow-wrap:anywhere;}
 .plan-card{margin-bottom:20px;}
+.plan-card.plan-card-solo{padding-bottom:10px;}
 
 /* ---------- packing list ---------- */
 .pack-add{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
@@ -1656,8 +1653,12 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.43.0';
+const APP_VERSION = '2.44.0';
 const CHANGELOG = [
+  {version:'2.44.0', notes:[
+    'Hand-typed Tasks no longer fold into the Itinerary once given a day - they stay in Tasks only, same as a travel leg\'s own "Add as Task" flag already reads straight off the Itinerary instead of duplicating there.',
+    'A title-only stop card (nothing below the name - no notes, photo, or timed location line) has less empty space under it now, instead of the same bottom padding as a fuller card.'
+  ]},
   {version:'2.43.0', notes:[
     '"Add as Task" no longer turns a travel leg into a separate card on the Itinerary - it now stays exactly as it was (the same plain line), just in red, and is read straight off that leg for the Tasks list rather than stored twice. The toggle also moved to sit under Mode, and dropped its explanation text.'
   ]},
@@ -10975,17 +10976,6 @@ function planDayGroups(t){
     (groups[mv.date]=groups[mv.date]||[]).push({kind:'travel', mode:'undecided',
       from:mv.from, to:mv.to, time:mv.time, timing:mv.timing, aci:mv.aci});
   });
-  /* an outstanding task folds into the day it's linked to, same red as the Tasks tab; once
-     it's ticked booked there it stops appearing here too, since it's the same record. A task
-     with no specific day isn't linked to anywhere on the Itinerary to fold into, so it's left
-     out entirely - it still shows in Tasks, which is where a day-less task belongs. */
-  (t.tasks||[]).forEach((task,ti)=>{
-    if(task.done) return;
-    const k = rough ? (task.day?'d'+task.day:'') : (task.date||'');
-    if(!k) return;
-    (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes,
-      time:task.time||'', period:task.period||'', unscheduled:false, ti});
-  });
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
      something on them: a day nothing's been added to yet gets a dashed placeholder (same
@@ -11229,6 +11219,10 @@ function planDaysHTML(t, ro, filterKeys){
     // head keeps no margin below it - otherwise the bottom padding stacks on top of that
     // margin and reads as lopsided against the plain top padding above the title
     const hasBelow = !!(s.notes || hasImage);
+    // with nothing below the head at all (no notes, image, or location line) the card's own
+    // plain bottom padding is the only space under the title, and .card's usual 18px reads as
+    // too much with just one line above it - trimmed back for this solo-title case only
+    const solo = !hasBelow && !(time && s.location);
     // a timed stop leads with when it happens - "Evening - 🏰 Castle Walk & Sunset" - the same
     // "time - name" shape every other timed line on this page already uses (the Check Out pill,
     // the flight/ferry auto-tags), in the same plain, non-bold weight as the accommodation
@@ -11248,7 +11242,7 @@ function planDaysHTML(t, ro, filterKeys){
       </div>
       ${time&&s.location?`<p class="small muted plan-location" style="margin:0 0 ${hasBelow?'8px':'0'}">${esc(s.location)}</p>`:''}`;
     return `
-    <div class="card plan-card${hasImage?' plan-card-photo':''}${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
+    <div class="card plan-card${hasImage?' plan-card-photo':''}${solo?' plan-card-solo':''}${!ro?' plan-click':''}" ${clickAttrs(`App.planForm(${s._i})`)}>
       ${head}
       ${s.notes?`<p class="small plan-notes" style="margin-bottom:10px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
       ${hasImage ? `<div class="plan-img-wrap">
@@ -11257,23 +11251,12 @@ function planDaysHTML(t, ro, filterKeys){
       </div>` : ''}
     </div>`;
   };
-  const taskCard = s => `
-    <div class="card plan-card task-card${s.unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
-      <div class="section-head" style="margin-bottom:0">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          <span class="task-flag" aria-hidden="true">☑</span>
-          <h3>${esc(s.title)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
-        </div>
-      </div>
-      ${s.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
-    </div>`;
   const card = s =>
     s._autoFlight ? autoFlightCard(s)
     : s._autoFerry ? autoFerryCard(s)
     : s._autoCar ? autoCarCard(s)
     : s._autoStay ? autoStayCard(s)
     : s.kind==='travel' ? travelCard(s)
-    : s.kind==='task' ? taskCard(s)
     : stopCard(s);
   /* the same dashed task-pill as the Tasks tab's own "Nothing Planned" row (see
      undecidedItemsHTML) - a day nothing's been added to yet reads as one quiet tappable line
