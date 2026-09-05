@@ -1657,8 +1657,13 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.46.0';
+const APP_VERSION = '2.47.0';
 const CHANGELOG = [
+  {version:'2.47.0', notes:[
+    'Fixed the bottom tab bar sometimes staying hidden after closing a form mid-edit - it could get stuck behind a keyboard that had already gone.',
+    'Accommodation\'s check-in/check-out time is now an hour-only picker (a property\'s times are always on the hour) instead of a full time picker - and, unlike that picker on some phones, can now actually be cleared back to "No specific time".',
+    'The Itinerary\'s accommodation card, with no booking link added yet, now says "Hotel in Corfu" instead of just "Corfu" with a plain hotel icon in front of it - and dropped the empty space that was sitting under the dates when there was nothing else on the card.'
+  ]},
   {version:'2.46.0', notes:[
     'Accommodation now has the same "Add as Task" toggle as Travel: switch it on and it saves normally but only shows in Tasks (in red), rather than as a real booking - it no longer fills its nights on the Itinerary or counts toward Stays Added, and the nights stay an open gap until something real is booked.',
     'Fixed Tasks sorting by whatever order things happened to be added in in rather than by time - two items on the same day now read in actual clock order (a 14:00 train before a 22:00 taxi, not the other way round).',
@@ -4075,6 +4080,15 @@ function openModal(html, opts){
 function closeModal(){
   if(!modalOpen()) return;
   if(MODAL_STACK.length){ const back = MODAL_STACK.pop(); back(); return; }
+  // wiping the modal's DOM can leave a focused field's blur/focusout never firing on some
+  // mobile browsers, which would otherwise strand body.kb-open set - the tab bar staying
+  // hidden behind a keyboard that's already gone - every time a form's closed mid-edit.
+  // Blurring it ourselves first, and clearing kb-open immediately rather than on the usual
+  // debounce (nothing else is mid-tap here for that debounce to protect), avoids it.
+  const active = document.activeElement;
+  if(active && active.matches && active.matches('input,textarea')) active.blur();
+  clearTimeout(KB_OPEN_TIMER);
+  document.body.classList.remove('kb-open');
   $('#modal-root').innerHTML=''; document.body.style.overflow='';
   if(_lastFocus && _lastFocus.focus){ try{ _lastFocus.focus(); }catch(e){} }
   _lastFocus = null;
@@ -11139,22 +11153,26 @@ function planDaysHTML(t, ro, filterKeys){
     const mapsUrl = ac.address ? googleMapsUrl(ac.address) : '';
     const nights = ac.checkin && ac.checkout
       ? Math.max(1, Math.round((new Date(ac.checkout+'T00:00:00')-new Date(ac.checkin+'T00:00:00'))/86400000)) : 0;
-    // no booking link yet to pull a real logo from - a plain hotel emoji stands in for it until
-    // one's added, rather than the name reading with no icon in front of it at all. Nudged left
-    // a couple of px - the emoji glyph itself carries more left-side padding than a real logo
-    // or the calendar icon on the date row underneath it, so it reads as indented against them
-    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : `<span class="sec-emoji" aria-hidden="true" style="margin-left:-3px">🏨</span>`;
-    const primaryTime = ac.arrivalTime || ac.checkinTime;
     const cityName = accomCityName(ac, t);
+    // no booking link yet to pull a real logo from - "Hotel in X" stands in for it until one's
+    // added, rather than the name reading with no context at all (just "Tiranë" on its own
+    // could be any card on the page)
+    const logo = ac.bookingUrl ? bookingLogoFor(ac.bookingUrl, '', ac.name||'Accommodation') : '';
+    const titleText = ac.bookingUrl ? cityName : `Hotel in ${cityName}`;
+    const primaryTime = ac.arrivalTime || ac.checkinTime;
+    // nothing follows the date row (no ref, no maps/booking link) - its own bottom margin
+    // would just stack on top of the card's plain bottom padding otherwise, same double-gap
+    // fix as a title-only stop card already gets (see stopCard's own `solo`)
+    const hasBelow = !!(ac.ref || mapsUrl || ac.bookingUrl);
     return `
     <div class="flight-strip itin-flight">
       <div class="flight-head">
         <span class="itin-time">${primaryTime?esc(primaryTime)+' -':''}</span>
-        <strong class="head-with-logo">${logo}<span>${esc(cityName)}</span></strong>
+        <strong class="head-with-logo">${logo}<span>${esc(titleText)}</span></strong>
         ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
       </div>
       ${ac.address && ac.address!==cityName?`<div class="itin-route-name">${esc(ac.address)}</div>`:''}
-      ${ac.checkin?`<div class="itin-stay-dates"${BOOKING_SERVICE_COLORS[detectBookingService(ac.bookingUrl)]?` style="--stay-icon-color:${BOOKING_SERVICE_COLORS[detectBookingService(ac.bookingUrl)]}"`:''}>
+      ${ac.checkin?`<div class="itin-stay-dates" style="margin-bottom:${hasBelow?'12px':'0'}${BOOKING_SERVICE_COLORS[detectBookingService(ac.bookingUrl)]?`;--stay-icon-color:${BOOKING_SERVICE_COLORS[detectBookingService(ac.bookingUrl)]}`:''}">
         <span>${ICONS.calendar}${esc(fmtDateOrdinal(ac.checkin))}${ac.checkinTime?` ${fa('clock')}Check In: ${esc(ac.checkinTime)}`:''}</span>
         ${ac.checkout?`<span class="itin-date-to">to ${ICONS.calendar}${esc(fmtDateOrdinal(ac.checkout))}${ac.checkoutTime?` ${fa('clock')}Check Out: ${esc(ac.checkoutTime)}`:''}</span>`:''}
       </div>`:''}
@@ -12047,6 +12065,16 @@ function roundToQuarterHour(timeStr){
   m = Math.round(m/15)*15;
   if(m===60){ m=0; h=(h+1)%24; }
   return {h, m};
+}
+/* a property's check-in/check-out only ever lands on the hour ("15:00", never "15:15"), so
+   there's no real minute to pick - a plain hour dropdown reads faster than a full time picker
+   for that, and (unlike a bare <input type="time">, which some mobile browsers give no way to
+   clear back to blank once set) a "No specific time" option at the top makes clearing it back
+   out to nothing a normal menu pick instead of a dead end. */
+function hourOnlyOptionsHTML(value){
+  const opts = Array.from({length:24}, (_,h)=>String(h).padStart(2,'0')+':00')
+    .map(hh=>`<option value="${hh}" ${value===hh?'selected':''}>${hh}</option>`).join('');
+  return `<option value="" ${!value?'selected':''}>No specific time</option>${opts}`;
 }
 App.planWhenChange = () => {
   const wrap = $('#pl-time-wrap'); if(!wrap) return;
@@ -13166,13 +13194,13 @@ App.accomForm = (i, prefill) => {
     <div class="field"><label class="label">Address</label><input id="ac-addr" type="text" value="${esc(a.address||'')}" oninput="App.accomAutoName()"></div>
     <div class="grid2">
       <div class="field"><label class="label">Check-in date</label><input id="ac-in" type="date" value="${esc(a.checkin||'')}"></div>
-      <div class="field"><label class="label">Check-in time</label><input id="ac-in-time" type="time" value="${esc(a.checkinTime||'')}"></div>
+      <div class="field"><label class="label">Check-in time</label><select id="ac-in-time">${hourOnlyOptionsHTML(a.checkinTime||'')}</select></div>
     </div>
     <div class="field"><label class="label">Your arrival time</label><input id="ac-arrival-time" type="time" value="${esc(a.arrivalTime||'')}">
       <p class="muted small" style="margin-top:6px">Only if you're arriving later than the standard check-in time above, used instead of it to work out where this falls in the itinerary.</p></div>
     <div class="grid2">
       <div class="field"><label class="label">Check-out date</label><input id="ac-out" type="date" value="${esc(a.checkout||'')}"></div>
-      <div class="field"><label class="label">Check-out time</label><input id="ac-out-time" type="time" value="${esc(a.checkoutTime||'')}"></div>
+      <div class="field"><label class="label">Check-out time</label><select id="ac-out-time">${hourOnlyOptionsHTML(a.checkoutTime||'')}</select></div>
     </div>
     <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
     <div class="modal-actions">
