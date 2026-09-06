@@ -1162,8 +1162,12 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
    top of each other instead of reading as the one card it is. */
 .card-undecided .flight-head{background:none !important; border-bottom:none !important;}
 .card-undecided h3,.card-undecided .head-with-logo,.card-undecided .head-with-logo span,.card-undecided strong{color:#C0392B;}
+/* a task only wears this while it still needs a day - once it's on the Itinerary it's a
+   plan like any other */
 .task-card{border-left:3px solid var(--line-strong);}
+.task-card.task-unscheduled{border:2px dashed #C0392B; border-left:2px dashed #C0392B; background:none; box-shadow:none;}
 .task-nowhen{color:#C0392B; font-weight:600;}
+.task-flag{font-size:.95rem; line-height:1;}
 .task-card.task-done{border-left-color:var(--line-strong); opacity:.6;}
 .task-card.task-done h3{text-decoration:line-through; color:var(--muted);}
 /* the outstanding-item rows on Tasks (a not-booked flight/ferry/car/stay, an empty Itinerary
@@ -1175,7 +1179,7 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
 .task-block:last-child{border-bottom:none; margin-bottom:0; padding-bottom:0;}
 .task-date{color:var(--muted); font-size:.85rem; margin:0 0 14px;}
 /* same dashed weight/tint every other "still needs deciding" card wears (.gap-card,
-   .card-undecided) - this used to be a plain 1px grey dash, thinner and
+   .card-undecided, .task-unscheduled) - this used to be a plain 1px grey dash, thinner and
    flatter than its siblings, so a page with several of these (an empty day, an unbooked leg)
    sat next to ones that didn't quite match. */
 .task-pill{display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -1657,8 +1661,12 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.47.0';
+const APP_VERSION = '2.48.0';
 const CHANGELOG = [
+  {version:'2.48.0', notes:[
+    'Tasks are back on the Itinerary: a hand-typed task with a day set, a travel leg flagged "Add as Task", and now an accommodation flagged "Add as Task" too, all show again on the day they\'re linked to (in red), same as before, alongside still showing in the Tasks tab.',
+    'Deleting a task now lands you back on the Tasks tab, not wherever you happened to open it from (the Itinerary, say) - there\'s nothing left there for that task any more.'
+  ]},
   {version:'2.47.0', notes:[
     'Fixed the bottom tab bar sometimes staying hidden after closing a form mid-edit - it could get stuck behind a keyboard that had already gone.',
     'Accommodation\'s check-in/check-out time is now an hour-only picker (a property\'s times are always on the hour) instead of a full time picker - and, unlike that picker on some phones, can now actually be cleared back to "No specific time".',
@@ -10384,7 +10392,10 @@ App.delTask = i => {
     const t2 = getTrip(CUR_TRIP_ID); if(!t2) return;
     t2.tasks.splice(i,1);
     logEdit('Tasks','removed task: '+task.title);
-    save(); closeModal(); rerender();
+    // a task with a day set opens this same form from the Itinerary too (see taskCard) - once
+    // it's deleted there's nothing left on that Itinerary day to come back to, so land on
+    // Tasks instead of wherever the tap happened to come from
+    save(); closeModal(); CUR_TAB='tasks'; rerender();
   });
 };
 
@@ -10962,10 +10973,6 @@ function planDayGroups(t){
      than always landing in Anytime - only something with no date at all falls back to Anytime. */
   const rough = hasRoughWhen(t);
   items.forEach((s,i)=>{
-    // a travel leg flagged "Add as Task" (App.travelLegForm) belongs to Tasks only, same as
-    // a hand-typed task - it's read back out for that list (see undecidedItemsHTML) rather
-    // than also showing here
-    if(s.kind==='travel' && s.asTask) return;
     const k = rough ? (s.day ? 'd'+s.day : '') : (s.date||'');
     (groups[k]=groups[k]||[]).push({...s, _i:i});
   });
@@ -11004,10 +11011,6 @@ function planDayGroups(t){
     }
   });
   (t.accommodations||[]).forEach((ac,aci)=>{
-    // an accommodation flagged "Add as Task" (App.accomForm) belongs to Tasks only, same as
-    // a hand-typed task or a travel leg's own asTask flag - read back out for that list (see
-    // undecidedItemsHTML) rather than also showing here
-    if(ac.asTask) return;
     // your actual arrival time, when you've set one, is what the day should sort by, not
     // the property's generic check-in time
     const ik = rough ? roughDayKey(t, ac.checkin) : ac.checkin, ok = rough ? roughDayKey(t, ac.checkout) : ac.checkout;
@@ -11027,6 +11030,17 @@ function planDayGroups(t){
   (rough ? [] : stayMoves(t)).forEach(mv=>{
     (groups[mv.date]=groups[mv.date]||[]).push({kind:'travel', mode:'undecided',
       from:mv.from, to:mv.to, time:mv.time, timing:mv.timing, aci:mv.aci});
+  });
+  /* an outstanding task folds into the day it's linked to, same red as the Tasks tab; once
+     it's ticked booked there it stops appearing here too, since it's the same record. A task
+     with no specific day isn't linked to anywhere on the Itinerary to fold into, so it's left
+     out entirely - it still shows in Tasks, which is where a day-less task belongs. */
+  (t.tasks||[]).forEach((task,ti)=>{
+    if(task.done) return;
+    const k = rough ? (task.day?'d'+task.day:'') : (task.date||'');
+    if(!k) return;
+    (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes,
+      time:task.time||'', period:task.period||'', unscheduled:false, ti});
   });
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
@@ -11168,7 +11182,7 @@ function planDaysHTML(t, ro, filterKeys){
     <div class="flight-strip itin-flight">
       <div class="flight-head">
         <span class="itin-time">${primaryTime?esc(primaryTime)+' -':''}</span>
-        <strong class="head-with-logo">${logo}<span>${esc(titleText)}</span></strong>
+        <strong class="head-with-logo">${logo}<span${ac.asTask?' class="text-undecided"':''}>${esc(titleText)}</span></strong>
         ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
       </div>
       ${ac.address && ac.address!==cityName?`<div class="itin-route-name">${esc(ac.address)}</div>`:''}
@@ -11242,8 +11256,12 @@ function planDaysHTML(t, ro, filterKeys){
                  : s.to ? `${way} to ${esc(s.to)}`
                  : s.from ? `${way} from ${esc(s.from)}`
                  : way;
+      // "Add as Task" (App.travelLegForm) doesn't book anything or change what this line says -
+      // it just flags it the same red as everything else still outstanding, and lists it in
+      // Tasks (see undecidedItemsHTML), read straight off this same leg rather than a second
+      // record kept in sync with it
       return `
-      <div class="plan-connector${!ro?' plan-click':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}${s.link?` ${travelLinkHTML(s.link)}`:''}</div>`;
+      <div class="plan-connector${!ro?' plan-click':''}${s.asTask?' text-undecided':''}" ${clickAttrs(editFn)}>${timeBadge(s)?`<span class="small">${esc(timeBadge(s))} -</span> `:''}${mode.icon} ${line}${s.link?` ${travelLinkHTML(s.link)}`:''}</div>`;
     }
     const place = s.from && s.to ? `${esc(s.from)} → ${esc(s.to)}` : s.to ? `To ${esc(s.to)}` : s.from ? `From ${esc(s.from)}` : '?';
     const title = place + (when?' - '+esc(when):'');
@@ -11307,12 +11325,23 @@ function planDaysHTML(t, ro, filterKeys){
       </div>` : ''}
     </div>`;
   };
+  const taskCard = s => `
+    <div class="card plan-card task-card${s.unscheduled?' task-unscheduled':''}${!ro?' plan-click':''}" ${clickAttrs(`App.taskForm(${s.ti})`)}>
+      <div class="section-head" style="margin-bottom:0">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
+          <span class="task-flag" aria-hidden="true">☑</span>
+          <h3>${esc(s.title)}${timeBadge(s)?' - '+esc(timeBadge(s)):''}</h3>
+        </div>
+      </div>
+      ${s.notes?`<p class="small" style="margin-top:6px;white-space:pre-wrap">${esc(s.notes)}</p>`:''}
+    </div>`;
   const card = s =>
     s._autoFlight ? autoFlightCard(s)
     : s._autoFerry ? autoFerryCard(s)
     : s._autoCar ? autoCarCard(s)
     : s._autoStay ? autoStayCard(s)
     : s.kind==='travel' ? travelCard(s)
+    : s.kind==='task' ? taskCard(s)
     : stopCard(s);
   /* the same dashed task-pill as the Tasks tab's own "Nothing Planned" row (see
      undecidedItemsHTML) - a day nothing's been added to yet reads as one quiet tappable line
