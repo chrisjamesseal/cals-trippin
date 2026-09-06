@@ -1661,8 +1661,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.48.0';
+const APP_VERSION = '2.49.0';
 const CHANGELOG = [
+  {version:'2.49.0', notes:[
+    'Deleting a travel leg or accommodation flagged "Add as Task" now lands you back on the Tasks tab too, same as deleting a hand-typed task already did - not wherever you happened to open it from.'
+  ]},
   {version:'2.48.0', notes:[
     'Tasks are back on the Itinerary: a hand-typed task with a day set, a travel leg flagged "Add as Task", and now an accommodation flagged "Add as Task" too, all show again on the day they\'re linked to (in red), same as before, alongside still showing in the Tasks tab.',
     'Deleting a task now lands you back on the Tasks tab, not wherever you happened to open it from (the Itinerary, say) - there\'s nothing left there for that task any more.'
@@ -12483,7 +12486,12 @@ App.delPlan = i => {
   const tripId = t.id;
   const removed = t.itinerary[i];
   const label = itineraryItemLabel(removed);
-  t.itinerary.splice(i,1); logEdit('Itinerary','removed '+label); save(); rerender();
+  t.itinerary.splice(i,1); logEdit('Itinerary','removed '+label);
+  // a leg flagged "Add as Task" opens this same form from Tasks too - once it's deleted
+  // there's nothing left there for it, so land back on Tasks rather than wherever the tap
+  // happened to come from (see App.delTask's own version of this)
+  if(removed.asTask) CUR_TAB = 'tasks';
+  save(); rerender();
   toast(removed.kind==='travel'?'Travel removed':'Stop removed', ()=>{
     // re-fetch: a Firebase echo may have swapped in a new trip object since delete
     const t2 = getTrip(tripId); if(!t2) return;
@@ -13272,6 +13280,9 @@ App.delAccom = i => {
   const label = removed.name||'this accommodation';
   confirmModal('Remove Accommodation?', `"${label}" and its details (address, dates, booking info) will be removed.`, 'Remove', ()=>{
     t.accommodations.splice(i,1);
+    // flagged "Add as Task" - same reasoning as App.delPlan's own version of this: land back
+    // on Tasks rather than wherever the tap happened to come from
+    if(removed.asTask) CUR_TAB = 'tasks';
     logEdit('Accommodation','removed '+label); save(); rerender();
     toast('Accommodation removed', ()=>{
       const t2 = getTrip(tripId); if(!t2) return;
