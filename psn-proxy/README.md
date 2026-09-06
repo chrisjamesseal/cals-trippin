@@ -136,6 +136,28 @@ which in turn comes from JustWatch - shown alongside a "via JustWatch" credit as
 that specific endpoint require). No separate setup - if film search already works, this does
 too.
 
+## Connect Ticketmaster (for Theatre show search)
+
+Logging a show works without any of this - title/venue/date/rating can always be typed by hand,
+and a photo can always be uploaded manually - but the Log Show and Add-to-Watchlist forms' title
+fields can search real event listings (with a photo, and the venue filled in) instead. There's no
+dedicated stage-show catalogue with an open API, so this uses
+[Ticketmaster's Discovery API](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/)
+filtered to its Arts & Theatre segment - it's ticketed-event data, not a curated show database, so
+a long-closed or non-touring production may not turn up, and results are deduplicated by title
+(keeping the first, most relevant match) since the same show sells tickets as many separate dated
+events. It talks to Ticketmaster through `api/theatre-search.js`, another Vercel Edge Function
+alongside `api/film-search.js` (same repo, same `git push`, no separate deploy). Ticketmaster's
+free tier just needs a key, no OAuth dance:
+
+1. Sign up at [developer.ticketmaster.com](https://developer.ticketmaster.com/) and create an app
+   under **My Apps** to get a free "Consumer Key" (5,000 calls/day).
+2. Set it as an environment variable on the Vercel project (**not** in `api/theatre-search.js` or
+   anywhere else in this repo, tied to your own Ticketmaster account the same as the other keys
+   here): Vercel dashboard → your project → Settings → Environment Variables → add
+   `TICKETMASTER_API_KEY` with the key as its value → redeploy (or just push again) for it to
+   take effect.
+
 ## Connect Spotify (for Music)
 
 Logging a gig works without any of this - artist name/venue/date/notes can always be typed by
@@ -312,6 +334,13 @@ text box either way), the Vercel project is missing (or has a stale) `TMDB_API_K
 variable - see "Connect TMDb" above. The same missing key is why a CSV import's "finding
 posters…" step silently finds none - nothing breaks, the films just stay posterless the way they
 came in from the CSV.
+
+Show search in Theatre's Log Show and Add-to-Watchlist forms lives in `api/theatre-search.js`,
+same setup again: if it says "isn't set up" (the title field still works as a plain text box,
+and Photo still takes a manual upload, either way), the Vercel project is missing (or has a
+stale) `TICKETMASTER_API_KEY` environment variable - see "Connect Ticketmaster" above. A show
+that's real but genuinely isn't in Ticketmaster's listings (closed, never toured, or too small
+to sell tickets through them) just won't turn up in results - type it in by hand instead.
 
 If a stop on the Itinerary never shows an AI summary above its day-by-day cards, that's by
 design when `ANTHROPIC_API_KEY` isn't set (see "Connect Anthropic" above) - the request 503s

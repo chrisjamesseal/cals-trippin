@@ -1661,8 +1661,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.50.0';
+const APP_VERSION = '2.51.0';
 const CHANGELOG = [
+  {version:'2.51.0', notes:[
+    'Theatre\'s Log Show and Add-to-Watchlist title fields now search real event listings (via Ticketmaster, its Arts & Theatre segment) as you type, filling in the venue and a photo, same as Log Film\'s TMDb search - typing by hand and uploading a photo manually both still always work, needs a one-time TICKETMASTER_API_KEY on the proxy, see psn-proxy/README.md.'
+  ]},
   {version:'2.50.0', notes:[
     'Tasks: an empty day now says "Nothing Planned in Sarandë" instead of just "Nothing Planned", reading the place off the same Location range the day\'s own Itinerary heading would use.'
   ]},
@@ -7504,10 +7507,12 @@ function renderFilmsStatsFiltered(type, valueStr){
 }
 
 /* ---------- theatre (stage shows: seen + want to see) ----------
-   Mirrors Films' Diary/Watchlist split, but there's no TMDb-equivalent catalogue of stage
-   productions to search - both lists are typed in by hand. Reuses Gigs' plain list-card look
-   (no poster art suits a stage show any better than a gig) and Films' half-star rating dropdown
-   (FILM_RATING_VALUES/filmRatingLabel are rating-agnostic - only the field's id is renamed). */
+   Mirrors Films' Diary/Watchlist split. Reuses Gigs' plain list-card look (no poster art suits a
+   stage show any better than a gig) and Films' half-star rating dropdown
+   (FILM_RATING_VALUES/filmRatingLabel are rating-agnostic - only the field's id is renamed). The
+   title field searches Ticketmaster's Discovery API (via api/theatre-search.js, Arts & Theatre
+   segment) the same optional-enhancement way Films' TMDb search works - typing by hand and
+   uploading a photo manually both still always work regardless of whether search is set up. */
 function loadTheatreCloud(cb){
   if(!fbRoot){ cb(DB.theatre||[]); return; }
   fbRoot.ref('theatre').once('value')
@@ -7616,11 +7621,11 @@ function theatreRatingFieldHTML(value){
     </select>
   </div>`;
 }
-/* no catalogue exists to search for a stage show's poster the way Log Film searches TMDb - this
-   mirrors Plants' own "no icon fits, upload one" fallback instead (downscaleToDataURLPng, same
-   status-slot swap pattern), just applied as the primary/only way to attach an image here rather
-   than a fallback to a mostly-automatic one. Shared by both the Log Show and Add-to-Watchlist
-   forms - only one of those modals is ever open at a time, and each resets this when it opens. */
+/* a manual upload (Plants' own "no icon fits, upload one" fallback - downscaleToDataURLPng, same
+   status-slot swap pattern) alongside the search below, rather than instead of it - a show
+   search doesn't find turns up nothing to pick a photo from either. Shared by both the Log Show
+   and Add-to-Watchlist forms - only one of those modals is ever open at a time, and each resets
+   this when it opens. */
 let THEATRE_FORM_IMAGE = null;
 function theatrePosterStatusHTML(){
   if(!THEATRE_FORM_IMAGE) return `
@@ -7644,6 +7649,69 @@ function theatreClearPosterImpl(){
   THEATRE_FORM_IMAGE = null;
   const status = $('#theatre-poster-status'); if(status) status.innerHTML = theatrePosterStatusHTML();
 }
+/* the title field: a live search against Ticketmaster's Discovery API (via
+   api/theatre-search.js) when it's configured, a plain text box otherwise - same shape as
+   Films' TMDb search (filmTitleFieldHTML). Shared by the Log Show form ("theatre" prefix, its
+   own #theatre-title/#theatre-venue) and the Add-to-Watchlist form ("tw" prefix,
+   #tw-title/#tw-venue) - only one of those two is ever open at once, but each still needs its
+   own field ids to avoid colliding with the other's markup were it ever left in the DOM. */
+function theatreTitleFieldHTML(prefix, value){
+  return `<div class="field gig-search-wrap"><label class="label" for="${prefix}-title">Title</label>
+    <input id="${prefix}-title" type="text" value="${esc(value||'')}" placeholder="Search for a show…"
+      autocomplete="off" oninput="App.theatreTitleInput('${prefix}')">
+    <div id="${prefix}-search-results"></div>
+  </div>`;
+}
+/* each keystroke would hammer Ticketmaster on every letter, so this waits for a pause in typing
+   before firing, same as Films/Gigs/Board Games' own search */
+let THEATRE_SEARCH_TIMER = null;
+let THEATRE_SEARCH_RESULTS = [];
+function theatreTitleInputImpl(prefix){
+  clearTimeout(THEATRE_SEARCH_TIMER);
+  const q = ($('#'+prefix+'-title').value||'').trim();
+  const results = $('#'+prefix+'-search-results'); if(results) results.innerHTML = '';
+  if(!q) return;
+  THEATRE_SEARCH_TIMER = setTimeout(()=>theatreTitleSearch(prefix, q), 400);
+}
+function theatreTitleSearch(prefix, q){
+  const results = $('#'+prefix+'-search-results'); if(!results) return;
+  results.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">Searching…</div></div>`;
+  fetch('/api/theatre-search?q=' + encodeURIComponent(q))
+    .then(r => {
+      if(r.status===503) throw new Error("Show search isn't set up - add TICKETMASTER_API_KEY as a Vercel environment variable (see psn-proxy/README.md). You can still type a title by hand.");
+      if(!r.ok) throw new Error('status '+r.status);
+      return r.json();
+    })
+    .then(data => {
+      const cur = $('#'+prefix+'-search-results'); if(!cur) return;
+      THEATRE_SEARCH_RESULTS = data.shows||[];
+      if(!THEATRE_SEARCH_RESULTS.length){ cur.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">No shows found - you can still save this title as typed</div></div>`; return; }
+      cur.innerHTML = `<div class="gig-search-results">${THEATRE_SEARCH_RESULTS.map((s,n)=>`
+        <div class="gig-search-item" role="button" tabindex="0" onclick="App.theatreTitlePick('${prefix}',${n})"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.theatreTitlePick('${prefix}',${n})}">
+          ${s.image ? `<img class="film-search-thumb" src="${esc(s.image)}" alt="">` : `<span class="film-search-thumb gig-cover-fallback">🎭</span>`}
+          <span>${esc(s.title)}${s.venue?` <span class="muted">- ${esc(s.venue)}</span>`:''}</span>
+        </div>`).join('')}</div>`;
+    })
+    .catch(e => {
+      const cur = $('#'+prefix+'-search-results'); if(!cur) return;
+      cur.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">${esc(e.message||"Couldn't search")}</div></div>`;
+    });
+}
+/* picking a result fills the title, venue and photo - not a date, even on the Log Show form
+   that has one: Ticketmaster's date is one arbitrary ticketed performance out of the show's
+   whole run, not the date this particular visit actually happened, so auto-filling it would
+   just be a wrong guess sat in the field instead of an empty one waiting to be typed in. */
+function theatreTitlePickImpl(prefix, n){
+  const s = THEATRE_SEARCH_RESULTS[n]; if(!s) return;
+  const titleInp = $('#'+prefix+'-title'); if(titleInp) titleInp.value = s.title;
+  const venueInp = $('#'+prefix+'-venue'); if(venueInp) venueInp.value = s.venue||'';
+  if(s.image){
+    THEATRE_FORM_IMAGE = s.image;
+    const status = $('#theatre-poster-status'); if(status) status.innerHTML = theatrePosterStatusHTML();
+  }
+  const results = $('#'+prefix+'-search-results'); if(results) results.innerHTML = '';
+}
 let THEATRE_WATCHLIST_REMOVE_ID = null;   // set when Log Show opened via the Watchlist's "Seen" button
 function theatreFormImpl(i, prefill){
   const t = (i>=0 && (DB.theatre||[])[i]) || (prefill ? {title:prefill.title, venue:prefill.venue, image:prefill.image} : {});
@@ -7651,7 +7719,7 @@ function theatreFormImpl(i, prefill){
   THEATRE_FORM_IMAGE = t.image || null;
   openModal(`
     <h2>${i>=0?'Edit Show':'Log a Show'}</h2>
-    <div class="field"><label class="label" for="theatre-title">Title</label><input id="theatre-title" type="text" value="${esc(t.title||'')}"></div>
+    ${theatreTitleFieldHTML('theatre', t.title)}
     <div class="field"><label class="label" for="theatre-venue">Venue</label><input id="theatre-venue" type="text" value="${esc(t.venue||'')}"></div>
     <div class="field"><label class="label" for="theatre-date">Date</label><input id="theatre-date" type="date" value="${esc(t.date||'')}"></div>
     ${theatreRatingFieldHTML(t.rating!=null?t.rating:null)}
@@ -7732,7 +7800,7 @@ function theatreWatchlistFormImpl(i){
   THEATRE_FORM_IMAGE = t.image || null;
   openModal(`
     <h2>${i>=0?'Edit':'Add to Watchlist'}</h2>
-    <div class="field"><label class="label" for="tw-title">Title</label><input id="tw-title" type="text" value="${esc(t.title||'')}"></div>
+    ${theatreTitleFieldHTML('tw', t.title)}
     <div class="field"><label class="label" for="tw-venue">Venue</label><input id="tw-venue" type="text" value="${esc(t.venue||'')}"></div>
     <div class="field"><label class="label">Photo</label><div id="theatre-poster-status">${theatrePosterStatusHTML()}</div></div>
     <div class="field"><label class="label" for="tw-notes">Notes</label><textarea id="tw-notes" rows="3">${esc(t.notes||'')}</textarea></div>
@@ -9069,6 +9137,8 @@ App.goTheatre = () => { location.hash = '#/theatre'; };
 App.goTheatreWatchlist = () => { CUR_THEATRE_TAB = 'watchlist'; location.hash = '#/theatre'; };
 App.theatreTab = k => { CUR_THEATRE_TAB = k; renderTheatre(); window.scrollTo(0,0); };
 App.theatreForm = theatreFormImpl;
+App.theatreTitleInput = theatreTitleInputImpl;
+App.theatreTitlePick = theatreTitlePickImpl;
 App.saveTheatre = saveTheatreImpl;
 App.delTheatre = delTheatreImpl;
 App.theatreWatchlistForm = theatreWatchlistFormImpl;
