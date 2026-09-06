@@ -1664,7 +1664,8 @@ const APP_PIN = '1197';
 const APP_VERSION = '2.48.0';
 const CHANGELOG = [
   {version:'2.48.0', notes:[
-    'Tasks are back on the Itinerary: a hand-typed task with a day set, a travel leg flagged "Add as Task", and now an accommodation flagged "Add as Task" too, all show again on the day they\'re linked to (in red), same as before, alongside still showing in the Tasks tab.'
+    'Tasks are back on the Itinerary: a hand-typed task with a day set, a travel leg flagged "Add as Task", and now an accommodation flagged "Add as Task" too, all show again on the day they\'re linked to (in red), same as before, alongside still showing in the Tasks tab.',
+    'Deleting a task now lands you back on the Tasks tab, not wherever you happened to open it from (the Itinerary, say) - there\'s nothing left there for that task any more.'
   ]},
   {version:'2.47.0', notes:[
     'Fixed the bottom tab bar sometimes staying hidden after closing a form mid-edit - it could get stuck behind a keyboard that had already gone.',
@@ -10391,7 +10392,10 @@ App.delTask = i => {
     const t2 = getTrip(CUR_TRIP_ID); if(!t2) return;
     t2.tasks.splice(i,1);
     logEdit('Tasks','removed task: '+task.title);
-    save(); closeModal(); rerender();
+    // a task with a day set opens this same form from the Itinerary too (see taskCard) - once
+    // it's deleted there's nothing left on that Itinerary day to come back to, so land on
+    // Tasks instead of wherever the tap happened to come from
+    save(); closeModal(); CUR_TAB='tasks'; rerender();
   });
 };
 
