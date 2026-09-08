@@ -1661,8 +1661,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.51.0';
+const APP_VERSION = '2.52.0';
 const CHANGELOG = [
+  {version:'2.52.0', notes:[
+    "Home's Games Played stat tile shows 0 while PlayStation data is still loading, instead of \"Connect PlayStation\"/\"Loading…\" text that broke the top row's otherwise uniform tile size."
+  ]},
   {version:'2.51.0', notes:[
     'Theatre\'s Log Show and Add-to-Watchlist title fields now search real event listings (via Ticketmaster, its Arts & Theatre segment) as you type, filling in the venue and a photo, same as Log Film\'s TMDb search - typing by hand and uploading a photo manually both still always work, needs a one-time TICKETMASTER_API_KEY on the proxy, see psn-proxy/README.md.'
   ]},
@@ -4509,23 +4512,13 @@ function dashCurrentlyPlayingWidgetHTML(g){
     </div>`;
 }
 /* PlayStation needs a live fetch, unlike the other three stat tiles which read straight from
-   what's already stored on-device - so this one starts as a "connect" prompt (if not set up) or
-   a loading row, then fills in with the real count once (if) the fetch comes back. Row-style
-   like its three neighbours in the stat grid, not the bigger item-style Currently Playing gets
-   below - that one still needs the "connect"/loading placeholder Games itself always did, this
-   is just the count half of what used to be one combined tile. */
+   what's already stored on-device - so this one starts at a bare 0, same shape as every other
+   stat tile (dashStatTileHTML), then fills in with the real count once (if) the fetch comes
+   back. Used to show "Connect PlayStation"/"Loading…" as its own wider row instead, which broke
+   the grid's uniform tile size - tapping through to Games still surfaces the actual
+   connect/loading state, this tile just isn't the place for that text. */
 function dashGamesStatPlaceholderHTML(){
-  if(!psnConfigured() || !psnTokens()) return `
-    <div class="dash-widget dash-widget-row" role="button" tabindex="0" onclick="App.goGames()"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      <div class="dash-item-flags" aria-hidden="true">🎮</div>
-      <div class="dash-item-title">Connect PlayStation</div>
-    </div>`;
-  return `
-    <div class="dash-widget dash-widget-row">
-      <div class="dash-item-flags" aria-hidden="true">🎮</div>
-      <div class="dash-item-title">Loading…</div>
-    </div>`;
+  return dashStatTileHTML('🎮', 0, 'Games Played', 'App.goGames()');
 }
 let DASH_GAMES_TITLES = null;   // cached from the one /titles fetch, so switching the range dropdown doesn't refetch
 /* the count (top stat grid) and Currently Playing (masonry below) are two separate slots now,
