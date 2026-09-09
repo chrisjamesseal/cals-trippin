@@ -10817,6 +10817,20 @@ function wxDayPlaces(t, dayKeys){
 }
 let WX_DAY_PLACES = {};   // 'YYYY-MM-DD' -> candidate place list, rebuilt on each itinerary render
 const WX_LIST_GEO = {};   // candidate-list key -> resolved {lat,lon,label}, or false once all missed
+/* Open-Meteo's geocoder (the only one wxResolve ever calls) matches place names, not full postal
+   addresses - a street + house number in front ("Roland-Mack-Ring 1, 77977 Rust, Germany") is
+   exactly the kind of specific "Map location" address this app asks for to fix a bare name
+   mismatching, yet is the one shape the API can't take as-is. Strips the address down to its
+   town, stripping a leading postcode off that segment too ("77977 Rust" -> "Rust"), and pairs it
+   with the country - "Rust, Germany" - so a full street address still resolves to somewhere on
+   the right town at least, instead of coming back as a flat miss. */
+function addressCityCandidate(address){
+  const parts = (address||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if(parts.length < 2) return '';
+  const country = parts[parts.length-1];
+  const city = parts[parts.length-2].replace(/^\d[\d\s-]*/, '').trim();
+  return city ? `${city}, ${country}` : '';
+}
 /* try each candidate in turn; a miss is remembered so a vague name isn't re-queried forever */
 function wxResolve(cands, cb){
   let i = 0;
@@ -11709,7 +11723,7 @@ function resolveRouteStopPins(t, numbered, onUpdate){
     // a Location's own optional address (see App.locationForm) exists specifically to fix a
     // bare place name the geocoder keeps mismatching, so it's tried first, ahead of even the
     // country-qualified name below
-    const override = s.address ? [s.address] : [];
+    const override = s.address ? [s.address, addressCityCandidate(s.address)].filter(Boolean) : [];
     /* the stop's own display name (accomCityName - already what heads the list below) goes
        first: it's usually the more specific of the two, since an address with no street/house
        number ("Palaiokastritsa, Corfu, Greece") only leaves the region once the country's
@@ -12488,7 +12502,7 @@ App.previewLocationMap = () => {
   if(!name){ wrap.style.display = 'none'; return; }
   const countryName = (countryEl && countryEl.value.trim()) || '';
   const address = (addrEl && addrEl.value.trim()) || '';
-  const cands = [...new Set([address, countryName?`${name}, ${countryName}`:'', name].filter(Boolean))];
+  const cands = [...new Set([address, addressCityCandidate(address), countryName?`${name}, ${countryName}`:'', name].filter(Boolean))];
   wrap.style.display = 'block';
   if(LOCATION_FORM_MAP){ try{ LOCATION_FORM_MAP.remove(); }catch(e){} LOCATION_FORM_MAP = null; }
   el.innerHTML = '';
