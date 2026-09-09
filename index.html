@@ -11263,7 +11263,11 @@ function planDaysHTML(t, ro, filterKeys){
   const autoFlightCard = s => {
     const dur = flightDurationMinutes(s.f);
     const toName = airportName(s.f.to) || s.f.to;
-    const arriveFlag = flagForPlace(t, toName);
+    // a known airport's own country beats flagForPlace's guesswork - see AIRPORT_COUNTRY. Without
+    // this, "Arrive in London Heathrow" had no comma for flagForPlace to read a country out of,
+    // so it fell all the way back to the trip's own single country - flying, say, a Germany trip's
+    // flag on the flight arriving home in London.
+    const arriveFlag = (countryByCode(AIRPORT_COUNTRY[String(s.f.to||'').toUpperCase()])||{}).flag || flagForPlace(t, toName);
     return `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.flightForm(${s.fi})`)}>
       ${itinFlightCardHTML(s)}
