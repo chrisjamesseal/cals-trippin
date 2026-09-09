@@ -11961,7 +11961,13 @@ function initRouteMap(t){
       // follows uses real numbers - same fix the reset button never needed, since by the time
       // anyone taps it the page has long since settled.
       map.invalidateSize();
-      map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:11});
+      // maxZoom caps how far fitBounds is allowed to zoom in - without it, a single pin (or
+      // several stops that all geocode to nearly the same spot, like a cluster of day trips
+      // out of one base town) would fit its near-zero bounding box at the map's absolute max
+      // zoom, close enough to lose all surrounding context. 15 still reads as "this town and
+      // its neighbours" rather than one street, while a route that actually spans real
+      // distance is never affected - fitBounds only zooms in as far as the real bounds need.
+      map.fitBounds(pts.length>1?pts:[pts[0]], {padding:[28,28], maxZoom:15});
     }
   };
   resolveRouteStopPins(t, numbered, redraw);
@@ -11974,7 +11980,7 @@ function initRouteMap(t){
       btn.type = 'button'; btn.setAttribute('aria-label','Reset map view'); btn.title = 'Reset view';
       btn.innerHTML = fa('expand');
       L.DomEvent.disableClickPropagation(btn);
-      btn.onclick = () => { if(ROUTE_MAP_PTS.length) map.fitBounds(ROUTE_MAP_PTS.length>1?ROUTE_MAP_PTS:[ROUTE_MAP_PTS[0]], {padding:[28,28], maxZoom:11}); };
+      btn.onclick = () => { if(ROUTE_MAP_PTS.length) map.fitBounds(ROUTE_MAP_PTS.length>1?ROUTE_MAP_PTS:[ROUTE_MAP_PTS[0]], {padding:[28,28], maxZoom:15}); };
       return btn;
     }
   });
