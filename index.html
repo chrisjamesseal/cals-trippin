@@ -9840,14 +9840,14 @@ App.etAddCountry = () => {
   t.countries = t.countries||[];
   if(t.countries.includes(co.code)) return markErr('#et-country','Already added');
   t.countries.push(co.code);
-  logEdit('Trip info','added country '+co.name);
+  logEdit('Trip info','Country added: '+co.name);
   save(); inp.value=''; inp.focus(); drawETPills();
 };
 App.etDelCountry = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t || !t.countries) return;
   const co = countryByCode(t.countries[i]);
   t.countries.splice(i,1);
-  logEdit('Trip info','removed country '+(co?co.name:''));
+  logEdit('Trip info','Country removed: '+(co?co.name:''));
   save(); drawETPills();
 };
 App.etAddPerson = () => {
@@ -9857,7 +9857,7 @@ App.etAddPerson = () => {
   if(!name) return markErr('#et-person','Enter a name');
   if(t.participants.includes(name)) return markErr('#et-person','Already on the trip');
   t.participants.push(name);
-  logEdit('People','added '+name);
+  logEdit('People','Traveller added: '+name);
   save(); inp.value=''; inp.focus(); drawETPills();
 };
 App.etDelPerson = i => {
@@ -9866,7 +9866,7 @@ App.etDelPerson = i => {
   const used = (t.receipts||[]).some(r => r.paidBy===p || (r.sharedWith||[]).includes(p) || (r.items||[]).some(it=>(it.people||[]).includes(p)));
   if(used){ noteModal('Still On Receipts', `${p} is named on a receipt. Remove those first.`); return; }
   t.participants.splice(i,1);
-  logEdit('People','removed '+p);
+  logEdit('People','Traveller removed: '+p);
   save(); drawETPills();
 };
 App.saveTrip = () => {
@@ -9891,7 +9891,7 @@ App.saveTrip = () => {
       if(n > 0){ s.day = n; s.date = ''; }
     });
   }
-  logEdit('Trip info','updated the trip details');
+  logEdit('Trip info','Trip details updated');
   save(); closeModal(); rerender();
 };
 /* ---- section nav: a slide-in overlay on mobile, a persistent sidebar on desktop,
@@ -10167,11 +10167,15 @@ const LOG_SECTION_TAB = {
 };
 function tabLog(t){
   const log = (t.editLog||[]).slice().sort((a,b)=>b.when-a.when);
+  // capitalised here rather than trusting every logEdit call site to do it, so a trip's older
+  // entries (logged before logEdit's own summaries were rewritten to already start capitalised)
+  // still read right rather than staying lowercase forever
+  const capFirst = s => s ? s.charAt(0).toUpperCase()+s.slice(1) : s;
   const row = e => {
     const k = LOG_SECTION_TAB[e.section];
     return `
     <div class="log-row${k?' log-row-link':''}" ${k?`role="button" tabindex="0" onclick="App.tab('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.tab('${k}')}"`:''}>
-      <span class="log-what">${esc(e.summary)}</span>
+      <span class="log-what">${esc(capFirst(e.summary))}</span>
       <span class="log-when">${timeAgo(e.when)}</span>
     </div>`;
   };
@@ -10259,7 +10263,7 @@ App.addPack = () => {
   if(!text) return markErr('#pk-new','Type something to pack');
   t.packing = t.packing||[];
   t.packing.push({id:uid(), text, done:false});
-  logEdit('Packing','added a packing item');
+  logEdit('Packing','Packing item added');
   save(); rerender();
   const again = $('#pk-new'); if(again) again.focus();
 };
@@ -10268,7 +10272,7 @@ App.addPackStarters = () => {
   t.packing = t.packing||[];
   const have = new Set(t.packing.map(it=>it.text.toLowerCase()));
   PACK_STARTERS.forEach(text=>{ if(!have.has(text.toLowerCase())) t.packing.push({id:uid(), text, done:false}); });
-  logEdit('Packing','added the starter packing list');
+  logEdit('Packing','Starter packing list added');
   save(); rerender(); toast('Essentials added, edit away');
 };
 App.togglePack = itemId => {
@@ -10283,12 +10287,12 @@ App.delPack = itemId => {
   const i = (t.packing||[]).findIndex(x=>x.id===itemId); if(i<0) return;
   const removed = t.packing[i];
   t.packing.splice(i,1);
-  logEdit('Packing','removed a packing item'); save(); rerender();
+  logEdit('Packing','Packing item removed'); save(); rerender();
   toast('Item removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.packing = t2.packing||[];
     t2.packing.splice(Math.min(i,t2.packing.length),0,removed);
-    logEdit('Packing','restored a packing item'); save(); rerender();
+    logEdit('Packing','Packing item restored'); save(); rerender();
   });
 };
 function packUnpackedFor(t){
@@ -10484,14 +10488,14 @@ App.saveTask = i => {
   t.tasks = t.tasks||[];
   if(i>=0) Object.assign(t.tasks[i], {title, date, day, time, period, notes});
   else t.tasks.push({id:uid(), title, date, day, time, period, notes, done:false});
-  logEdit('Tasks', (i>=0?'edited task: ':'added task: ')+title);
+  logEdit('Tasks', (i>=0?'Task edited: ':'Task added: ')+title);
   save(); closeModal(); rerender();
 };
 App.toggleTask = id => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const task = (t.tasks||[]).find(x=>x.id===id); if(!task) return;
   task.done = !task.done;
-  logEdit('Tasks', (task.done?'booked ':'reopened ')+(task.title||'a task'));
+  logEdit('Tasks', (task.done?'Task booked':'Task reopened')+(task.title?': '+task.title:''));
   save(); rerender();
 };
 App.delTask = i => {
@@ -10500,7 +10504,7 @@ App.delTask = i => {
   confirmModal('Remove Task', `Remove "${task.title}" from your list?`, 'Remove', () => {
     const t2 = getTrip(CUR_TRIP_ID); if(!t2) return;
     t2.tasks.splice(i,1);
-    logEdit('Tasks','removed task: '+task.title);
+    logEdit('Tasks','Task removed: '+task.title);
     // a task with a day set opens this same form from the Itinerary too (see taskCard) - once
     // it's deleted there's nothing left on that Itinerary day to come back to, so land on
     // Tasks instead of wherever the tap happened to come from
@@ -10680,7 +10684,7 @@ App.savePoll = () => {
   t.polls = t.polls||[];
   t.polls.unshift({id:uid(), q, options:opts.map(text=>({id:uid(), text})), votes:{}, closed:false,
     multi:$('#po-multi').checked});
-  logEdit('Polls','started a poll');
+  logEdit('Polls','Poll started');
   save(); closeModal(); CUR_TAB='polls'; rerender(); toast('Poll created');
 };
 /* answering, not just creating: someone mid-vote might realise the option they want isn't
@@ -10692,7 +10696,7 @@ App.addPollOptionLive = pollId => {
   const text = (inp.value||'').trim(); if(!text) return;
   p.options = p.options||[];
   p.options.push({id:uid(), text});
-  logEdit('Polls','added an option to a poll');
+  logEdit('Polls','Poll option added');
   save(); rerender(); toast('Option added');
 };
 App.votePoll = (pollId, optId) => {
@@ -10710,14 +10714,14 @@ App.votePoll = (pollId, optId) => {
     if(p.votes[me]===optId) delete p.votes[me];   // tapping your own choice again clears it
     else p.votes[me] = optId;
   }
-  logEdit('Polls','voted in a poll');
+  logEdit('Polls','Poll vote added');
   save(); rerender();
 };
 App.togglePoll = pollId => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const p = (t.polls||[]).find(x=>x.id===pollId); if(!p) return;
   p.closed = !p.closed;
-  logEdit('Polls', p.closed?'closed a poll':'reopened a poll');
+  logEdit('Polls', p.closed?'Poll closed':'Poll reopened');
   save(); rerender();
 };
 App.delPoll = pollId => {
@@ -10726,12 +10730,12 @@ App.delPoll = pollId => {
   const i = (t.polls||[]).findIndex(x=>x.id===pollId); if(i<0) return;
   const removed = t.polls[i];
   t.polls.splice(i,1);
-  logEdit('Polls','removed a poll'); save(); rerender();
+  logEdit('Polls','Poll removed'); save(); rerender();
   toast('Poll removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.polls = t2.polls||[];
     t2.polls.splice(Math.min(i,t2.polls.length),0,removed);
-    logEdit('Polls','restored a poll'); save(); rerender();
+    logEdit('Polls','Poll restored'); save(); rerender();
   });
 };
 
@@ -12315,7 +12319,7 @@ App.savePlan = (i, moodIndex) => {
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   if(moodIndex!=null && t.moodBoard && t.moodBoard[moodIndex]) t.moodBoard[moodIndex].itineraryId = s.id;
   PLAN_IMG = null;
-  logEdit('Itinerary', (i>=0?'edited ':'added ')+name);
+  logEdit('Itinerary', (i>=0?'Stop edited: ':'Stop added: ')+name);
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast('Stop saved');
 };
 App.travelWhenChange = () => {
@@ -12454,7 +12458,7 @@ App.saveTravelLeg = i => {
              link, asTask:$('#tv-as-task').checked, ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
-  logEdit('Itinerary', (i>=0?'edited travel: ':'added travel: ')+itineraryItemLabel(s));
+  logEdit('Itinerary', (i>=0?'Travel edited: ':'Travel added: ')+itineraryItemLabel(s));
   save(); closeModal(); CUR_TAB='plan'; rerender(); toast(i>=0?'Travel saved':'Travel added');
 };
 /* a manually-defined stretch of the trip ("Melbourne, Day 1-6") - not a booking, just a name
@@ -12553,7 +12557,7 @@ App.saveLocation = i => {
   const existing = i>=0 ? t.locations[i] : null;
   const loc = {id: existing ? existing.id : uid(), name, country, address, fromDay, toDay, fromDate, toDate};
   if(i>=0) t.locations[i] = loc; else t.locations.push(loc);
-  logEdit('Itinerary', (i>=0?'edited location: ':'added location: ')+name);
+  logEdit('Itinerary', (i>=0?'Location edited: ':'Location added: ')+name);
   // stays on whichever tab this was opened from (Edit Trip's own Countries section, or the
   // Itinerary's own chip row) rather than forcing a jump to the Itinerary - unlike a travel leg
   // or stop, a Location is as much trip-wide planning as it is itinerary content
@@ -12564,13 +12568,13 @@ App.delLocation = i => {
   const tripId = t.id;
   const removed = t.locations[i];
   t.locations.splice(i,1);
-  logEdit('Itinerary', 'removed location: '+(removed?removed.name:''));
+  logEdit('Itinerary', 'Location removed: '+(removed?removed.name:''));
   save(); rerender();
   toast('Location removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.locations = t2.locations || [];
     t2.locations.splice(Math.min(i,t2.locations.length),0,removed);
-    logEdit('Itinerary', 'restored location: '+(removed?removed.name:''));
+    logEdit('Itinerary', 'Location restored: '+(removed?removed.name:''));
     save(); rerender();
   });
 };
@@ -12610,7 +12614,7 @@ App.removeIdeaFromItinerary = i => {
   if(si>=0){
     const removedStop = t.itinerary[si];
     t.itinerary.splice(si,1);
-    logEdit('Itinerary','removed '+(removedStop.name||'a stop'));
+    logEdit('Itinerary','Stop removed'+(removedStop.name?': '+removedStop.name:''));
   }
   m.itineraryId = null;
   save(); rerender(); toast('Removed from itinerary');
@@ -12620,7 +12624,7 @@ App.delPlan = i => {
   const tripId = t.id;
   const removed = t.itinerary[i];
   const label = itineraryItemLabel(removed);
-  t.itinerary.splice(i,1); logEdit('Itinerary','removed '+label);
+  t.itinerary.splice(i,1); logEdit('Itinerary', (removed.kind==='travel'?'Travel removed: ':'Stop removed: ')+label);
   // a leg flagged "Add as Task" opens this same form from Tasks too - once it's deleted
   // there's nothing left there for it, so land back on Tasks rather than wherever the tap
   // happened to come from (see App.delTask's own version of this)
@@ -12631,7 +12635,7 @@ App.delPlan = i => {
     const t2 = getTrip(tripId); if(!t2) return;
     t2.itinerary = t2.itinerary||[];
     t2.itinerary.splice(Math.min(i,t2.itinerary.length),0,removed);
-    logEdit('Itinerary','restored '+label); save(); rerender();
+    logEdit('Itinerary', (removed.kind==='travel'?'Travel restored: ':'Stop restored: ')+label); save(); rerender();
   });
 };
 App.deleteStopFromForm = i => { closeModal(); App.delPlan(i); };
@@ -13220,7 +13224,7 @@ App.saveFlight = i => {
   const label = (f.airline||'flight')+(f.flightNo?' '+f.flightNo:'')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
   if(i>=0) t.flights[i]=f; else t.flights.push(f);
   FORM_DOC = null;
-  logEdit('Travel', (i>=0?'edited ':'added ')+label);
+  logEdit('Travel', (i>=0?'Travel edited: ':'Travel added: ')+label);
   save(); closeModal(); rerender(); toast('Flight saved');
 };
 App.deleteFlightFromForm = i => { closeModal(); App.delFlight(i); };
@@ -13229,12 +13233,12 @@ App.delFlight = i => {
   const tripId = t.id;
   const removed = t.flights[i]; const label=((removed.airline||'flight')+' '+(removed.flightNo||'')).trim();
   t.flights.splice(i,1);
-  logEdit('Travel','removed '+label); save(); rerender();
+  logEdit('Travel','Travel removed: '+label); save(); rerender();
   toast('Flight removed', ()=>{
     const t2=getTrip(tripId); if(!t2) return;
     t2.flights = t2.flights||[];
     t2.flights.splice(Math.min(i,t2.flights.length),0,removed);
-    logEdit('Travel','restored '+label); save(); rerender();
+    logEdit('Travel','Travel restored: '+label); save(); rerender();
   });
 };
 
@@ -13273,7 +13277,7 @@ App.saveFerry = i => {
   const label = (f.operator||'ferry')+(f.from&&f.to?` (${f.from}→${f.to})`:'');
   if(i>=0) t.ferries[i]=f; else t.ferries.push(f);
   FORM_DOC = null;
-  logEdit('Travel',(i>=0?'edited ':'added ')+label);
+  logEdit('Travel',(i>=0?'Travel edited: ':'Travel added: ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Ferry saved');
 };
 App.delFerry = i => {
@@ -13281,12 +13285,12 @@ App.delFerry = i => {
   const tripId = t.id;
   const removed = t.ferries[i]; const label = removed.operator||'ferry';
   t.ferries.splice(i,1);
-  logEdit('Travel','removed '+label); save(); rerender();
+  logEdit('Travel','Travel removed: '+label); save(); rerender();
   toast('Ferry removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.ferries = t2.ferries||[];
     t2.ferries.splice(Math.min(i,t2.ferries.length),0,removed);
-    logEdit('Travel','restored '+label); save(); rerender();
+    logEdit('Travel','Travel restored: '+label); save(); rerender();
   });
 };
 
@@ -13328,7 +13332,7 @@ App.saveCar = i => {
   const label = c.company||'car hire';
   if(i>=0) t.carHire[i]=c; else t.carHire.push(c);
   FORM_DOC = null;
-  logEdit('Travel',(i>=0?'edited ':'added ')+label);
+  logEdit('Travel',(i>=0?'Travel edited: ':'Travel added: ')+label);
   save(); closeModal(); CUR_TAB='travel'; rerender(); toast('Car hire saved');
 };
 App.delCar = i => {
@@ -13336,12 +13340,12 @@ App.delCar = i => {
   const tripId = t.id;
   const removed = t.carHire[i]; const label = removed.company||'car hire';
   t.carHire.splice(i,1);
-  logEdit('Travel','removed '+label); save(); rerender();
+  logEdit('Travel','Travel removed: '+label); save(); rerender();
   toast('Car hire removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.carHire = t2.carHire||[];
     t2.carHire.splice(Math.min(i,t2.carHire.length),0,removed);
-    logEdit('Travel','restored '+label); save(); rerender();
+    logEdit('Travel','Travel restored: '+label); save(); rerender();
   });
 };
 
@@ -13402,7 +13406,7 @@ App.saveAccom = i => {
     checkout:$('#ac-out').value, checkoutTime:$('#ac-out-time').value,
     ref:$('#ac-ref').value.trim(), bookingUrl:url};
   if(i>=0) t.accommodations[i]=a; else t.accommodations.push(a);
-  logEdit('Accommodation', (i>=0?'updated ':'added ')+(name||'accommodation'));
+  logEdit('Accommodation', (i>=0?'Accommodation updated':'Accommodation added')+(name?': '+name:''));
   save(); closeModal(); rerender();
 };
 /* accommodation holds a lot of detail (address, dates, ref, booking link), confirm before
@@ -13417,12 +13421,12 @@ App.delAccom = i => {
     // flagged "Add as Task" - same reasoning as App.delPlan's own version of this: land back
     // on Tasks rather than wherever the tap happened to come from
     if(removed.asTask) CUR_TAB = 'tasks';
-    logEdit('Accommodation','removed '+label); save(); rerender();
+    logEdit('Accommodation','Accommodation removed: '+label); save(); rerender();
     toast('Accommodation removed', ()=>{
       const t2 = getTrip(tripId); if(!t2) return;
       t2.accommodations = t2.accommodations||[];
       t2.accommodations.splice(Math.min(i,t2.accommodations.length),0,removed);
-      logEdit('Accommodation','restored '+label); save(); rerender();
+      logEdit('Accommodation','Accommodation restored: '+label); save(); rerender();
     });
   });
 };
@@ -13446,20 +13450,20 @@ App.saveContact = i => {
   const t = getTrip(CUR_TRIP_ID);
   const name = $('#ct-name').value.trim(); if(!name) return markErr('#ct-name','Enter a name');
   const contact = {name, phone:$('#ct-phone').value.trim(), rel:$('#ct-rel').value.trim(), for:$('#ct-for').value};
-  if(i>=0 && t.notes.contacts[i]){ t.notes.contacts[i]=contact; logEdit('Contacts','edited contact '+name); }
-  else { t.notes.contacts.push(contact); logEdit('Contacts','added contact '+name); }
+  if(i>=0 && t.notes.contacts[i]){ t.notes.contacts[i]=contact; logEdit('Contacts','Contact edited: '+name); }
+  else { t.notes.contacts.push(contact); logEdit('Contacts','Contact added: '+name); }
   save(); closeModal(); CUR_TAB='contacts'; rerender();
 };
 App.delContact = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.notes.contacts[i];
-  t.notes.contacts.splice(i,1); logEdit('Contacts','removed contact '+(removed.name||''));  save(); rerender();
+  t.notes.contacts.splice(i,1); logEdit('Contacts','Contact removed: '+(removed.name||''));  save(); rerender();
   toast('Contact removed', ()=>{
     const t2=getTrip(tripId); if(!t2) return;
     t2.notes = t2.notes||{contacts:[]}; t2.notes.contacts = t2.notes.contacts||[];
     t2.notes.contacts.splice(Math.min(i,t2.notes.contacts.length),0,removed);
-    logEdit('Contacts','restored contact '+(removed.name||'')); save(); rerender();
+    logEdit('Contacts','Contact restored: '+(removed.name||'')); save(); rerender();
   });
 };
 App.noteForm = i => {
@@ -13479,20 +13483,20 @@ App.saveNote = i => {
   const text = $('#nt-text').value.trim();
   if(!text) return markErr('#nt-text','Write something first');
   t.notes.items = t.notes.items||[];
-  if(i>=0 && t.notes.items[i]){ t.notes.items[i] = {...t.notes.items[i], text}; logEdit('Notes','edited a note'); }
-  else { t.notes.items.push({id:uid(), text}); logEdit('Notes','added a note'); }
+  if(i>=0 && t.notes.items[i]){ t.notes.items[i] = {...t.notes.items[i], text}; logEdit('Notes','Note edited'); }
+  else { t.notes.items.push({id:uid(), text}); logEdit('Notes','Note added'); }
   save(); closeModal(); CUR_TAB='notes'; rerender(); toast(i>=0?'Note updated':'Note added');
 };
 App.delNote = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.notes.items[i];
-  t.notes.items.splice(i,1); logEdit('Notes','removed a note'); save(); rerender();
+  t.notes.items.splice(i,1); logEdit('Notes','Note removed'); save(); rerender();
   toast('Note removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.notes.items = t2.notes.items||[];
     t2.notes.items.splice(Math.min(i,t2.notes.items.length),0,removed);
-    logEdit('Notes','restored a note'); save(); rerender();
+    logEdit('Notes','Note restored'); save(); rerender();
   });
 };
 
@@ -13559,11 +13563,11 @@ App.saveLink = (i) => {
   t.docLinks = t.docLinks||[];
   if(i>=0){
     t.docLinks[i] = {...t.docLinks[i], name, url};
-    logEdit('Documents','edited link '+name);
+    logEdit('Documents','Link edited: '+name);
     save(); closeModal(); rerender(); toast('Link updated');
   } else {
     t.docLinks.push({id:uid(), name, url});
-    logEdit('Documents','linked '+name);
+    logEdit('Documents','Link added: '+name);
     save(); closeModal(); rerender(); toast('Link added');
   }
 };
@@ -13571,12 +13575,12 @@ App.delLink = i => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.docLinks[i];
-  t.docLinks.splice(i,1); logEdit('Documents','removed link '+(removed.name||'')); save(); rerender();
+  t.docLinks.splice(i,1); logEdit('Documents','Link removed: '+(removed.name||'')); save(); rerender();
   toast('Link removed', ()=>{
     const t2 = getTrip(tripId); if(!t2) return;
     t2.docLinks = t2.docLinks||[];
     t2.docLinks.splice(Math.min(i,t2.docLinks.length),0,removed);
-    logEdit('Documents','restored link '+(removed.name||'')); save(); rerender();
+    logEdit('Documents','Link restored: '+(removed.name||'')); save(); rerender();
   });
 };
 App.openDoc = (tid,i) => {
@@ -13602,19 +13606,19 @@ App.saveDocName = i => {
   const name = $('#rn-name').value.trim();
   if(!name) return markErr('#rn-name','Give the file a name');
   const old = d.name; d.name = name;
-  logEdit('Documents','renamed '+old+' to '+name);
+  logEdit('Documents','File renamed: '+old+' → '+name);
   save(); closeModal(); rerender(); toast('File renamed');
 };
 App.delDoc = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
   const removed = t.documents[i];
-  t.documents.splice(i,1); logEdit('Documents','removed '+(removed.name||'a document')); save(); rerender();
+  t.documents.splice(i,1); logEdit('Documents','Document removed'+(removed.name?': '+removed.name:'')); save(); rerender();
   toast('Document removed', ()=>{
     const t2=getTrip(tripId); if(!t2) return;
     t2.documents = t2.documents||[];
     t2.documents.splice(Math.min(i,t2.documents.length),0,removed);
-    logEdit('Documents','restored '+(removed.name||'a document')); save(); rerender();
+    logEdit('Documents','Document restored'+(removed.name?': '+removed.name:'')); save(); rerender();
   });
 };
 
@@ -13628,7 +13632,7 @@ App.upload = input => {
       if(file.size > 5*1048576){ noteModal('Kept On This Device', 'That PDF is over 5 MB, so only its details synced. The file itself stays on this device.'); }
       t.documents.push({id:uid(), name:file.name, kind:'pdf', size:file.size,
                         dataUrl: file.size<=5*1048576 ? e.target.result : null});
-      logEdit('Documents','uploaded '+file.name); save(); rerender();
+      logEdit('Documents','Document uploaded: '+file.name); save(); rerender();
       toast('File uploaded. Tap the pencil to rename it.');
     };
     fr.readAsDataURL(file);
@@ -13642,7 +13646,7 @@ App.upload = input => {
       c.getContext('2d').drawImage(img,0,0,c.width,c.height);
       const dataUrl = c.toDataURL('image/jpeg',.85);
       t.documents.push({id:uid(), name:file.name, kind:'img', size:Math.round(dataUrl.length*.75), dataUrl});
-      logEdit('Documents','uploaded '+file.name); save(); rerender();
+      logEdit('Documents','Document uploaded: '+file.name); save(); rerender();
       toast('Image uploaded. Tap the pencil to rename it.');
     };
     img.src = URL.createObjectURL(file);
@@ -13852,7 +13856,7 @@ App.saveReceipt = () => {
       evenSplit:R.evenSplit, amount:+R.amount||0, sharedWith:[...R.sharedWith],
       items:R.items.map(it=>({desc:it.desc.trim()||'Item', amount:+it.amount||0, people:[...(it.people||[])]}))};
     if(editing) t.receipts[R._edit] = rec; else t.receipts.push(rec);
-    logEdit('Money',(editing?'edited receipt ':'added receipt ')+rec.title+' ('+money(receiptTotal(rec))+')');
+    logEdit('Money',(editing?'Receipt edited: ':'Receipt added: ')+rec.title+' ('+money(receiptTotal(rec))+')');
     save(); R=null; closeModal(); rerender(); toast(editing?'Receipt updated':'Receipt added');
   }catch(e){
     console.error("My Trips, couldn't save receipt:", e);
@@ -13864,12 +13868,12 @@ App.delReceipt = i => {
   const tripId = t.id;
   const removed = t.receipts[i];
   confirmModal('Remove This Receipt?', `"${removed.title}" (${money(receiptTotal(removed))}) will be removed.`, 'Remove', ()=>{
-    t.receipts.splice(i,1); logEdit('Money','removed receipt '+(removed.title||'')); save(); rerender();
+    t.receipts.splice(i,1); logEdit('Money','Receipt removed: '+(removed.title||'')); save(); rerender();
     toast('Receipt removed', ()=>{
       const t2 = getTrip(tripId); if(!t2) return;
       t2.receipts = t2.receipts||[];
       t2.receipts.splice(Math.min(i,t2.receipts.length),0,removed);
-      logEdit('Money','restored receipt '+(removed.title||'')); save(); rerender();
+      logEdit('Money','Receipt restored: '+(removed.title||'')); save(); rerender();
     });
   });
 };
@@ -13929,7 +13933,7 @@ App.removeAlbum = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   confirmModal('Remove the Album Link?', 'The link will be removed for everyone on this trip. The album itself is not affected.', 'Remove Link', ()=>{
     t.photoAlbum = {url:'', service:''};
-    logEdit('Photos','removed the photo album link');
+    logEdit('Photos','Photo album link removed');
     save(); rerender();
   });
 };
@@ -13947,7 +13951,7 @@ App.saveAlbum = () => {
   let url = $('#al-url').value.trim();
   if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
   t.photoAlbum = {url, service:detectAlbumService(url)};
-  logEdit('Photos', url?('linked '+(detectAlbumService(url)||'a photo album')):'removed the photo album link');
+  logEdit('Photos', url?('Photo album linked'+(detectAlbumService(url)?': '+detectAlbumService(url):'')):'Photo album link removed');
   save(); closeModal(); rerender();
 };
 /* ================= TAB: mood board ================= */
@@ -14176,20 +14180,20 @@ App.saveMood = i => {
     title, emoji, videoUrl, mapsUrl, location, ...(MOOD_IMG?{dataUrl:MOOD_IMG}:{})};
   if(i>=0) t.moodBoard[i]=idea; else t.moodBoard.push(idea);
   MOOD_IMG = null;
-  logEdit('Ideas', (i>=0?'edited ':'added ')+(title||videoUrl||'an idea'));
+  logEdit('Ideas', (i>=0?'Idea edited':'Idea added')+((title||videoUrl)?': '+(title||videoUrl):''));
   save(); closeModal(); rerender(); toast(i>=0?'Idea updated':'Idea added');
 };
 App.deleteMoodFromForm = i => { closeModal(); App.delMood(i); };
 App.delMood = i => {
   const t=getTrip(CUR_TRIP_ID); if(!t) return;
   const tripId = t.id;
-  const removed = t.moodBoard[i]; const label = removed.title||removed.videoUrl||'an idea';
-  t.moodBoard.splice(i,1); logEdit('Ideas','removed '+label); save(); rerender();
+  const removed = t.moodBoard[i]; const label = removed.title||removed.videoUrl||'';
+  t.moodBoard.splice(i,1); logEdit('Ideas','Idea removed'+(label?': '+label:'')); save(); rerender();
   toast('Idea removed', ()=>{
     const t2=getTrip(tripId); if(!t2) return;
     t2.moodBoard = t2.moodBoard||[];
     t2.moodBoard.splice(Math.min(i,t2.moodBoard.length),0,removed);
-    logEdit('Ideas','restored '+label); save(); rerender();
+    logEdit('Ideas','Idea restored'+(label?': '+label:'')); save(); rerender();
   });
 };
 
