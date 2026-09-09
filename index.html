@@ -11936,15 +11936,34 @@ function initRouteMap(t){
     // array index - a stop whose place name a geocoder can't find (an odd address, a village
     // too small for it to know) would otherwise leave a gap in the sequence ("1, 2, 4") with no
     // pin 3 anywhere on the map to explain it
+    // several stops can resolve to the exact same coordinate - a town-level fallback (see
+    // addressCityCandidate) lands every stay/stop near one small base town on the same spot,
+    // and two stops with no address at all can share a bare place-name match too. Stacked
+    // pixel-for-pixel, every marker but whichever is drawn last is completely hidden underneath
+    // it, which reads as pins missing from the numbered sequence rather than merely overlapping.
+    // Spread markers that share a coordinate into a small ring around it - only where the pin is
+    // drawn, never the real point pts/fitBounds/the route line below use - so every stop still
+    // gets its own visible, tappable pin.
+    const fanGroups = {};
+    pins.forEach((p,idx)=>{ if(!p) return; const key = p.lat.toFixed(4)+','+p.lon.toFixed(4); (fanGroups[key]=fanGroups[key]||[]).push(idx); });
+    const fanOffset = {};
+    Object.values(fanGroups).forEach(idxs=>{
+      if(idxs.length<2) return;
+      idxs.forEach((idx,i)=>{
+        const angle = (i/idxs.length)*2*Math.PI;
+        fanOffset[idx] = [Math.sin(angle)*0.0009, Math.cos(angle)*0.0009];
+      });
+    });
     let shown = 0;
     numbered.forEach((s,idx)=>{
       const p = pins[idx]; if(!p) return;
       shown++;
+      const off = fanOffset[idx];
       const icon = L.divIcon({className:'', html:`<div class="route-map-pin">${shown}</div>`, iconSize:[26,26], iconAnchor:[13,13]});
       // labelled with the place's own name on tap/hover - the numbers alone only line up with
       // the chip row below if you count them out, and a pin sitting somewhere unexpected is a
       // lot easier to spot as wrong when it says what it thinks it is
-      layers.push(L.marker([p.lat,p.lon], {icon}).bindTooltip(esc(s.name), {direction:'top', offset:[0,-10]}).addTo(map));
+      layers.push(L.marker([p.lat+(off?off[0]:0), p.lon+(off?off[1]:0)], {icon}).bindTooltip(esc(s.name), {direction:'top', offset:[0,-10]}).addTo(map));
     });
     const pts = pins.filter(Boolean).map(p=>[p.lat,p.lon]);
     if(pts.length >= 2) layers.push(L.polyline(pts, {color:'#C1502E', weight:3, opacity:.8}).addTo(map));
