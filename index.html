@@ -692,6 +692,13 @@ a{color:var(--brand-dark);}
    one) would otherwise show as a doubled-up line instead of the day's usual single divider */
 .route-head-row.open{padding-bottom:12px; border-bottom:1px solid var(--line);}
 .route-head-row>div:first-child{flex:1; min-width:0;}
+/* the date sat above a day's own title - a little extra air so the two don't read as one run-on
+   line */
+.route-date-line{margin-bottom:4px;}
+/* the weather chip used to sit inline after the day's title, in the day's own badge row - moved
+   out to the header row itself so it lines up on the right, over the chevron, instead of
+   crowding a long title */
+.route-head-wx{flex-shrink:0;}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
 .route-days{margin:14px 0 4px;}
@@ -1044,6 +1051,10 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
    button, instead of the small pin-emoji phrase it used to share with the countdown */
 .trip-title-row{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
 .trip-title-row .status-pill{flex-shrink:0; margin-top:4px;}
+/* the back-to-all-trips button sits left of the trip name, same round icon button as every
+   other back arrow in the app (see .crumb-backbtn), just placed inline with a serif <h1> here
+   instead of a breadcrumb bar */
+.trip-title-main{display:flex; align-items:center; gap:6px;}
 .trip-meta{margin-top:4px; display:flex; align-items:center; gap:6px 18px; flex-wrap:wrap;}
 .trip-meta > span{display:inline-flex; align-items:center; gap:7px;}
 .meta-emoji{font-size:.8rem; line-height:1;
@@ -3168,6 +3179,7 @@ function rangeParts(a, b){
 function fmtRange(a,b){
   if(!a && !b) return 'Dates TBC';
   if(!a || !b) return a ? 'From '+fmtDate(a) : 'Until '+fmtDate(b);
+  if(a===b) return fmtDate(a);
   const p = rangeParts(a,b);
   return p.from+' - '+p.to;
 }
@@ -9738,12 +9750,15 @@ function renderTrip(t){
     ${CUR_TAB==='home' ? `
     <div class="page-head" style="margin-bottom:22px">
       <div class="trip-title-row">
-        <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
+        <div class="trip-title-main">
+          <button class="crumb-backbtn" onclick="App.goHome()" aria-label="Back to all trips">${ICONS.back}</button>
+          <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
+        </div>
         ${isArchived(t) ? statusPill(t) : ''}
       </div>
       <p class="muted trip-meta">
-        <span><span class="meta-emoji" aria-hidden="true">📅</span><span class="meta-text">${esc(tripWhenLine(t))}</span></span>
-        ${upcoming ? `<span><span class="meta-emoji" aria-hidden="true">⏳</span><span class="meta-text">${esc(daysToGoCount(upcoming))}</span></span>`
+        <span><span class="meta-text">${esc(tripWhenLine(t))}</span></span>
+        ${upcoming ? `<span><span class="meta-text">${esc(daysToGoCount(upcoming))}</span></span>`
           : (phrase ? `<span><span class="meta-emoji" aria-hidden="true">📍</span><span class="meta-text">${esc(phrase)}</span></span>` : '')}
       </p>
     </div>` : `
@@ -12075,9 +12090,10 @@ function tabPlan(t, ro){
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
         <div class="route-head-row${isOpen?' open':''}">
           <div style="min-width:0">
-            ${dateLine?`<div class="muted small">${esc(dateLine)}</div>`:''}
-            <strong>${headingHTML}${(k===todayKey||(k&&!rough))?`<span class="plan-day-badges">${k===todayKey?`<span class="status-pill now">Today</span>`:''}${k&&!rough?`<span class="wx-slot" data-wx-date="${esc(k)}"></span>`:''}</span>`:''}</strong>
+            ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}</div>`:''}
+            <strong>${headingHTML}${k===todayKey?`<span class="plan-day-badges"><span class="status-pill now">Today</span></span>`:''}</strong>
           </div>
+          ${k&&!rough?`<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span>`:''}
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
         </div>
         ${isOpen?`<div class="route-days" onclick="event.stopPropagation()">${aiSummaryHTML(t, openKey, ro)}${planDaysHTML(t, ro, [k])}</div>`:''}
@@ -12101,6 +12117,15 @@ function locationsSummaryHTML(t, ro, nested){
   const locs = t.locations || [];
   if(!locs.length && ro) return '';
   const rough = hasRoughWhen(t);
+  const isMultiDay = loc => rough
+    ? (loc.toDay && loc.toDay !== loc.fromDay)
+    : ((loc.toDate || loc.fromDate) !== loc.fromDate);
+  // On the Itinerary page itself (not nested inside Edit Trip), every day already has its own
+  // accordion row naming its place below - this chip row only earns its place above the map when
+  // at least one Location actually spans several days (a Greece/Albania-style trip made of
+  // multi-day stops). A trip built entirely from single-day Locations would just repeat the same
+  // names and dates the day list already shows, so skip the row rather than say it twice.
+  if(!nested && !locs.some(isMultiDay)) return '';
   const rangeLabel = loc => rough
     ? `Day ${loc.fromDay}${loc.toDay && loc.toDay!==loc.fromDay ? '–'+loc.toDay : ''}`
     : fmtRange(loc.fromDate, loc.toDate || loc.fromDate);
@@ -12113,7 +12138,7 @@ function locationsSummaryHTML(t, ro, nested){
   const chips = sorted.map(({loc,i}) => `
     <button type="button" class="chip location-chip" ${ro?'disabled':`onclick="App.locationForm(${i}, ${!!nested})"`}>
       ${loc.country ? esc((countryByCode(loc.country)||{}).flag||'')+' ' : ''}<strong>${esc(loc.name)}</strong>
-      <span class="muted small">${esc(rangeLabel(loc))}</span>
+      <span class="muted">${esc(rangeLabel(loc))}</span>
     </button>`).join('');
   // only offered from the Edit Trip modal's own Locations field (nested) - the Itinerary page
   // itself just reads the list back, the same way it doesn't offer to edit the trip's dates or
