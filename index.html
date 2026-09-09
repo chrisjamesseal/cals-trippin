@@ -1051,6 +1051,10 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
    button, instead of the small pin-emoji phrase it used to share with the countdown */
 .trip-title-row{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
 .trip-title-row .status-pill{flex-shrink:0; margin-top:4px;}
+/* the back-to-all-trips button sits left of the trip name, same round icon button as every
+   other back arrow in the app (see .crumb-backbtn), just placed inline with a serif <h1> here
+   instead of a breadcrumb bar */
+.trip-title-main{display:flex; align-items:center; gap:6px;}
 .trip-meta{margin-top:4px; display:flex; align-items:center; gap:6px 18px; flex-wrap:wrap;}
 .trip-meta > span{display:inline-flex; align-items:center; gap:7px;}
 .meta-emoji{font-size:.8rem; line-height:1;
@@ -9746,12 +9750,15 @@ function renderTrip(t){
     ${CUR_TAB==='home' ? `
     <div class="page-head" style="margin-bottom:22px">
       <div class="trip-title-row">
-        <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
+        <div class="trip-title-main">
+          <button class="crumb-backbtn" onclick="App.goHome()" aria-label="Back to all trips">${ICONS.back}</button>
+          <h1 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">${esc(t.name)}${tripFlags(t)?`<span class="trip-flags">${tripFlags(t)}</span>`:''}</h1>
+        </div>
         ${isArchived(t) ? statusPill(t) : ''}
       </div>
       <p class="muted trip-meta">
-        <span><span class="meta-emoji" aria-hidden="true">📅</span><span class="meta-text">${esc(tripWhenLine(t))}</span></span>
-        ${upcoming ? `<span><span class="meta-emoji" aria-hidden="true">⏳</span><span class="meta-text">${esc(daysToGoCount(upcoming))}</span></span>`
+        <span><span class="meta-text">${esc(tripWhenLine(t))}</span></span>
+        ${upcoming ? `<span><span class="meta-text">${esc(daysToGoCount(upcoming))}</span></span>`
           : (phrase ? `<span><span class="meta-emoji" aria-hidden="true">📍</span><span class="meta-text">${esc(phrase)}</span></span>` : '')}
       </p>
     </div>` : `
