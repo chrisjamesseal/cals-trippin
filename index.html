@@ -3918,6 +3918,27 @@ const AIRPORTS = {
   AKL:'Auckland', WLG:'Wellington', CHC:'Christchurch'
 };
 const airportName = code => AIRPORTS[String(code||'').toUpperCase()] || '';
+/* the geocodable city behind an AIRPORTS display name, for the handful of codes whose name
+   carries an airport-specific descriptor a place-name geocoder won't recognise on its own
+   ("Basel EuroAirport", "Rome Fiumicino") - see mapFlightLines/resolveFlightLineCoords, whose
+   route-map dashed flight line went undrawn entirely for exactly this: Open-Meteo's geocoder
+   matches real place names, and "Basel EuroAirport" isn't one anywhere in its data. Only the
+   codes whose AIRPORTS name isn't already just a plain city need an entry here - every other
+   code falls straight back to querying its own display name, which already works fine. */
+const AIRPORT_CITY = {
+  LHR:'London',LGW:'London',STN:'London',LTN:'London',LCY:'London',
+  BFS:'Belfast',
+  CDG:'Paris',ORY:'Paris',
+  AMS:'Amsterdam', BER:'Berlin',
+  TFS:'Tenerife', FNC:'Funchal',
+  FCO:'Rome',CIA:'Rome', MXP:'Milan',LIN:'Milan', TSF:'Treviso',
+  HER:'Heraklion', CHQ:'Chania',
+  BSL:'Basel',
+  ARN:'Stockholm',
+  SAW:'Istanbul',
+  JFK:'New York',LGA:'New York', ORD:'Chicago',
+  NRT:'Tokyo',HND:'Tokyo', DPS:'Denpasar'
+};
 /* which country each of AIRPORTS' own codes is actually in - flagForPlace's own "no address to
    read a country out of, fall back to the trip's single country" guess is wrong exactly for a
    flight home: its destination is deliberately outside the trip, not the country the rest of
@@ -11866,10 +11887,12 @@ function mapRouteStops(t){
 /* every flight leg with both ends known, resolved to real place names the same geocoder every
    other pin already uses - not stored coordinates, since AIRPORTS only carries a name/timezone
    per code (see AIRPORT_TZ's own comment on why that's kept separate), and a name is all
-   wxResolve needs anyway. */
+   wxResolve needs anyway. Carries the raw codes alongside the display names so
+   resolveFlightLineCoords can fall back to AIRPORT_CITY when a display name alone doesn't
+   geocode. */
 function mapFlightLines(t){
   return (t.flights||[]).filter(f=>f.from && f.to)
-    .map(f=>({from: airportName(f.from)||f.from, to: airportName(f.to)||f.to}));
+    .map(f=>({from: airportName(f.from)||f.from, to: airportName(f.to)||f.to, fromCode:f.from, toCode:f.to}));
 }
 /* resolves each flight leg's two endpoints independently (rather than reusing
    resolveRouteStopPins, which is shaped around one place per numbered stop) and calls
@@ -11877,11 +11900,13 @@ function mapFlightLines(t){
    [fromGeo, toGeo]. */
 function resolveFlightLineCoords(lines, onUpdate){
   const coords = new Array(lines.length).fill(null);
+  // AIRPORT_CITY's fallback, tried after the plain display name misses - see its own comment
+  const cands = (name, code) => [name, AIRPORT_CITY[String(code||'').toUpperCase()]].filter((c,i,arr)=>c && arr.indexOf(c)===i);
   lines.forEach((l,idx)=>{
     let from=null, to=null;
     const maybeUpdate = () => { if(from && to){ coords[idx] = [from, to]; onUpdate(coords); } };
-    wxResolve([l.from], geo=>{ from = geo; maybeUpdate(); });
-    wxResolve([l.to], geo=>{ to = geo; maybeUpdate(); });
+    wxResolve(cands(l.from, l.fromCode), geo=>{ from = geo; maybeUpdate(); });
+    wxResolve(cands(l.to, l.toCode), geo=>{ to = geo; maybeUpdate(); });
   });
   return coords;
 }
