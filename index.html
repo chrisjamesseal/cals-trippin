@@ -1363,7 +1363,13 @@ details .d-body{padding:14px 16px;}
   display:flex; flex-direction:column; align-items:flex-start; gap:10px;
   transition:transform .1s, box-shadow .1s, border-color .1s;
 }
-.dash-tile:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
+/* guarded to real hover devices only - on iOS Safari a tapped button keeps its :hover state
+   (there's no pointer to move away with) until something else is tapped, so without this guard
+   the brand-coloured border from a tap on, say, the Itinerary tile would stay stuck around it
+   after navigating back to the dashboard */
+@media (hover:hover){
+  .dash-tile:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift); border-color:var(--brand);}
+}
 .dash-tile:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
 .dash-tile > .dash-icon{font-size:1.5rem; color:var(--brand);}
 /* emoji carry their own colour, so they only need sizing; the slightly larger size and
