@@ -7176,7 +7176,12 @@ function reorderFwByAvailability(list){
    straight into an in-app search instead, which is what this uses now - iOS/the Letterboxd app
    only, same assumption every other external link here already makes. */
 function filmLetterboxdUrl(f){
-  return f.link || ('letterboxd://x-callback-url/search?type=film&query='+encodeURIComponent(f.title||''));
+  // the year goes into the search text itself (the x-callback-url scheme has no separate year
+  // param) - without it, a title shared with a remake, a franchise entry, or any other same-
+  // named film left Letterboxd's own search to guess, and it doesn't always guess the one just
+  // logged
+  const query = f.title ? (f.year ? `${f.title} ${f.year}` : f.title) : '';
+  return f.link || ('letterboxd://x-callback-url/search?type=film&query='+encodeURIComponent(query));
 }
 /* Home's Last Seen widget only - a film you've actually watched and rated is worth landing on
    its Reviews sub-page rather than the plain film page. Only works with a real Letterboxd URI
