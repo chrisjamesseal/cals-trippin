@@ -4625,7 +4625,11 @@ function dashBoardGamesPlayedWidgetHTML(){
   return dashStatTileHTML('🎲', dashBoardGamesPlayedCount(), 'Board Games Played', 'App.goBoardGamesPlayed()');
 }
 function dashLastSeenFilmWidgetHTML(){
-  const f = (DB.films||[]).filter(f=>f.watchedDate).sort((a,b)=>b.watchedDate.localeCompare(a.watchedDate))[0];
+  // a diary entry logged with a future watchedDate (a planned rewatch, a release date noted
+  // ahead of actually seeing it) isn't watched yet, so it shouldn't be able to win "Last Seen"
+  // over a film genuinely seen before today just because its date sorts later
+  const today = todayStr();
+  const f = (DB.films||[]).filter(f=>f.watchedDate && f.watchedDate<=today).sort((a,b)=>b.watchedDate.localeCompare(a.watchedDate))[0];
   if(!f) return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsDiary()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goFilmsDiary()}">
