@@ -1216,6 +1216,11 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
 /* the same red, for a single field (airline, operator, company…) left blank on a card that's
    otherwise a real, filled-in card - too small a gap to earn the full dashed treatment */
 .text-undecided{color:#C0392B; font-weight:600;}
+/* the Tasks page only - red here reads as more alarming than a plain to-do list needs, so its
+   outstanding rows keep the same dashed-pill shape but in plain ink text on a neutral border
+   instead of the red every other "still needs deciding" spot on the app uses */
+.wrap[data-tab="tasks"] .task-pill{border-color:var(--line-strong);}
+.wrap[data-tab="tasks"] .text-undecided{color:var(--ink);}
 /* the "Not Booked" flag needs to read as a status, not just tinted text, so it stands out at a
    glance among the rest of a card's plain-text detail line */
 .pill-notbooked{display:inline-block; background:#C0392B; color:#fff; font-weight:700; font-size:.72rem; padding:3px 10px; border-radius:999px; letter-spacing:.02em; line-height:1.4;}
@@ -1690,8 +1695,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.66.0';
+const APP_VERSION = '2.67.0';
 const CHANGELOG = [
+  {version:'2.67.0', notes:[
+    "Tasks page only: its dashed pills now read in plain ink text on a neutral tan border instead of red - a plain to-do list didn't need the same alarm-red every other \"still needs deciding\" spot on the app uses."
+  ]},
   {version:'2.66.0', notes:[
     "A Free Day now shows on the Tasks tab too, not just the Itinerary - same sun icon, plain (not red) styling since there's nothing outstanding about it, tap to undo it straight from there."
   ]},
