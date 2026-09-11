@@ -1705,8 +1705,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.74.0';
+const APP_VERSION = '2.75.0';
 const CHANGELOG = [
+  {version:'2.75.0', notes:[
+    "A film whose rating you change now lands right at the top of its new rating's tier on the Leaderboard, instead of wherever watched-date order would otherwise slot it in among films that already had that score."
+  ]},
   {version:'2.74.0', notes:[
     "Fixed a film not moving on the Leaderboard right away after changing its rating - the Edit Film form's Leaderboard Rank field is scoped to the rating it had when the form opened, so saving a new rating without also touching that field pinned it right back to its old spot. A changed rating now drops any pin (manual or from that field) and lets the film fall back to its own fresh, rating-sorted position."
   ]},
@@ -7170,11 +7173,21 @@ function saveFilmImpl(i){
     const order = filmLeaderboardOrder().map(f=>f.id).filter(id=>id!==film.id);
     order.splice(wanted-1, 0, film.id);
     saveFilmLeaderboardOrder(order);
+  } else if(ratingChanged && film.rating!=null){
+    // the rating changed - wherever this film sat (an earlier manual move, the rank field
+    // above on a previous save, or just its old date-order slot) belonged to its old rating,
+    // not this one. Lands at the very top of its new rating's tier - the same spot a film
+    // freshly given that rating would land in - rather than wherever date-order would place it
+    // among films that already had that score, so a lowered rating reads as "just dropped down
+    // to here" instead of vanishing into the middle of the tier.
+    const rest = filmLeaderboardOrder().filter(f=>f.id!==film.id).map(f=>f.id);
+    const byId = new Map((DB.films||[]).map(f=>[f.id,f]));
+    let insertAt = rest.findIndex(id => (byId.get(id)||{}).rating <= film.rating);
+    if(insertAt<0) insertAt = rest.length;
+    rest.splice(insertAt, 0, film.id);
+    saveFilmLeaderboardOrder(rest);
   } else if(ratingChanged && (DB.filmLeaderboardOrder||[]).includes(film.id)){
-    // the rating changed - wherever this film was pinned (an earlier manual move, or the rank
-    // field above on a previous save) belonged to its old rating, not this one, so drop the pin
-    // and let it fall back to filmLeaderboardDefaultOrder's fresh, rating-sorted position instead
-    // of it sitting stuck wherever the old rating had put it
+    // the rating was cleared entirely - nothing to rank any more, so just drop whatever pin it had
     saveFilmLeaderboardOrder((DB.filmLeaderboardOrder||[]).filter(id=>id!==film.id));
   }
   if(FILM_WATCHLIST_REMOVE_ID){
