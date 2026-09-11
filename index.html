@@ -7875,19 +7875,17 @@ function drawTheatreWatchlistList(){
 }
 function theatreWatchlistCardHTML(t){
   return `
-    <div class="card gig-card">
+    <div class="card gig-card" role="button" tabindex="0" aria-label="Mark ${esc(t.title||'Untitled')} as seen"
+      onclick="App.theatreMarkSeen('${esc(t.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.theatreMarkSeen('${esc(t.id)}')}">
       <div class="gig-top">
         ${t.image ? `<img class="theatre-cover" src="${esc(t.image)}" alt="" loading="lazy">`
                    : `<span class="theatre-cover gig-cover-fallback" aria-hidden="true">🎭</span>`}
         <div class="gig-info">
           <div class="gig-name">${esc(t.title||'Untitled')}</div>
           ${t.venue?`<div class="gig-facts muted small">${esc(t.venue)}</div>`:''}
-          <div class="btn-row" style="margin-top:8px">
-            <button type="button" class="btn sm" onclick="App.theatreMarkSeen('${esc(t.id)}')">Seen</button>
-          </div>
         </div>
         <div class="gig-actions">
-          <button class="iconbtn del" aria-label="Remove from watchlist" title="Remove" onclick="App.delTheatreWatchlist('${esc(t.id)}')">${ICONS.trash}</button>
+          <button class="iconbtn del" aria-label="Remove from watchlist" title="Remove" onclick="event.stopPropagation();App.delTheatreWatchlist('${esc(t.id)}')">${ICONS.trash}</button>
         </div>
       </div>
       ${t.notes?`<div class="small muted" style="margin-top:8px">${esc(t.notes)}</div>`:''}
