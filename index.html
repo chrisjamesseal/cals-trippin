@@ -1772,8 +1772,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.4';
+const APP_VERSION = '2.83.5';
 const CHANGELOG = [
+  {version:'2.83.5', notes:[
+    "Board Games: marking Want to Play/Played on a search result now only updates that one card instead of rebuilding the entire results list on every tap - a search can return plenty of cards, and tearing the whole list down right as you're about to tap the next one down was exactly the kind of mid-tap reflow already fixed once before for this same button. Also hardened the Co-op/Party/Strategy/etc chips against a BoardGameGeek entry that's missing mechanics or categories data, which would otherwise throw and silently stop the whole list from rendering."
+  ]},
   {version:'2.83.4', notes:[
     "Rank Ties' progress bar is no longer pinned to the bottom of the screen - it's a normal part of the page now, under the Undo button. That fixed-position bar sat right above the also-fixed tab bar, and this screen has already needed two separate fixes for exactly that combination behaving unpredictably on real devices (see the tab bar's own recent fixes), so rather than risk a third, it's just not fixed any more."
   ]},
@@ -5993,17 +5996,23 @@ function pushBgMarks(){
    actually choose between, matched off the category/mechanic names (and weight rating) it
    returns. They live here rather than in api/board-games.js so a bucket can be retuned without
    a redeploy. */
+/* BGG's own data is inconsistent about whether an entry even carries mechanics/categories at
+   all (sparser for older or less-documented games) - g.mechanics/g.categories defaulting to []
+   here means a card missing either just tests false on every chip instead of throwing and
+   aborting the whole grid's render (every card after the bad one in the list silently never
+   even reaching the DOM, however the render was triggered - including the one place, before
+   updateBgCardMarkButtons existed, that ran the full render again on every mark). */
 const BG_CATS = [
-  {k:'coop',     emoji:'🤝', label:'Co-op',    test:g => g.mechanics.some(m=>/cooperative/i.test(m))},
-  {k:'party',    emoji:'🎉', label:'Party',    test:g => g.categories.some(c=>/party game|humor/i.test(c))},
+  {k:'coop',     emoji:'🤝', label:'Co-op',    test:g => (g.mechanics||[]).some(m=>/cooperative/i.test(m))},
+  {k:'party',    emoji:'🎉', label:'Party',    test:g => (g.categories||[]).some(c=>/party game|humor/i.test(c))},
   {k:'strategy', emoji:'🧠', label:'Strategy', test:g => (g.weight||0) >= 3
-                                                  || g.categories.some(c=>/abstract strategy|economic|civilization|territory building/i.test(c))},
+                                                  || (g.categories||[]).some(c=>/abstract strategy|economic|civilization|territory building/i.test(c))},
   {k:'family',   emoji:'🧸', label:'Family',   test:g => (g.weight||5) < 2
-                                                  || g.categories.some(c=>/children|educational/i.test(c))},
-  {k:'cards',    emoji:'🃏', label:'Cards',    test:g => g.categories.some(c=>/card game/i.test(c))},
-  {k:'mystery',  emoji:'🕵️', label:'Mystery',  test:g => g.categories.some(c=>/deduction|murder|spies/i.test(c))},
-  {k:'fighting', emoji:'⚔️', label:'Fighting', test:g => g.categories.some(c=>/wargame|fighting|miniatures/i.test(c))},
-  {k:'words',    emoji:'🔤', label:'Words',    test:g => g.categories.some(c=>/word game|trivia/i.test(c))},
+                                                  || (g.categories||[]).some(c=>/children|educational/i.test(c))},
+  {k:'cards',    emoji:'🃏', label:'Cards',    test:g => (g.categories||[]).some(c=>/card game/i.test(c))},
+  {k:'mystery',  emoji:'🕵️', label:'Mystery',  test:g => (g.categories||[]).some(c=>/deduction|murder|spies/i.test(c))},
+  {k:'fighting', emoji:'⚔️', label:'Fighting', test:g => (g.categories||[]).some(c=>/wargame|fighting|miniatures/i.test(c))},
+  {k:'words',    emoji:'🔤', label:'Words',    test:g => (g.categories||[]).some(c=>/word game|trivia/i.test(c))},
 ];
 /* the two mark buttons every card carries - not filter chips (that put a marked game at the
    mercy of whatever's currently searched/browsed, see bg-shelf below), just the labels for
@@ -6186,12 +6195,12 @@ function bgCardHTML(g){
   // stopPropagation - these buttons sit inside the now-clickable card, and marking a game
   // shouldn't also navigate to its detail page
   const markBtn = (k, emoji, label) => `
-    <button type="button" class="btn sm bg-mark${mark===k?' on':''}"
+    <button type="button" class="btn sm bg-mark${mark===k?' on':''}" data-mark-key="${k}"
       onclick="event.stopPropagation();App.bgMark('${esc(g.id)}','${k}')" aria-pressed="${mark===k}">
       <span aria-hidden="true">${emoji}</span>${esc(label)}</button>`;
   const href = '#/boardgame/'+encodeURIComponent(g.id);
   return `
-    <div class="bg-card${mark?' bg-marked':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
+    <div class="bg-card${mark?' bg-marked':''}" data-bg-id="${esc(g.id)}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
       <div class="bg-top">
         ${g.thumb ? `<img class="bg-cover" src="${esc(g.thumb)}" alt="" loading="lazy">`
@@ -10070,9 +10079,27 @@ App.bgMark = (id, k) => {
   saveBgMarks(marks);
   const g = BG_GAMES.find(x=>x.id===id); if(g) BG_MARKED_CACHE[id] = g;
   // Want to Play/Played are their own pages now, not a filter chip alongside the search grid -
-  // whichever one is showing is the one that needs to reflect the new mark
-  if(BG_SUBTAB==='search') drawBgGrid(); else drawBgShelf();
+  // whichever one is showing is the one that needs to reflect the new mark. On the search grid,
+  // only the one card that changed gets touched (see updateBgCardMarkButtons) rather than
+  // tearing down and rebuilding the whole result list on every tap - a search can return plenty
+  // of cards, and a full rebuild right as you're tapping the next one down the list is exactly
+  // the kind of mid-tap reflow that's already bitten this same button once before (see the
+  // kb-open/focusout comment nearby). The shelf views still redraw in full since marking a game
+  // there can remove it from the list entirely, not just change how one card looks.
+  if(BG_SUBTAB==='search') updateBgCardMarkButtons(id); else drawBgShelf();
 };
+/* patches one search-result card's own two buttons in place after a mark toggle - no other
+   card's DOM is touched, so nothing else on the page can shift mid-tap */
+function updateBgCardMarkButtons(id){
+  const card = document.querySelector(`.bg-card[data-bg-id="${CSS.escape(id)}"]`); if(!card) return;
+  const mark = bgMarkOf(id);
+  card.classList.toggle('bg-marked', !!mark);
+  card.querySelectorAll('.bg-mark').forEach(btn=>{
+    const on = btn.dataset.markKey===mark;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
+  });
+}
 /* the + Add Game button next to the Games title - what used to be a permanent "Find Something
    New" section sitting below the whole PS5 library is now a modal you open on demand, reached
    from either console tab (see renderGames' crumb-titlerow) since it's always the same PS5-only
