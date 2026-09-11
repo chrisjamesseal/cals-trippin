@@ -1705,8 +1705,20 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.69.0';
+const APP_VERSION = '2.73.0';
 const CHANGELOG = [
+  {version:'2.73.0', notes:[
+    "Fixed a rewatched film showing up on the Leaderboard once per watch instead of once - a rewatch is its own separate diary entry, so a favourite watched a few times used to crowd the board with a copy of itself for each watch. It's one row now, using whichever watch is latest, same as the By Rating breakdown already does."
+  ]},
+  {version:'2.72.0', notes:[
+    "The 📊 Stats button no longer shows on the Leaderboard page itself - still there on Diary/Watchlist, but redundant on Leaderboard now that its own headline numbers already sit right there."
+  ]},
+  {version:'2.71.0', notes:[
+    "Free Day to Explore no longer shows on the Tasks tab - it's still on the Itinerary, but Tasks is for what's still outstanding, and a free day already isn't."
+  ]},
+  {version:'2.70.0', notes:[
+    "Home's Next Trip tile gets the same live countdown too, under its \"Next Trip\" label."
+  ]},
   {version:'2.69.0', notes:[
     "The new Home countdown row is one plain outline around all four numbers now, with thin dividers between them, instead of a separate box for each - keeps it minimal."
   ]},
@@ -4486,6 +4498,7 @@ function dashTripItemHTML(t){
       <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">${flagCellsHTML(flags.length?flags:['✈️'])}</div>
       <div class="dash-item-title">${esc(t.name)}</div>
       <div class="dash-item-sub">Next Trip</div>
+      ${miniCountdownHTML(t.startDate)}
     </div>`;
 }
 function dashTripWidgetsHTML(){
@@ -6680,8 +6693,14 @@ function filmLeaderboardDefaultOrder(films){
    rated film not in it yet appended in default order - so a fresh rating always lands somewhere
    sane instead of needing a manual move before it shows up at all. */
 function filmLeaderboardOrder(){
-  const films = DB.films||[];
-  const byId = new Map(films.map(f=>[f.id,f]));
+  const byId = new Map((DB.films||[]).map(f=>[f.id,f]));
+  // one row per film, not one per logged watch - a rewatch is its own separate DB.films entry
+  // (see filmIdentityKey/filmsLatestPerFilm), so without this a favourite rewatched a few times
+  // showed up on the board once per watch instead of once, each copy fighting over its own rank.
+  // Whichever watch is latest represents the film here, same as the By Rating breakdown already
+  // does it, so the two never disagree about which watch "is" the film.
+  const canonical = filmsLatestPerFilm().filter(f=>f.rating!=null);
+  const canonicalIds = new Set(canonical.map(f=>f.id));
   // de-duplicated even though the stored order itself never should be - a slow cloud read
   // landing after a manual move (see pushFilmLeaderboardOrder's own race guard) used to be able
   // to leave a stale copy of an id sitting in DB.filmLeaderboardOrder alongside the moved one,
@@ -6689,9 +6708,9 @@ function filmLeaderboardOrder(){
   // even if something upstream still manages to corrupt the stored array.
   const seen = new Set();
   const saved = (DB.filmLeaderboardOrder||[])
-    .filter(id => byId.has(id) && byId.get(id).rating!=null && !seen.has(id) && seen.add(id));
+    .filter(id => canonicalIds.has(id) && !seen.has(id) && seen.add(id));
   const savedSet = new Set(saved);
-  const rest = filmLeaderboardDefaultOrder(films).filter(id=>!savedSet.has(id));
+  const rest = filmLeaderboardDefaultOrder(canonical).filter(id=>!savedSet.has(id));
   return [...saved, ...rest].map(id=>byId.get(id));
 }
 function filmLeaderboardHTML(){
@@ -6885,7 +6904,7 @@ function renderFilms(){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        <button class="btn sm ghost" onclick="App.goFilmsStatsCharts()">📊 Stats</button>
+        ${CUR_FILMS_TAB!=='stats'?`<button class="btn sm ghost" onclick="App.goFilmsStatsCharts()">📊 Stats</button>`:''}
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','🏆 Leaderboard')}</div>
@@ -10734,15 +10753,7 @@ function undecidedItemsHTML(t, ro){
   const {groups:dGroups, keys:dKeys} = planDayGroups(t);
   const gapFirstNights = new Set(stayGaps(t).map(g=>g.firstNight));
   dKeys.forEach(k=>{
-    if(dGroups[k].length===0 && !gapFirstNights.has(k)){
-      // a day deliberately left free reads here too, same as the Itinerary's own pill for it -
-      // not in red/undecided styling, since there's nothing outstanding about it, just tap to
-      // undo (see App.unmarkFreeDay) the same way its X button on the Itinerary does
-      if(isFreeDay(t,k)){
-        rows.push({dateLine: dateLineFor(k), icon:secEmoji('☀️'), title:'Free Day to Explore', time:'',
-          editFn:`App.unmarkFreeDay('${k}')`, sortKey:k, trailIcon:fa('xmark')});
-        return;
-      }
+    if(dGroups[k].length===0 && !gapFirstNights.has(k) && !isFreeDay(t,k)){
       // same place a day's own Itinerary heading would show for it (a Location range covering
       // the date, since there's nothing booked that day to read a place off instead) - "Nothing
       // Planned" on its own doesn't say where, which matters once a trip has more than one stop
