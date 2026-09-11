@@ -804,7 +804,10 @@ a{color:var(--brand-dark);}
    under its last line */
 .itin-flight .itin-amenities:last-child,.itin-flight .itin-ref:last-child{margin-bottom:0;}
 .itin-actions{display:flex; flex-direction:column; gap:8px;}
-.itin-action-btn{width:100%; background:var(--bg); color:var(--ink); border:none; border-radius:var(--radius);
+/* var(--bg) used to sit here - the same page background colour showing through the card, so
+   close to the card's own var(--paper) that this "secondary" button barely read as a button at
+   all (and looked inconsistent shot to shot as a result, despite being one fixed colour) */
+.itin-action-btn{width:100%; background:var(--line); color:var(--ink); border:none; border-radius:var(--radius);
   padding:10px 12px; font-weight:700; font-size:.85rem; text-align:center; display:flex; align-items:center;
   justify-content:center; gap:8px; cursor:pointer;}
 /* the icon's own margin-right (meant for an inline, non-flex context) doubled up with this
@@ -1687,8 +1690,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.58.0';
+const APP_VERSION = '2.59.0';
 const CHANGELOG = [
+  {version:'2.59.0', notes:[
+    "A card's Google Maps/Track/View Boarding Pass button (anything not in the site's own brand colour) is a darker, more visible tan now - it used to be so close to the card's own background it barely read as a button, and looked inconsistent from one screenshot to the next despite being one fixed colour the whole time."
+  ]},
   {version:'2.58.0', notes:[
     "Accommodation/booking cards: a booking site's favicon that fails to load (or comes back blank) no longer sits there as an empty white square next to the View Details button - it drops itself, same graceful fallback a card's own header logo already had."
   ]},
