@@ -3144,6 +3144,13 @@ function fmtShortDate(d){
   const dt = new Date(d + 'T00:00:00');
   return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+String(dt.getFullYear()).slice(-2);
 }
+/* fmtShortDate's own d/m/y, but with the full year spelled out - a release date far enough out
+   that "26" alone could read as ambiguous */
+function fmtDateSlash(d){
+  if(!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.getDate()+'/'+(dt.getMonth()+1)+'/'+dt.getFullYear();
+}
 /* "23rd September 2026" - the small date line sat above each day's own heading on the
    Itinerary (see dayNarrative), spelled out in full with an ordinal day rather than shortened,
    since it's the one date on that day's row and reads better written out than as a fraction. */
@@ -4568,6 +4575,7 @@ function dashNextReleaseWidgetHTML(g){
                  : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
       <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
       <div class="dash-item-sub">${esc(wlReleaseLabel(g)||'Next Release')}</div>
+      <div class="dash-item-sub">${esc(daysToGoCount(g.released))}</div>
     </div>`;
 }
 function dashNextReleaseSlotHTML(){
@@ -6034,7 +6042,7 @@ function wlReleaseLabel(g){
   // already be out
   if(!g.released) return g.manual ? '' : 'To be announced';
   if(g.tba) return 'To be announced';
-  return g.released > todayStr() ? 'Releases '+fmtDate(g.released) : fmtDate(g.released);
+  return g.released > todayStr() ? 'Releases '+fmtDateSlash(g.released) : fmtDateSlash(g.released);
 }
 /* newest release first - a game with no known release date can't be placed on that axis at
    all, so it sinks to the bottom rather than winning by default */
