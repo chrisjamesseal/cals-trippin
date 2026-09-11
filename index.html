@@ -1759,8 +1759,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.82.0';
+const APP_VERSION = '2.82.1';
 const CHANGELOG = [
+  {version:'2.82.1', notes:[
+    "Rank Ties now tackles tied ratings in random order instead of always starting at 10/10s and working down - each matchup is still only ever between two films that share the same rating, just which rating comes first is a surprise now."
+  ]},
   {version:'2.82.0', notes:[
     "Rank Ties: the OR badge is gone, the poster cards now centre vertically in the space above the tab bar instead of sitting at the top of the page, and there's an Undo button under the cards for when you tap the wrong one. The game also no longer asks about the same film two rounds in a row when other films are still waiting their turn. Separately, the Leaderboard's up/down arrows now tint green or red (with the number of spots) on any film the game just moved, until you move it by hand again."
   ]},
@@ -8022,6 +8025,10 @@ function updateBackToTopVisibility(){
    once a tier finishes - so going back mid-tier, or the app closing outright, resumes from
    the exact comparison you were on instead of losing progress back to the start of that tier. */
 const FILM_SORT_STORAGE_KEY = 'calstrippin_film_sort_progress';
+/* the tiers themselves come out in random order (10s aren't always first) - always working
+   top-down felt like a chore to grind through in rating order, and which tier comes first
+   doesn't actually matter since they never get compared against each other, only within
+   themselves (a 10 only ever goes up against another 10) */
 function filmTieGroups(){
   const byRating = new Map();
   filmLeaderboardOrder().forEach(f=>{
@@ -8029,10 +8036,11 @@ function filmTieGroups(){
     if(!byRating.has(f.rating)) byRating.set(f.rating, []);
     byRating.get(f.rating).push(f.id);
   });
-  return [...byRating.entries()]
+  const groups = [...byRating.entries()]
     .filter(([,ids])=>ids.length>1)
-    .sort((a,b)=>b[0]-a[0])
     .map(([rating,ids])=>({rating, ids}));
+  for(let i=groups.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [groups[i],groups[j]]=[groups[j],groups[i]]; }
+  return groups;
 }
 let FILM_SORT_STATE = null;
 function loadFilmSortState(){
