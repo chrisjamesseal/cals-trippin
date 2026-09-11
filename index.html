@@ -1486,16 +1486,25 @@ body.kb-open .tabbar.on{display:none;}
 .back-to-top-btn:hover{border-color:var(--brand); color:var(--brand);}
 .films-leaderboard-heading{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:20px 0 10px;}
 .films-leaderboard-heading h3{margin:0;}
-/* the tie-breaker game's two poster cards, sat side by side with an "OR" badge overlapping the
-   seam between them - same idea as a head-to-head "which do you prefer" chooser. Each card is
-   actually two grid items (a poster cell in row 1, a title cell in row 2) with matching borders
-   that meet with no seam, rather than one box - that's what lets the OR badge centre on just the
-   poster row's own height (row 1's height only ever comes from the two same-aspect-ratio
-   posters) regardless of how many lines a longer title wraps to in row 2, and what lets row 2
-   size to the taller of the two titles so both title areas end up the same height, with the
-   text bottom-aligned inside whichever one has room to spare. object-fit: contain (not cover)
-   so the whole poster shows rather than cropping it to fill a fixed box. */
-.film-sort-arena{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; column-gap:14px; margin-top:8px;}
+/* an arrow tinted to show which way the Rank Ties game last moved that film - green/up for a
+   rise, red/down for a drop - alongside the little delta badge; both clear the moment that
+   film is manually moved again, since a hand move supersedes whatever the game decided */
+.film-rank-up{color:#2e7d32;}
+.film-rank-up:hover{color:#1b5e20; background:#e8f5e9;}
+.film-rank-down{color:#c0392b;}
+.film-rank-down:hover{color:#a93226; background:#fcebe9;}
+.film-rank-delta{font-size:.65rem; font-weight:800; margin-left:1px; vertical-align:super;}
+/* the tie-breaker game screen - centres its poster cards vertically in whatever room is left
+   between the header and the tabbar (rather than the full page height, which looked off-centre
+   once the tabbar's own footprint was accounted for). Each card is actually two grid items (a
+   poster cell in row 1, a title cell in row 2) with matching borders that meet with no seam,
+   rather than one box - what lets row 2 size to the taller of the two titles so both title areas
+   end up the same height, with the text bottom-aligned inside whichever one has room to spare.
+   object-fit: contain (not cover) so the whole poster shows rather than cropping it to fill a
+   fixed box. */
+.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px);}
+.film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center;}
+.film-sort-arena{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; column-gap:14px;}
 .film-sort-poster-cell{grid-row:1; display:block; width:100%; border:1px solid var(--line); border-bottom:none;
   border-top-left-radius:var(--radius); border-top-right-radius:var(--radius);
   overflow:hidden; background:var(--bg); cursor:pointer; padding:0;}
@@ -1513,10 +1522,6 @@ body.kb-open .tabbar.on{display:none;}
 .film-sort-title-cell:last-of-type{grid-column:2;}
 .film-sort-title-cell:hover{border-color:var(--brand);}
 .film-sort-title-name{font-weight:700;}
-.film-sort-or{grid-row:1; grid-column:1/3; align-self:center; justify-self:center; z-index:2;
-  width:44px; height:44px; border-radius:50%; background:var(--paper); border:1px solid var(--line);
-  box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center;
-  font-weight:800; font-size:.8rem; color:var(--muted);}
 /* the "what do you want to add" screen the sticky button opens - three big tappable rows
    rather than the cramped inline buttons this replaced, each handing straight off to the
    exact same form/tab the old button did */
@@ -1754,8 +1759,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.81.1';
+const APP_VERSION = '2.82.0';
 const CHANGELOG = [
+  {version:'2.82.0', notes:[
+    "Rank Ties: the OR badge is gone, the poster cards now centre vertically in the space above the tab bar instead of sitting at the top of the page, and there's an Undo button under the cards for when you tap the wrong one. The game also no longer asks about the same film two rounds in a row when other films are still waiting their turn. Separately, the Leaderboard's up/down arrows now tint green or red (with the number of spots) on any film the game just moved, until you move it by hand again."
+  ]},
   {version:'2.81.1', notes:[
     "Rank Ties layout tweaks: both posters are now the same height regardless of how long either title is, with the title/year bottom-aligned under them; the OR badge centres on the posters only, not the titles below; the round label moved under the posters and now reads e.g. \"10/10s Round\"; and the back button sits left while \"Which is better?\" stays centred."
   ]},
@@ -6792,10 +6800,26 @@ function filmLeaderboardOrder(){
   const rest = filmLeaderboardDefaultOrder(canonical).filter(id=>!savedSet.has(id));
   return [...saved, ...rest].map(id=>byId.get(id));
 }
+/* how far the Rank Ties game last moved each film, keyed by id - {filmId: delta}, positive
+   meaning it rose that many spots, negative meaning it dropped. See applyFilmSortResult (where
+   it's written) and clearFilmRankDelta (where a manual arrow move retires an entry, since a
+   hand move supersedes whatever the game decided for that film). */
+const FILM_RANK_DELTA_KEY = 'calstrippin_film_rank_deltas';
+function loadFilmRankDeltas(){
+  try{ return JSON.parse(localStorage.getItem(FILM_RANK_DELTA_KEY)||'{}'); }catch(e){ return {}; }
+}
+function saveFilmRankDeltas(map){ localStorage.setItem(FILM_RANK_DELTA_KEY, JSON.stringify(map)); }
+function clearFilmRankDelta(id){
+  const map = loadFilmRankDeltas();
+  if(map[id]!=null){ delete map[id]; saveFilmRankDeltas(map); }
+}
 function filmLeaderboardHTML(){
   const order = filmLeaderboardOrder();
   if(!order.length) return `<div class="empty">Rate a film to start your leaderboard.</div>`;
-  return `<div class="dash-prefs-list">${order.map((f,i) => `
+  const deltas = loadFilmRankDeltas();
+  return `<div class="dash-prefs-list">${order.map((f,i) => {
+    const delta = deltas[f.id];
+    return `
     <div class="dash-prefs-row">
       <div class="film-leaderboard-info" role="button" tabindex="0" onclick="App.filmForm(${(DB.films||[]).indexOf(f)})"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmForm(${(DB.films||[]).indexOf(f)})}">
@@ -6805,10 +6829,11 @@ function filmLeaderboardHTML(){
         <span class="dash-prefs-label">${esc(f.title||'Untitled')}<br><span class="muted small">${filmScoreLabel(f.rating)}/10</span></span>
       </div>
       <div class="dash-prefs-actions">
-        <button class="iconbtn" aria-label="Move ${esc(f.title||'Untitled')} up"${i===0?' disabled':''} onclick="App.filmLeaderboardMove('${esc(f.id)}',-1)">${fa('chevron-up')}</button>
-        <button class="iconbtn" aria-label="Move ${esc(f.title||'Untitled')} down"${i===order.length-1?' disabled':''} onclick="App.filmLeaderboardMove('${esc(f.id)}',1)">${fa('chevron-down')}</button>
+        <button class="iconbtn${delta>0?' film-rank-up':''}" aria-label="Move ${esc(f.title||'Untitled')} up${delta>0?` (the game moved it up ${delta})`:''}"${i===0?' disabled':''} onclick="App.filmLeaderboardMove('${esc(f.id)}',-1)">${fa('chevron-up')}${delta>0?`<span class="film-rank-delta">${delta}</span>`:''}</button>
+        <button class="iconbtn${delta<0?' film-rank-down':''}" aria-label="Move ${esc(f.title||'Untitled')} down${delta<0?` (the game moved it down ${Math.abs(delta)})`:''}"${i===order.length-1?' disabled':''} onclick="App.filmLeaderboardMove('${esc(f.id)}',1)">${fa('chevron-down')}${delta<0?`<span class="film-rank-delta">${Math.abs(delta)}</span>`:''}</button>
       </div>
-    </div>`).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function loadPlantsCloud(cb){
@@ -8028,7 +8053,7 @@ function filmSortStateValid(state){
   const byId = new Map((DB.films||[]).map(f=>[f.id,f]));
   const idsMatchRating = (rating, ids) => ids.every(id => byId.has(id) && byId.get(id).rating===rating);
   const tier = state.tiers[0];
-  const activeIds = [...(state.sortedIds||[]), ...(state.remainingIds||[]), ...(state.pending?[state.pending.id]:[])];
+  const activeIds = [...(state.sortedIds||[]), ...((state.active||[]).map(a=>a.id))];
   if(!idsMatchRating(tier.rating, activeIds)) return false;
   return state.tiers.every(t => idsMatchRating(t.rating, t.ids));
 }
@@ -8038,13 +8063,25 @@ function renderFilmSortGame(){
   else{
     const ties = filmTieGroups();
     if(!ties.length){ toast("No tied ratings left to sort"); App.goFilmsStats(); return; }
-    FILM_SORT_STATE = {tiers: ties, totalTiers: ties.length, sortedIds: [], remainingIds: [], pending: null};
+    FILM_SORT_STATE = {tiers: ties, totalTiers: ties.length, sortedIds: [], active: [], history: []};
   }
   advanceFilmSort();
 }
+/* an "active" item's true position is expressed as which already-placed film it must rank
+   better than (loBound) and worse than (hiBound), not as raw array indices - so it stays correct
+   however many OTHER active items get spliced into sortedIds in between (see the round-robin
+   rotation in App.filmSortPick), rather than needing every other item's indices patched up
+   whenever one of them resolves. Re-looked-up fresh every round off the live sortedIds array. */
+function filmSortBounds(state, item){
+  const lo = item.loBound!=null ? state.sortedIds.indexOf(item.loBound)+1 : 0;
+  const hi = item.hiBound!=null ? state.sortedIds.indexOf(item.hiBound) : state.sortedIds.length;
+  return {lo, hi};
+}
 /* runs the state machine forward until it needs a real human answer (renders that round and
    stops) or the whole queue is empty (finishes up) - each internal step persists before moving
-   on, so whatever the state is when this function returns is exactly what a close/back resumes */
+   on, so whatever the state is when this function returns is exactly what a close/back resumes.
+   All the actual bound-narrowing/placing/rotating happens in App.filmSortPick; this only ever
+   seeds a fresh tier, detects one that just finished, or renders whatever's left to ask. */
 function advanceFilmSort(){
   const state = FILM_SORT_STATE;
   if(!state || !state.tiers.length){
@@ -8055,28 +8092,17 @@ function advanceFilmSort(){
     return;
   }
   const tier = state.tiers[0];
-  if(!state.sortedIds.length && !state.remainingIds.length){
+  if(!state.sortedIds.length && !state.active.length){
     state.sortedIds = [tier.ids[0]];
-    state.remainingIds = tier.ids.slice(1);
-    state.pending = null;
+    state.active = tier.ids.slice(1).map(id => ({id, loBound: null, hiBound: null}));
+    state.history = [];
   }
-  if(!state.pending){
-    if(!state.remainingIds.length){
-      // tier fully placed - save it to the board right away, not just at the very end, so
-      // backing out after a few tiers keeps whatever's already been decided
-      applyFilmSortResult(state.sortedIds);
-      state.tiers.shift();
-      state.sortedIds = []; state.remainingIds = [];
-      persistFilmSortState();
-      advanceFilmSort();
-      return;
-    }
-    state.pending = {id: state.remainingIds[0], lo: 0, hi: state.sortedIds.length};
-  }
-  if(state.pending.lo >= state.pending.hi){
-    state.sortedIds.splice(state.pending.lo, 0, state.pending.id);
-    state.remainingIds.shift();
-    state.pending = null;
+  if(!state.active.length){
+    // tier fully placed - save it to the board right away, not just at the very end, so
+    // backing out after a few tiers keeps whatever's already been decided
+    applyFilmSortResult(state.sortedIds);
+    state.tiers.shift();
+    state.sortedIds = []; state.active = []; state.history = [];
     persistFilmSortState();
     advanceFilmSort();
     return;
@@ -8089,12 +8115,23 @@ function advanceFilmSort(){
    position relative to every other rating on the board doesn't move, only the order within it */
 function applyFilmSortResult(sortedIds){
   const currentIds = filmLeaderboardOrder().map(f=>f.id);
+  const oldIndex = new Map(currentIds.map((id,i)=>[id,i]));
   const idSet = new Set(sortedIds);
   let insertAt = currentIds.findIndex(id=>idSet.has(id));
   if(insertAt<0) insertAt = currentIds.length;
   const rest = currentIds.filter(id=>!idSet.has(id));
   rest.splice(insertAt, 0, ...sortedIds);
   saveFilmLeaderboardOrder(rest);
+  // remembers how far the game moved each film so the Leaderboard's up/down arrows can show it
+  // (see filmLeaderboardHTML) - cleared for a film the moment it's manually moved again, since a
+  // hand move supersedes whatever the game decided for it
+  const newIndex = new Map(rest.map((id,i)=>[id,i]));
+  const deltas = loadFilmRankDeltas();
+  sortedIds.forEach(id=>{
+    const delta = oldIndex.get(id) - newIndex.get(id);
+    if(delta) deltas[id] = delta; else delete deltas[id];
+  });
+  saveFilmRankDeltas(deltas);
 }
 function filmSortPosterHTML(id, side){
   const f = (DB.films||[]).find(x=>x.id===id) || {};
@@ -8114,26 +8151,34 @@ function filmSortTitleHTML(id, side){
 function renderFilmSortRound(){
   const state = FILM_SORT_STATE;
   const tier = state.tiers[0];
-  const mid = (state.pending.lo + state.pending.hi) >> 1;
-  const aId = state.pending.id, bId = state.sortedIds[mid];
+  const current = state.active[0];
+  const {lo, hi} = filmSortBounds(state, current);
+  const mid = (lo+hi) >> 1;
+  const aId = current.id, bId = state.sortedIds[mid];
   const tiersDone = state.totalTiers - state.tiers.length;
   $('#app').innerHTML = `
-    <div class="crumb">
-      <div class="crumb-titlerow" style="position:relative;justify-content:center">
-        <button class="crumb-backbtn" style="position:absolute;left:0" onclick="App.filmSortExit()" aria-label="Back to Leaderboard">${ICONS.back}</button>
-        <span class="crumb-here">Which is better?</span>
+    <div class="film-sort-screen">
+      <div class="crumb">
+        <div class="crumb-titlerow" style="position:relative;justify-content:center">
+          <button class="crumb-backbtn" style="position:absolute;left:0" onclick="App.filmSortExit()" aria-label="Back to Leaderboard">${ICONS.back}</button>
+          <span class="crumb-here">Which is better?</span>
+        </div>
       </div>
-    </div>
-    <div class="film-sort-arena">
-      ${filmSortPosterHTML(aId,'a')}
-      ${filmSortPosterHTML(bId,'b')}
-      <div class="film-sort-or">OR</div>
-      ${filmSortTitleHTML(aId,'a')}
-      ${filmSortTitleHTML(bId,'b')}
-    </div>
-    <p class="small muted" style="text-align:center;margin:18px 0 0">
-      ${esc(filmScoreLabel(tier.rating))}/10s Round${state.totalTiers>1?` &middot; ${tiersDone+1} of ${state.totalTiers}`:''}
-    </p>`;
+      <div class="film-sort-center">
+        <div class="film-sort-arena">
+          ${filmSortPosterHTML(aId,'a')}
+          ${filmSortPosterHTML(bId,'b')}
+          ${filmSortTitleHTML(aId,'a')}
+          ${filmSortTitleHTML(bId,'b')}
+        </div>
+        <p class="small muted" style="text-align:center;margin:18px 0 0">
+          ${esc(filmScoreLabel(tier.rating))}/10s Round${state.totalTiers>1?` &middot; ${tiersDone+1} of ${state.totalTiers}`:''}
+        </p>
+        <div style="text-align:center;margin-top:14px">
+          <button type="button" class="btn sm ghost" onclick="App.filmSortUndo()"${state.history.length?'':' disabled'}>${fa('rotate-left')} Undo</button>
+        </div>
+      </div>
+    </div>`;
   window.scrollTo(0,0);
 }
 /* By Year/By Rating moved off the Leaderboard tab onto their own page (App.goFilmsStatsCharts,
@@ -9772,6 +9817,10 @@ App.filmLeaderboardMove = (id, dir) => {
     if(filmIdx>=0){ DB.films[filmIdx].rating = neighbor.rating; saveFilms(); }
   }
   saveFilmLeaderboardOrder(order);
+  // a hand move on either film retires whatever the Rank Ties game last decided for it - the
+  // green/red arrow tint (see filmLeaderboardHTML) is now stale
+  clearFilmRankDelta(id);
+  if(neighbor) clearFilmRankDelta(neighbor.id);
   if(CUR_FILMS_TAB==='stats') drawFilmsStats();
 };
 App.scrollToTop = () => window.scrollTo({top:0, behavior:'smooth'});
@@ -9852,10 +9901,36 @@ App.goFilmsStatsCharts = () => { location.hash = '#/films/stats/charts'; };
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
 App.filmSortStart = () => { location.hash = '#/films/stats/sort'; };
 App.filmSortPick = side => {
-  if(!FILM_SORT_STATE || !FILM_SORT_STATE.pending) return;
-  const mid = (FILM_SORT_STATE.pending.lo + FILM_SORT_STATE.pending.hi) >> 1;
-  if(side==='a') FILM_SORT_STATE.pending.hi = mid;      // the film being placed beat the sorted one
-  else FILM_SORT_STATE.pending.lo = mid + 1;            // the already-sorted film won instead
+  const state = FILM_SORT_STATE;
+  if(!state || !state.active.length) return;
+  const current = state.active[0];
+  const {lo, hi} = filmSortBounds(state, current);
+  const mid = (lo+hi) >> 1;
+  const candidateId = state.sortedIds[mid];
+  // snapshot before mutating so App.filmSortUndo can restore exactly this - cleared whenever a
+  // fresh tier starts (see advanceFilmSort), so Undo never reaches back across a tier boundary
+  // whose result has already been saved to the board
+  state.history.push({sortedIds:[...state.sortedIds], active: state.active.map(a=>({...a}))});
+  if(side==='a') current.hiBound = candidateId;    // the film being placed beat the sorted one
+  else current.loBound = candidateId;              // the already-sorted film won instead
+  const resolved = filmSortBounds(state, current);
+  if(resolved.lo >= resolved.hi){
+    state.sortedIds.splice(resolved.lo, 0, current.id);
+    state.active.shift();
+  }else{
+    // rotate to the back of the queue instead of asking about this same film again right away -
+    // whichever OTHER film has been waiting longest gets the next round instead, so consecutive
+    // rounds stay varied even mid-way through placing several films
+    state.active.push(state.active.shift());
+  }
+  advanceFilmSort();
+};
+App.filmSortUndo = () => {
+  const state = FILM_SORT_STATE;
+  if(!state || !state.history.length) return;
+  const snap = state.history.pop();
+  state.sortedIds = snap.sortedIds;
+  state.active = snap.active;
   advanceFilmSort();
 };
 // leaves FILM_SORT_STATE (and its localStorage copy) alone - it's already been persisted after
