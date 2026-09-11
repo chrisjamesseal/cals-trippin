@@ -1487,19 +1487,33 @@ body.kb-open .tabbar.on{display:none;}
 .films-leaderboard-heading{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:20px 0 10px;}
 .films-leaderboard-heading h3{margin:0;}
 /* the tie-breaker game's two poster cards, sat side by side with an "OR" badge overlapping the
-   seam between them - same idea as a head-to-head "which do you prefer" chooser. object-fit:
-   contain (not cover) so the whole poster shows rather than cropping it to fill a fixed box. */
-.film-sort-arena{position:relative; display:flex; flex-direction:row; gap:14px; align-items:flex-start; margin-top:8px;}
-.film-sort-card{flex:1; min-width:0; display:flex; flex-direction:column; border:1px solid var(--line);
-  border-radius:var(--radius); overflow:hidden; background:var(--bg); cursor:pointer; padding:0;
-  text-align:center; font:inherit; color:inherit;}
-.film-sort-card:hover{border-color:var(--brand);}
-.film-sort-card:active{transform:scale(.98);}
-.film-sort-card img{width:100%; aspect-ratio:2/3; object-fit:contain; display:block; background:var(--bg);}
+   seam between them - same idea as a head-to-head "which do you prefer" chooser. Each card is
+   actually two grid items (a poster cell in row 1, a title cell in row 2) with matching borders
+   that meet with no seam, rather than one box - that's what lets the OR badge centre on just the
+   poster row's own height (row 1's height only ever comes from the two same-aspect-ratio
+   posters) regardless of how many lines a longer title wraps to in row 2, and what lets row 2
+   size to the taller of the two titles so both title areas end up the same height, with the
+   text bottom-aligned inside whichever one has room to spare. object-fit: contain (not cover)
+   so the whole poster shows rather than cropping it to fill a fixed box. */
+.film-sort-arena{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; column-gap:14px; margin-top:8px;}
+.film-sort-poster-cell{grid-row:1; display:block; width:100%; border:1px solid var(--line); border-bottom:none;
+  border-top-left-radius:var(--radius); border-top-right-radius:var(--radius);
+  overflow:hidden; background:var(--bg); cursor:pointer; padding:0;}
+.film-sort-poster-cell:first-of-type{grid-column:1;}
+.film-sort-poster-cell:last-of-type{grid-column:2;}
+.film-sort-poster-cell:hover{border-color:var(--brand);}
+.film-sort-poster-cell img{width:100%; aspect-ratio:2/3; object-fit:contain; display:block; background:var(--bg);}
 .film-sort-card-fallback{width:100%; aspect-ratio:2/3; display:flex; align-items:center; justify-content:center;
   font-size:2rem; color:var(--muted); background:var(--bg);}
-.film-sort-card-title{padding:10px 8px; font-weight:700; text-align:center;}
-.film-sort-or{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2;
+.film-sort-title-cell{grid-row:2; width:100%; border:1px solid var(--line); border-top:none;
+  border-bottom-left-radius:var(--radius); border-bottom-right-radius:var(--radius);
+  background:var(--bg); cursor:pointer; padding:10px 8px 12px; font:inherit; color:inherit;
+  display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:2px; text-align:center;}
+.film-sort-title-cell:first-of-type{grid-column:1;}
+.film-sort-title-cell:last-of-type{grid-column:2;}
+.film-sort-title-cell:hover{border-color:var(--brand);}
+.film-sort-title-name{font-weight:700;}
+.film-sort-or{grid-row:1; grid-column:1/3; align-self:center; justify-self:center; z-index:2;
   width:44px; height:44px; border-radius:50%; background:var(--paper); border:1px solid var(--line);
   box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center;
   font-weight:800; font-size:.8rem; color:var(--muted);}
@@ -1740,9 +1754,12 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.81.0';
+const APP_VERSION = '2.81.1';
 const CHANGELOG = [
-  {version:'2.81.0', notes:[
+  {version:'2.81.1', notes:[
+    "Rank Ties layout tweaks: both posters are now the same height regardless of how long either title is, with the title/year bottom-aligned under them; the OR badge centres on the posters only, not the titles below; the round label moved under the posters and now reads e.g. \"10/10s Round\"; and the back button sits left while \"Which is better?\" stays centred."
+  ]},
+  {version:'2.80.1', notes:[
     "Rank Ties now saves your progress after every single pick, not just once a tied rating is fully settled - going back or closing the app mid-tier resumes right where you left off (a Continue Ranking button replaces Rank Ties) instead of starting that tier over."
   ]},
   {version:'2.80.1', notes:[
@@ -8079,12 +8096,19 @@ function applyFilmSortResult(sortedIds){
   rest.splice(insertAt, 0, ...sortedIds);
   saveFilmLeaderboardOrder(rest);
 }
-function filmSortCardHTML(id, side){
+function filmSortPosterHTML(id, side){
   const f = (DB.films||[]).find(x=>x.id===id) || {};
   return `
-    <button type="button" class="film-sort-card" onclick="App.filmSortPick('${side}')">
+    <button type="button" class="film-sort-poster-cell" onclick="App.filmSortPick('${side}')" aria-label="${esc(f.title||'Untitled')}">
       ${f.image ? `<img src="${esc(f.image)}" alt="">` : `<span class="film-sort-card-fallback">${fa('film')}</span>`}
-      <div class="film-sort-card-title">${esc(f.title||'Untitled')}${f.year?` <span class="muted">(${esc(f.year)})</span>`:''}</div>
+    </button>`;
+}
+function filmSortTitleHTML(id, side){
+  const f = (DB.films||[]).find(x=>x.id===id) || {};
+  return `
+    <button type="button" class="film-sort-title-cell" onclick="App.filmSortPick('${side}')">
+      <span class="film-sort-title-name">${esc(f.title||'Untitled')}</span>
+      ${f.year?`<span class="muted small">${esc(f.year)}</span>`:''}
     </button>`;
 }
 function renderFilmSortRound(){
@@ -8095,20 +8119,21 @@ function renderFilmSortRound(){
   const tiersDone = state.totalTiers - state.tiers.length;
   $('#app').innerHTML = `
     <div class="crumb">
-      <div class="crumb-titlerow" style="justify-content:center">
-        <span class="crumb-here">
-          <button class="crumb-backbtn" onclick="App.filmSortExit()" aria-label="Back to Leaderboard">${ICONS.back}</button>
-          Which is better?</span>
+      <div class="crumb-titlerow" style="position:relative;justify-content:center">
+        <button class="crumb-backbtn" style="position:absolute;left:0" onclick="App.filmSortExit()" aria-label="Back to Leaderboard">${ICONS.back}</button>
+        <span class="crumb-here">Which is better?</span>
       </div>
     </div>
-    <p class="small muted" style="text-align:center;margin:0 0 18px">
-      Sorting your ${esc(filmScoreLabel(tier.rating))}/10s${state.totalTiers>1?` &middot; tier ${tiersDone+1} of ${state.totalTiers}`:''}
-    </p>
     <div class="film-sort-arena">
-      ${filmSortCardHTML(aId,'a')}
+      ${filmSortPosterHTML(aId,'a')}
+      ${filmSortPosterHTML(bId,'b')}
       <div class="film-sort-or">OR</div>
-      ${filmSortCardHTML(bId,'b')}
-    </div>`;
+      ${filmSortTitleHTML(aId,'a')}
+      ${filmSortTitleHTML(bId,'b')}
+    </div>
+    <p class="small muted" style="text-align:center;margin:18px 0 0">
+      ${esc(filmScoreLabel(tier.rating))}/10s Round${state.totalTiers>1?` &middot; ${tiersDone+1} of ${state.totalTiers}`:''}
+    </p>`;
   window.scrollTo(0,0);
 }
 /* By Year/By Rating moved off the Leaderboard tab onto their own page (App.goFilmsStatsCharts,
