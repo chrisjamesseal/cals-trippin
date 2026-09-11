@@ -12661,7 +12661,7 @@ App.travelLegForm = (i, prefill) => {
       <div class="mode-picker" role="radiogroup" aria-labelledby="tv-mode-label">${modePicks}</div></div>
     <div class="field">
       <label class="switch-row"><span>Add as Task</span>
-        <span class="switch"><input type="checkbox" id="tv-as-task" ${s.asTask?'checked':''}><span class="knob"></span></span>
+        <span class="switch"><input type="checkbox" id="tv-as-task" ${s.asTask?'checked':''} onchange="App.syncTaskCompleteBtn('tv')"><span class="knob"></span></span>
       </label>
     </div>
     <div class="grid2">
@@ -12702,12 +12702,22 @@ App.travelLegForm = (i, prefill) => {
       </div></div>
     <div class="field"><label class="label">Link</label><input id="tv-link" type="url" value="${esc(s.link||'')}" placeholder="Booking confirmation, timetable…"></div>
     <div class="modal-actions">
-      <button class="btn primary" style="width:100%" onclick="App.saveTravelLeg(${i})">${i>=0?'Save':'Add Travel'}</button>
+      <div class="grid2">
+        <button class="btn primary" style="width:100%" onclick="App.saveTravelLeg(${i})">${i>=0?'Save':'Add Travel'}</button>
+        <button id="tv-complete-btn" class="btn primary" style="width:100%;${s.asTask?'':'display:none'}" onclick="App.saveTravelLeg(${i}, true)">Save &amp; Complete Task</button>
+      </div>
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.deleteTravelFromForm(${i})">Delete Travel</button>`:''}
     </div>`, {autofocus:false});
 };
 App.deleteTravelFromForm = i => { closeModal(); App.delPlan(i); };
-App.saveTravelLeg = i => {
+/* shared by every "Add as Task" toggle (travel/accommodation forms) - flips the sticky
+   "Save & Complete Task" button alongside the plain Save button as the switch changes,
+   rather than only reflecting whatever it was set to when the form opened */
+App.syncTaskCompleteBtn = prefix => {
+  const cb = $('#'+prefix+'-as-task'), btn = $('#'+prefix+'-complete-btn');
+  if(cb && btn) btn.style.display = cb.checked ? '' : 'none';
+};
+App.saveTravelLeg = (i, complete) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const from = $('#tv-from').value.trim(), to = $('#tv-to').value.trim();
   if(!from && !to) return markErr('#tv-from','Add at least a from or to location');
@@ -12726,7 +12736,7 @@ App.saveTravelLeg = i => {
   const link = normalizeUrl($('#tv-link').value.trim());
   const s = {id: existing ? existing.id : uid(), kind:'travel', mode,
              from, to, date:dd.date, day:dd.day, time, period, timing, durationH, durationM,
-             link, asTask:$('#tv-as-task').checked, ...(autoLink || {})};
+             link, asTask: complete ? false : $('#tv-as-task').checked, ...(autoLink || {})};
   if(i>=0) t.itinerary[i]=s; else t.itinerary.push(s);
   TRAVEL_AUTO_LINK = null;
   logEdit('Itinerary', (i>=0?'Travel edited: ':'Travel added: ')+itineraryItemLabel(s));
@@ -13632,7 +13642,7 @@ App.accomForm = (i, prefill) => {
     <h2>${i>=0?'Edit Accommodation':'Add Accommodation'}</h2>
     <div class="field">
       <label class="switch-row"><span>Add as Task</span>
-        <span class="switch"><input type="checkbox" id="ac-as-task" ${a.asTask?'checked':''}><span class="knob"></span></span>
+        <span class="switch"><input type="checkbox" id="ac-as-task" ${a.asTask?'checked':''} onchange="App.syncTaskCompleteBtn('ac')"><span class="knob"></span></span>
       </label>
     </div>
     <div class="field"><label class="label">Booking link (Airbnb, Booking.com…)</label><input id="ac-url" type="url" value="${esc(a.bookingUrl||'')}" placeholder="https://…" oninput="App.accomAutoName()"></div>
@@ -13650,7 +13660,10 @@ App.accomForm = (i, prefill) => {
     </div>
     <div class="field"><label class="label">Booking ref</label><input id="ac-ref" type="text" value="${esc(a.ref||'')}"></div>
     <div class="modal-actions">
-      <button class="btn primary" style="width:100%" onclick="App.saveAccom(${i})">Save</button>
+      <div class="grid2">
+        <button class="btn primary" style="width:100%" onclick="App.saveAccom(${i})">Save</button>
+        <button id="ac-complete-btn" class="btn primary" style="width:100%;${a.asTask?'':'display:none'}" onclick="App.saveAccom(${i}, true)">Save &amp; Complete Task</button>
+      </div>
       ${i>=0?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="App.delAccom(${i})">Delete Accommodation</button>`:''}
     </div>`);
 };
@@ -13664,7 +13677,7 @@ App.accomAutoName = () => {
   nameEl.value = auto;
   nameEl.dataset.auto = auto;
 };
-App.saveAccom = i => {
+App.saveAccom = (i, complete) => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   t.accommodations = t.accommodations||[];
   const url = normalizeUrl($('#ac-url').value.trim());
@@ -13672,7 +13685,7 @@ App.saveAccom = i => {
   const name = $('#ac-name').value.trim() || autoAccomName(url, address);
   if(!name && !address) return markErr('#ac-name','Give it a name or address');
   const a = {id: i>=0 && t.accommodations[i] ? t.accommodations[i].id : uid(),
-    name, address, asTask:$('#ac-as-task').checked,
+    name, address, asTask: complete ? false : $('#ac-as-task').checked,
     checkin:$('#ac-in').value, checkinTime:$('#ac-in-time').value, arrivalTime:$('#ac-arrival-time').value,
     checkout:$('#ac-out').value, checkoutTime:$('#ac-out-time').value,
     ref:$('#ac-ref').value.trim(), bookingUrl:url};
