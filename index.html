@@ -1690,8 +1690,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.65.0';
+const APP_VERSION = '2.66.0';
 const CHANGELOG = [
+  {version:'2.66.0', notes:[
+    "A Free Day now shows on the Tasks tab too, not just the Itinerary - same sun icon, plain (not red) styling since there's nothing outstanding about it, tap to undo it straight from there."
+  ]},
   {version:'2.65.0', notes:[
     "Itinerary: an empty day's \"Mark as a free day\" icon is a real sun emoji now (matching the Free Day pill it creates), not a muted grey glyph that didn't read as a sun - and it sits with proper breathing room from the + next to it instead of crowding it."
   ]},
@@ -10664,7 +10667,15 @@ function undecidedItemsHTML(t, ro){
   const {groups:dGroups, keys:dKeys} = planDayGroups(t);
   const gapFirstNights = new Set(stayGaps(t).map(g=>g.firstNight));
   dKeys.forEach(k=>{
-    if(dGroups[k].length===0 && !gapFirstNights.has(k) && !isFreeDay(t,k)){
+    if(dGroups[k].length===0 && !gapFirstNights.has(k)){
+      // a day deliberately left free reads here too, same as the Itinerary's own pill for it -
+      // not in red/undecided styling, since there's nothing outstanding about it, just tap to
+      // undo (see App.unmarkFreeDay) the same way its X button on the Itinerary does
+      if(isFreeDay(t,k)){
+        rows.push({dateLine: dateLineFor(k), icon:secEmoji('☀️'), title:'Free Day to Explore', time:'',
+          editFn:`App.unmarkFreeDay('${k}')`, sortKey:k, trailIcon:fa('xmark')});
+        return;
+      }
       // same place a day's own Itinerary heading would show for it (a Location range covering
       // the date, since there's nothing booked that day to read a place off instead) - "Nothing
       // Planned" on its own doesn't say where, which matters once a trip has more than one stop
@@ -10716,7 +10727,7 @@ function undecidedItemsHTML(t, ro){
       <div class="task-pill${!ro?' plan-click':''}" ${!ro?`role="button" tabindex="0" onclick="${r.editFn}"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${r.editFn}}"`:''}>
         <span class="task-pill-text">${r.time?`<span class="task-pill-time">${esc(r.time)} -</span> `:''}${r.icon?r.icon+' ':''}<strong${r.undecided?' class="text-undecided"':''}>${r.title}</strong></span>
-        ${!ro?`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`:''}
+        ${!ro?`<span class="task-pill-plus" aria-hidden="true">${r.trailIcon||fa('circle-plus')}</span>`:''}
       </div>
     </div>`}));
 }
