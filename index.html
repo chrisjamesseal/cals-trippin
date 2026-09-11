@@ -4994,7 +4994,6 @@ function renderDashboard(){
   renderSidebar(null);
   const widgets = dashWidgetOrder().filter(w=>!w.hidden).map(w=>dashWidgetHTML(w.key)).join('');
   $('#app').innerHTML = `
-    <div id="dash-branch-slot">${dashBranchPlaceholderHTML()}</div>
     <div class="dash-stat-grid">
       <div id="dash-places-slot">${dashPlacesBeenWidgetHTML()}</div>
       <div id="dash-gigs-slot">${dashGigsStatWidgetHTML()}</div>
@@ -5019,7 +5018,6 @@ function renderDashboard(){
   loadDashboardGames();
   loadDashboardNextRelease();
   loadDashboardSong();
-  loadDashboardBranch();
   loadDashWatchNextProviders();
   loadDashBoardGameNext();
 }
