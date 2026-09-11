@@ -531,6 +531,15 @@ a{color:var(--brand-dark);}
 .dash-item-flags-boxed .flag-cell span{font-size:2.6rem; line-height:1;}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
+/* a live ticking days/hours/minutes/seconds row for a dashboard tile counting down to a real
+   date (Next Release, Next Gig, a film booked ahead) - kept in the app's own card look (brand-
+   coloured numbers, muted uppercase labels) rather than a separate dark box, so it reads as part
+   of the tile instead of a bolted-on widget. See tickMiniCountdowns for what actually updates it
+   every second. */
+.mini-countdown{display:flex; gap:10px; margin-top:6px;}
+.mini-countdown .mc-unit{text-align:center;}
+.mini-countdown .mc-num{display:block; font-family:var(--font-head); font-weight:700; font-size:1.05rem; color:var(--brand-dark); line-height:1.1;}
+.mini-countdown .mc-label{display:block; color:var(--muted); font-size:.62rem; text-transform:uppercase; letter-spacing:.03em; margin-top:1px;}
 /* the Next Trip tile's own small map preview - same boxed treatment as the Itinerary's full
    route map (.route-map-wrap/.route-map), just shorter, sitting above its flags */
 .dash-trip-map-wrap{border-radius:var(--radius); overflow:hidden; margin-bottom:12px; border:1px solid var(--line);}
@@ -1695,8 +1704,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.67.0';
+const APP_VERSION = '2.68.0';
 const CHANGELOG = [
+  {version:'2.68.0', notes:[
+    "Home: Next Gig, Next Release and a film booked ahead of watching it now show a live days/hours/minutes/seconds countdown, ticking every second, instead of a static \"N days to go\" line - styled to match the rest of the tile rather than a separate dark widget."
+  ]},
   {version:'2.67.0', notes:[
     "Tasks page only: its dashed pills now read in plain ink text on a neutral tan border instead of red - a plain to-do list didn't need the same alarm-red every other \"still needs deciding\" spot on the app uses."
   ]},
@@ -3303,6 +3315,46 @@ function daysToGoCount(startDate){
   const n = Math.round((new Date(startDate+'T00:00:00') - today)/86400000);
   return n+' day'+(n===1?'':'s')+' to go';
 }
+/* a live days/hours/minutes/seconds countdown for a Home dashboard tile - Next Release, Next
+   Gig, a film booked ahead of actually watching it. dateStr is a plain YYYY-MM-DD (midnight
+   local counts as the target, same as every other "days to go" on the app); timeStr is an
+   optional HH:MM for the rare case a tile has a real time to count down to instead. Ticked live
+   by tickMiniCountdowns (one shared interval, started once - see its own comment) rather than
+   each tile running its own timer. */
+function miniCountdownHTML(dateStr, timeStr){
+  if(!dateStr) return '';
+  const target = dateStr+'T'+(timeStr||'00:00')+':00';
+  return `<div class="mini-countdown" data-countdown="${esc(target)}">
+    <span class="mc-unit"><strong class="mc-num">-</strong><span class="mc-label">days</span></span>
+    <span class="mc-unit"><strong class="mc-num">-</strong><span class="mc-label">hrs</span></span>
+    <span class="mc-unit"><strong class="mc-num">-</strong><span class="mc-label">min</span></span>
+    <span class="mc-unit"><strong class="mc-num">-</strong><span class="mc-label">sec</span></span>
+  </div>`;
+}
+/* the one shared ticker behind every .mini-countdown on the page - a single setInterval that
+   just no-ops (cheap) when Home isn't showing any, rather than one timer per tile. Started once,
+   lazily, the first time a mini-countdown actually renders (see startMiniCountdownTicker), so a
+   trip/session that never shows one never pays for a running interval at all. Past-due targets
+   clamp at zero rather than going negative. */
+let MINI_COUNTDOWN_STARTED = false;
+function tickMiniCountdowns(){
+  document.querySelectorAll('.mini-countdown').forEach(el=>{
+    const target = new Date(el.dataset.countdown).getTime();
+    const diff = Math.max(0, target - Date.now());
+    const nums = el.querySelectorAll('.mc-num');
+    const day = 86400000, hour = 3600000, min = 60000;
+    nums[0].textContent = Math.floor(diff/day);
+    nums[1].textContent = String(Math.floor((diff%day)/hour)).padStart(2,'0');
+    nums[2].textContent = String(Math.floor((diff%hour)/min)).padStart(2,'0');
+    nums[3].textContent = String(Math.floor((diff%min)/1000)).padStart(2,'0');
+  });
+}
+function startMiniCountdownTicker(){
+  if(MINI_COUNTDOWN_STARTED) return;
+  MINI_COUNTDOWN_STARTED = true;
+  tickMiniCountdowns();
+  setInterval(tickMiniCountdowns, 1000);
+}
 /* ---------- trips without dates yet ----------
    Plenty of trips start as "somewhere hot next summer" long before anyone books anything, so
    a trip can carry a rough idea of when instead of two exact dates. t.when holds it and
@@ -4557,6 +4609,7 @@ function dashGigWidgetHTML(){
                  : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
       <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
       <div class="dash-item-sub">Next Gig</div>
+      ${miniCountdownHTML(g.date)}
     </div>`;
 }
 /* CUR_DASH_SONG_RANGE drives the OTHER dashboard stat tiles that share this same range concept
@@ -4640,7 +4693,7 @@ function dashNextReleaseWidgetHTML(g){
                  : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
       <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
       <div class="dash-item-sub">${esc(wlReleaseLabel(g)||'Next Release')}</div>
-      <div class="dash-item-sub">${esc(daysToGoCount(g.released))}</div>
+      ${miniCountdownHTML(g.released)}
     </div>`;
 }
 function dashNextReleaseSlotHTML(){
@@ -4774,6 +4827,7 @@ function dashScheduledFilmHTML(f){
                  : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
       <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
       <div class="dash-item-sub">Booked for ${esc(fmtDateNoYear(f.watchedDate))}</div>
+      ${miniCountdownHTML(f.watchedDate)}
     </a>`;
 }
 function dashWatchNextEmptyHTML(){
@@ -5080,6 +5134,7 @@ function renderDashboard(){
   loadDashboardSong();
   loadDashWatchNextProviders();
   loadDashBoardGameNext();
+  startMiniCountdownTicker();
 }
 function renderPlacesHub(){
   applyArchiveTransitions();
