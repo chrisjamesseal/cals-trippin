@@ -918,6 +918,7 @@ a{color:var(--brand-dark);}
 .gig-selected-artist img{width:36px; height:36px; border-radius:50%; object-fit:cover;}
 /* the picked-film preview reuses the same container, poster-shaped rather than the round artist
    photo, matching the search dropdown's own .film-search-thumb shape */
+.film-selected-poster{align-items:flex-start;}
 .film-selected-poster img{width:32px; height:46px; border-radius:3px; object-fit:cover;}
 /* the film search dropdown's own text column - title/year on top, genre + a clamped synopsis
    below, so you can tell "Society of the Snow (2023)" from any other film with that title
@@ -1502,14 +1503,21 @@ body.kb-open .tabbar.on{display:none;}
    rather than one box - what lets row 2 size to the taller of the two titles so both title areas
    end up the same height, with the text bottom-aligned inside whichever one has room to spare.
    object-fit: contain (not cover) so the whole poster shows rather than cropping it to fill a
-   fixed box. */
-.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px);}
-.film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center;}
+   fixed box. The negative bottom margin cancels out #app's own .wrap padding-bottom (96px,
+   meant for pages using normal scroll to clear the tabbar) - this screen already reserves that
+   same clearance itself via the --bar-h subtraction above, so without the cancel-out the two
+   stack and leave the page scrollable past a floor of blank space it never needed. */
+.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px); margin-bottom:-96px;}
+.film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center; padding-bottom:calc(60px + env(safe-area-inset-bottom));}
 .film-sort-arena{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; column-gap:14px;}
 .film-sort-poster-cell{grid-row:1; display:block; width:100%; border:1px solid var(--line); border-bottom:none;
   border-top-left-radius:var(--radius); border-top-right-radius:var(--radius);
   overflow:hidden; background:var(--bg); cursor:pointer; padding:0;}
 .film-sort-poster-cell:hover{border-color:var(--brand);}
+/* role="button"-flavoured cells get the browser's own default focus ring otherwise, which reads
+   as a stray reddish outline stuck on whichever one you tapped - focus, unlike hover, doesn't
+   clear itself on a touch screen (same fix already applied to .chip.pick and others) */
+.film-sort-poster-cell:focus-visible,.film-sort-title-cell:focus-visible{outline:none;}
 .film-sort-poster-cell img{width:100%; aspect-ratio:2/3; object-fit:contain; display:block; background:var(--bg);}
 .film-sort-card-fallback{width:100%; aspect-ratio:2/3; display:flex; align-items:center; justify-content:center;
   font-size:2rem; color:var(--muted); background:var(--bg);}
@@ -1527,11 +1535,13 @@ body.kb-open .tabbar.on{display:none;}
 .film-sort-title-name{font-weight:700;}
 /* the game's overall completion - how many films across every tied rating have been placed so
    far, not just the current one, since a round can jump between ratings each time (see
-   advanceFilmSort). A plain in-flow block under the Undo button, not position:fixed - stacking
-   it above the ALSO position:fixed tab bar via --bar-h sounds simple but this exact screen has
-   already needed two separate fixes for position:fixed elements at the bottom behaving
-   unpredictably (see .tabbar.on's own comment), so this one just doesn't try. */
-.film-sort-progress-wrap{margin-top:14px; padding-top:14px; border-top:1px solid var(--line);}
+   advanceFilmSort). Pinned above the tabbar via --bar-h, same pattern as .add-bar - this was
+   briefly made a plain in-flow element instead (see .tabbar.on's comment on the drift bug that
+   motivated it), but a fixed progress bar read better in practice, so it's back; the drift bug
+   that prompted the in-flow attempt was in the TAB BAR itself losing its own compositing layer,
+   not something this bar shares just by also being position:fixed. */
+.film-sort-progress-wrap{position:fixed; left:0; right:0; bottom:var(--bar-h,0px); z-index:58;
+  background:var(--paper); border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom));}
 .film-sort-progress-label{text-align:center; margin:0 0 6px;}
 .film-sort-progress-bar{height:6px; border-radius:3px; background:var(--bg); overflow:hidden;}
 .film-sort-progress-fill{height:100%; background:var(--brand); border-radius:3px; transition:width .2s;}
@@ -1772,8 +1782,17 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.5';
+const APP_VERSION = '2.83.8';
 const CHANGELOG = [
+  {version:'2.83.8', notes:[
+    "Logging/editing a film now shows its genre and synopsis under the title once you've picked it from search, not just in the search results list itself before picking. Rank Ties: removed the \" · 0 of 11 settled\" part of the round label, leaving just \"10/10s Round\"; removed the stray reddish focus outline a poster/title card was left wearing after you tapped it (same fix already applied elsewhere in the app for this exact touchscreen quirk); and gave the progress bar a bit more bottom clearance so it can't crowd the Undo button on a phone with a home indicator."
+  ]},
+  {version:'2.83.7', notes:[
+    "Rank Ties no longer lets the screen scroll - it was reserving room for the tab bar twice over, once in its own layout and once from the page's usual bottom padding, leaving a strip of scrollable blank space that was never needed. Also brought the progress bar back to being pinned above the tab bar, since that read better than having it sit inline under the Undo button."
+  ]},
+  {version:'2.83.6', notes:[
+    "Rank Ties no longer forces the screen back to the top on every single round - it still does that once when you open the game, but repeating it every round could fight a touch still in progress right as the next matchup swapped in. Also added a safety net that immediately resolves and moves past any comparison that's already been fully decided instead of asking about it again, in case a saved run is ever resumed in a state where one was left behind."
+  ]},
   {version:'2.83.5', notes:[
     "Board Games: marking Want to Play/Played on a search result now only updates that one card instead of rebuilding the entire results list on every tap - a search can return plenty of cards, and tearing the whole list down right as you're about to tap the next one down was exactly the kind of mid-tap reflow already fixed once before for this same button. Also hardened the Co-op/Party/Strategy/etc chips against a BoardGameGeek entry that's missing mechanics or categories data, which would otherwise throw and silently stop the whole list from rendering."
   ]},
@@ -7154,7 +7173,11 @@ function filmPickedHTML(){
   if(!FILM_PICKED || !FILM_PICKED.image) return '';
   return `<div class="gig-selected-artist film-selected-poster">
     <img src="${esc(FILM_PICKED.image)}" alt="">
-    <span>${esc(FILM_PICKED.title)}${FILM_PICKED.year?` <span class="muted">(${esc(FILM_PICKED.year)})</span>`:''}</span>
+    <div class="film-search-item-body">
+      <span>${esc(FILM_PICKED.title)}${FILM_PICKED.year?` <span class="muted">(${esc(FILM_PICKED.year)})</span>`:''}</span>
+      ${FILM_PICKED.genres&&FILM_PICKED.genres.length ? `<span class="small muted">${esc(FILM_PICKED.genres.join(', '))}</span>` : ''}
+      ${FILM_PICKED.synopsis ? `<span class="small muted film-search-synopsis">${esc(FILM_PICKED.synopsis)}</span>` : ''}
+    </div>
   </div>`;
 }
 /* a plain dropdown rather than a star widget - individual stars (even the enlarged tap targets
@@ -7276,7 +7299,7 @@ function filmTitlePickImpl(n){
   const titleInp = $('#film-title'); if(titleInp) titleInp.value = m.title;
   const yearInp = $('#film-year'); if(yearInp) yearInp.value = m.year || '';
   const posterInp = $('#film-poster'); if(posterInp) posterInp.value = m.image || '';
-  FILM_PICKED = {title: m.title, year: m.year, image: m.image, genres: m.genres||[]};
+  FILM_PICKED = {title: m.title, year: m.year, image: m.image, genres: m.genres||[], synopsis: m.synopsis||''};
   const results = $('#film-search-results'); if(results) results.innerHTML = '';
   const picked = $('#film-picked'); if(picked) picked.innerHTML = filmPickedHTML();
 }
@@ -8158,8 +8181,38 @@ function advanceFilmSort(keepCurrent){
     // through one whole rating before moving to another
     state.currentIndex = Math.floor(Math.random()*state.active.length);
   }
+  // defensive: App.filmSortPick always removes an item from state.active the moment its own
+  // bounds fully narrow (lo>=hi), so this shouldn't normally find one already resolved here -
+  // but if a resumed/edited save ever left one behind, silently asking about a comparison that
+  // has nothing left to decide would look exactly like the buttons had stopped working. Resolve
+  // it immediately instead and move straight on to a round that actually needs an answer.
+  const current = state.active[state.currentIndex];
+  if(filmSortIsResolved(state, current)){
+    resolveFilmSortItem(state, state.currentIndex);
+    advanceFilmSort();
+    return;
+  }
   persistFilmSortState();
   renderFilmSortRound();
+}
+function filmSortIsResolved(state, item){
+  const {lo, hi} = filmSortBounds(state, item);
+  return lo >= hi;
+}
+/* places an already-resolved active item (state.active[index]) into its rating's sorted list,
+   and saves that rating to the board the instant it's the last one left unplaced for it -
+   shared by App.filmSortPick (the normal path, right after a pick resolves it) and
+   advanceFilmSort's own defensive self-heal above */
+function resolveFilmSortItem(state, index){
+  const item = state.active[index];
+  const {lo} = filmSortBounds(state, item);
+  state.sortedByRating[item.rating].splice(lo, 0, item.id);
+  state.active.splice(index, 1);
+  if(!state.active.some(other => other.rating===item.rating)){
+    applyFilmSortResult(state.sortedByRating[item.rating]);
+    state.settledRatings.push(item.rating);
+    state.history = [];
+  }
 }
 /* drops this tier's films out of wherever they sat, then reinserts them - in their new,
    game-decided order - starting at the earliest slot any of them held, so the tier's overall
@@ -8223,7 +8276,7 @@ function renderFilmSortRound(){
           ${filmSortTitleHTML(bId,'b')}
         </div>
         <p class="small muted" style="text-align:center;margin:18px 0 0">
-          ${esc(filmScoreLabel(current.rating))}/10s Round${state.totalTiers>1?` &middot; ${state.settledRatings.length} of ${state.totalTiers} settled`:''}
+          ${esc(filmScoreLabel(current.rating))}/10s Round
         </p>
         <div style="text-align:center;margin-top:14px">
           <button type="button" class="btn sm ghost" onclick="App.filmSortUndo()"${state.history.length?'':' disabled'}>${fa('rotate-left')} Undo</button>
@@ -8234,7 +8287,9 @@ function renderFilmSortRound(){
         </div>
       </div>
     </div>`;
-  window.scrollTo(0,0);
+  // no window.scrollTo(0,0) here - the route into this screen already does it once on entry
+  // (see the '#/films/stats/sort' handler); forcing it again on every single round would fight
+  // a touch that's still in progress right as the page swaps in the next matchup
 }
 /* By Year/By Rating moved off the Leaderboard tab onto their own page (App.goFilmsStatsCharts,
    the Stats button next to the Films title) - with a long Top Films list right above them,
@@ -9973,18 +10028,7 @@ App.filmSortPick = side => {
   });
   if(side==='a') current.hiBound = candidateId;    // the film being placed beat the sorted one
   else current.loBound = candidateId;              // the already-sorted film won instead
-  const resolved = filmSortBounds(state, current);
-  if(resolved.lo >= resolved.hi){
-    state.sortedByRating[current.rating].splice(resolved.lo, 0, current.id);
-    state.active.splice(state.currentIndex, 1);
-    // no other film of this rating left unplaced - that tied rating is fully settled, so save
-    // it to the board right away rather than waiting for every OTHER rating to finish too
-    if(!state.active.some(item => item.rating===current.rating)){
-      applyFilmSortResult(state.sortedByRating[current.rating]);
-      state.settledRatings.push(current.rating);
-      state.history = [];
-    }
-  }
+  if(filmSortIsResolved(state, current)) resolveFilmSortItem(state, state.currentIndex);
   advanceFilmSort();
 };
 App.filmSortUndo = () => {
