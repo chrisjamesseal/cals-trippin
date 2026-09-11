@@ -447,14 +447,14 @@ a{color:var(--brand-dark);}
   box-shadow:var(--shadow); padding:16px; cursor:pointer;
   transition:transform .1s, box-shadow .1s;}
 .dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
-.dash-widget-stat{text-align:center; padding:22px 16px;}
+.dash-widget-stat{display:flex; align-items:baseline; justify-content:center; gap:6px; padding:22px 16px;}
 /* icon left, "N Label" one line - same row layout as the Places hub's own cards, for a tile
    that's just a count and doesn't need the image-on-top layout every other tile gets */
 .dash-widget-row{display:flex; flex-direction:row; align-items:center; gap:10px;}
 .dash-widget-row .dash-item-flags{font-size:1.4rem; margin-bottom:0; flex-shrink:0;}
 .dash-widget-row .dash-item-title{font-size:.88rem;}
-.dash-stat-num{font-family:var(--font-head); font-weight:800; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
-.dash-stat-label{margin-top:6px; color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
+.dash-stat-num{font-family:var(--font-head); font-weight:400; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
+.dash-stat-label{color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
 /* Places Been / Gigs Seen / This Year / Games - four counts up top, fixed to two columns
    regardless of height (unlike the masonry below, which balances by measured height) so they
    read as one glanceable block rather than being scattered wherever the balancer lands them */
@@ -6635,7 +6635,7 @@ async function backfillPosters(list, saveFn){
 
 function filmStarsHTML(rating){
   if(rating==null) return '';
-  return `<span class="film-stars">${rating.toFixed(1)}/10</span>`;
+  return `<span class="film-stars">${filmScoreLabel(rating)}/10</span>`;
 }
 function filmsSorted(){
   return (DB.films||[]).map((f,i)=>({f,i}))
@@ -6865,7 +6865,7 @@ function filmRatingLabel(v){ return '★'.repeat(Math.floor(v)) + (v%1!==0 ? '½
    (FILM_RATING_VALUES/filmRatingLabel just above, which Theatre still uses) so a whole film can
    actually place against another rather than everything decent alike clumping at "4.5 stars". */
 const FILM_SCORE_VALUES = Array.from({length:20}, (_,i) => 10 - i/2);
-function filmScoreLabel(v){ return v.toFixed(1); }
+function filmScoreLabel(v){ return v%1===0 ? String(v) : v.toFixed(1); }
 function filmRatingFieldHTML(value){
   return `<div class="field"><label class="label" for="film-rating">Rating</label>
     <select id="film-rating">
@@ -7650,7 +7650,7 @@ function drawFilmsStats(){
   const noRatingCount = byRating.get('none')||0;
   const ratingEntries = FILM_SCORE_VALUES
     .filter(v=>byRating.get(String(v)))
-    .map(v=>({key:v, label:v.toFixed(1), count:byRating.get(String(v))}));
+    .map(v=>({key:v, label:filmScoreLabel(v), count:byRating.get(String(v))}));
   if(noRatingCount) ratingEntries.push({key:'none', label:'N/A', count:noRatingCount});
 
   body.innerHTML = `
@@ -7681,7 +7681,7 @@ function renderFilmsStatsFiltered(type, valueStr){
     // the bar's own count and this drill-down list never disagree
     const latest = filmsLatestPerFilm();
     if(valueStr==='none'){ matched = latest.filter(f=>f.rating==null); title = 'Not Rated'; }
-    else { const v = parseFloat(valueStr); matched = latest.filter(f=>f.rating===v); title = `${v.toFixed(1)}/10`; }
+    else { const v = parseFloat(valueStr); matched = latest.filter(f=>f.rating===v); title = `${filmScoreLabel(v)}/10`; }
   }else{
     matched = films.filter(f=>f.rewatch); title = 'Rewatches';
   }
