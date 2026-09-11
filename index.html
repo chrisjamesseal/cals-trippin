@@ -1690,8 +1690,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.59.0';
+const APP_VERSION = '2.60.0';
 const CHANGELOG = [
+  {version:'2.60.0', notes:[
+    "Films Stats page: the Logged/Rewatches/Avg Rating tiles from the Leaderboard tab now sit above By Year too, same tile style, so Stats reads as a full overview rather than just the two charts."
+  ]},
   {version:'2.59.0', notes:[
     "A card's Google Maps/Track/View Boarding Pass button (anything not in the site's own brand colour) is a darker, more visible tan now - it used to be so close to the card's own background it barely read as a button, and looked inconsistent from one screenshot to the next despite being one fixed colour the whole time."
   ]},
@@ -7699,15 +7702,15 @@ function renderFilmsStats(){
     if(CUR_FILMS_TAB==='stats') drawFilmsStats();
   });
 }
-function drawFilmsStats(){
-  const body = $('#films-body'); if(!body) return;
-  const films = DB.films||[];
-  if(!films.length){ body.innerHTML = `<div class="empty">Log some films to see stats here.</div>`; return; }
+/* the three headline numbers (Logged/Rewatches/Avg Rating) - shared between the Leaderboard tab
+   (drawFilmsStats, above Top Films) and the Stats page (renderFilmsStatsCharts, above By Year),
+   so both read as the same overview rather than the Stats page inventing its own look for the
+   same three counts. */
+function filmsStatOverviewHTML(films){
   const rewatches = films.filter(f=>f.rewatch).length;
   const rated = films.filter(f=>f.rating!=null);
   const avgRating = rated.length ? (rated.reduce((s,f)=>s+f.rating,0)/rated.length) : null;
-
-  body.innerHTML = `
+  return `
     <div class="stat-overview-row">
       <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="CUR_FILMS_GENRE='';App.filmsTab('diary')"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();CUR_FILMS_GENRE='';App.filmsTab('diary')}">
@@ -7716,7 +7719,14 @@ function drawFilmsStats(){
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmsStatsRewatches()}">
         <div class="dash-stat-num">${rewatches}</div><div class="dash-stat-label">Rewatches</div></div>
       <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${avgRating!=null?avgRating.toFixed(1):'—'}</div><div class="dash-stat-label">Avg Rating</div></div>
-    </div>
+    </div>`;
+}
+function drawFilmsStats(){
+  const body = $('#films-body'); if(!body) return;
+  const films = DB.films||[];
+  if(!films.length){ body.innerHTML = `<div class="empty">Log some films to see stats here.</div>`; return; }
+  body.innerHTML = `
+    ${filmsStatOverviewHTML(films)}
     <h3 style="margin:20px 0 10px">Top Films</h3>
     ${filmLeaderboardHTML()}`;
 }
@@ -7749,6 +7759,7 @@ function renderFilmsStatsCharts(){
       </div>
     </div>
     ${films.length ? `
+    ${filmsStatOverviewHTML(films)}
     <h3 style="margin:20px 0 10px">By Year</h3>
     ${statsBarChartHTML(yearEntries, key => `App.filmsStatsYear('${key}')`)}
     <h3 style="margin:20px 0 10px">By Rating</h3>
