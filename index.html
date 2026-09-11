@@ -1772,8 +1772,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.5';
+const APP_VERSION = '2.83.6';
 const CHANGELOG = [
+  {version:'2.83.6', notes:[
+    "Rank Ties no longer forces the screen back to the top on every single round - it still does that once when you open the game, but repeating it every round could fight a touch still in progress right as the next matchup swapped in. Also added a safety net that immediately resolves and moves past any comparison that's already been fully decided instead of asking about it again, in case a saved run is ever resumed in a state where one was left behind."
+  ]},
   {version:'2.83.5', notes:[
     "Board Games: marking Want to Play/Played on a search result now only updates that one card instead of rebuilding the entire results list on every tap - a search can return plenty of cards, and tearing the whole list down right as you're about to tap the next one down was exactly the kind of mid-tap reflow already fixed once before for this same button. Also hardened the Co-op/Party/Strategy/etc chips against a BoardGameGeek entry that's missing mechanics or categories data, which would otherwise throw and silently stop the whole list from rendering."
   ]},
@@ -8158,8 +8161,38 @@ function advanceFilmSort(keepCurrent){
     // through one whole rating before moving to another
     state.currentIndex = Math.floor(Math.random()*state.active.length);
   }
+  // defensive: App.filmSortPick always removes an item from state.active the moment its own
+  // bounds fully narrow (lo>=hi), so this shouldn't normally find one already resolved here -
+  // but if a resumed/edited save ever left one behind, silently asking about a comparison that
+  // has nothing left to decide would look exactly like the buttons had stopped working. Resolve
+  // it immediately instead and move straight on to a round that actually needs an answer.
+  const current = state.active[state.currentIndex];
+  if(filmSortIsResolved(state, current)){
+    resolveFilmSortItem(state, state.currentIndex);
+    advanceFilmSort();
+    return;
+  }
   persistFilmSortState();
   renderFilmSortRound();
+}
+function filmSortIsResolved(state, item){
+  const {lo, hi} = filmSortBounds(state, item);
+  return lo >= hi;
+}
+/* places an already-resolved active item (state.active[index]) into its rating's sorted list,
+   and saves that rating to the board the instant it's the last one left unplaced for it -
+   shared by App.filmSortPick (the normal path, right after a pick resolves it) and
+   advanceFilmSort's own defensive self-heal above */
+function resolveFilmSortItem(state, index){
+  const item = state.active[index];
+  const {lo} = filmSortBounds(state, item);
+  state.sortedByRating[item.rating].splice(lo, 0, item.id);
+  state.active.splice(index, 1);
+  if(!state.active.some(other => other.rating===item.rating)){
+    applyFilmSortResult(state.sortedByRating[item.rating]);
+    state.settledRatings.push(item.rating);
+    state.history = [];
+  }
 }
 /* drops this tier's films out of wherever they sat, then reinserts them - in their new,
    game-decided order - starting at the earliest slot any of them held, so the tier's overall
@@ -8234,7 +8267,9 @@ function renderFilmSortRound(){
         </div>
       </div>
     </div>`;
-  window.scrollTo(0,0);
+  // no window.scrollTo(0,0) here - the route into this screen already does it once on entry
+  // (see the '#/films/stats/sort' handler); forcing it again on every single round would fight
+  // a touch that's still in progress right as the page swaps in the next matchup
 }
 /* By Year/By Rating moved off the Leaderboard tab onto their own page (App.goFilmsStatsCharts,
    the Stats button next to the Films title) - with a long Top Films list right above them,
@@ -9973,18 +10008,7 @@ App.filmSortPick = side => {
   });
   if(side==='a') current.hiBound = candidateId;    // the film being placed beat the sorted one
   else current.loBound = candidateId;              // the already-sorted film won instead
-  const resolved = filmSortBounds(state, current);
-  if(resolved.lo >= resolved.hi){
-    state.sortedByRating[current.rating].splice(resolved.lo, 0, current.id);
-    state.active.splice(state.currentIndex, 1);
-    // no other film of this rating left unplaced - that tied rating is fully settled, so save
-    // it to the board right away rather than waiting for every OTHER rating to finish too
-    if(!state.active.some(item => item.rating===current.rating)){
-      applyFilmSortResult(state.sortedByRating[current.rating]);
-      state.settledRatings.push(current.rating);
-      state.history = [];
-    }
-  }
+  if(filmSortIsResolved(state, current)) resolveFilmSortItem(state, state.currentIndex);
   advanceFilmSort();
 };
 App.filmSortUndo = () => {
