@@ -1508,8 +1508,6 @@ body.kb-open .tabbar.on{display:none;}
 .film-sort-poster-cell{grid-row:1; display:block; width:100%; border:1px solid var(--line); border-bottom:none;
   border-top-left-radius:var(--radius); border-top-right-radius:var(--radius);
   overflow:hidden; background:var(--bg); cursor:pointer; padding:0;}
-.film-sort-poster-cell:first-of-type{grid-column:1;}
-.film-sort-poster-cell:last-of-type{grid-column:2;}
 .film-sort-poster-cell:hover{border-color:var(--brand);}
 .film-sort-poster-cell img{width:100%; aspect-ratio:2/3; object-fit:contain; display:block; background:var(--bg);}
 .film-sort-card-fallback{width:100%; aspect-ratio:2/3; display:flex; align-items:center; justify-content:center;
@@ -1518,9 +1516,13 @@ body.kb-open .tabbar.on{display:none;}
   border-bottom-left-radius:var(--radius); border-bottom-right-radius:var(--radius);
   background:var(--bg); cursor:pointer; padding:10px 8px 12px; font:inherit; color:inherit;
   display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:2px; text-align:center;}
-.film-sort-title-cell:first-of-type{grid-column:1;}
-.film-sort-title-cell:last-of-type{grid-column:2;}
 .film-sort-title-cell:hover{border-color:var(--brand);}
+/* explicit side classes rather than :first-of-type/:last-of-type - both the poster and title
+   cells are <button> elements, so "first/last of type" resolves across ALL of them together
+   (four buttons total), not scoped to just the two poster cells or just the two title cells,
+   and silently mis-assigns which column one of each pair lands in */
+.film-sort-side-a{grid-column:1;}
+.film-sort-side-b{grid-column:2;}
 .film-sort-title-name{font-weight:700;}
 /* the "what do you want to add" screen the sticky button opens - three big tappable rows
    rather than the cramped inline buttons this replaced, each handing straight off to the
@@ -1759,8 +1761,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.82.1';
+const APP_VERSION = '2.82.2';
 const CHANGELOG = [
+  {version:'2.82.2', notes:[
+    "Fixed Rank Ties' layout breaking (one poster huge, the other squashed to a sliver, titles at mismatched heights) - the two columns were being assigned by CSS selectors that unintentionally matched across the wrong elements on some browsers."
+  ]},
   {version:'2.82.1', notes:[
     "Rank Ties now tackles tied ratings in random order instead of always starting at 10/10s and working down - each matchup is still only ever between two films that share the same rating, just which rating comes first is a surprise now."
   ]},
@@ -8144,14 +8149,14 @@ function applyFilmSortResult(sortedIds){
 function filmSortPosterHTML(id, side){
   const f = (DB.films||[]).find(x=>x.id===id) || {};
   return `
-    <button type="button" class="film-sort-poster-cell" onclick="App.filmSortPick('${side}')" aria-label="${esc(f.title||'Untitled')}">
+    <button type="button" class="film-sort-poster-cell film-sort-side-${side}" onclick="App.filmSortPick('${side}')" aria-label="${esc(f.title||'Untitled')}">
       ${f.image ? `<img src="${esc(f.image)}" alt="">` : `<span class="film-sort-card-fallback">${fa('film')}</span>`}
     </button>`;
 }
 function filmSortTitleHTML(id, side){
   const f = (DB.films||[]).find(x=>x.id===id) || {};
   return `
-    <button type="button" class="film-sort-title-cell" onclick="App.filmSortPick('${side}')">
+    <button type="button" class="film-sort-title-cell film-sort-side-${side}" onclick="App.filmSortPick('${side}')">
       <span class="film-sort-title-name">${esc(f.title||'Untitled')}</span>
       ${f.year?`<span class="muted small">${esc(f.year)}</span>`:''}
     </button>`;
