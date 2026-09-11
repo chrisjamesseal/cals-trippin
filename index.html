@@ -918,6 +918,7 @@ a{color:var(--brand-dark);}
 .gig-selected-artist img{width:36px; height:36px; border-radius:50%; object-fit:cover;}
 /* the picked-film preview reuses the same container, poster-shaped rather than the round artist
    photo, matching the search dropdown's own .film-search-thumb shape */
+.film-selected-poster{align-items:flex-start;}
 .film-selected-poster img{width:32px; height:46px; border-radius:3px; object-fit:cover;}
 /* the film search dropdown's own text column - title/year on top, genre + a clamped synopsis
    below, so you can tell "Society of the Snow (2023)" from any other film with that title
@@ -1507,12 +1508,16 @@ body.kb-open .tabbar.on{display:none;}
    same clearance itself via the --bar-h subtraction above, so without the cancel-out the two
    stack and leave the page scrollable past a floor of blank space it never needed. */
 .film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px); margin-bottom:-96px;}
-.film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center; padding-bottom:60px;}
+.film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center; padding-bottom:calc(60px + env(safe-area-inset-bottom));}
 .film-sort-arena{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; column-gap:14px;}
 .film-sort-poster-cell{grid-row:1; display:block; width:100%; border:1px solid var(--line); border-bottom:none;
   border-top-left-radius:var(--radius); border-top-right-radius:var(--radius);
   overflow:hidden; background:var(--bg); cursor:pointer; padding:0;}
 .film-sort-poster-cell:hover{border-color:var(--brand);}
+/* role="button"-flavoured cells get the browser's own default focus ring otherwise, which reads
+   as a stray reddish outline stuck on whichever one you tapped - focus, unlike hover, doesn't
+   clear itself on a touch screen (same fix already applied to .chip.pick and others) */
+.film-sort-poster-cell:focus-visible,.film-sort-title-cell:focus-visible{outline:none;}
 .film-sort-poster-cell img{width:100%; aspect-ratio:2/3; object-fit:contain; display:block; background:var(--bg);}
 .film-sort-card-fallback{width:100%; aspect-ratio:2/3; display:flex; align-items:center; justify-content:center;
   font-size:2rem; color:var(--muted); background:var(--bg);}
@@ -1777,8 +1782,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.7';
+const APP_VERSION = '2.83.8';
 const CHANGELOG = [
+  {version:'2.83.8', notes:[
+    "Logging/editing a film now shows its genre and synopsis under the title once you've picked it from search, not just in the search results list itself before picking. Rank Ties: removed the \" · 0 of 11 settled\" part of the round label, leaving just \"10/10s Round\"; removed the stray reddish focus outline a poster/title card was left wearing after you tapped it (same fix already applied elsewhere in the app for this exact touchscreen quirk); and gave the progress bar a bit more bottom clearance so it can't crowd the Undo button on a phone with a home indicator."
+  ]},
   {version:'2.83.7', notes:[
     "Rank Ties no longer lets the screen scroll - it was reserving room for the tab bar twice over, once in its own layout and once from the page's usual bottom padding, leaving a strip of scrollable blank space that was never needed. Also brought the progress bar back to being pinned above the tab bar, since that read better than having it sit inline under the Undo button."
   ]},
@@ -7165,7 +7173,11 @@ function filmPickedHTML(){
   if(!FILM_PICKED || !FILM_PICKED.image) return '';
   return `<div class="gig-selected-artist film-selected-poster">
     <img src="${esc(FILM_PICKED.image)}" alt="">
-    <span>${esc(FILM_PICKED.title)}${FILM_PICKED.year?` <span class="muted">(${esc(FILM_PICKED.year)})</span>`:''}</span>
+    <div class="film-search-item-body">
+      <span>${esc(FILM_PICKED.title)}${FILM_PICKED.year?` <span class="muted">(${esc(FILM_PICKED.year)})</span>`:''}</span>
+      ${FILM_PICKED.genres&&FILM_PICKED.genres.length ? `<span class="small muted">${esc(FILM_PICKED.genres.join(', '))}</span>` : ''}
+      ${FILM_PICKED.synopsis ? `<span class="small muted film-search-synopsis">${esc(FILM_PICKED.synopsis)}</span>` : ''}
+    </div>
   </div>`;
 }
 /* a plain dropdown rather than a star widget - individual stars (even the enlarged tap targets
@@ -7287,7 +7299,7 @@ function filmTitlePickImpl(n){
   const titleInp = $('#film-title'); if(titleInp) titleInp.value = m.title;
   const yearInp = $('#film-year'); if(yearInp) yearInp.value = m.year || '';
   const posterInp = $('#film-poster'); if(posterInp) posterInp.value = m.image || '';
-  FILM_PICKED = {title: m.title, year: m.year, image: m.image, genres: m.genres||[]};
+  FILM_PICKED = {title: m.title, year: m.year, image: m.image, genres: m.genres||[], synopsis: m.synopsis||''};
   const results = $('#film-search-results'); if(results) results.innerHTML = '';
   const picked = $('#film-picked'); if(picked) picked.innerHTML = filmPickedHTML();
 }
@@ -8264,7 +8276,7 @@ function renderFilmSortRound(){
           ${filmSortTitleHTML(bId,'b')}
         </div>
         <p class="small muted" style="text-align:center;margin:18px 0 0">
-          ${esc(filmScoreLabel(current.rating))}/10s Round${state.totalTiers>1?` &middot; ${state.settledRatings.length} of ${state.totalTiers} settled`:''}
+          ${esc(filmScoreLabel(current.rating))}/10s Round
         </p>
         <div style="text-align:center;margin-top:14px">
           <button type="button" class="btn sm ghost" onclick="App.filmSortUndo()"${state.history.length?'':' disabled'}>${fa('rotate-left')} Undo</button>
