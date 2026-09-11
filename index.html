@@ -1503,7 +1503,7 @@ body.kb-open .tabbar.on{display:none;}
    end up the same height, with the text bottom-aligned inside whichever one has room to spare.
    object-fit: contain (not cover) so the whole poster shows rather than cropping it to fill a
    fixed box. */
-.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px); padding-bottom:56px;}
+.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px);}
 .film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center;}
 .film-sort-arena{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; column-gap:14px;}
 .film-sort-poster-cell{grid-row:1; display:block; width:100%; border:1px solid var(--line); border-bottom:none;
@@ -1525,11 +1525,13 @@ body.kb-open .tabbar.on{display:none;}
 .film-sort-side-a{grid-column:1;}
 .film-sort-side-b{grid-column:2;}
 .film-sort-title-name{font-weight:700;}
-/* the game's overall completion, fixed to the bottom of the screen (same --bar-h stacking as
-   .add-bar) - how many films across every tied rating have been placed so far, not just the
-   current one, since a round can jump between ratings each time (see advanceFilmSort) */
-.film-sort-progress-wrap{position:fixed; left:0; right:0; bottom:var(--bar-h,0px); z-index:57;
-  padding:10px 16px; background:var(--paper); border-top:1px solid var(--line);}
+/* the game's overall completion - how many films across every tied rating have been placed so
+   far, not just the current one, since a round can jump between ratings each time (see
+   advanceFilmSort). A plain in-flow block under the Undo button, not position:fixed - stacking
+   it above the ALSO position:fixed tab bar via --bar-h sounds simple but this exact screen has
+   already needed two separate fixes for position:fixed elements at the bottom behaving
+   unpredictably (see .tabbar.on's own comment), so this one just doesn't try. */
+.film-sort-progress-wrap{margin-top:14px; padding-top:14px; border-top:1px solid var(--line);}
 .film-sort-progress-label{text-align:center; margin:0 0 6px;}
 .film-sort-progress-bar{height:6px; border-radius:3px; background:var(--bg); overflow:hidden;}
 .film-sort-progress-fill{height:100%; background:var(--brand); border-radius:3px; transition:width .2s;}
@@ -1770,8 +1772,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.3';
+const APP_VERSION = '2.83.4';
 const CHANGELOG = [
+  {version:'2.83.4', notes:[
+    "Rank Ties' progress bar is no longer pinned to the bottom of the screen - it's a normal part of the page now, under the Undo button. That fixed-position bar sat right above the also-fixed tab bar, and this screen has already needed two separate fixes for exactly that combination behaving unpredictably on real devices (see the tab bar's own recent fixes), so rather than risk a third, it's just not fixed any more."
+  ]},
   {version:'2.83.3', notes:[
     "Fixed Rank Ties' Undo button restoring the right order behind the scenes but then showing a fresh, unrelated random matchup instead of the one you'd just answered - it now shows that exact same matchup again."
   ]},
@@ -8214,11 +8219,11 @@ function renderFilmSortRound(){
         <div style="text-align:center;margin-top:14px">
           <button type="button" class="btn sm ghost" onclick="App.filmSortUndo()"${state.history.length?'':' disabled'}>${fa('rotate-left')} Undo</button>
         </div>
+        <div class="film-sort-progress-wrap">
+          <p class="small muted film-sort-progress-label">${placed} of ${state.totalToPlace} films placed &middot; ${pct}%</p>
+          <div class="film-sort-progress-bar"><div class="film-sort-progress-fill" style="width:${pct}%"></div></div>
+        </div>
       </div>
-    </div>
-    <div class="film-sort-progress-wrap">
-      <p class="small muted film-sort-progress-label">${placed} of ${state.totalToPlace} films placed &middot; ${pct}%</p>
-      <div class="film-sort-progress-bar"><div class="film-sort-progress-fill" style="width:${pct}%"></div></div>
     </div>`;
   window.scrollTo(0,0);
 }
