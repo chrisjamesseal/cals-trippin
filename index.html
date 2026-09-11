@@ -1705,8 +1705,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.69.0';
+const APP_VERSION = '2.70.0';
 const CHANGELOG = [
+  {version:'2.70.0', notes:[
+    "Home's Next Trip tile gets the same live countdown too, under its \"Next Trip\" label."
+  ]},
   {version:'2.69.0', notes:[
     "The new Home countdown row is one plain outline around all four numbers now, with thin dividers between them, instead of a separate box for each - keeps it minimal."
   ]},
@@ -4486,6 +4489,7 @@ function dashTripItemHTML(t){
       <div class="dash-item-flags dash-item-flags-boxed" aria-hidden="true">${flagCellsHTML(flags.length?flags:['✈️'])}</div>
       <div class="dash-item-title">${esc(t.name)}</div>
       <div class="dash-item-sub">Next Trip</div>
+      ${miniCountdownHTML(t.startDate)}
     </div>`;
 }
 function dashTripWidgetsHTML(){
