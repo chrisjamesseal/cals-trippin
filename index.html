@@ -3905,7 +3905,7 @@ const AIRPORTS = {
   TIA:'Tirana', SUF:'Lamezia Terme',
   DBV:'Dubrovnik', SPU:'Split', ZAG:'Zagreb', PUY:'Pula', LJU:'Ljubljana', TGD:'Podgorica',
   MLA:'Malta', LCA:'Larnaca', PFO:'Paphos',
-  VIE:'Vienna', ZRH:'Zurich', GVA:'Geneva', BSL:'Basel EuroAirport', PRG:'Prague', BUD:'Budapest', WAW:'Warsaw', KRK:'Kraków',
+  VIE:'Vienna', ZRH:'Zurich', GVA:'Geneva', BSL:'Basel EuroAirport', MLH:'Basel EuroAirport', EAP:'Basel EuroAirport', PRG:'Prague', BUD:'Budapest', WAW:'Warsaw', KRK:'Kraków',
   CPH:'Copenhagen', ARN:'Stockholm Arlanda', GOT:'Gothenburg', OSL:'Oslo', BGO:'Bergen', TRD:'Trondheim', HEL:'Helsinki', KEF:'Reykjavík', BLL:'Billund',
   IST:'Istanbul', SAW:'Istanbul Sabiha', AYT:'Antalya', DLM:'Dalaman', BJV:'Bodrum',
   DXB:'Dubai', AUH:'Abu Dhabi', DOH:'Doha', CAI:'Cairo', RAK:'Marrakesh', AGA:'Agadir', CMN:'Casablanca', TUN:'Tunis',
@@ -3933,7 +3933,7 @@ const AIRPORT_CITY = {
   TFS:'Tenerife', FNC:'Funchal',
   FCO:'Rome',CIA:'Rome', MXP:'Milan',LIN:'Milan', TSF:'Treviso',
   HER:'Heraklion', CHQ:'Chania',
-  BSL:'Basel',
+  BSL:'Basel', MLH:'Basel', EAP:'Basel',
   ARN:'Stockholm',
   SAW:'Istanbul',
   JFK:'New York',LGA:'New York', ORD:'Chicago',
@@ -3964,7 +3964,7 @@ const AIRPORT_COUNTRY = {
   TIA:'AL',
   DBV:'HR',SPU:'HR',ZAG:'HR',PUY:'HR', LJU:'SI', TGD:'ME',
   MLA:'MT', LCA:'CY',PFO:'CY',
-  VIE:'AT', ZRH:'CH',GVA:'CH',BSL:'CH', PRG:'CZ', BUD:'HU', WAW:'PL',KRK:'PL',
+  VIE:'AT', ZRH:'CH',GVA:'CH',BSL:'CH',MLH:'CH',EAP:'CH', PRG:'CZ', BUD:'HU', WAW:'PL',KRK:'PL',
   CPH:'DK',BLL:'DK', ARN:'SE',GOT:'SE', OSL:'NO',BGO:'NO',TRD:'NO', HEL:'FI', KEF:'IS',
   IST:'TR',SAW:'TR',AYT:'TR',DLM:'TR',BJV:'TR',
   DXB:'AE',AUH:'AE', DOH:'QA', CAI:'EG', RAK:'MA',AGA:'MA',CMN:'MA', TUN:'TN',
@@ -4000,7 +4000,7 @@ const AIRPORT_TZ = {
   TIA:'Europe/Tirane', SUF:'Europe/Rome',
   DBV:'Europe/Zagreb', SPU:'Europe/Zagreb', ZAG:'Europe/Zagreb', PUY:'Europe/Zagreb', LJU:'Europe/Ljubljana', TGD:'Europe/Podgorica',
   MLA:'Europe/Malta', LCA:'Asia/Nicosia', PFO:'Asia/Nicosia',
-  VIE:'Europe/Vienna', ZRH:'Europe/Zurich', GVA:'Europe/Zurich', BSL:'Europe/Zurich', PRG:'Europe/Prague', BUD:'Europe/Budapest', WAW:'Europe/Warsaw', KRK:'Europe/Warsaw',
+  VIE:'Europe/Vienna', ZRH:'Europe/Zurich', GVA:'Europe/Zurich', BSL:'Europe/Zurich', MLH:'Europe/Zurich', EAP:'Europe/Zurich', PRG:'Europe/Prague', BUD:'Europe/Budapest', WAW:'Europe/Warsaw', KRK:'Europe/Warsaw',
   CPH:'Europe/Copenhagen', BLL:'Europe/Copenhagen', ARN:'Europe/Stockholm', GOT:'Europe/Stockholm', OSL:'Europe/Oslo', BGO:'Europe/Oslo', TRD:'Europe/Oslo', HEL:'Europe/Helsinki', KEF:'Atlantic/Reykjavik',
   IST:'Europe/Istanbul', SAW:'Europe/Istanbul', AYT:'Europe/Istanbul', DLM:'Europe/Istanbul', BJV:'Europe/Istanbul',
   DXB:'Asia/Dubai', AUH:'Asia/Dubai', DOH:'Asia/Qatar', CAI:'Africa/Cairo', RAK:'Africa/Casablanca', AGA:'Africa/Casablanca', CMN:'Africa/Casablanca', TUN:'Africa/Tunis',
@@ -4519,25 +4519,17 @@ function dashSongWidgetHTML(t){
   if(!t.spotifyUrl) return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goSongs()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goSongs()}">
-      <div class="dash-item-row">
-        ${t.image ? `<img class="dash-item-img-sm" src="${esc(t.image)}" alt="" loading="lazy">`
-                   : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
-        <div class="dash-item-row-text">
-          <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
-          <div class="dash-item-sub">Most Played</div>
-        </div>
-      </div>
+      ${t.image ? `<img class="dash-item-img-lg" src="${esc(t.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
+      <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
+      <div class="dash-item-sub">${esc(t.artist||'Most Played')}</div>
     </div>`;
   return `
     <a class="dash-widget dash-widget-item" href="${esc(t.spotifyUrl)}" target="_blank" rel="noopener">
-      <div class="dash-item-row">
-        ${t.image ? `<img class="dash-item-img-sm" src="${esc(t.image)}" alt="" loading="lazy">`
-                   : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
-        <div class="dash-item-row-text">
-          <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
-          <div class="dash-item-sub">Most Played</div>
-        </div>
-      </div>
+      ${t.image ? `<img class="dash-item-img-lg" src="${esc(t.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎵</div>`}
+      <div class="dash-item-title">${esc(t.name||'Untitled')}</div>
+      <div class="dash-item-sub">${esc(t.artist||'Most Played')}</div>
     </a>`;
 }
 function loadDashboardSong(){
@@ -4698,6 +4690,23 @@ function dashLastSeenFilmWidgetHTML(){
 let DASH_WATCHNEXT_FILM = null;
 let DASH_WATCHNEXT_TOKEN = null;
 const DASH_WATCHNEXT_CHECK_CAP = 25;
+/* a Diary entry logged with a future Watched date - a cinema booking made ahead of actually
+   seeing it, say - beats any Watchlist pick for "what's next": it's not a maybe, it's already
+   on the calendar. Soonest one wins when there's more than one. */
+function dashScheduledFilm(){
+  return (DB.films||[]).filter(f=>f.watchedDate && f.watchedDate>todayStr())
+    .sort((a,b)=>a.watchedDate.localeCompare(b.watchedDate))[0] || null;
+}
+function dashScheduledFilmHTML(f){
+  const url = filmLetterboxdUrl(f);
+  return `
+    <a class="dash-widget dash-widget-item" href="${esc(url)}" target="_blank" rel="noopener">
+      ${f.image ? `<img class="dash-watchnext-poster" src="${esc(f.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🔖</div>`}
+      <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
+      <div class="dash-item-sub">Booked for ${esc(fmtDateNoYear(f.watchedDate))}</div>
+    </a>`;
+}
 function dashWatchNextEmptyHTML(){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goFilmsWatchlist()"
@@ -4800,6 +4809,8 @@ function loadDashBoardGameNext(){
     .catch(()=>{});   // the widget just stays on "Loading…" until a retry (next Home visit) works
 }
 function dashRandomWatchlistWidgetHTML(){
+  const scheduled = dashScheduledFilm();
+  if(scheduled){ DASH_WATCHNEXT_FILM = null; return dashScheduledFilmHTML(scheduled); }
   const list = DB.filmsWatchlist||[];
   if(!list.length){ DASH_WATCHNEXT_FILM = null; return dashWatchNextEmptyHTML(); }
   if(!selectedStreamingServices()){
@@ -4812,6 +4823,7 @@ function dashRandomWatchlistWidgetHTML(){
   return dashWatchNextLoadingHTML();
 }
 function loadDashWatchNextProviders(){
+  if(dashScheduledFilm()) return;   // a booked-ahead Diary entry is showing instead - nothing to fetch
   const list = DB.filmsWatchlist||[];
   if(!list.length) return;
   if(!selectedStreamingServices()){
