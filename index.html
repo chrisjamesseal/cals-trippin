@@ -696,7 +696,11 @@ a{color:var(--brand-dark);}
    to separate one day from the next, so a collapsed day (nothing between that border and this
    one) would otherwise show as a doubled-up line instead of the day's usual single divider */
 .route-head-row.open{padding-bottom:12px; border-bottom:1px solid var(--line);}
-.route-head-row>div:first-child{flex:1; min-width:0;}
+/* shrink:0 (not the flex:1/min-width:0 this used to carry) so a long "Travel to X" title never
+   gets squeezed into wrapping mid-sentence alongside the weather chip - once it doesn't fit next
+   to the chip and chevron, those wrap down to their own line instead, leaving the title whole on
+   its own line above them */
+.route-head-row>div:first-child{flex:1 0 auto; min-width:0;}
 /* the date sat above a day's own title - a little extra air so the two don't read as one run-on
    line */
 .route-date-line{margin-bottom:4px;}
