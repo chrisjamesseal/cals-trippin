@@ -447,13 +447,13 @@ a{color:var(--brand-dark);}
   box-shadow:var(--shadow); padding:16px; cursor:pointer;
   transition:transform .1s, box-shadow .1s;}
 .dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
-.dash-widget-stat{display:flex; align-items:baseline; justify-content:center; gap:6px; padding:22px 16px;}
+.dash-widget-stat{display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap; gap:0 5px; padding:16px 10px; min-width:0;}
 /* icon left, "N Label" one line - same row layout as the Places hub's own cards, for a tile
    that's just a count and doesn't need the image-on-top layout every other tile gets */
 .dash-widget-row{display:flex; flex-direction:row; align-items:center; gap:10px;}
 .dash-widget-row .dash-item-flags{font-size:1.4rem; margin-bottom:0; flex-shrink:0;}
 .dash-widget-row .dash-item-title{font-size:.88rem;}
-.dash-stat-num{font-family:var(--font-head); font-weight:400; font-size:2.1rem; color:var(--brand-dark); line-height:1;}
+.dash-stat-num{font-family:inherit; font-weight:400; font-size:.8rem; color:var(--brand-dark); line-height:1;}
 .dash-stat-label{color:var(--muted); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
 /* Places Been / Gigs Seen / This Year / Games - four counts up top, fixed to two columns
    regardless of height (unlike the masonry below, which balances by measured height) so they
@@ -6750,6 +6750,7 @@ function renderFilms(){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
+        <button class="btn sm ghost" onclick="App.goFilmsStatsCharts()">📊 Stats</button>
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','🏆 Leaderboard')}</div>
@@ -6879,11 +6880,20 @@ function filmRatingFieldHTML(value){
 function filmRankFieldHTML(f){
   if(f.rating==null) return '';
   const order = filmLeaderboardOrder();
-  const current = order.findIndex(x=>x.id===f.id) + 1;
-  if(!current) return '';
+  const current = order.findIndex(x=>x.id===f.id);
+  if(current<0) return '';
+  // only positions within this film's own rating tier - the contiguous run of films sharing its
+  // exact rating - are worth offering here; jumping it in among a different rating would put a
+  // lower score above a higher one, undoing the whole point of rating-first ordering. The
+  // up/down buttons on the Leaderboard itself still allow a genuine cross-tier override.
+  let start = current, end = current;
+  while(start>0 && order[start-1].rating===f.rating) start--;
+  while(end<order.length-1 && order[end+1].rating===f.rating) end++;
+  const opts = [];
+  for(let idx=start; idx<=end; idx++) opts.push(idx);
   return `<div class="field"><label class="label" for="film-rank">Leaderboard Rank</label>
     <select id="film-rank">
-      ${order.map((x,idx)=>`<option value="${idx+1}"${idx+1===current?' selected':''}>#${idx+1}</option>`).join('')}
+      ${opts.map(idx=>`<option value="${idx+1}"${idx===current?' selected':''}>#${idx+1}</option>`).join('')}
     </select>
   </div>`;
 }
@@ -7666,6 +7676,24 @@ function drawFilmsStats(){
   const rated = films.filter(f=>f.rating!=null);
   const avgRating = rated.length ? (rated.reduce((s,f)=>s+f.rating,0)/rated.length) : null;
 
+  body.innerHTML = `
+    <div class="stat-overview-row">
+      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="CUR_FILMS_GENRE='';App.filmsTab('diary')"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();CUR_FILMS_GENRE='';App.filmsTab('diary')}">
+        <div class="dash-stat-num">${films.length}</div><div class="dash-stat-label">Logged</div></div>
+      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.filmsStatsRewatches()"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmsStatsRewatches()}">
+        <div class="dash-stat-num">${rewatches}</div><div class="dash-stat-label">Rewatches</div></div>
+      <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${avgRating!=null?avgRating.toFixed(1):'—'}</div><div class="dash-stat-label">Avg Rating</div></div>
+    </div>
+    <h3 style="margin:20px 0 10px">Top Films</h3>
+    ${filmLeaderboardHTML()}`;
+}
+/* By Year/By Rating moved off the Leaderboard tab onto their own page (App.goFilmsStatsCharts,
+   the Stats button next to the Films title) - with a long Top Films list right above them,
+   they were just something to scroll past to reach either one. */
+function renderFilmsStatsCharts(){
+  const films = DB.films||[];
   const byYear = filmsStatsByYear();
   // ascending, oldest first - a chart reads left to right as a timeline, unlike the old list
   // (newest first, easier to scan as a plain list) it replaces
@@ -7681,22 +7709,20 @@ function drawFilmsStats(){
     .map(v=>({key:v, label:filmScoreLabel(v), count:byRating.get(String(v))}));
   if(noRatingCount) ratingEntries.push({key:'none', label:'N/A', count:noRatingCount});
 
-  body.innerHTML = `
-    <div class="stat-overview-row">
-      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="CUR_FILMS_GENRE='';App.filmsTab('diary')"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();CUR_FILMS_GENRE='';App.filmsTab('diary')}">
-        <div class="dash-stat-num">${films.length}</div><div class="dash-stat-label">Logged</div></div>
-      <div class="dash-widget dash-widget-stat" role="button" tabindex="0" onclick="App.filmsStatsRewatches()"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmsStatsRewatches()}">
-        <div class="dash-stat-num">${rewatches}</div><div class="dash-stat-label">Rewatches</div></div>
-      <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${avgRating!=null?avgRating.toFixed(1):'—'}</div><div class="dash-stat-label">Avg Rating</div></div>
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="App.goFilmsStats()" aria-label="Back to Leaderboard">${ICONS.back}</button>
+          Stats</span>
+      </div>
     </div>
-    <h3 style="margin:20px 0 10px">Top Films</h3>
-    ${filmLeaderboardHTML()}
+    ${films.length ? `
     <h3 style="margin:20px 0 10px">By Year</h3>
     ${statsBarChartHTML(yearEntries, key => `App.filmsStatsYear('${key}')`)}
     <h3 style="margin:20px 0 10px">By Rating</h3>
-    ${statsBarChartHTML(ratingEntries, key => `App.filmsStatsRating('${key}')`)}`;
+    ${statsBarChartHTML(ratingEntries, key => `App.filmsStatsRating('${key}')`)}`
+    : `<div class="empty">Log some films to see stats here.</div>`}`;
 }
 function renderFilmsStatsFiltered(type, valueStr){
   const films = DB.films||[];
@@ -8133,6 +8159,10 @@ function route(){
   if(h === '#/films/stats/rewatches'){
     CUR_TRIP_ID = null; stopSub();
     renderFilmsStatsFiltered('rewatch', ''); window.scrollTo(0,0); return;
+  }
+  if(h === '#/films/stats/charts'){
+    CUR_TRIP_ID = null; stopSub();
+    renderFilmsStatsCharts(); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
@@ -9352,6 +9382,7 @@ App.filmsImportCsvFile = filmsImportCsvFileImpl;
 App.filmsStatsYear = y => { location.hash = '#/films/stats/year/'+encodeURIComponent(y); };
 App.filmsStatsRating = v => { location.hash = '#/films/stats/rating/'+encodeURIComponent(v); };
 App.filmsStatsRewatches = () => { location.hash = '#/films/stats/rewatches'; };
+App.goFilmsStatsCharts = () => { location.hash = '#/films/stats/charts'; };
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
 App.fwAddFilm = fwAddFilmImpl;
 App.fwLogFilm = id => {
