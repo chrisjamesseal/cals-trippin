@@ -161,7 +161,7 @@ a{color:var(--brand-dark);}
    its own label slot just carries a rank number, poster thumb and title/score instead of
    plain text, and doubles as the tap target that opens that film for editing. */
 .film-leaderboard-info{display:flex; align-items:center; gap:10px; min-width:0; flex:1; cursor:pointer;}
-.film-leaderboard-rank{font-family:var(--font-head); font-weight:800; color:var(--brand); flex-shrink:0; width:28px;}
+.film-leaderboard-rank{font-family:var(--font-head); font-weight:800; color:var(--brand); flex-shrink:0; width:38px; white-space:nowrap;}
 
 /* ---------- cards & panels ---------- */
 .card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:18px; margin-bottom:16px; position:relative;}
@@ -6872,6 +6872,21 @@ function filmRatingFieldHTML(value){
     </select>
   </div>`;
 }
+/* a quick way to jump a film straight to a position on the Top Films leaderboard instead of
+   walking it there one up/down tap at a time - only shown editing a film that's already rated
+   (and so already on the leaderboard somewhere), picking it splices it into that spot and pushes
+   everything from there down one, same as saveFilmImpl's own rank-splice does */
+function filmRankFieldHTML(f){
+  if(f.rating==null) return '';
+  const order = filmLeaderboardOrder();
+  const current = order.findIndex(x=>x.id===f.id) + 1;
+  if(!current) return '';
+  return `<div class="field"><label class="label" for="film-rank">Leaderboard Rank</label>
+    <select id="film-rank">
+      ${order.map((x,idx)=>`<option value="${idx+1}"${idx+1===current?' selected':''}>#${idx+1}</option>`).join('')}
+    </select>
+  </div>`;
+}
 function filmFormImpl(i, prefill){
   const f = (i>=0 && (DB.films||[])[i]) || (prefill ? {title:prefill.title, year:prefill.year, image:prefill.image} : {});
   FILM_SEARCH_RESULTS = [];
@@ -6889,6 +6904,7 @@ function filmFormImpl(i, prefill){
     <div class="field"><label class="label" for="film-date">Watched</label>
       <input id="film-date" type="date" value="${esc(f.watchedDate || (i<0 ? todayStr() : ''))}"></div>
     ${filmRatingFieldHTML(f.rating)}
+    ${i>=0 ? filmRankFieldHTML(f) : ''}
     <div class="field"><label class="switch-row"><span>↻ Rewatch</span>
       <span class="switch"><input type="checkbox" id="film-rewatch"${f.rewatch?' checked':''}><span class="knob"></span></span>
     </label></div>
@@ -6963,6 +6979,11 @@ function saveFilmImpl(i){
     year: ($('#film-year').value||'').trim() || null,
     watchedDate: $('#film-date').value || null,
     rating: ratingRaw ? parseFloat(ratingRaw) : null,
+    // a rating picked from this form is always already on the current 0.5-10 scale (the
+    // dropdown only ever offers FILM_SCORE_VALUES), so this form's own save is exactly what
+    // "migrated" means - without this, editing an already-migrated film here would drop the
+    // flag and let migrateFilmScores double an already-correct rating a second time
+    scoreMigrated: true,
     rewatch: $('#film-rewatch').checked,
     image: ($('#film-poster').value||'').trim(),
     genres,
@@ -6972,6 +6993,15 @@ function saveFilmImpl(i){
   DB.films = DB.films||[];
   if(i>=0 && DB.films[i]) DB.films[i] = film; else DB.films.push(film);
   saveFilms();
+  // a rank chosen from filmRankFieldHTML - only present when editing a film that already had a
+  // rating - moves it straight to that position, pushing everything else down one
+  const rankSel = $('#film-rank');
+  if(rankSel){
+    const wanted = parseInt(rankSel.value, 10);
+    const order = filmLeaderboardOrder().map(f=>f.id).filter(id=>id!==film.id);
+    order.splice(wanted-1, 0, film.id);
+    saveFilmLeaderboardOrder(order);
+  }
   if(FILM_WATCHLIST_REMOVE_ID){
     // logged from the Watchlist's "Watched" button - it's served its purpose, drop it from there
     DB.filmsWatchlist = (DB.filmsWatchlist||[]).filter(w=>w.id!==FILM_WATCHLIST_REMOVE_ID);
