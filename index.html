@@ -1687,8 +1687,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.57.0';
+const APP_VERSION = '2.58.0';
 const CHANGELOG = [
+  {version:'2.58.0', notes:[
+    "Accommodation/booking cards: a booking site's favicon that fails to load (or comes back blank) no longer sits there as an empty white square next to the View Details button - it drops itself, same graceful fallback a card's own header logo already had."
+  ]},
   {version:'2.57.0', notes:[
     "Itinerary: a day's weather moved back onto the date line (\"25th September 2026 - 🌦️16°/11° · 💧22%\") as plain text instead of a separate pill sat under the title."
   ]},
@@ -13119,8 +13122,17 @@ function airlineLogoFor(name, restoreText){
   const site = AIRLINE_SITES[name];
   return site ? logoSquare(site, name, restoreText, 'card-logo-sm') : '';
 }
+/* same blank-placeholder guard logoSquare gives a card's header logo (see cardLogoCheck) - a
+   site with no favicon on file gets Google's blank placeholder back rather than a 404, which an
+   onerror alone won't catch. There's no restore text to fall back to here (the button's own
+   "View Details" label already covers it), so a blank/failed icon just removes itself instead
+   of sitting there as an empty square in the button's own background colour. */
 function faviconFor(url){
-  try{ const h = new URL(url).hostname; return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy">`; }
+  try{
+    const h = new URL(url).hostname;
+    return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy"
+      onerror="this.remove()" onload="if(this.naturalWidth<=16&&this.naturalHeight<=16)this.remove()">`;
+  }
   catch(e){ return ''; }
 }
 function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
