@@ -157,6 +157,11 @@ a{color:var(--brand-dark);}
 .dash-prefs-row.hidden{opacity:.5;}
 .dash-prefs-label{font-size:.88rem; font-weight:600; color:var(--ink);}
 .dash-prefs-actions{display:flex; align-items:center; gap:2px; flex-shrink:0;}
+/* Top Films leaderboard (filmLeaderboardHTML) reuses the same up/down row shell above -
+   its own label slot just carries a rank number, poster thumb and title/score instead of
+   plain text, and doubles as the tap target that opens that film for editing. */
+.film-leaderboard-info{display:flex; align-items:center; gap:10px; min-width:0; flex:1; cursor:pointer;}
+.film-leaderboard-rank{font-family:var(--font-head); font-weight:800; color:var(--brand); flex-shrink:0; width:28px;}
 
 /* ---------- cards & panels ---------- */
 .card{border:1px solid var(--line); border-radius:var(--radius); background:var(--paper); box-shadow:var(--shadow); padding:18px; margin-bottom:16px; position:relative;}
@@ -4669,7 +4674,7 @@ function dashLastSeenFilmWidgetHTML(){
                    : `<div class="dash-item-flags" aria-hidden="true">🎬</div>`}
         <div class="dash-item-row-text">
           <div class="dash-item-title">${esc(f.title||'Untitled')}</div>
-          <div class="dash-item-sub">Last Seen</div>
+          <div class="dash-item-sub">${f.rating!=null ? esc(filmScoreLabel(f.rating)+'/10') : 'Last Seen'}</div>
         </div>
       </div>
     </a>`;
@@ -6515,6 +6520,66 @@ function pushFilms(){
 }
 function saveFilms(){ saveLocal(); pushFilms(); }
 
+/* ---- Top Films leaderboard: a manual #1-onwards ranking of rated Diary films ----
+   DB.filmLeaderboardOrder is just a list of film ids, synced the same way DB.films itself is -
+   only ever holds what a manual up/down move has actually touched, not the whole rated list, so
+   a freshly-rated film doesn't need this to be kept in lockstep with the Diary. */
+function loadFilmLeaderboardOrderCloud(cb){
+  if(!fbRoot){ cb(DB.filmLeaderboardOrder||[]); return; }
+  fbRoot.ref('filmLeaderboardOrder').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : (DB.filmLeaderboardOrder||[])))
+    .catch(() => cb(DB.filmLeaderboardOrder||[]));
+}
+function pushFilmLeaderboardOrder(){
+  if(!fbRoot) return;
+  fbRoot.ref('filmLeaderboardOrder').set(DB.filmLeaderboardOrder||[])
+    .catch(err => {
+      console.error("My Trips, couldn't save the Top Films order:", err);
+      if(/permission[_-]?denied/i.test((err&&(err.code||err.message||err)||'').toString())){
+        noteModal('Ranking Not Saved', "The database rules don't allow writing filmLeaderboardOrder. Open the Firebase console, Realtime Database, Rules, and add a 'filmLeaderboardOrder' rule (see the README).");
+      }else{
+        noteModal('Not Saved', 'Check your connection and try again.');
+      }
+    });
+}
+function saveFilmLeaderboardOrder(list){ DB.filmLeaderboardOrder = list; saveLocal(); pushFilmLeaderboardOrder(); }
+/* highest rating first, tiebroken by most recently watched then title - the order a freshly
+   rated film (or one that's never been manually moved) falls into */
+function filmLeaderboardDefaultOrder(films){
+  return films.filter(f=>f.rating!=null).slice()
+    .sort((a,b) => b.rating-a.rating || (b.watchedDate||'').localeCompare(a.watchedDate||'') || (a.title||'').localeCompare(b.title||''))
+    .map(f=>f.id);
+}
+/* the manual order, minus anything no longer rated (deleted, or its rating cleared), plus any
+   rated film not in it yet appended in default order - so a fresh rating always lands somewhere
+   sane instead of needing a manual move before it shows up at all. */
+function filmLeaderboardOrder(){
+  const films = DB.films||[];
+  const byId = new Map(films.map(f=>[f.id,f]));
+  const saved = (DB.filmLeaderboardOrder||[]).filter(id => byId.has(id) && byId.get(id).rating!=null);
+  const savedSet = new Set(saved);
+  const rest = filmLeaderboardDefaultOrder(films).filter(id=>!savedSet.has(id));
+  return [...saved, ...rest].map(id=>byId.get(id));
+}
+function filmLeaderboardHTML(){
+  const order = filmLeaderboardOrder();
+  if(!order.length) return `<div class="empty">Rate a film to start your leaderboard.</div>`;
+  return `<div class="dash-prefs-list">${order.map((f,i) => `
+    <div class="dash-prefs-row">
+      <div class="film-leaderboard-info" role="button" tabindex="0" onclick="App.filmForm(${(DB.films||[]).indexOf(f)})"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmForm(${(DB.films||[]).indexOf(f)})}">
+        <span class="film-leaderboard-rank">#${i+1}</span>
+        ${f.image ? `<img class="film-search-thumb" src="${esc(f.image)}" alt="" loading="lazy">`
+                   : `<span class="film-search-thumb gig-cover-fallback" aria-hidden="true">${fa('film')}</span>`}
+        <span class="dash-prefs-label">${esc(f.title||'Untitled')}<br><span class="muted small">${filmScoreLabel(f.rating)}/10</span></span>
+      </div>
+      <div class="dash-prefs-actions">
+        <button class="iconbtn" aria-label="Move ${esc(f.title||'Untitled')} up"${i===0?' disabled':''} onclick="App.filmLeaderboardMove('${esc(f.id)}',-1)">${fa('chevron-up')}</button>
+        <button class="iconbtn" aria-label="Move ${esc(f.title||'Untitled')} down"${i===order.length-1?' disabled':''} onclick="App.filmLeaderboardMove('${esc(f.id)}',1)">${fa('chevron-down')}</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
 function loadPlantsCloud(cb){
   if(!fbRoot){ cb(DB.plants||[]); return; }
   fbRoot.ref('plants').once('value')
@@ -6570,11 +6635,29 @@ async function backfillPosters(list, saveFn){
 
 function filmStarsHTML(rating){
   if(rating==null) return '';
-  return `<span class="film-stars">★ ${rating.toFixed(1)}</span>`;
+  return `<span class="film-stars">${rating.toFixed(1)}/10</span>`;
 }
 function filmsSorted(){
   return (DB.films||[]).map((f,i)=>({f,i}))
     .sort((a,b) => (b.f.watchedDate||'').localeCompare(a.f.watchedDate||'') || (a.f.title||'').localeCompare(b.f.title||''));
+}
+/* one-time: the old Diary rating scale was 0.5-5 (half-star), the new one is 0.5-10 - doubles
+   each already-rated film once so an old 4.5-star favourite still reads as a 9/10 rather than
+   suddenly a mediocre-looking 4.5/10. The flag lives on the film itself, not a device-local
+   marker - films sync across every device sharing this trip's data, so whichever device opens
+   the Diary first migrates it for everyone and every other device just finds the flag already
+   set (each film carries its own history, so this is safe to run redundantly). Returns whether
+   anything actually changed, so callers only re-save when it did. */
+function migrateFilmScores(films){
+  let changed = false;
+  (films||[]).forEach(f=>{
+    if(f.rating!=null && !f.scoreMigrated){
+      f.rating = Math.min(10, Math.round(f.rating*2*10)/10);
+      f.scoreMigrated = true;
+      changed = true;
+    }
+  });
+  return changed;
 }
 /* the category dropdown on both the Diary and the Watchlist - genres come from TMDb (search
    results, or the backfill pass for CSV-imported/synced entries above), not something typed by
@@ -6671,7 +6754,7 @@ function renderFilms(){
         <span class="crumb-here">Films</span>
       </div>
     </div>
-    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','📊 Stats')}</div>
+    <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','🏆 Leaderboard')}</div>
     <div id="films-body"></div>
     ${showAdd?`<div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="App.fwAddFilm()">+ Add Film</button></div></div>`:''}`;
   if(CUR_FILMS_TAB==='watchlist'){ renderFilmsWatchlist(); return; }
@@ -6686,7 +6769,8 @@ function renderFilmsDiary(){
   loadFilmsCloud(cloud => {
     DB.films = Array.isArray(cloud) ? cloud : [];
     const merged = dedupeFilms();
-    if(merged) saveFilms(); else saveLocal();
+    const migrated = migrateFilmScores(DB.films);
+    if(merged || migrated) saveFilms(); else saveLocal();
     if(CUR_FILMS_TAB==='diary') drawFilmsGrid();
     if(merged) toast(`Merged ${merged} duplicate film${merged===1?'':'s'}`);
     // catches anything a sync/import's own backfill missed at the time (a transient search
@@ -6777,11 +6861,16 @@ function filmPickedHTML(){
    from an earlier pass) are still fiddly to hit precisely on a phone, especially telling a half
    star from its neighbour, where a select just needs one accurate tap to open and one to choose */
 function filmRatingLabel(v){ return '★'.repeat(Math.floor(v)) + (v%1!==0 ? '½' : ''); }
+/* Films' own rating scale - 0.5-10 in half steps, wider than Theatre's 0.5-5 stars
+   (FILM_RATING_VALUES/filmRatingLabel just above, which Theatre still uses) so a whole film can
+   actually place against another rather than everything decent alike clumping at "4.5 stars". */
+const FILM_SCORE_VALUES = Array.from({length:20}, (_,i) => 10 - i/2);
+function filmScoreLabel(v){ return v.toFixed(1); }
 function filmRatingFieldHTML(value){
   return `<div class="field"><label class="label" for="film-rating">Rating</label>
     <select id="film-rating">
       <option value=""${value==null?' selected':''}>No rating</option>
-      ${FILM_RATING_VALUES.map(v=>`<option value="${v}"${value===v?' selected':''}>${filmRatingLabel(v)} (${v})</option>`).join('')}
+      ${FILM_SCORE_VALUES.map(v=>`<option value="${v}"${value===v?' selected':''}>${filmScoreLabel(v)}/10</option>`).join('')}
     </select>
   </div>`;
 }
@@ -7531,6 +7620,12 @@ function renderFilmsStats(){
   drawFilmsStats();
   loadFilmsCloud(cloud => {
     DB.films = Array.isArray(cloud) ? cloud : [];
+    const migrated = migrateFilmScores(DB.films);
+    if(migrated) saveFilms(); else saveLocal();
+    if(CUR_FILMS_TAB==='stats') drawFilmsStats();
+  });
+  loadFilmLeaderboardOrderCloud(cloud => {
+    DB.filmLeaderboardOrder = Array.isArray(cloud) ? cloud : [];
     saveLocal();
     if(CUR_FILMS_TAB==='stats') drawFilmsStats();
   });
@@ -7553,7 +7648,7 @@ function drawFilmsStats(){
 
   const byRating = filmsStatsByRating();
   const noRatingCount = byRating.get('none')||0;
-  const ratingEntries = FILM_RATING_VALUES.slice().reverse()
+  const ratingEntries = FILM_SCORE_VALUES
     .filter(v=>byRating.get(String(v)))
     .map(v=>({key:v, label:v.toFixed(1), count:byRating.get(String(v))}));
   if(noRatingCount) ratingEntries.push({key:'none', label:'N/A', count:noRatingCount});
@@ -7568,6 +7663,8 @@ function drawFilmsStats(){
         <div class="dash-stat-num">${rewatches}</div><div class="dash-stat-label">Rewatches</div></div>
       <div class="dash-widget dash-widget-stat"><div class="dash-stat-num">${avgRating!=null?avgRating.toFixed(1):'—'}</div><div class="dash-stat-label">Avg Rating</div></div>
     </div>
+    <h3 style="margin:20px 0 10px">Top Films</h3>
+    ${filmLeaderboardHTML()}
     <h3 style="margin:20px 0 10px">By Year</h3>
     ${statsBarChartHTML(yearEntries, key => `App.filmsStatsYear('${key}')`)}
     <h3 style="margin:20px 0 10px">By Rating</h3>
@@ -7584,7 +7681,7 @@ function renderFilmsStatsFiltered(type, valueStr){
     // the bar's own count and this drill-down list never disagree
     const latest = filmsLatestPerFilm();
     if(valueStr==='none'){ matched = latest.filter(f=>f.rating==null); title = 'Not Rated'; }
-    else { const v = parseFloat(valueStr); matched = latest.filter(f=>f.rating===v); title = `★ ${v.toFixed(1)}`; }
+    else { const v = parseFloat(valueStr); matched = latest.filter(f=>f.rating===v); title = `${v.toFixed(1)}/10`; }
   }else{
     matched = films.filter(f=>f.rewatch); title = 'Rewatches';
   }
@@ -7594,7 +7691,7 @@ function renderFilmsStatsFiltered(type, valueStr){
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow" style="display:grid; grid-template-columns:1fr auto 1fr">
-        <button class="btn sm ghost" style="justify-self:start" onclick="App.goFilmsStats()">${ICONS.back}Stats</button>
+        <button class="btn sm ghost" style="justify-self:start" onclick="App.goFilmsStats()">${ICONS.back}Leaderboard</button>
         <span class="crumb-here" style="text-align:center">${esc(title)}</span>
         <span class="gig-seen-pill" style="justify-self:end">${ordered.length}</span>
       </div>
@@ -9146,6 +9243,14 @@ App.goFilmsDiary = () => { CUR_FILMS_TAB = 'diary'; CUR_FILMS_GENRE = ''; locati
 App.goFilmsWatchlist = () => { CUR_FILMS_TAB = 'watchlist'; location.hash = '#/films'; };
 App.filmForm = filmFormImpl;
 App.saveFilm = saveFilmImpl;
+App.filmLeaderboardMove = (id, dir) => {
+  const order = filmLeaderboardOrder().map(f=>f.id);
+  const i = order.indexOf(id); if(i<0) return;
+  const j = i+dir; if(j<0 || j>=order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  saveFilmLeaderboardOrder(order);
+  if(CUR_FILMS_TAB==='stats') drawFilmsStats();
+};
 App.delFilm = delFilmImpl;
 App.letterboxdConnect = letterboxdConnectImpl;
 App.goPlants = () => { location.hash = '#/plants'; };
