@@ -696,14 +696,16 @@ a{color:var(--brand-dark);}
    to separate one day from the next, so a collapsed day (nothing between that border and this
    one) would otherwise show as a doubled-up line instead of the day's usual single divider */
 .route-head-row.open{padding-bottom:12px; border-bottom:1px solid var(--line);}
-.route-head-row>div:first-child{flex:1; min-width:0;}
+/* shrink:0 so a long "Travel to X" title never gets squeezed into wrapping mid-sentence to make
+   room for the chevron sat next to it */
+.route-head-row>div:first-child{flex:1 0 auto; min-width:0;}
 /* the date sat above a day's own title - a little extra air so the two don't read as one run-on
    line */
 .route-date-line{margin-bottom:4px;}
-/* the weather chip used to sit inline after the day's title, in the day's own badge row - moved
-   out to the header row itself so it lines up on the right, over the chevron, instead of
-   crowding a long title */
-.route-head-wx{flex-shrink:0;}
+/* sits under the title now (its own line), not beside it - it used to share the header row with
+   the chevron, lined up on the right, but that crowded a long title into wrapping mid-sentence
+   alongside it */
+.route-head-wx{display:block; margin-top:4px;}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
 .route-days{margin:14px 0 4px;}
@@ -12408,8 +12410,8 @@ function tabPlan(t, ro){
           <div style="min-width:0">
             ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}</div>`:''}
             <strong>${headingHTML}${k===todayKey?`<span class="plan-day-badges"><span class="status-pill now">Today</span></span>`:''}</strong>
+            ${k&&!rough?`<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span>`:''}
           </div>
-          ${k&&!rough?`<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span>`:''}
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
         </div>
         ${isOpen?`<div class="route-days" onclick="event.stopPropagation()">${aiSummaryHTML(t, openKey, ro)}${planDaysHTML(t, ro, [k])}</div>`:''}
