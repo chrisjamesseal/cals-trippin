@@ -1690,8 +1690,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.62.0';
+const APP_VERSION = '2.63.0';
 const CHANGELOG = [
+  {version:'2.63.0', notes:[
+    "Itinerary: a day's heading now says \"Day 8 - Travel to Tiranë - Spa\" instead of \"Day 8 - Spa - Travel to Tiranë\" - where you travelled to reads before what you did once there, not after."
+  ]},
   {version:'2.62.0', notes:[
     "Fixed a film occasionally showing twice on the Leaderboard after moving it with the up/down arrows - the Leaderboard tab re-fetches its saved order from the cloud every time you open it, and a slow fetch landing just after a move could silently revert DB.filmLeaderboardOrder to a stale copy that still had the moved film's old position in it alongside its new one. The stale fetch is now dropped if a move happened while it was in flight, and the order is de-duplicated on read either way, so a film can't render twice regardless."
   ]},
@@ -11976,7 +11979,7 @@ function dayNarrative(t, k, dayItems, rough){
   // nothing to count "Day N" from - the date itself stands in for it, same as this heading
   // would have shown before it grew a day number at all, rather than inventing a "Day ?"
   const dayLabel = num ? `Day ${num}` : fmtDate(k);
-  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${activityText}${placeText}`};
+  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${placeText}${activityText}`};
 }
 /* which stop/gap accordions are open - a UI-only choice, not trip data, so it's a plain
    module variable rather than anything saved or synced; resets on reload same as the rest of
