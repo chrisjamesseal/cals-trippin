@@ -1690,8 +1690,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.60.0';
+const APP_VERSION = '2.61.0';
 const CHANGELOG = [
+  {version:'2.61.0', notes:[
+    "Itinerary route map: the outbound and return flights bookending a trip no longer get their own dashed line (home was never really \"on\" the route), and the outbound flight's destination stays a real numbered stop - Basel EuroAirport reads as stop 1 now instead of getting trimmed away in favour of whatever came after it."
+  ]},
   {version:'2.60.0', notes:[
     "Films Stats page: the Logged/Rewatches/Avg Rating tiles from the Leaderboard tab now sit above By Year too, same tile style, so Stats reads as a full overview rather than just the two charts."
   ]},
@@ -12143,15 +12146,20 @@ function mapRouteStops(t){
   const checkinDates = new Set((t.accommodations||[]).map(a=>a.checkin).filter(Boolean));
   const dedupJourneys = list => list.filter(s => !(s.journey && checkinDates.has(s.date)));
   let trimmed = stops.slice();
+  // the flight home is never a stop worth numbering, whatever else is on the route - unlike the
+  // outbound leg, its own destination (wherever you live) was never really "on the trip"
   if(trimmed.length && trimmed[trimmed.length-1].journey) trimmed.pop();
-  if(trimmed.length && trimmed[0].journey) trimmed.shift();
+  // an arrival flight/ferry/car-hire IS a real stop in its own right (it's where the trip
+  // starts) unless something already covers the same ground - a stay checking in that same day
+  // (see dedupJourneys) - so it's only dropped when it'd otherwise duplicate that stay's own pin,
+  // not unconditionally just for being first in the list.
   trimmed = dedupJourneys(trimmed);
-  // trimming the outbound/return flight as "just leaving/returning home" only makes sense when
-  // there's still something else on the route to show - a trip with flights logged but no
-  // accommodation yet would otherwise end up with zero stops and no map at all, so fall back to
-  // the untrimmed flights rather than going blank (see mapFlightLines - this is the numbered-pin
-  // half of the same "still a real place on the route" reasoning that gave flights their own
-  // dashed line even with nothing booked at the other end).
+  // trimming the return flight as "just going home" only makes sense when there's still
+  // something else on the route to show - a trip with flights logged but no accommodation yet
+  // would otherwise end up with zero stops and no map at all, so fall back to the untrimmed
+  // flights rather than going blank (see mapFlightLines - this is the numbered-pin half of the
+  // same "still a real place on the route" reasoning that gave flights their own dashed line
+  // even with nothing booked at the other end).
   return trimmed.length ? trimmed : dedupJourneys(stops);
 }
 /* every flight leg with both ends known, resolved to real place names the same geocoder every
@@ -12160,9 +12168,16 @@ function mapRouteStops(t){
    wxResolve needs anyway. Carries the raw codes alongside the display names so
    resolveFlightLineCoords can fall back to AIRPORT_CITY when a display name alone doesn't
    geocode. */
+/* the outbound and return flights bookending the trip don't get their own dashed line - their
+   destination/origin is home, off in whatever direction, not really "on" the route the way a
+   flight between two of the trip's own stops would be. mapRouteStops already keeps the outbound
+   leg's own destination as stop 1 in its own right, so nothing about it goes undrawn by dropping
+   its line too; only a flight strictly between two other dated flights (a multi-leg trip) is
+   still a real journey worth its own line. */
 function mapFlightLines(t){
-  return (t.flights||[]).filter(f=>f.from && f.to)
-    .map(f=>({from: airportName(f.from)||f.from, to: airportName(f.to)||f.to, fromCode:f.from, toCode:f.to}));
+  const dated = (t.flights||[]).filter(f=>f.from && f.to && f.date).sort((a,b)=>a.date.localeCompare(b.date));
+  const inner = dated.length>2 ? dated.slice(1,-1) : [];
+  return inner.map(f=>({from: airportName(f.from)||f.from, to: airportName(f.to)||f.to, fromCode:f.from, toCode:f.to}));
 }
 /* resolves each flight leg's two endpoints independently (rather than reusing
    resolveRouteStopPins, which is shaped around one place per numbered stop) and calls
