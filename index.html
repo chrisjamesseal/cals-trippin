@@ -1705,8 +1705,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.75.0';
+const APP_VERSION = '2.76.0';
 const CHANGELOG = [
+  {version:'2.76.0', notes:[
+    "Fixed the Leaderboard not visually updating right away after editing or removing a film while on that tab - saving or deleting used to always redraw the Diary grid, even when you were looking at the Leaderboard, so the underlying order changed instantly but the screen didn't."
+  ]},
   {version:'2.75.0', notes:[
     "A film whose rating you change now lands right at the top of its new rating's tier on the Leaderboard, instead of wherever watched-date order would otherwise slot it in among films that already had that score."
   ]},
@@ -7197,14 +7200,16 @@ function saveFilmImpl(i){
     FILM_WATCHLIST_REMOVE_ID = null;
     drawFwMine();
   }
-  closeModal(); drawFilmsGrid();
+  closeModal();
+  if(CUR_FILMS_TAB==='stats') drawFilmsStats(); else drawFilmsGrid();
   toast(i>=0?'Film updated':'Film logged');
 }
 function delFilmImpl(i){
   confirmModal('Remove This Film?', "This removes it from your log. This can't be undone.", 'Remove', ()=>{
     DB.films = DB.films||[];
     DB.films.splice(i,1);
-    saveFilms(); closeModal(); drawFilmsGrid();
+    saveFilms(); closeModal();
+    if(CUR_FILMS_TAB==='stats') drawFilmsStats(); else drawFilmsGrid();
     toast('Film removed');
   });
 }
