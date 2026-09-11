@@ -1705,8 +1705,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.76.0';
+const APP_VERSION = '2.77.0';
 const CHANGELOG = [
+  {version:'2.77.0', notes:[
+    "Raising a film's rating now lands it at the bottom of its new tier on the Leaderboard instead of the top, since it's the newest arrival at that score rather than the one that's held it longest. Lowering a rating still lands at the top of the tier, as before."
+  ]},
   {version:'2.76.0', notes:[
     "Fixed the Leaderboard not visually updating right away after editing or removing a film while on that tab - saving or deleting used to always redraw the Diary grid, even when you were looking at the Leaderboard, so the underlying order changed instantly but the screen didn't."
   ]},
@@ -7179,13 +7182,17 @@ function saveFilmImpl(i){
   } else if(ratingChanged && film.rating!=null){
     // the rating changed - wherever this film sat (an earlier manual move, the rank field
     // above on a previous save, or just its old date-order slot) belonged to its old rating,
-    // not this one. Lands at the very top of its new rating's tier - the same spot a film
-    // freshly given that rating would land in - rather than wherever date-order would place it
-    // among films that already had that score, so a lowered rating reads as "just dropped down
-    // to here" instead of vanishing into the middle of the tier.
+    // not this one. A raised rating lands at the bottom of its new tier - it just barely
+    // earned that score, so it reads as "the newest arrival" rather than leapfrogging films
+    // that have held that score for longer. A lowered (or freshly set) rating instead lands
+    // at the very top of its new tier, so it reads as "just dropped down to here" rather than
+    // vanishing into the middle of a tier it's new to.
+    const increased = existing.rating!=null && film.rating > existing.rating;
     const rest = filmLeaderboardOrder().filter(f=>f.id!==film.id).map(f=>f.id);
     const byId = new Map((DB.films||[]).map(f=>[f.id,f]));
-    let insertAt = rest.findIndex(id => (byId.get(id)||{}).rating <= film.rating);
+    let insertAt = increased
+      ? rest.findIndex(id => (byId.get(id)||{}).rating < film.rating)
+      : rest.findIndex(id => (byId.get(id)||{}).rating <= film.rating);
     if(insertAt<0) insertAt = rest.length;
     rest.splice(insertAt, 0, film.id);
     saveFilmLeaderboardOrder(rest);
