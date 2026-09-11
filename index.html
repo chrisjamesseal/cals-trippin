@@ -447,7 +447,7 @@ a{color:var(--brand-dark);}
   box-shadow:var(--shadow); padding:16px; cursor:pointer;
   transition:transform .1s, box-shadow .1s;}
 .dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
-.dash-widget-stat{display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap; gap:0 5px; padding:16px 10px; min-width:0;}
+.dash-widget-stat{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:16px 10px 10px; min-width:0;}
 /* icon left, "N Label" one line - same row layout as the Places hub's own cards, for a tile
    that's just a count and doesn't need the image-on-top layout every other tile gets */
 .dash-widget-row{display:flex; flex-direction:row; align-items:center; gap:10px;}
@@ -1689,8 +1689,13 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.53.0';
+const APP_VERSION = '2.54.0';
 const CHANGELOG = [
+  {version:'2.54.0', notes:[
+    "Itinerary: a long day heading no longer wraps mid-sentence to make room for the weather chip - the chip now sits on its own line under the title instead of squeezed in beside the chevron.",
+    "Films: the Leaderboard tab's Logged/Rewatches/Avg Rating tiles stack their number above the label now instead of side by side, with less empty space underneath.",
+    "Films: the By Year/By Rating drill-down page's back arrow dropped its \"Leaderboard\" label (it's an icon everywhere else in the app) and now actually returns to Stats, where it's reached from - it was always sending you back to the Leaderboard tab instead."
+  ]},
   {version:'2.53.0', notes:[
     "Itinerary: an empty day now offers a sun icon alongside the usual + on its \"Nothing Planned\" pill - marking it a Free Day to Explore takes it out of Tasks/the dashboard's \"Things to Book\" count, the same way a real plan would, instead of it sitting there red until something's added.",
     "Accommodation and Travel forms get a second sticky button, \"Save & Complete Task\", next to Save whenever \"Add as Task\" is on - saves and clears the flag in one tap instead of needing a separate edit, since a task-flagged stay/leg doesn't count as booked (including toward accommodation night gaps) until that's off."
@@ -7752,10 +7757,14 @@ function renderFilmsStatsFiltered(type, valueStr){
   const ordered = matched.slice()
     .sort((a,b) => (b.watchedDate||'').localeCompare(a.watchedDate||'') || (a.title||'').localeCompare(b.title||''))
     .map(f => ({f, i: films.indexOf(f)}));
+  // only the Rewatches tile links here straight from the Leaderboard tab - By Year/By Rating
+  // are only ever reached through the Stats charts page, so that's where their own back arrow
+  // returns to instead
+  const backFn = type==='rewatch' ? 'App.goFilmsStats()' : 'App.goFilmsStatsCharts()';
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow" style="display:grid; grid-template-columns:1fr auto 1fr">
-        <button class="btn sm ghost" style="justify-self:start" onclick="App.goFilmsStats()">${ICONS.back}Leaderboard</button>
+        <button class="crumb-backbtn" style="justify-self:start" onclick="${backFn}" aria-label="Back">${ICONS.back}</button>
         <span class="crumb-here" style="text-align:center">${esc(title)}</span>
         <span class="gig-seen-pill" style="justify-self:end">${ordered.length}</span>
       </div>
