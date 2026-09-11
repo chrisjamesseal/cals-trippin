@@ -1204,6 +1204,10 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
 .task-pill-text{color:var(--ink); font-size:.9rem;}
 .task-pill-time{color:var(--ink); font-weight:400;}
 .task-pill-plus{color:var(--brand); flex-shrink:0; font-size:1.05rem; line-height:1;}
+/* a day deliberately left free reads as a plan of its own, not something still outstanding -
+   same pill shape as .task-pill but without the red "needs deciding" tint */
+.task-pill.free-day-pill{border-color:var(--line-strong);}
+.task-pill.free-day-pill .task-pill-text{color:var(--ink); font-weight:600;}
 /* the same red, for a single field (airline, operator, company…) left blank on a card that's
    otherwise a real, filled-in card - too small a gap to earn the full dashed treatment */
 .text-undecided{color:#C0392B; font-weight:600;}
@@ -1683,8 +1687,12 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.52.0';
+const APP_VERSION = '2.53.0';
 const CHANGELOG = [
+  {version:'2.53.0', notes:[
+    "Itinerary: an empty day now offers a sun icon alongside the usual + on its \"Nothing Planned\" pill - marking it a Free Day to Explore takes it out of Tasks/the dashboard's \"Things to Book\" count, the same way a real plan would, instead of it sitting there red until something's added.",
+    "Accommodation and Travel forms get a second sticky button, \"Save & Complete Task\", next to Save whenever \"Add as Task\" is on - saves and clears the flag in one tap instead of needing a separate edit, since a task-flagged stay/leg doesn't count as booked (including toward accommodation night gaps) until that's off."
+  ]},
   {version:'2.52.0', notes:[
     "Home's Games Played stat tile shows 0 while PlayStation data is still loading, instead of \"Connect PlayStation\"/\"Loading…\" text that broke the top row's otherwise uniform tile size."
   ]},
@@ -3053,7 +3061,7 @@ function subscribeTrip(id){
     const remote = snap.val();
     if(!remote) return;
     // normalise arrays (Firebase can return objects for sparse/keyed data)
-    ['flights','ferries','carHire','documents','receipts','moodBoard','participants','editLog','countries','itinerary','docLinks','accommodations']
+    ['flights','ferries','carHire','documents','receipts','moodBoard','participants','editLog','countries','itinerary','docLinks','accommodations','freeDays']
       .forEach(k=>{ if(remote[k] && !Array.isArray(remote[k])) remote[k]=Object.values(remote[k]); });
     if(remote.notes && remote.notes.contacts && !Array.isArray(remote.notes.contacts))
       remote.notes.contacts = Object.values(remote.notes.contacts);
@@ -3432,7 +3440,7 @@ function getTrip(id){ return DB.trips.find(t=>t.id===id); }
 function normalizeTrip(t){
   if(!t) return t;
   ['countries','flights','ferries','carHire','accommodations','documents','docLinks',
-   'itinerary','receipts','moodBoard','participants','editLog','polls','packing','tasks','locations'].forEach(k=>{
+   'itinerary','receipts','moodBoard','participants','editLog','polls','packing','tasks','locations','freeDays'].forEach(k=>{
     if(!Array.isArray(t[k])) t[k] = [];
   });
   t.notes = t.notes || {};
@@ -10360,7 +10368,7 @@ function tabHome(t, ro){
   const gaps = stayGaps(t);
   const {groups:planGroups, keys:planKeys} = planDayGroups(t);
   const gapFirstNights = new Set(gaps.map(g=>g.firstNight));
-  const emptyDayCount = planKeys.filter(k => planGroups[k].length===0 && !gapFirstNights.has(k)).length;
+  const emptyDayCount = planKeys.filter(k => planGroups[k].length===0 && !gapFirstNights.has(k) && !isFreeDay(t,k)).length;
   const asTaskLegs = (t.itinerary||[]).filter(leg=>leg.kind==='travel' && leg.asTask).length;
   const asTaskAccoms = (t.accommodations||[]).filter(a=>a.asTask).length;
   const outstanding = openTasks + gaps.length + emptyDayCount + asTaskLegs + asTaskAccoms;
@@ -10587,7 +10595,7 @@ function undecidedItemsHTML(t, ro){
   const {groups:dGroups, keys:dKeys} = planDayGroups(t);
   const gapFirstNights = new Set(stayGaps(t).map(g=>g.firstNight));
   dKeys.forEach(k=>{
-    if(dGroups[k].length===0 && !gapFirstNights.has(k)){
+    if(dGroups[k].length===0 && !gapFirstNights.has(k) && !isFreeDay(t,k)){
       // same place a day's own Itinerary heading would show for it (a Location range covering
       // the date, since there's nothing booked that day to read a place off instead) - "Nothing
       // Planned" on its own doesn't say where, which matters once a trip has more than one stop
@@ -11712,11 +11720,20 @@ function planDaysHTML(t, ro, filterKeys){
      undecidedItemsHTML) - a day nothing's been added to yet reads as one quiet tappable line
      sitting right where the gap falls, not a heading plus its own pair of buttons; the day's
      own accordion heading already carries the date, so this doesn't repeat it. */
-  const emptyDayCard = k => `
+  const freeDayCard = k => `
+    <div class="task-pill free-day-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="App.addMenu('${k}', ${rough})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.addMenu('${k}', ${rough})}"`}>
+      <span class="task-pill-text">${secEmoji('☀️')}<strong>Free Day to Explore</strong></span>
+      ${ro?'':`<button type="button" class="iconbtn" aria-label="No longer a free day" title="No longer a free day" onclick="event.stopPropagation();App.unmarkFreeDay('${k}')">${fa('xmark')}</button>`}
+    </div>`;
+  const emptyDayCard = k => isFreeDay(t,k) ? freeDayCard(k) : `
     <div class="task-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="App.addMenu('${k}', ${rough})"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.addMenu('${k}', ${rough})}"`}>
       <span class="task-pill-text"><strong class="text-undecided">Nothing Planned</strong></span>
-      ${ro?'':`<span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>`}
+      ${ro?'':`<span style="display:flex;align-items:center;gap:2px">
+        <button type="button" class="iconbtn" aria-label="Mark as a free day to explore" title="Mark as a free day to explore" onclick="event.stopPropagation();App.markFreeDay('${k}')">${fa('sun')}</button>
+        <span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>
+      </span>`}
     </div>`;
   /* a night nobody's booked anywhere for - shown once, on its first night, as the same dashed
      task-pill as everything else still-outstanding on this page (the Accommodation tab keeps
@@ -13281,6 +13298,23 @@ function rangeGaps(t, items){
 // it covers - those stay a gap until something real is booked for them, same as if nothing
 // had been added at all
 function stayGaps(t){ return rangeGaps(t, (t.accommodations||[]).filter(a=>!a.asTask)); }
+/* a day deliberately left open rather than not-yet-planned - same day-key shape planDayGroups
+   uses (a real date, or "d3" on a rough trip), stored on the trip so it's remembered rather
+   than something that has to be re-decided every render */
+function isFreeDay(t, k){ return !!k && (t.freeDays||[]).includes(k); }
+App.markFreeDay = k => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  t.freeDays = t.freeDays||[];
+  if(!t.freeDays.includes(k)) t.freeDays.push(k);
+  logEdit('Itinerary','Marked a free day to explore');
+  save(); rerender();
+};
+App.unmarkFreeDay = k => {
+  const t = getTrip(CUR_TRIP_ID); if(!t) return;
+  t.freeDays = (t.freeDays||[]).filter(x=>x!==k);
+  logEdit('Itinerary','Unmarked a free day');
+  save(); rerender();
+};
 /* which place a run of nights with nowhere booked actually falls in - whichever accommodation
    the gap sits right after (you checked out) or right before (you're about to check in), since
    that's where you still are/are headed even though nothing's booked for these nights
