@@ -669,8 +669,10 @@ async function fetchSpotifyTopTracks(accessToken, timeRange){
     id: t.id,
     name: t.name,
     artist: (t.artists||[]).map(a=>a.name).join(', '),
-    // the smallest of Spotify's three album art sizes is plenty for a 50-row list
-    image: (t.album && t.album.images && t.album.images.length) ? t.album.images[t.album.images.length-1].url : '',
+    // largest of Spotify's three album art sizes - Home's Most Played widget shows this at
+    // 64 CSS px, which needs real resolution behind it to still look sharp on a retina phone;
+    // a browser downscales a too-big image for free, but can't un-blur a too-small one
+    image: (t.album && t.album.images && t.album.images.length) ? t.album.images[0].url : '',
     spotifyUrl: (t.external_urls && t.external_urls.spotify) || '',
   }));
   return {tracks};
