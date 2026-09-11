@@ -1468,6 +1468,17 @@ body.kb-open .tabbar.on{display:none;}
 /* the plus/chevrons glyphs read a touch high against the button's own text baseline */
 .add-bar .icon{transform:translateY(1px);}
 .wrap.has-sticky-add{padding-bottom:176px;}
+/* Leaderboard's own "back to top" - a long Top Films list is easy to scroll deep into with
+   the arrow buttons, so it needs its own way back rather than the browser's own scrollbar.
+   Sits centred above the tabbar (same --bar-h var .add-bar uses), hidden until you've
+   scrolled roughly a quarter of the way down (see updateBackToTopVisibility). */
+.back-to-top-btn{position:fixed; left:50%; bottom:calc(var(--bar-h,0px) + 16px); z-index:58;
+  transform:translate(-50%,16px); display:flex; align-items:center; justify-content:center;
+  width:44px; height:44px; border-radius:50%; border:1px solid var(--line);
+  background:var(--paper); color:var(--ink); box-shadow:var(--shadow); cursor:pointer;
+  opacity:0; pointer-events:none; transition:opacity .15s, transform .15s;}
+.back-to-top-btn.show{opacity:1; pointer-events:auto; transform:translate(-50%,0);}
+.back-to-top-btn:hover{border-color:var(--brand); color:var(--brand);}
 /* the "what do you want to add" screen the sticky button opens - three big tappable rows
    rather than the cramped inline buttons this replaced, each handing straight off to the
    exact same form/tab the old button did */
@@ -1705,8 +1716,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.78.0';
+const APP_VERSION = '2.79.0';
 const CHANGELOG = [
+  {version:'2.79.0', notes:[
+    "Added a Back to Top button on the Leaderboard - shows once you've scrolled about a quarter of the way down Top Films, sitting centred just above the tab bar."
+  ]},
   {version:'2.78.0', notes:[
     "Moving a film past a tier boundary on the Leaderboard with the up/down arrows now updates its rating to match - a 9.5 pushed below a 9 becomes a 9, and one pushed above a 10 becomes a 10, so the number always agrees with where it's sitting."
   ]},
@@ -7887,7 +7901,27 @@ function drawFilmsStats(){
   body.innerHTML = `
     ${filmsStatOverviewHTML(films)}
     <h3 style="margin:20px 0 10px">Top Films</h3>
-    ${filmLeaderboardHTML()}`;
+    ${filmLeaderboardHTML()}
+    <button type="button" class="back-to-top-btn" aria-label="Back to top" onclick="App.scrollToTop()">${fa('arrow-up')}</button>`;
+  attachBackToTop();
+}
+/* shows the Leaderboard's "back to top" button once you've scrolled roughly a quarter of the
+   way down the page - the arrow listener is bound once and just no-ops when the button isn't
+   in the DOM (any other tab, or leaving Films entirely), so nothing needs tearing down when
+   you navigate away from the Leaderboard */
+let BACK_TO_TOP_BOUND = false;
+function attachBackToTop(){
+  updateBackToTopVisibility();
+  if(BACK_TO_TOP_BOUND) return;
+  BACK_TO_TOP_BOUND = true;
+  window.addEventListener('scroll', updateBackToTopVisibility, {passive:true});
+}
+function updateBackToTopVisibility(){
+  const btn = $('.back-to-top-btn'); if(!btn) return;
+  const doc = document.documentElement;
+  const scrollable = doc.scrollHeight - doc.clientHeight;
+  const past = scrollable>0 && (window.scrollY/scrollable) >= 0.25;
+  btn.classList.toggle('show', past);
 }
 /* By Year/By Rating moved off the Leaderboard tab onto their own page (App.goFilmsStatsCharts,
    the Stats button next to the Films title) - with a long Top Films list right above them,
@@ -9523,6 +9557,7 @@ App.filmLeaderboardMove = (id, dir) => {
   saveFilmLeaderboardOrder(order);
   if(CUR_FILMS_TAB==='stats') drawFilmsStats();
 };
+App.scrollToTop = () => window.scrollTo({top:0, behavior:'smooth'});
 App.delFilm = delFilmImpl;
 App.letterboxdConnect = letterboxdConnectImpl;
 App.goPlants = () => { location.hash = '#/plants'; };
