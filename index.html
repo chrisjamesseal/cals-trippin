@@ -4564,14 +4564,10 @@ function dashNextReleaseWidgetHTML(g){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
-      <div class="dash-item-row">
-        ${g.image ? `<img class="dash-item-img-sm" src="${esc(g.image)}" alt="" loading="lazy">`
-                   : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
-        <div class="dash-item-row-text">
-          <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
-          <div class="dash-item-sub">${esc(wlReleaseLabel(g)||'Next Release')}</div>
-        </div>
-      </div>
+      ${g.image ? `<img class="dash-item-img-lg" src="${esc(g.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
+      <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
+      <div class="dash-item-sub">${esc(wlReleaseLabel(g)||'Next Release')}</div>
     </div>`;
 }
 function dashNextReleaseSlotHTML(){
@@ -4755,14 +4751,10 @@ function dashTheatreWatchNextWidgetHTML(){
   return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goTheatreWatchlist()"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goTheatreWatchlist()}">
-      <div class="dash-item-row">
-        ${t.image ? `<img class="dash-item-img-sm poster" src="${esc(t.image)}" alt="" loading="lazy">`
-                   : `<div class="dash-item-flags" aria-hidden="true">🎭</div>`}
-        <div class="dash-item-row-text">
-          <div class="dash-item-title">${esc(t.title||'Untitled')}</div>
-          <div class="dash-item-sub">See Next</div>
-        </div>
-      </div>
+      ${t.image ? `<img class="dash-watchnext-poster" src="${esc(t.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎭</div>`}
+      <div class="dash-item-title">${esc(t.title||'Untitled')}</div>
+      <div class="dash-item-sub">See Next</div>
     </div>`;
 }
 /* Board Games' Want to Play list doesn't carry its own cover/name the way theatreWatchlist
