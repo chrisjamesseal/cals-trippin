@@ -1690,8 +1690,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.64.0';
+const APP_VERSION = '2.65.0';
 const CHANGELOG = [
+  {version:'2.65.0', notes:[
+    "Itinerary: an empty day's \"Mark as a free day\" icon is a real sun emoji now (matching the Free Day pill it creates), not a muted grey glyph that didn't read as a sun - and it sits with proper breathing room from the + next to it instead of crowding it."
+  ]},
   {version:'2.64.0', notes:[
     "Itinerary: the sticky button now says \"Collapse All\" as soon as one day is open, instead of only once every day is - and opening or closing a single day updates the button's label live, instead of leaving it stale until something else caused a full rerender."
   ]},
@@ -11796,8 +11799,8 @@ function planDaysHTML(t, ro, filterKeys){
     <div class="task-pill${ro?'':' plan-click'}" ${ro?'':`role="button" tabindex="0" onclick="App.addMenu('${k}', ${rough})"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.addMenu('${k}', ${rough})}"`}>
       <span class="task-pill-text"><strong class="text-undecided">Nothing Planned</strong></span>
-      ${ro?'':`<span style="display:flex;align-items:center;gap:2px">
-        <button type="button" class="iconbtn" aria-label="Mark as a free day to explore" title="Mark as a free day to explore" onclick="event.stopPropagation();App.markFreeDay('${k}')">${fa('sun')}</button>
+      ${ro?'':`<span style="display:flex;align-items:center;gap:14px">
+        <button type="button" class="iconbtn" aria-label="Mark as a free day to explore" title="Mark as a free day to explore" onclick="event.stopPropagation();App.markFreeDay('${k}')">${secEmoji('☀️')}</button>
         <span class="task-pill-plus" aria-hidden="true">${fa('circle-plus')}</span>
       </span>`}
     </div>`;
