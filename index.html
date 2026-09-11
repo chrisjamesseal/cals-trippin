@@ -4487,10 +4487,16 @@ function dashGigWidgetHTML(){
       <div class="dash-item-sub">Next Gig</div>
     </div>`;
 }
-/* mirrors Songs' own time-range picker (SONGS_TIME_RANGES / SONGS_CACHE, defined further down
-   with the rest of the Music tab) so switching range here doesn't refetch if Songs already has
-   or later needs the same range cached */
+/* CUR_DASH_SONG_RANGE drives the OTHER dashboard stat tiles that share this same range concept
+   (Gigs Seen/Places Been/Films Seen/Shows Seen/Games Played) - their own dropdown was removed
+   (see renderDashboard's comment), so it stays pinned at its permanent All Time default; nothing
+   here still changes it. Most Played gets its own range instead, defaulting to Last 4 Weeks - a
+   "top song" only really means something over a recent window, unlike a lifetime attendance
+   count, and mirrors Songs' own time-range picker (SONGS_TIME_RANGES/SONGS_CACHE, defined
+   further down with the rest of the Music tab) so switching range there doesn't refetch if
+   Songs already has or later needs the same range cached. */
 let CUR_DASH_SONG_RANGE = 'long_term';
+let CUR_DASH_MOSTPLAYED_RANGE = 'short_term';
 function dashSongPlaceholderHTML(){
   if(!psnConfigured() || !spotifyTokens()) return `
     <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goSongs()"
@@ -4536,11 +4542,11 @@ function dashSongWidgetHTML(t){
 }
 function loadDashboardSong(){
   if(!psnConfigured() || !spotifyTokens()) return;   // the placeholder already shows the right prompt
-  const range = CUR_DASH_SONG_RANGE;
+  const range = CUR_DASH_MOSTPLAYED_RANGE;
   if(SONGS_CACHE[range]){ const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = dashSongWidgetHTML(SONGS_CACHE[range][0]); balanceDashboardColumns(); return; }
   spotifyApi('/spotify-top-tracks?time_range='+range).then(data => {
     SONGS_CACHE[range] = data.tracks||[];
-    if(CUR_DASH_SONG_RANGE!==range) return;   // dropdown changed again while this was in flight
+    if(CUR_DASH_MOSTPLAYED_RANGE!==range) return;   // dropdown changed again while this was in flight
     const slot = $('#dash-song-slot'); if(slot) slot.innerHTML = dashSongWidgetHTML(SONGS_CACHE[range][0]);
     balanceDashboardColumns();
   }).catch(()=>{
@@ -4552,18 +4558,45 @@ function loadDashboardSong(){
 function dashGamesStatWidgetHTML(n){
   return dashStatTileHTML('🎮', n, 'Games Played', 'App.goGames()');
 }
-function dashCurrentlyPlayingWidgetHTML(g){
+/* the Play List's own closest not-yet-released game, not a PSN "currently playing" pick - a
+   wishlist is forward-looking by nature, so "what's coming up" reads better on the dashboard
+   than whatever happens to be in the console's own recent-activity feed. See wlReleaseLabel/
+   wlReleaseSortKey below for the same "no known date sinks out" reasoning applied here. */
+function nextUpcomingWishlistGame(){
+  const today = todayStr();
+  return wishlistGames()
+    .filter(g => g.released && !g.tba && g.released>=today)
+    .sort((a,b) => a.released.localeCompare(b.released))[0] || null;
+}
+function dashNextReleaseWidgetHTML(g){
   return `
-    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="location.hash='#/game/${encodeURIComponent(g.id)}'"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='#/game/${encodeURIComponent(g.id)}'}">
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goGames()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goGames()}">
       <div class="dash-item-row">
-        ${g.iconUrl ? `<img class="dash-item-img-sm" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
-                     : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
+        ${g.image ? `<img class="dash-item-img-sm" src="${esc(g.image)}" alt="" loading="lazy">`
+                   : `<div class="dash-item-flags" aria-hidden="true">🎮</div>`}
         <div class="dash-item-row-text">
           <div class="dash-item-title">${esc(g.name||'Untitled')}</div>
+          <div class="dash-item-sub">${esc(wlReleaseLabel(g)||'Next Release')}</div>
         </div>
       </div>
     </div>`;
+}
+function dashNextReleaseSlotHTML(){
+  const g = nextUpcomingWishlistGame();
+  return g ? dashNextReleaseWidgetHTML(g) : '';
+}
+/* the Play List syncs to the cloud the same way Places/Gigs/Films do, but only ever fetched on
+   demand when the Games tab itself renders (see loadWishlistCloud) - the dashboard needs its own
+   pull so a game added to the list on another device shows up here without having to open Games
+   first. Redraws the slot once the fresher list is in, same as loadDashboardGames/
+   loadDashboardSong do for their own async data. */
+function loadDashboardNextRelease(){
+  loadWishlistCloud(cloud => {
+    try{ localStorage.setItem(WL_KEY, JSON.stringify(Array.isArray(cloud)?cloud:[])); }catch(e){}
+    const slot = $('#dash-games-current-slot'); if(slot) slot.innerHTML = dashNextReleaseSlotHTML();
+    balanceDashboardColumns();
+  });
 }
 /* PlayStation needs a live fetch, unlike the other three stat tiles which read straight from
    what's already stored on-device - so this one starts at a bare 0, same shape as every other
@@ -4575,17 +4608,14 @@ function dashGamesStatPlaceholderHTML(){
   return dashStatTileHTML('🎮', 0, 'Games Played', 'App.goGames()');
 }
 let DASH_GAMES_TITLES = null;   // cached from the one /titles fetch, so switching the range dropdown doesn't refetch
-/* the count (top stat grid) and Currently Playing (masonry below) are two separate slots now,
-   not one combined tile - same underlying fetch and range filter, just drawn into two different
-   spots on the page, so both get refreshed off this one function */
+/* the Games Played stat tile only now - the masonry's own game widget reads the Play List
+   instead (see dashNextReleaseSlotHTML/loadDashboardNextRelease), independent of PSN entirely */
 function drawDashGamesSlot(){
-  const statSlot = $('#dash-games-stat-slot'), curSlot = $('#dash-games-current-slot');
+  const statSlot = $('#dash-games-stat-slot');
   if(!DASH_GAMES_TITLES) return;
   const cutoff = dashRangeCutoffStr(CUR_DASH_SONG_RANGE);
   const titles = cutoff ? DASH_GAMES_TITLES.filter(t=>t.lastPlayed && t.lastPlayed.slice(0,10)>=cutoff) : DASH_GAMES_TITLES;
   if(statSlot) statSlot.innerHTML = dashGamesStatWidgetHTML(titles.length);
-  if(curSlot) curSlot.innerHTML = titles[0] ? dashCurrentlyPlayingWidgetHTML(titles[0]) : '';
-  balanceDashboardColumns();
 }
 function loadDashboardGames(){
   if(!psnConfigured() || !psnTokens()) return;   // the stat slot placeholder already shows the right prompt
@@ -4595,7 +4625,6 @@ function loadDashboardGames(){
   }).catch(()=>{
     // fails silently here - Games tab itself surfaces the real error if you go look
     const statSlot = $('#dash-games-stat-slot'); if(statSlot) statSlot.innerHTML = '';
-    const curSlot = $('#dash-games-current-slot'); if(curSlot) curSlot.innerHTML = '';
   });
 }
 /* Films reads straight from DB.films/DB.filmsWatchlist, already loaded on-device by the time
@@ -4882,7 +4911,7 @@ const DASH_PREFS_KEY = 'calstrippin_dash_widgets';
 const DASH_WIDGET_DEFS = [
   {key:'trip', label:'Next Trip'},
   {key:'gig', label:'Next Gig'},
-  {key:'game', label:'Currently Playing'},
+  {key:'game', label:'Next Release'},
   {key:'song', label:'Most Played'},
   {key:'watchnext', label:'Watch Next'},
   {key:'theatrenext', label:'Theatre See Next'},
@@ -4911,7 +4940,7 @@ function saveDashWidgetOrder(list){
 function dashWidgetHTML(key){
   if(key==='trip') return dashTripWidgetsHTML();
   if(key==='gig') return dashGigWidgetHTML();
-  if(key==='game') return `<div id="dash-games-current-slot" class="dash-slot"></div>`;
+  if(key==='game') return `<div id="dash-games-current-slot" class="dash-slot">${dashNextReleaseSlotHTML()}</div>`;
   if(key==='song') return `<div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
   if(key==='watchnext') return `<div id="dash-watchnext-slot">${dashRandomWatchlistWidgetHTML()}</div>`;
   if(key==='theatrenext') return dashTheatreWatchNextWidgetHTML();
@@ -4971,6 +5000,7 @@ function renderDashboard(){
   balanceDashboardColumns();
   initDashTripMaps();
   loadDashboardGames();
+  loadDashboardNextRelease();
   loadDashboardSong();
   loadDashboardBranch();
   loadDashWatchNextProviders();
