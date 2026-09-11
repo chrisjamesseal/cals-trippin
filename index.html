@@ -447,7 +447,7 @@ a{color:var(--brand-dark);}
   box-shadow:var(--shadow); padding:16px; cursor:pointer;
   transition:transform .1s, box-shadow .1s;}
 .dash-widget:hover,.dash-widget:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
-.dash-widget-stat{display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap; gap:0 5px; padding:16px 10px; min-width:0;}
+.dash-widget-stat{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:16px 10px 10px; min-width:0;}
 /* icon left, "N Label" one line - same row layout as the Places hub's own cards, for a tile
    that's just a count and doesn't need the image-on-top layout every other tile gets */
 .dash-widget-row{display:flex; flex-direction:row; align-items:center; gap:10px;}
@@ -702,10 +702,10 @@ a{color:var(--brand-dark);}
 /* the date sat above a day's own title - a little extra air so the two don't read as one run-on
    line */
 .route-date-line{margin-bottom:4px;}
-/* sits under the title now (its own line), not beside it - it used to share the header row with
-   the chevron, lined up on the right, but that crowded a long title into wrapping mid-sentence
-   alongside it */
-.route-head-wx{display:block; margin-top:4px;}
+/* plain inline text on the date line now (" - 🌦️16°/11° · 💧22%"), not a separate pill under
+   the title - wxDayHTML supplies its own leading " - " separator, so this is just a span */
+.route-head-wx{display:inline;}
+.wx-inline{color:inherit;}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
 .route-days{margin:14px 0 4px;}
@@ -804,7 +804,10 @@ a{color:var(--brand-dark);}
    under its last line */
 .itin-flight .itin-amenities:last-child,.itin-flight .itin-ref:last-child{margin-bottom:0;}
 .itin-actions{display:flex; flex-direction:column; gap:8px;}
-.itin-action-btn{width:100%; background:var(--bg); color:var(--ink); border:none; border-radius:var(--radius);
+/* var(--bg) used to sit here - the same page background colour showing through the card, so
+   close to the card's own var(--paper) that this "secondary" button barely read as a button at
+   all (and looked inconsistent shot to shot as a result, despite being one fixed colour) */
+.itin-action-btn{width:100%; background:var(--line); color:var(--ink); border:none; border-radius:var(--radius);
   padding:10px 12px; font-weight:700; font-size:.85rem; text-align:center; display:flex; align-items:center;
   justify-content:center; gap:8px; cursor:pointer;}
 /* the icon's own margin-right (meant for an inline, non-flex context) doubled up with this
@@ -1407,9 +1410,13 @@ a.dash-tile{text-decoration:none;}
   background:var(--paper); border-top:1px solid var(--line);
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
   box-shadow:0 -2px 14px rgba(20,40,47,.06);
-  /* forces its own compositor layer so mobile Safari/Chrome keep it pinned smoothly
-     during momentum scroll instead of lagging a frame behind and looking "unstuck" */
-  transform:translateZ(0); will-change:transform;
+  /* translateZ(0) alone forces its own compositor layer, which is what actually keeps it
+     pinned smoothly during momentum scroll - will-change:transform used to ride along with
+     it, but that's the half responsible for the bar occasionally rendering mid-page instead
+     of pinned to the bottom (a known WebKit bug: a will-change:transform layer can lose track
+     of a position:fixed element's containing block after unrelated DOM churn elsewhere on the
+     page, e.g. a long list re-rendering), so it's dropped */
+  transform:translateZ(0);
 }
 /* hidden outright while a keyboard is up (see the focusin/focusout listeners toggling
    body.kb-open) rather than repositioned above it - a second bar stacked on top of the
@@ -1496,15 +1503,9 @@ body.kb-open .tabbar.on{display:none;}
    you can take in one at a time instead of one long scroll */
 .plan-day{margin:40px 0 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .plan-day:first-child{margin-top:4px;}
-.wx-chip{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
-/* the Today pill and weather chip that can trail a day heading - grouped so they always sit
-   the same distance from the heading text and from each other, and vertical-align:middle so
-   two pills of slightly different heights (see .status-pill vs .wx-chip's own padding/font-size)
-   still line up against the heading's own text instead of sitting low against its baseline */
+/* the Today pill that can trail a day heading */
 .plan-day-badges{display:inline-flex; align-items:center; gap:8px; margin-left:8px; vertical-align:middle;}
-.plan-day-badges .status-pill, .plan-day-badges .wx-chip{vertical-align:middle;}
-.wx-emoji{font-size:.9rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plan-day-badges .status-pill{vertical-align:middle;}
 /* a touch more room between cards than elsewhere, same reasoning as the day gap above */
 /* a leg you just turn up for: a line on the page rather than a card, so it doesn't carry the
    same weight as the flight above it */
@@ -1689,8 +1690,28 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.53.0';
+const APP_VERSION = '2.59.0';
 const CHANGELOG = [
+  {version:'2.59.0', notes:[
+    "A card's Google Maps/Track/View Boarding Pass button (anything not in the site's own brand colour) is a darker, more visible tan now - it used to be so close to the card's own background it barely read as a button, and looked inconsistent from one screenshot to the next despite being one fixed colour the whole time."
+  ]},
+  {version:'2.58.0', notes:[
+    "Accommodation/booking cards: a booking site's favicon that fails to load (or comes back blank) no longer sits there as an empty white square next to the View Details button - it drops itself, same graceful fallback a card's own header logo already had."
+  ]},
+  {version:'2.57.0', notes:[
+    "Itinerary: a day's weather moved back onto the date line (\"25th September 2026 - 🌦️16°/11° · 💧22%\") as plain text instead of a separate pill sat under the title."
+  ]},
+  {version:'2.56.0', notes:[
+    "Itinerary: day accordions now start collapsed instead of every day opening at once the first time you view it - tap a day (or use Open All) to see its plan."
+  ]},
+  {version:'2.55.0', notes:[
+    "Fixed the bottom tab bar occasionally showing up mid-page instead of pinned to the bottom, on a long scrolling list especially - a known WebKit bug where will-change:transform on a fixed element can lose track of its own position after unrelated DOM changes elsewhere on the page."
+  ]},
+  {version:'2.54.0', notes:[
+    "Itinerary: a long day heading no longer wraps mid-sentence to make room for the weather chip - the chip now sits on its own line under the title instead of squeezed in beside the chevron.",
+    "Films: the Leaderboard tab's Logged/Rewatches/Avg Rating tiles stack their number above the label now instead of side by side, with less empty space underneath.",
+    "Films: the By Year/By Rating drill-down page's back arrow dropped its \"Leaderboard\" label (it's an icon everywhere else in the app) and now actually returns to Stats, where it's reached from - it was always sending you back to the Leaderboard tab instead."
+  ]},
   {version:'2.53.0', notes:[
     "Itinerary: an empty day now offers a sun icon alongside the usual + on its \"Nothing Planned\" pill - marking it a Free Day to Explore takes it out of Tasks/the dashboard's \"Things to Book\" count, the same way a real plan would, instead of it sitting there red until something's added.",
     "Accommodation and Travel forms get a second sticky button, \"Save & Complete Task\", next to Save whenever \"Add as Task\" is on - saves and clears the flag in one tap instead of needing a separate edit, since a task-flagged stay/leg doesn't count as booked (including toward accommodation night gaps) until that's off."
@@ -7752,10 +7773,14 @@ function renderFilmsStatsFiltered(type, valueStr){
   const ordered = matched.slice()
     .sort((a,b) => (b.watchedDate||'').localeCompare(a.watchedDate||'') || (a.title||'').localeCompare(b.title||''))
     .map(f => ({f, i: films.indexOf(f)}));
+  // only the Rewatches tile links here straight from the Leaderboard tab - By Year/By Rating
+  // are only ever reached through the Stats charts page, so that's where their own back arrow
+  // returns to instead
+  const backFn = type==='rewatch' ? 'App.goFilmsStats()' : 'App.goFilmsStatsCharts()';
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow" style="display:grid; grid-template-columns:1fr auto 1fr">
-        <button class="btn sm ghost" style="justify-self:start" onclick="App.goFilmsStats()">${ICONS.back}Leaderboard</button>
+        <button class="crumb-backbtn" style="justify-self:start" onclick="${backFn}" aria-label="Back">${ICONS.back}</button>
         <span class="crumb-here" style="text-align:center">${esc(title)}</span>
         <span class="gig-seen-pill" style="justify-self:end">${ordered.length}</span>
       </div>
@@ -11164,9 +11189,9 @@ function wxDayHTML(dateKey){
   const d = st.days[dateKey];
   if(!d || typeof d.max !== 'number') return '';
   const [label, emoji] = WX_CODES[d.code] || ['', '☁️'];
-  const rain = (typeof d.pop === 'number' && d.pop >= 20) ? ` · ${Math.round(d.pop)}%` : '';
+  const rain = (typeof d.pop === 'number' && d.pop >= 20) ? ` · 💧${Math.round(d.pop)}%` : '';
   const where = geo.label ? ' in '+geo.label : '';
-  return `<span class="wx-chip" title="${esc(label+where)}"><span class="wx-emoji" aria-hidden="true">${emoji}</span>${Math.round(d.max)}°/${Math.round(d.min)}°${rain}</span>`;
+  return ` - <span class="wx-inline" title="${esc(label+where)}">${emoji}${Math.round(d.max)}°/${Math.round(d.min)}°${rain}</span>`;
 }
 function paintWeather(){
   document.querySelectorAll('#tab-body [data-wx-date]').forEach(el=>{
@@ -11924,15 +11949,14 @@ function dayNarrative(t, k, dayItems, rough){
    module variable rather than anything saved or synced; resets on reload same as the rest of
    this module-level UI state. */
 let ROUTE_OPEN = new Set();
-/* every day accordion starts open (the first time a trip's Itinerary is shown this session) so
-   the page reads as a full day-by-day plan straight away rather than needing a tap-in per day -
-   tracked separately per trip so a manual close, once made, sticks across re-renders instead of
-   being defaulted back open on every toggle/tab-switch. */
+/* every day accordion starts collapsed - a long trip used to open every day at once the first
+   time its Itinerary was shown, which read as a wall of cards to scroll past rather than a
+   day-by-day plan you tap into. Kept as a per-trip "already decided" set (rather than always
+   collapsing) so a manual open/close, once made, still sticks across re-renders instead of
+   being defaulted back on every toggle/tab-switch. */
 let ROUTE_OPEN_DEFAULTED = new Set();
 function routeOpenAllDaysByDefault(t, keys){
-  if(ROUTE_OPEN_DEFAULTED.has(t.id)) return;
   ROUTE_OPEN_DEFAULTED.add(t.id);
-  keys.forEach(k => ROUTE_OPEN.add('day:'+(k||'any')));
 }
 /* whether every one of the trip's day accordions is currently open - drives the sticky Open
    All/Collapse All button's own label and icon (see App.toggleAllDays just below): closed with
@@ -12408,9 +12432,8 @@ function tabPlan(t, ro){
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
         <div class="route-head-row${isOpen?' open':''}">
           <div style="min-width:0">
-            ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}</div>`:''}
+            ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span></div>`:''}
             <strong>${headingHTML}${k===todayKey?`<span class="plan-day-badges"><span class="status-pill now">Today</span></span>`:''}</strong>
-            ${k&&!rough?`<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span>`:''}
           </div>
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
         </div>
@@ -13105,8 +13128,17 @@ function airlineLogoFor(name, restoreText){
   const site = AIRLINE_SITES[name];
   return site ? logoSquare(site, name, restoreText, 'card-logo-sm') : '';
 }
+/* same blank-placeholder guard logoSquare gives a card's header logo (see cardLogoCheck) - a
+   site with no favicon on file gets Google's blank placeholder back rather than a 404, which an
+   onerror alone won't catch. There's no restore text to fall back to here (the button's own
+   "View Details" label already covers it), so a blank/failed icon just removes itself instead
+   of sitting there as an empty square in the button's own background colour. */
 function faviconFor(url){
-  try{ const h = new URL(url).hostname; return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy">`; }
+  try{
+    const h = new URL(url).hostname;
+    return `<img class="fav" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64" alt="" loading="lazy"
+      onerror="this.remove()" onload="if(this.naturalWidth<=16&&this.naturalHeight<=16)this.remove()">`;
+  }
   catch(e){ return ''; }
 }
 function googleMapsUrl(q){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q); }
