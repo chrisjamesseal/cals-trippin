@@ -1705,8 +1705,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.77.0';
+const APP_VERSION = '2.78.0';
 const CHANGELOG = [
+  {version:'2.78.0', notes:[
+    "Moving a film past a tier boundary on the Leaderboard with the up/down arrows now updates its rating to match - a 9.5 pushed below a 9 becomes a 9, and one pushed above a 10 becomes a 10, so the number always agrees with where it's sitting."
+  ]},
   {version:'2.77.0', notes:[
     "Raising a film's rating now lands it at the bottom of its new tier on the Leaderboard instead of the top, since it's the newest arrival at that score rather than the one that's held it longest. Lowering a rating still lands at the top of the tier, as before."
   ]},
@@ -9504,10 +9507,19 @@ App.goFilmsWatchlist = () => { CUR_FILMS_TAB = 'watchlist'; location.hash = '#/f
 App.filmForm = filmFormImpl;
 App.saveFilm = saveFilmImpl;
 App.filmLeaderboardMove = (id, dir) => {
-  const order = filmLeaderboardOrder().map(f=>f.id);
+  const orderFilms = filmLeaderboardOrder();
+  const order = orderFilms.map(f=>f.id);
   const i = order.indexOf(id); if(i<0) return;
   const j = i+dir; if(j<0 || j>=order.length) return;
+  const moved = orderFilms[i], neighbor = orderFilms[j];
   [order[i], order[j]] = [order[j], order[i]];
+  // moved past the tier it was in - it's no longer "a 9.5 sitting among 9s" or "among 10s",
+  // it just IS that rating now, so the score itself follows the manual move instead of leaving
+  // the number and its position on the board disagreeing with each other
+  if(moved && neighbor && moved.rating!=null && neighbor.rating!=null && moved.rating!==neighbor.rating){
+    const filmIdx = (DB.films||[]).findIndex(f=>f.id===moved.id);
+    if(filmIdx>=0){ DB.films[filmIdx].rating = neighbor.rating; saveFilms(); }
+  }
   saveFilmLeaderboardOrder(order);
   if(CUR_FILMS_TAB==='stats') drawFilmsStats();
 };
