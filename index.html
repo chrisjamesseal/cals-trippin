@@ -702,10 +702,10 @@ a{color:var(--brand-dark);}
 /* the date sat above a day's own title - a little extra air so the two don't read as one run-on
    line */
 .route-date-line{margin-bottom:4px;}
-/* sits under the title now (its own line), not beside it - it used to share the header row with
-   the chevron, lined up on the right, but that crowded a long title into wrapping mid-sentence
-   alongside it */
-.route-head-wx{display:block; margin-top:4px;}
+/* plain inline text on the date line now (" - 🌦️16°/11° · 💧22%"), not a separate pill under
+   the title - wxDayHTML supplies its own leading " - " separator, so this is just a span */
+.route-head-wx{display:inline;}
+.wx-inline{color:inherit;}
 .route-chevron{flex-shrink:0; color:var(--muted); transition:transform .15s ease;}
 .route-chevron.open{transform:rotate(180deg);}
 .route-days{margin:14px 0 4px;}
@@ -1500,15 +1500,9 @@ body.kb-open .tabbar.on{display:none;}
    you can take in one at a time instead of one long scroll */
 .plan-day{margin:40px 0 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .plan-day:first-child{margin-top:4px;}
-.wx-chip{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
-/* the Today pill and weather chip that can trail a day heading - grouped so they always sit
-   the same distance from the heading text and from each other, and vertical-align:middle so
-   two pills of slightly different heights (see .status-pill vs .wx-chip's own padding/font-size)
-   still line up against the heading's own text instead of sitting low against its baseline */
+/* the Today pill that can trail a day heading */
 .plan-day-badges{display:inline-flex; align-items:center; gap:8px; margin-left:8px; vertical-align:middle;}
-.plan-day-badges .status-pill, .plan-day-badges .wx-chip{vertical-align:middle;}
-.wx-emoji{font-size:.9rem; line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+.plan-day-badges .status-pill{vertical-align:middle;}
 /* a touch more room between cards than elsewhere, same reasoning as the day gap above */
 /* a leg you just turn up for: a line on the page rather than a card, so it doesn't carry the
    same weight as the flight above it */
@@ -1693,8 +1687,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.56.0';
+const APP_VERSION = '2.57.0';
 const CHANGELOG = [
+  {version:'2.57.0', notes:[
+    "Itinerary: a day's weather moved back onto the date line (\"25th September 2026 - 🌦️16°/11° · 💧22%\") as plain text instead of a separate pill sat under the title."
+  ]},
   {version:'2.56.0', notes:[
     "Itinerary: day accordions now start collapsed instead of every day opening at once the first time you view it - tap a day (or use Open All) to see its plan."
   ]},
@@ -11183,9 +11180,9 @@ function wxDayHTML(dateKey){
   const d = st.days[dateKey];
   if(!d || typeof d.max !== 'number') return '';
   const [label, emoji] = WX_CODES[d.code] || ['', '☁️'];
-  const rain = (typeof d.pop === 'number' && d.pop >= 20) ? ` · ${Math.round(d.pop)}%` : '';
+  const rain = (typeof d.pop === 'number' && d.pop >= 20) ? ` · 💧${Math.round(d.pop)}%` : '';
   const where = geo.label ? ' in '+geo.label : '';
-  return `<span class="wx-chip" title="${esc(label+where)}"><span class="wx-emoji" aria-hidden="true">${emoji}</span>${Math.round(d.max)}°/${Math.round(d.min)}°${rain}</span>`;
+  return ` - <span class="wx-inline" title="${esc(label+where)}">${emoji}${Math.round(d.max)}°/${Math.round(d.min)}°${rain}</span>`;
 }
 function paintWeather(){
   document.querySelectorAll('#tab-body [data-wx-date]').forEach(el=>{
@@ -12426,9 +12423,8 @@ function tabPlan(t, ro){
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
         <div class="route-head-row${isOpen?' open':''}">
           <div style="min-width:0">
-            ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}</div>`:''}
+            ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span></div>`:''}
             <strong>${headingHTML}${k===todayKey?`<span class="plan-day-badges"><span class="status-pill now">Today</span></span>`:''}</strong>
-            ${k&&!rough?`<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span>`:''}
           </div>
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
         </div>
