@@ -1770,8 +1770,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.2';
+const APP_VERSION = '2.83.3';
 const CHANGELOG = [
+  {version:'2.83.3', notes:[
+    "Fixed Rank Ties' Undo button restoring the right order behind the scenes but then showing a fresh, unrelated random matchup instead of the one you'd just answered - it now shows that exact same matchup again."
+  ]},
   {version:'2.83.2', notes:[
     "Fixed the bottom tab bar occasionally drifting up and rendering mid-page instead of staying pinned to the bottom - the translateZ(0) left on it to keep it smooth during scrolling turned out to trigger the same WebKit bug an earlier fix removed will-change:transform for."
   ]},
@@ -8121,8 +8124,11 @@ function filmSortBounds(state, item){
    stops) or every tied rating is fully placed (finishes up) - each internal step persists
    before moving on, so whatever the state is when this function returns is exactly what a
    close/back resumes. All the actual bound-narrowing/placing happens in App.filmSortPick; this
-   only ever detects the whole game finishing or picks which film's round comes next. */
-function advanceFilmSort(){
+   only ever detects the whole game finishing or picks which film's round comes next.
+   keepCurrent skips re-picking state.currentIndex - App.filmSortUndo passes this, having already
+   pointed it at the exact film whose round it just restored, so undoing actually shows you that
+   same matchup again instead of a fresh random one. */
+function advanceFilmSort(keepCurrent){
   const state = FILM_SORT_STATE;
   if(!state) return;
   if(!state.active.length){
@@ -8132,10 +8138,12 @@ function advanceFilmSort(){
     App.goFilmsStats();
     return;
   }
-  // which film gets asked about next is picked completely at random, across every tied rating
-  // at once - so one round can be a 10 v 10 and the very next a 4 v 4, rather than grinding
-  // through one whole rating before moving to another
-  state.currentIndex = Math.floor(Math.random()*state.active.length);
+  if(!keepCurrent){
+    // which film gets asked about next is picked completely at random, across every tied rating
+    // at once - so one round can be a 10 v 10 and the very next a 4 v 4, rather than grinding
+    // through one whole rating before moving to another
+    state.currentIndex = Math.floor(Math.random()*state.active.length);
+  }
   persistFilmSortState();
   renderFilmSortRound();
 }
@@ -9940,12 +9948,14 @@ App.filmSortPick = side => {
   const {lo, hi} = filmSortBounds(state, current);
   const mid = (lo+hi) >> 1;
   const candidateId = state.sortedByRating[current.rating][mid];
-  // snapshot before mutating so App.filmSortUndo can restore exactly this - cleared whenever a
-  // tied rating finishes (see below), so Undo never reaches back across a boundary whose result
-  // has already been saved to the board
+  // snapshot before mutating so App.filmSortUndo can restore exactly this - including which
+  // film's round it was, so undoing re-shows that same matchup instead of a fresh random one -
+  // cleared whenever a tied rating finishes (see below), so Undo never reaches back across a
+  // boundary whose result has already been saved to the board
   state.history.push({
     sortedByRating: JSON.parse(JSON.stringify(state.sortedByRating)),
     active: state.active.map(a=>({...a})),
+    currentId: current.id,
   });
   if(side==='a') current.hiBound = candidateId;    // the film being placed beat the sorted one
   else current.loBound = candidateId;              // the already-sorted film won instead
@@ -9969,7 +9979,8 @@ App.filmSortUndo = () => {
   const snap = state.history.pop();
   state.sortedByRating = snap.sortedByRating;
   state.active = snap.active;
-  advanceFilmSort();
+  state.currentIndex = state.active.findIndex(a => a.id===snap.currentId);
+  advanceFilmSort(true);
 };
 // leaves FILM_SORT_STATE (and its localStorage copy) alone - it's already been persisted after
 // every pick, so backing out mid-tier resumes right where you left off next time
