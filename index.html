@@ -1705,8 +1705,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.72.0';
+const APP_VERSION = '2.73.0';
 const CHANGELOG = [
+  {version:'2.73.0', notes:[
+    "Fixed a rewatched film showing up on the Leaderboard once per watch instead of once - a rewatch is its own separate diary entry, so a favourite watched a few times used to crowd the board with a copy of itself for each watch. It's one row now, using whichever watch is latest, same as the By Rating breakdown already does."
+  ]},
   {version:'2.72.0', notes:[
     "The 📊 Stats button no longer shows on the Leaderboard page itself - still there on Diary/Watchlist, but redundant on Leaderboard now that its own headline numbers already sit right there."
   ]},
@@ -6690,8 +6693,14 @@ function filmLeaderboardDefaultOrder(films){
    rated film not in it yet appended in default order - so a fresh rating always lands somewhere
    sane instead of needing a manual move before it shows up at all. */
 function filmLeaderboardOrder(){
-  const films = DB.films||[];
-  const byId = new Map(films.map(f=>[f.id,f]));
+  const byId = new Map((DB.films||[]).map(f=>[f.id,f]));
+  // one row per film, not one per logged watch - a rewatch is its own separate DB.films entry
+  // (see filmIdentityKey/filmsLatestPerFilm), so without this a favourite rewatched a few times
+  // showed up on the board once per watch instead of once, each copy fighting over its own rank.
+  // Whichever watch is latest represents the film here, same as the By Rating breakdown already
+  // does it, so the two never disagree about which watch "is" the film.
+  const canonical = filmsLatestPerFilm().filter(f=>f.rating!=null);
+  const canonicalIds = new Set(canonical.map(f=>f.id));
   // de-duplicated even though the stored order itself never should be - a slow cloud read
   // landing after a manual move (see pushFilmLeaderboardOrder's own race guard) used to be able
   // to leave a stale copy of an id sitting in DB.filmLeaderboardOrder alongside the moved one,
@@ -6699,9 +6708,9 @@ function filmLeaderboardOrder(){
   // even if something upstream still manages to corrupt the stored array.
   const seen = new Set();
   const saved = (DB.filmLeaderboardOrder||[])
-    .filter(id => byId.has(id) && byId.get(id).rating!=null && !seen.has(id) && seen.add(id));
+    .filter(id => canonicalIds.has(id) && !seen.has(id) && seen.add(id));
   const savedSet = new Set(saved);
-  const rest = filmLeaderboardDefaultOrder(films).filter(id=>!savedSet.has(id));
+  const rest = filmLeaderboardDefaultOrder(canonical).filter(id=>!savedSet.has(id));
   return [...saved, ...rest].map(id=>byId.get(id));
 }
 function filmLeaderboardHTML(){
