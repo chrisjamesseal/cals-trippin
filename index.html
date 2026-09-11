@@ -1690,8 +1690,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.63.0';
+const APP_VERSION = '2.64.0';
 const CHANGELOG = [
+  {version:'2.64.0', notes:[
+    "Itinerary: the sticky button now says \"Collapse All\" as soon as one day is open, instead of only once every day is - and opening or closing a single day updates the button's label live, instead of leaving it stale until something else caused a full rerender."
+  ]},
   {version:'2.63.0', notes:[
     "Itinerary: a day's heading now says \"Day 8 - Travel to Tiranë - Spa\" instead of \"Day 8 - Spa - Travel to Tiranë\" - where you travelled to reads before what you did once there, not after."
   ]},
@@ -10090,7 +10093,7 @@ function renderTrip(t){
     ${CUR_TAB==='plan' && !ro ? `
     <div class="add-bar"><div class="add-bar-row">
       <button class="btn primary" onclick="App.addMenu()">${fa('plus')} Add to Itinerary</button>
-      ${planDayKeys.length>0?`<button class="btn" onclick="App.toggleAllDays()">${allDaysOpenFor(t)?fa('angles-up')+' Collapse All':fa('angles-down')+' Open All'}</button>`:''}
+      ${planDayKeys.length>0?`<button class="btn" id="itin-open-all-btn" onclick="App.toggleAllDays()">${openAllBtnLabel(t)}</button>`:''}
     </div></div>`:''}`;
   $('#app').classList.toggle('has-sticky-add', CUR_TAB==='plan' && !ro);
   renderTab(t);
@@ -11994,16 +11997,27 @@ let ROUTE_OPEN_DEFAULTED = new Set();
 function routeOpenAllDaysByDefault(t, keys){
   ROUTE_OPEN_DEFAULTED.add(t.id);
 }
-/* whether every one of the trip's day accordions is currently open - drives the sticky Open
-   All/Collapse All button's own label and icon (see App.toggleAllDays just below): closed with
-   even one day shut, so a half-open trip reads as "Open All" rather than "Collapse All". */
-function allDaysOpenFor(t){
-  return planDayGroups(t).keys.every(k => ROUTE_OPEN.has('day:'+(k||'any')));
+/* whether any of the trip's day accordions is currently open - drives the sticky Open All/
+   Collapse All button's own label and icon (see App.toggleAllDays just below): a single day left
+   open already means there's something for the button to close, so it reads "Collapse All" as
+   soon as one day is, not only once every day is. */
+function anyDayOpenFor(t){
+  return planDayGroups(t).keys.some(k => ROUTE_OPEN.has('day:'+(k||'any')));
+}
+function openAllBtnLabel(t){
+  return anyDayOpenFor(t) ? fa('angles-up')+' Collapse All' : fa('angles-down')+' Open All';
+}
+/* toggling a single day (App.routeToggle) only re-renders #tab-body, not the sticky Open All/
+   Collapse All button sat outside it - without this, opening or closing one day left that button
+   showing whatever it said before, stale until something else forced a full rerender. */
+function refreshOpenAllBtn(t){
+  const btn = $('#itin-open-all-btn'); if(!btn) return;
+  btn.innerHTML = openAllBtnLabel(t);
 }
 App.toggleAllDays = () => {
   const t = getTrip(CUR_TRIP_ID); if(!t) return;
   const keys = planDayGroups(t).keys;
-  const opening = !allDaysOpenFor(t);
+  const opening = !anyDayOpenFor(t);
   keys.forEach(k => {
     const key = 'day:'+(k||'any');
     if(opening) ROUTE_OPEN.add(key); else ROUTE_OPEN.delete(key);
@@ -12019,6 +12033,7 @@ App.routeToggle = key => {
   renderTab(t);
   initWeather(t);
   initRouteMap(t);
+  refreshOpenAllBtn(t);
 };
 /* the route map - free, keyless Leaflet + CartoDB Voyager tiles (a cleaner, more modern-looking
    basemap than plain OpenStreetMap's own default style, still free and keyless - just a
