@@ -1430,13 +1430,14 @@ a.dash-tile{text-decoration:none;}
   background:var(--paper); border-top:1px solid var(--line);
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
   box-shadow:0 -2px 14px rgba(20,40,47,.06);
-  /* translateZ(0) alone forces its own compositor layer, which is what actually keeps it
-     pinned smoothly during momentum scroll - will-change:transform used to ride along with
-     it, but that's the half responsible for the bar occasionally rendering mid-page instead
-     of pinned to the bottom (a known WebKit bug: a will-change:transform layer can lose track
-     of a position:fixed element's containing block after unrelated DOM churn elsewhere on the
-     page, e.g. a long list re-rendering), so it's dropped */
-  transform:translateZ(0);
+  /* no transform/will-change here at all any more - both were meant to force the bar onto its
+     own compositor layer for smoother pinning during momentum scroll, but WebKit can lose track
+     of a position:fixed element's containing block on a layer like that after unrelated DOM
+     churn elsewhere on the page (a long list re-rendering, a live countdown ticking - see
+     tickMiniCountdowns - anything, really), leaving the bar rendering mid-page instead of
+     pinned to the bottom until the next full re-render. will-change:transform went first; when
+     transform:translateZ(0) alone turned out to trigger the same bug on its own, it went too -
+     a plain fixed element with no compositing hints has nothing left to lose track of */
 }
 /* hidden outright while a keyboard is up (see the focusin/focusout listeners toggling
    body.kb-open) rather than repositioned above it - a second bar stacked on top of the
@@ -1769,8 +1770,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.1';
+const APP_VERSION = '2.83.2';
 const CHANGELOG = [
+  {version:'2.83.2', notes:[
+    "Fixed the bottom tab bar occasionally drifting up and rendering mid-page instead of staying pinned to the bottom - the translateZ(0) left on it to keep it smooth during scrolling turned out to trigger the same WebKit bug an earlier fix removed will-change:transform for."
+  ]},
   {version:'2.83.1', notes:[
     "Added a progress bar to the bottom of Rank Ties, showing how many films across every tied rating have been placed so far."
   ]},
