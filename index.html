@@ -1690,8 +1690,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.61.0';
+const APP_VERSION = '2.62.0';
 const CHANGELOG = [
+  {version:'2.62.0', notes:[
+    "Fixed a film occasionally showing twice on the Leaderboard after moving it with the up/down arrows - the Leaderboard tab re-fetches its saved order from the cloud every time you open it, and a slow fetch landing just after a move could silently revert DB.filmLeaderboardOrder to a stale copy that still had the moved film's old position in it alongside its new one. The stale fetch is now dropped if a move happened while it was in flight, and the order is de-duplicated on read either way, so a film can't render twice regardless."
+  ]},
   {version:'2.61.0', notes:[
     "Itinerary route map: the outbound and return flights bookending a trip no longer get their own dashed line (home was never really \"on\" the route), and the outbound flight's destination stays a real numbered stop - Basel EuroAirport reads as stop 1 now instead of getting trimmed away in favour of whatever came after it."
   ]},
@@ -6559,11 +6562,20 @@ function saveFilms(){ saveLocal(); pushFilms(); }
    DB.filmLeaderboardOrder is just a list of film ids, synced the same way DB.films itself is -
    only ever holds what a manual up/down move has actually touched, not the whole rated list, so
    a freshly-rated film doesn't need this to be kept in lockstep with the Diary. */
+/* bumped by every local reorder (see saveFilmLeaderboardOrder) - loadFilmLeaderboardOrderCloud
+   captures it before its one-time read starts, and drops the result if a move happened while
+   that read was in flight. Without this, the Leaderboard tab's own re-fetch on every visit
+   (renderFilmsStats) could resolve after a manual move and silently revert DB.filmLeaderboardOrder
+   to what was on the server before the move's own push had landed - a stale array that, on top
+   of undoing the move, could still hold the moved film's id at its old position alongside its
+   new one and show that film twice. */
+let FILM_LB_EDIT_SEQ = 0;
 function loadFilmLeaderboardOrderCloud(cb){
+  const seq = FILM_LB_EDIT_SEQ;
   if(!fbRoot){ cb(DB.filmLeaderboardOrder||[]); return; }
   fbRoot.ref('filmLeaderboardOrder').once('value')
-    .then(snap => cb(snap.exists() ? snap.val() : (DB.filmLeaderboardOrder||[])))
-    .catch(() => cb(DB.filmLeaderboardOrder||[]));
+    .then(snap => { if(seq!==FILM_LB_EDIT_SEQ) return; cb(snap.exists() ? snap.val() : (DB.filmLeaderboardOrder||[])); })
+    .catch(() => { if(seq!==FILM_LB_EDIT_SEQ) return; cb(DB.filmLeaderboardOrder||[]); });
 }
 function pushFilmLeaderboardOrder(){
   if(!fbRoot) return;
@@ -6577,7 +6589,7 @@ function pushFilmLeaderboardOrder(){
       }
     });
 }
-function saveFilmLeaderboardOrder(list){ DB.filmLeaderboardOrder = list; saveLocal(); pushFilmLeaderboardOrder(); }
+function saveFilmLeaderboardOrder(list){ FILM_LB_EDIT_SEQ++; DB.filmLeaderboardOrder = list; saveLocal(); pushFilmLeaderboardOrder(); }
 /* highest rating first, tiebroken by most recently watched then title - the order a freshly
    rated film (or one that's never been manually moved) falls into */
 function filmLeaderboardDefaultOrder(films){
@@ -6591,7 +6603,14 @@ function filmLeaderboardDefaultOrder(films){
 function filmLeaderboardOrder(){
   const films = DB.films||[];
   const byId = new Map(films.map(f=>[f.id,f]));
-  const saved = (DB.filmLeaderboardOrder||[]).filter(id => byId.has(id) && byId.get(id).rating!=null);
+  // de-duplicated even though the stored order itself never should be - a slow cloud read
+  // landing after a manual move (see pushFilmLeaderboardOrder's own race guard) used to be able
+  // to leave a stale copy of an id sitting in DB.filmLeaderboardOrder alongside the moved one,
+  // which showed the same film twice; filtering here means that can never reach the screen
+  // even if something upstream still manages to corrupt the stored array.
+  const seen = new Set();
+  const saved = (DB.filmLeaderboardOrder||[])
+    .filter(id => byId.has(id) && byId.get(id).rating!=null && !seen.has(id) && seen.add(id));
   const savedSet = new Set(saved);
   const rest = filmLeaderboardDefaultOrder(films).filter(id=>!savedSet.has(id));
   return [...saved, ...rest].map(id=>byId.get(id));
