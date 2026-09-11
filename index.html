@@ -1502,9 +1502,12 @@ body.kb-open .tabbar.on{display:none;}
    rather than one box - what lets row 2 size to the taller of the two titles so both title areas
    end up the same height, with the text bottom-aligned inside whichever one has room to spare.
    object-fit: contain (not cover) so the whole poster shows rather than cropping it to fill a
-   fixed box. */
-.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px);}
-.film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center;}
+   fixed box. The negative bottom margin cancels out #app's own .wrap padding-bottom (96px,
+   meant for pages using normal scroll to clear the tabbar) - this screen already reserves that
+   same clearance itself via the --bar-h subtraction above, so without the cancel-out the two
+   stack and leave the page scrollable past a floor of blank space it never needed. */
+.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px); margin-bottom:-96px;}
+.film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center; padding-bottom:60px;}
 .film-sort-arena{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; column-gap:14px;}
 .film-sort-poster-cell{grid-row:1; display:block; width:100%; border:1px solid var(--line); border-bottom:none;
   border-top-left-radius:var(--radius); border-top-right-radius:var(--radius);
@@ -1527,11 +1530,13 @@ body.kb-open .tabbar.on{display:none;}
 .film-sort-title-name{font-weight:700;}
 /* the game's overall completion - how many films across every tied rating have been placed so
    far, not just the current one, since a round can jump between ratings each time (see
-   advanceFilmSort). A plain in-flow block under the Undo button, not position:fixed - stacking
-   it above the ALSO position:fixed tab bar via --bar-h sounds simple but this exact screen has
-   already needed two separate fixes for position:fixed elements at the bottom behaving
-   unpredictably (see .tabbar.on's own comment), so this one just doesn't try. */
-.film-sort-progress-wrap{margin-top:14px; padding-top:14px; border-top:1px solid var(--line);}
+   advanceFilmSort). Pinned above the tabbar via --bar-h, same pattern as .add-bar - this was
+   briefly made a plain in-flow element instead (see .tabbar.on's comment on the drift bug that
+   motivated it), but a fixed progress bar read better in practice, so it's back; the drift bug
+   that prompted the in-flow attempt was in the TAB BAR itself losing its own compositing layer,
+   not something this bar shares just by also being position:fixed. */
+.film-sort-progress-wrap{position:fixed; left:0; right:0; bottom:var(--bar-h,0px); z-index:58;
+  background:var(--paper); border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom));}
 .film-sort-progress-label{text-align:center; margin:0 0 6px;}
 .film-sort-progress-bar{height:6px; border-radius:3px; background:var(--bg); overflow:hidden;}
 .film-sort-progress-fill{height:100%; background:var(--brand); border-radius:3px; transition:width .2s;}
@@ -1772,8 +1777,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.6';
+const APP_VERSION = '2.83.7';
 const CHANGELOG = [
+  {version:'2.83.7', notes:[
+    "Rank Ties no longer lets the screen scroll - it was reserving room for the tab bar twice over, once in its own layout and once from the page's usual bottom padding, leaving a strip of scrollable blank space that was never needed. Also brought the progress bar back to being pinned above the tab bar, since that read better than having it sit inline under the Undo button."
+  ]},
   {version:'2.83.6', notes:[
     "Rank Ties no longer forces the screen back to the top on every single round - it still does that once when you open the game, but repeating it every round could fight a touch still in progress right as the next matchup swapped in. Also added a safety net that immediately resolves and moves past any comparison that's already been fully decided instead of asking about it again, in case a saved run is ever resumed in a state where one was left behind."
   ]},
