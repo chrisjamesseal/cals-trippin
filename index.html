@@ -1705,8 +1705,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.71.0';
+const APP_VERSION = '2.72.0';
 const CHANGELOG = [
+  {version:'2.72.0', notes:[
+    "The 📊 Stats button no longer shows on the Leaderboard page itself - still there on Diary/Watchlist, but redundant on Leaderboard now that its own headline numbers already sit right there."
+  ]},
   {version:'2.71.0', notes:[
     "Free Day to Explore no longer shows on the Tasks tab - it's still on the Itinerary, but Tasks is for what's still outstanding, and a free day already isn't."
   ]},
@@ -6892,7 +6895,7 @@ function renderFilms(){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        <button class="btn sm ghost" onclick="App.goFilmsStatsCharts()">📊 Stats</button>
+        ${CUR_FILMS_TAB!=='stats'?`<button class="btn sm ghost" onclick="App.goFilmsStatsCharts()">📊 Stats</button>`:''}
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','🏆 Leaderboard')}</div>
