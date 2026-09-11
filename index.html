@@ -11923,12 +11923,20 @@ function mapRouteStops(t){
   }
   // no Locations set up on this trip - fall back to the old accommodations/journeys derivation
   // so the map still shows something rather than going blank.
-  let stops = routeStops(t).filter(s=>!s.gap);
-  if(stops.length && stops[stops.length-1].journey) stops.pop();
-  if(stops.length && stops[0].journey) stops.shift();
+  const stops = routeStops(t).filter(s=>!s.gap);
   const checkinDates = new Set((t.accommodations||[]).map(a=>a.checkin).filter(Boolean));
-  stops = stops.filter(s => !(s.journey && checkinDates.has(s.date)));
-  return stops;
+  const dedupJourneys = list => list.filter(s => !(s.journey && checkinDates.has(s.date)));
+  let trimmed = stops.slice();
+  if(trimmed.length && trimmed[trimmed.length-1].journey) trimmed.pop();
+  if(trimmed.length && trimmed[0].journey) trimmed.shift();
+  trimmed = dedupJourneys(trimmed);
+  // trimming the outbound/return flight as "just leaving/returning home" only makes sense when
+  // there's still something else on the route to show - a trip with flights logged but no
+  // accommodation yet would otherwise end up with zero stops and no map at all, so fall back to
+  // the untrimmed flights rather than going blank (see mapFlightLines - this is the numbered-pin
+  // half of the same "still a real place on the route" reasoning that gave flights their own
+  // dashed line even with nothing booked at the other end).
+  return trimmed.length ? trimmed : dedupJourneys(stops);
 }
 /* every flight leg with both ends known, resolved to real place names the same geocoder every
    other pin already uses - not stored coordinates, since AIRPORTS only carries a name/timezone
