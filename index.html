@@ -1740,8 +1740,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.80.1';
+const APP_VERSION = '2.81.0';
 const CHANGELOG = [
+  {version:'2.81.0', notes:[
+    "Rank Ties now saves your progress after every single pick, not just once a tied rating is fully settled - going back or closing the app mid-tier resumes right where you left off (a Continue Ranking button replaces Rank Ties) instead of starting that tier over."
+  ]},
   {version:'2.80.1', notes:[
     "Rank Ties: the two posters now sit side by side instead of stacked, showing the whole poster instead of a cropped slice, with the title centred underneath and the \"Which is better?\" heading centred too."
   ]},
@@ -7934,11 +7937,13 @@ function drawFilmsStats(){
   if(!films.length){ body.innerHTML = `<div class="empty">Log some films to see stats here.</div>`; return; }
   // the Logged/Rewatches/Avg Rating tiles belong on the Stats page (renderFilmsStatsCharts) -
   // this is the Leaderboard, so it only ever shows the leaderboard itself
+  const resuming = filmSortStateValid(loadFilmSortState());
   const ties = filmTieGroups();
   body.innerHTML = `
     <div class="films-leaderboard-heading">
       <h3>Top Films</h3>
-      ${ties.length ? `<button class="btn sm ghost" onclick="App.filmSortStart()">🆚 Rank Ties</button>` : ''}
+      ${resuming ? `<button class="btn sm ghost" onclick="App.filmSortStart()">🆚 Continue Ranking</button>`
+        : ties.length ? `<button class="btn sm ghost" onclick="App.filmSortStart()">🆚 Rank Ties</button>` : ''}
     </div>
     ${filmLeaderboardHTML()}
     <button type="button" class="back-to-top-btn" aria-label="Back to top" onclick="App.scrollToTop()">${fa('arrow-up')}</button>`;
@@ -7967,8 +7972,14 @@ function updateBackToTopVisibility(){
    filmLeaderboardDefaultOrder), which rarely matches how you'd actually rank them against each
    other. Rather than manually dragging every one of them with the up/down arrows, this walks
    through each tied rating - highest first - one head-to-head choice at a time and works the
-   whole order out via a merge sort: only as many comparisons as the sort actually needs
-   (O(n log n)), never every possible pair. */
+   whole order out via a binary insertion sort: only as many comparisons as the sort actually
+   needs (O(n log n)), never every possible pair.
+
+   The whole thing is a plain, serialisable state machine (FILM_SORT_STATE) rather than a
+   recursive/async sort, and it's written to localStorage after every single pick - not just
+   once a tier finishes - so going back mid-tier, or the app closing outright, resumes from
+   the exact comparison you were on instead of losing progress back to the start of that tier. */
+const FILM_SORT_STORAGE_KEY = 'calstrippin_film_sort_progress';
 function filmTieGroups(){
   const byRating = new Map();
   filmLeaderboardOrder().forEach(f=>{
@@ -7981,41 +7992,80 @@ function filmTieGroups(){
     .sort((a,b)=>b[0]-a[0])
     .map(([rating,ids])=>({rating, ids}));
 }
-let FILM_SORT_QUEUE = [];
-let FILM_SORT_TIER = 0;
-let FILM_SORT_RESOLVE = null;
+let FILM_SORT_STATE = null;
+function loadFilmSortState(){
+  try{
+    const raw = localStorage.getItem(FILM_SORT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function persistFilmSortState(){
+  if(FILM_SORT_STATE) localStorage.setItem(FILM_SORT_STORAGE_KEY, JSON.stringify(FILM_SORT_STATE));
+  else localStorage.removeItem(FILM_SORT_STORAGE_KEY);
+}
+/* a saved run only resumes while every film it refers to still exists with the same rating it
+   had when the run was saved - if anything's since been edited, rated differently or deleted,
+   it's simplest (and safest) to just drop the stale run and start fresh rather than untangle it */
+function filmSortStateValid(state){
+  if(!state || !Array.isArray(state.tiers) || !state.tiers.length) return false;
+  const byId = new Map((DB.films||[]).map(f=>[f.id,f]));
+  const idsMatchRating = (rating, ids) => ids.every(id => byId.has(id) && byId.get(id).rating===rating);
+  const tier = state.tiers[0];
+  const activeIds = [...(state.sortedIds||[]), ...(state.remainingIds||[]), ...(state.pending?[state.pending.id]:[])];
+  if(!idsMatchRating(tier.rating, activeIds)) return false;
+  return state.tiers.every(t => idsMatchRating(t.rating, t.ids));
+}
 function renderFilmSortGame(){
-  const ties = filmTieGroups();
-  if(!ties.length){ toast("No tied ratings left to sort"); App.goFilmsStats(); return; }
-  FILM_SORT_QUEUE = ties;
-  FILM_SORT_TIER = 0;
-  runFilmSortTier();
-}
-async function runFilmSortTier(){
-  const tier = FILM_SORT_QUEUE[FILM_SORT_TIER]; if(!tier) return;
-  const sorted = await mergeSortAsync(tier.ids.slice(), filmSortCompare);
-  // saved as soon as this tier is settled, not just at the very end - so backing out after a
-  // few tiers keeps whatever's already been decided instead of losing it
-  applyFilmSortResult(sorted);
-  FILM_SORT_TIER++;
-  if(FILM_SORT_TIER < FILM_SORT_QUEUE.length) runFilmSortTier();
-  else{ toast(`Order settled for ${FILM_SORT_QUEUE.length} tied rating${FILM_SORT_QUEUE.length===1?'':'s'}`); App.goFilmsStats(); }
-}
-function filmSortCompare(aId, bId){
-  return new Promise(resolve => { FILM_SORT_RESOLVE = resolve; renderFilmSortRound(aId, bId); });
-}
-async function mergeSortAsync(ids, cmp){
-  if(ids.length<=1) return ids;
-  const mid = ids.length>>1;
-  const left = await mergeSortAsync(ids.slice(0,mid), cmp);
-  const right = await mergeSortAsync(ids.slice(mid), cmp);
-  const merged = [];
-  let i=0, j=0;
-  while(i<left.length && j<right.length){
-    const leftWins = await cmp(left[i], right[j]);
-    merged.push(leftWins ? left[i++] : right[j++]);
+  const saved = loadFilmSortState();
+  if(filmSortStateValid(saved)){ FILM_SORT_STATE = saved; }
+  else{
+    const ties = filmTieGroups();
+    if(!ties.length){ toast("No tied ratings left to sort"); App.goFilmsStats(); return; }
+    FILM_SORT_STATE = {tiers: ties, totalTiers: ties.length, sortedIds: [], remainingIds: [], pending: null};
   }
-  return [...merged, ...left.slice(i), ...right.slice(j)];
+  advanceFilmSort();
+}
+/* runs the state machine forward until it needs a real human answer (renders that round and
+   stops) or the whole queue is empty (finishes up) - each internal step persists before moving
+   on, so whatever the state is when this function returns is exactly what a close/back resumes */
+function advanceFilmSort(){
+  const state = FILM_SORT_STATE;
+  if(!state || !state.tiers.length){
+    const totalTiers = state ? state.totalTiers : 0;
+    FILM_SORT_STATE = null; persistFilmSortState();
+    if(totalTiers) toast(`Order settled for ${totalTiers} tied rating${totalTiers===1?'':'s'}`);
+    App.goFilmsStats();
+    return;
+  }
+  const tier = state.tiers[0];
+  if(!state.sortedIds.length && !state.remainingIds.length){
+    state.sortedIds = [tier.ids[0]];
+    state.remainingIds = tier.ids.slice(1);
+    state.pending = null;
+  }
+  if(!state.pending){
+    if(!state.remainingIds.length){
+      // tier fully placed - save it to the board right away, not just at the very end, so
+      // backing out after a few tiers keeps whatever's already been decided
+      applyFilmSortResult(state.sortedIds);
+      state.tiers.shift();
+      state.sortedIds = []; state.remainingIds = [];
+      persistFilmSortState();
+      advanceFilmSort();
+      return;
+    }
+    state.pending = {id: state.remainingIds[0], lo: 0, hi: state.sortedIds.length};
+  }
+  if(state.pending.lo >= state.pending.hi){
+    state.sortedIds.splice(state.pending.lo, 0, state.pending.id);
+    state.remainingIds.shift();
+    state.pending = null;
+    persistFilmSortState();
+    advanceFilmSort();
+    return;
+  }
+  persistFilmSortState();
+  renderFilmSortRound();
 }
 /* drops this tier's films out of wherever they sat, then reinserts them - in their new,
    game-decided order - starting at the earliest slot any of them held, so the tier's overall
@@ -8037,8 +8087,12 @@ function filmSortCardHTML(id, side){
       <div class="film-sort-card-title">${esc(f.title||'Untitled')}${f.year?` <span class="muted">(${esc(f.year)})</span>`:''}</div>
     </button>`;
 }
-function renderFilmSortRound(aId, bId){
-  const tier = FILM_SORT_QUEUE[FILM_SORT_TIER];
+function renderFilmSortRound(){
+  const state = FILM_SORT_STATE;
+  const tier = state.tiers[0];
+  const mid = (state.pending.lo + state.pending.hi) >> 1;
+  const aId = state.pending.id, bId = state.sortedIds[mid];
+  const tiersDone = state.totalTiers - state.tiers.length;
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow" style="justify-content:center">
@@ -8048,7 +8102,7 @@ function renderFilmSortRound(aId, bId){
       </div>
     </div>
     <p class="small muted" style="text-align:center;margin:0 0 18px">
-      Sorting your ${esc(filmScoreLabel(tier.rating))}/10s${FILM_SORT_QUEUE.length>1?` &middot; tier ${FILM_SORT_TIER+1} of ${FILM_SORT_QUEUE.length}`:''}
+      Sorting your ${esc(filmScoreLabel(tier.rating))}/10s${state.totalTiers>1?` &middot; tier ${tiersDone+1} of ${state.totalTiers}`:''}
     </p>
     <div class="film-sort-arena">
       ${filmSortCardHTML(aId,'a')}
@@ -9773,17 +9827,15 @@ App.goFilmsStatsCharts = () => { location.hash = '#/films/stats/charts'; };
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
 App.filmSortStart = () => { location.hash = '#/films/stats/sort'; };
 App.filmSortPick = side => {
-  if(!FILM_SORT_RESOLVE) return;
-  const resolve = FILM_SORT_RESOLVE;
-  FILM_SORT_RESOLVE = null;
-  resolve(side==='a');
+  if(!FILM_SORT_STATE || !FILM_SORT_STATE.pending) return;
+  const mid = (FILM_SORT_STATE.pending.lo + FILM_SORT_STATE.pending.hi) >> 1;
+  if(side==='a') FILM_SORT_STATE.pending.hi = mid;      // the film being placed beat the sorted one
+  else FILM_SORT_STATE.pending.lo = mid + 1;            // the already-sorted film won instead
+  advanceFilmSort();
 };
-App.filmSortExit = () => {
-  FILM_SORT_RESOLVE = null;
-  FILM_SORT_QUEUE = [];
-  FILM_SORT_TIER = 0;
-  App.goFilmsStats();
-};
+// leaves FILM_SORT_STATE (and its localStorage copy) alone - it's already been persisted after
+// every pick, so backing out mid-tier resumes right where you left off next time
+App.filmSortExit = () => { App.goFilmsStats(); };
 App.fwAddFilm = fwAddFilmImpl;
 App.fwLogFilm = id => {
   const f = FW_LAST_RESULTS.find(x=>x.id===id); if(!f) return;
