@@ -1486,18 +1486,19 @@ body.kb-open .tabbar.on{display:none;}
 .back-to-top-btn:hover{border-color:var(--brand); color:var(--brand);}
 .films-leaderboard-heading{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:20px 0 10px;}
 .films-leaderboard-heading h3{margin:0;}
-/* the tie-breaker game's two poster cards, stacked with an "OR" badge overlapping the seam
-   between them - same idea as a head-to-head "which do you prefer" chooser */
-.film-sort-arena{position:relative; display:flex; flex-direction:column; margin-top:8px;}
-.film-sort-card{display:block; width:100%; border:1px solid var(--line); border-radius:var(--radius);
-  overflow:hidden; background:var(--bg); cursor:pointer; padding:0; text-align:left; font:inherit; color:inherit;}
-.film-sort-card+.film-sort-card{margin-top:28px;}
+/* the tie-breaker game's two poster cards, sat side by side with an "OR" badge overlapping the
+   seam between them - same idea as a head-to-head "which do you prefer" chooser. object-fit:
+   contain (not cover) so the whole poster shows rather than cropping it to fill a fixed box. */
+.film-sort-arena{position:relative; display:flex; flex-direction:row; gap:14px; align-items:flex-start; margin-top:8px;}
+.film-sort-card{flex:1; min-width:0; display:flex; flex-direction:column; border:1px solid var(--line);
+  border-radius:var(--radius); overflow:hidden; background:var(--bg); cursor:pointer; padding:0;
+  text-align:center; font:inherit; color:inherit;}
 .film-sort-card:hover{border-color:var(--brand);}
 .film-sort-card:active{transform:scale(.98);}
-.film-sort-card img{width:100%; height:220px; object-fit:cover; display:block;}
-.film-sort-card-fallback{width:100%; height:220px; display:flex; align-items:center; justify-content:center;
+.film-sort-card img{width:100%; aspect-ratio:2/3; object-fit:contain; display:block; background:var(--bg);}
+.film-sort-card-fallback{width:100%; aspect-ratio:2/3; display:flex; align-items:center; justify-content:center;
   font-size:2rem; color:var(--muted); background:var(--bg);}
-.film-sort-card-title{padding:12px 16px; font-weight:700;}
+.film-sort-card-title{padding:10px 8px; font-weight:700; text-align:center;}
 .film-sort-or{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2;
   width:44px; height:44px; border-radius:50%; background:var(--paper); border:1px solid var(--line);
   box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center;
@@ -1739,8 +1740,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.80.0';
+const APP_VERSION = '2.80.1';
 const CHANGELOG = [
+  {version:'2.80.1', notes:[
+    "Rank Ties: the two posters now sit side by side instead of stacked, showing the whole poster instead of a cropped slice, with the title centred underneath and the \"Which is better?\" heading centred too."
+  ]},
   {version:'2.80.0', notes:[
     "Added a Rank Ties game to the Leaderboard - shows two same-rated films side by side and asks which is better, then works out the whole order for that tied rating from your picks. The Logged/Rewatches/Avg Rating tiles have also moved off the Leaderboard for good, onto the Stats page they already lived on there too, and the Stats button now stays visible while you're on the Leaderboard instead of disappearing."
   ]},
@@ -8037,7 +8041,7 @@ function renderFilmSortRound(aId, bId){
   const tier = FILM_SORT_QUEUE[FILM_SORT_TIER];
   $('#app').innerHTML = `
     <div class="crumb">
-      <div class="crumb-titlerow">
+      <div class="crumb-titlerow" style="justify-content:center">
         <span class="crumb-here">
           <button class="crumb-backbtn" onclick="App.filmSortExit()" aria-label="Back to Leaderboard">${ICONS.back}</button>
           Which is better?</span>
