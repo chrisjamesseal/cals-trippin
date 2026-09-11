@@ -1484,6 +1484,24 @@ body.kb-open .tabbar.on{display:none;}
   opacity:0; pointer-events:none; transition:opacity .15s, transform .15s;}
 .back-to-top-btn.show{opacity:1; pointer-events:auto; transform:translate(-50%,0);}
 .back-to-top-btn:hover{border-color:var(--brand); color:var(--brand);}
+.films-leaderboard-heading{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:20px 0 10px;}
+.films-leaderboard-heading h3{margin:0;}
+/* the tie-breaker game's two poster cards, stacked with an "OR" badge overlapping the seam
+   between them - same idea as a head-to-head "which do you prefer" chooser */
+.film-sort-arena{position:relative; display:flex; flex-direction:column; margin-top:8px;}
+.film-sort-card{display:block; width:100%; border:1px solid var(--line); border-radius:var(--radius);
+  overflow:hidden; background:var(--bg); cursor:pointer; padding:0; text-align:left; font:inherit; color:inherit;}
+.film-sort-card+.film-sort-card{margin-top:28px;}
+.film-sort-card:hover{border-color:var(--brand);}
+.film-sort-card:active{transform:scale(.98);}
+.film-sort-card img{width:100%; height:220px; object-fit:cover; display:block;}
+.film-sort-card-fallback{width:100%; height:220px; display:flex; align-items:center; justify-content:center;
+  font-size:2rem; color:var(--muted); background:var(--bg);}
+.film-sort-card-title{padding:12px 16px; font-weight:700;}
+.film-sort-or{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2;
+  width:44px; height:44px; border-radius:50%; background:var(--paper); border:1px solid var(--line);
+  box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:.8rem; color:var(--muted);}
 /* the "what do you want to add" screen the sticky button opens - three big tappable rows
    rather than the cramped inline buttons this replaced, each handing straight off to the
    exact same form/tab the old button did */
@@ -1721,8 +1739,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.79.0';
+const APP_VERSION = '2.80.0';
 const CHANGELOG = [
+  {version:'2.80.0', notes:[
+    "Added a Rank Ties game to the Leaderboard - shows two same-rated films side by side and asks which is better, then works out the whole order for that tied rating from your picks. The Logged/Rewatches/Avg Rating tiles have also moved off the Leaderboard for good, onto the Stats page they already lived on there too, and the Stats button now stays visible while you're on the Leaderboard instead of disappearing."
+  ]},
   {version:'2.79.0', notes:[
     "Added a Back to Top button on the Leaderboard - shows once you've scrolled about a quarter of the way down Top Films, sitting centred just above the tab bar."
   ]},
@@ -6938,7 +6959,7 @@ function renderFilms(){
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Films</span>
-        ${CUR_FILMS_TAB!=='stats'?`<button class="btn sm ghost" onclick="App.goFilmsStatsCharts()">📊 Stats</button>`:''}
+        <button class="btn sm ghost" onclick="App.goFilmsStatsCharts()">📊 Stats</button>
       </div>
     </div>
     <div class="subtabs">${tab('diary','🎬 Diary')}${tab('watchlist','❤️ Watchlist')}${tab('stats','🏆 Leaderboard')}</div>
@@ -7907,9 +7928,14 @@ function drawFilmsStats(){
   const body = $('#films-body'); if(!body) return;
   const films = DB.films||[];
   if(!films.length){ body.innerHTML = `<div class="empty">Log some films to see stats here.</div>`; return; }
+  // the Logged/Rewatches/Avg Rating tiles belong on the Stats page (renderFilmsStatsCharts) -
+  // this is the Leaderboard, so it only ever shows the leaderboard itself
+  const ties = filmTieGroups();
   body.innerHTML = `
-    ${filmsStatOverviewHTML(films)}
-    <h3 style="margin:20px 0 10px">Top Films</h3>
+    <div class="films-leaderboard-heading">
+      <h3>Top Films</h3>
+      ${ties.length ? `<button class="btn sm ghost" onclick="App.filmSortStart()">🆚 Rank Ties</button>` : ''}
+    </div>
     ${filmLeaderboardHTML()}
     <button type="button" class="back-to-top-btn" aria-label="Back to top" onclick="App.scrollToTop()">${fa('arrow-up')}</button>`;
   attachBackToTop();
@@ -7931,6 +7957,101 @@ function updateBackToTopVisibility(){
   const scrollable = doc.scrollHeight - doc.clientHeight;
   const past = scrollable>0 && (window.scrollY/scrollable) >= 0.25;
   btn.classList.toggle('show', past);
+}
+/* --- Leaderboard tie-breaker: "which is better?" ---
+   Films tied on the same rating start out ordered by watched-date (see
+   filmLeaderboardDefaultOrder), which rarely matches how you'd actually rank them against each
+   other. Rather than manually dragging every one of them with the up/down arrows, this walks
+   through each tied rating - highest first - one head-to-head choice at a time and works the
+   whole order out via a merge sort: only as many comparisons as the sort actually needs
+   (O(n log n)), never every possible pair. */
+function filmTieGroups(){
+  const byRating = new Map();
+  filmLeaderboardOrder().forEach(f=>{
+    if(f.rating==null) return;
+    if(!byRating.has(f.rating)) byRating.set(f.rating, []);
+    byRating.get(f.rating).push(f.id);
+  });
+  return [...byRating.entries()]
+    .filter(([,ids])=>ids.length>1)
+    .sort((a,b)=>b[0]-a[0])
+    .map(([rating,ids])=>({rating, ids}));
+}
+let FILM_SORT_QUEUE = [];
+let FILM_SORT_TIER = 0;
+let FILM_SORT_RESOLVE = null;
+function renderFilmSortGame(){
+  const ties = filmTieGroups();
+  if(!ties.length){ toast("No tied ratings left to sort"); App.goFilmsStats(); return; }
+  FILM_SORT_QUEUE = ties;
+  FILM_SORT_TIER = 0;
+  runFilmSortTier();
+}
+async function runFilmSortTier(){
+  const tier = FILM_SORT_QUEUE[FILM_SORT_TIER]; if(!tier) return;
+  const sorted = await mergeSortAsync(tier.ids.slice(), filmSortCompare);
+  // saved as soon as this tier is settled, not just at the very end - so backing out after a
+  // few tiers keeps whatever's already been decided instead of losing it
+  applyFilmSortResult(sorted);
+  FILM_SORT_TIER++;
+  if(FILM_SORT_TIER < FILM_SORT_QUEUE.length) runFilmSortTier();
+  else{ toast(`Order settled for ${FILM_SORT_QUEUE.length} tied rating${FILM_SORT_QUEUE.length===1?'':'s'}`); App.goFilmsStats(); }
+}
+function filmSortCompare(aId, bId){
+  return new Promise(resolve => { FILM_SORT_RESOLVE = resolve; renderFilmSortRound(aId, bId); });
+}
+async function mergeSortAsync(ids, cmp){
+  if(ids.length<=1) return ids;
+  const mid = ids.length>>1;
+  const left = await mergeSortAsync(ids.slice(0,mid), cmp);
+  const right = await mergeSortAsync(ids.slice(mid), cmp);
+  const merged = [];
+  let i=0, j=0;
+  while(i<left.length && j<right.length){
+    const leftWins = await cmp(left[i], right[j]);
+    merged.push(leftWins ? left[i++] : right[j++]);
+  }
+  return [...merged, ...left.slice(i), ...right.slice(j)];
+}
+/* drops this tier's films out of wherever they sat, then reinserts them - in their new,
+   game-decided order - starting at the earliest slot any of them held, so the tier's overall
+   position relative to every other rating on the board doesn't move, only the order within it */
+function applyFilmSortResult(sortedIds){
+  const currentIds = filmLeaderboardOrder().map(f=>f.id);
+  const idSet = new Set(sortedIds);
+  let insertAt = currentIds.findIndex(id=>idSet.has(id));
+  if(insertAt<0) insertAt = currentIds.length;
+  const rest = currentIds.filter(id=>!idSet.has(id));
+  rest.splice(insertAt, 0, ...sortedIds);
+  saveFilmLeaderboardOrder(rest);
+}
+function filmSortCardHTML(id, side){
+  const f = (DB.films||[]).find(x=>x.id===id) || {};
+  return `
+    <button type="button" class="film-sort-card" onclick="App.filmSortPick('${side}')">
+      ${f.image ? `<img src="${esc(f.image)}" alt="">` : `<span class="film-sort-card-fallback">${fa('film')}</span>`}
+      <div class="film-sort-card-title">${esc(f.title||'Untitled')}${f.year?` <span class="muted">(${esc(f.year)})</span>`:''}</div>
+    </button>`;
+}
+function renderFilmSortRound(aId, bId){
+  const tier = FILM_SORT_QUEUE[FILM_SORT_TIER];
+  $('#app').innerHTML = `
+    <div class="crumb">
+      <div class="crumb-titlerow">
+        <span class="crumb-here">
+          <button class="crumb-backbtn" onclick="App.filmSortExit()" aria-label="Back to Leaderboard">${ICONS.back}</button>
+          Which is better?</span>
+      </div>
+    </div>
+    <p class="small muted" style="text-align:center;margin:0 0 18px">
+      Sorting your ${esc(filmScoreLabel(tier.rating))}/10s${FILM_SORT_QUEUE.length>1?` &middot; tier ${FILM_SORT_TIER+1} of ${FILM_SORT_QUEUE.length}`:''}
+    </p>
+    <div class="film-sort-arena">
+      ${filmSortCardHTML(aId,'a')}
+      <div class="film-sort-or">OR</div>
+      ${filmSortCardHTML(bId,'b')}
+    </div>`;
+  window.scrollTo(0,0);
 }
 /* By Year/By Rating moved off the Leaderboard tab onto their own page (App.goFilmsStatsCharts,
    the Stats button next to the Films title) - with a long Top Films list right above them,
@@ -8411,6 +8532,10 @@ function route(){
   if(h === '#/films/stats/charts'){
     CUR_TRIP_ID = null; stopSub();
     renderFilmsStatsCharts(); window.scrollTo(0,0); return;
+  }
+  if(h === '#/films/stats/sort'){
+    CUR_TRIP_ID = null; stopSub();
+    renderFilmSortGame(); window.scrollTo(0,0); return;
   }
   if(h.startsWith('#/view/')){
     // legacy snapshot link, adopt the trip locally, then switch to the stable per-trip URL
@@ -9642,6 +9767,19 @@ App.filmsStatsRating = v => { location.hash = '#/films/stats/rating/'+encodeURIC
 App.filmsStatsRewatches = () => { location.hash = '#/films/stats/rewatches'; };
 App.goFilmsStatsCharts = () => { location.hash = '#/films/stats/charts'; };
 App.goFilmsStats = () => { CUR_FILMS_TAB = 'stats'; location.hash = '#/films'; };
+App.filmSortStart = () => { location.hash = '#/films/stats/sort'; };
+App.filmSortPick = side => {
+  if(!FILM_SORT_RESOLVE) return;
+  const resolve = FILM_SORT_RESOLVE;
+  FILM_SORT_RESOLVE = null;
+  resolve(side==='a');
+};
+App.filmSortExit = () => {
+  FILM_SORT_RESOLVE = null;
+  FILM_SORT_QUEUE = [];
+  FILM_SORT_TIER = 0;
+  App.goFilmsStats();
+};
 App.fwAddFilm = fwAddFilmImpl;
 App.fwLogFilm = id => {
   const f = FW_LAST_RESULTS.find(x=>x.id===id); if(!f) return;
