@@ -532,12 +532,13 @@ a{color:var(--brand-dark);}
 .dash-item-title{font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--ink); overflow-wrap:anywhere;}
 .dash-item-sub{margin-top:4px; color:var(--muted); font-size:.8rem;}
 /* a live ticking days/hours/minutes/seconds row for a dashboard tile counting down to a real
-   date (Next Release, Next Gig, a film booked ahead) - kept in the app's own card look (brand-
-   coloured numbers, muted uppercase labels) rather than a separate dark box, so it reads as part
-   of the tile instead of a bolted-on widget. See tickMiniCountdowns for what actually updates it
-   every second. */
-.mini-countdown{display:flex; gap:10px; margin-top:6px;}
-.mini-countdown .mc-unit{text-align:center;}
+   date (Next Release, Next Gig, a film booked ahead) - one plain outline around the whole row,
+   not a separate box per number, and no fill/shadow of its own so it stays minimal, reading as
+   part of the tile rather than a bolted-on widget. See tickMiniCountdowns for what actually
+   updates it every second. */
+.mini-countdown{display:flex; margin-top:8px; border:1px solid var(--line); border-radius:var(--radius-sm);}
+.mini-countdown .mc-unit{flex:1; text-align:center; padding:6px 4px;}
+.mini-countdown .mc-unit+.mc-unit{border-left:1px solid var(--line);}
 .mini-countdown .mc-num{display:block; font-family:var(--font-head); font-weight:700; font-size:1.05rem; color:var(--brand-dark); line-height:1.1;}
 .mini-countdown .mc-label{display:block; color:var(--muted); font-size:.62rem; text-transform:uppercase; letter-spacing:.03em; margin-top:1px;}
 /* the Next Trip tile's own small map preview - same boxed treatment as the Itinerary's full
@@ -1704,8 +1705,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.68.0';
+const APP_VERSION = '2.69.0';
 const CHANGELOG = [
+  {version:'2.69.0', notes:[
+    "The new Home countdown row is one plain outline around all four numbers now, with thin dividers between them, instead of a separate box for each - keeps it minimal."
+  ]},
   {version:'2.68.0', notes:[
     "Home: Next Gig, Next Release and a film booked ahead of watching it now show a live days/hours/minutes/seconds countdown, ticking every second, instead of a static \"N days to go\" line - styled to match the rest of the tile rather than a separate dark widget."
   ]},
