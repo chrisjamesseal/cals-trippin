@@ -39,6 +39,7 @@ function simplify(m){
     year: (m.release_date||'').slice(0,4) || null,
     image: m.poster_path ? TMDB_IMG + m.poster_path : '',
     genres: (m.genre_ids||[]).map(id=>TMDB_GENRES[id]).filter(Boolean),
+    synopsis: m.overview || '',
   };
 }
 

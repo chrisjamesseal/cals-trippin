@@ -919,6 +919,11 @@ a{color:var(--brand-dark);}
 /* the picked-film preview reuses the same container, poster-shaped rather than the round artist
    photo, matching the search dropdown's own .film-search-thumb shape */
 .film-selected-poster img{width:32px; height:46px; border-radius:3px; object-fit:cover;}
+/* the film search dropdown's own text column - title/year on top, genre + a clamped synopsis
+   below, so you can tell "Society of the Snow (2023)" from any other film with that title
+   without picking it first */
+.film-search-item-body{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.film-search-synopsis{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
 .gig-seen-pill{flex-shrink:0; display:inline-block; background:var(--brand-tint); color:var(--brand-dark);
   font-weight:700; font-size:.72rem; padding:4px 10px; border-radius:999px; white-space:nowrap;}
 .gig-seen-pill.off{background:var(--bg); color:var(--muted);}
@@ -7138,10 +7143,14 @@ function filmTitleSearch(q){
       FILM_SEARCH_RESULTS = data.films||[];
       if(!FILM_SEARCH_RESULTS.length){ cur.innerHTML = `<div class="gig-search-results"><div class="gig-search-item muted small">No films found - you can still save this title as typed</div></div>`; return; }
       cur.innerHTML = `<div class="gig-search-results">${FILM_SEARCH_RESULTS.map((m,n)=>`
-        <div class="gig-search-item" role="button" tabindex="0" onclick="App.filmTitlePick(${n})"
+        <div class="gig-search-item" style="align-items:flex-start" role="button" tabindex="0" onclick="App.filmTitlePick(${n})"
           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.filmTitlePick(${n})}">
           ${m.image ? `<img class="film-search-thumb" src="${esc(m.image)}" alt="">` : `<span class="film-search-thumb gig-cover-fallback">${fa('film')}</span>`}
-          <span>${esc(m.title)}${m.year?` <span class="muted">(${esc(m.year)})</span>`:''}</span>
+          <div class="film-search-item-body">
+            <span>${esc(m.title)}${m.year?` <span class="muted">(${esc(m.year)})</span>`:''}</span>
+            ${m.genres&&m.genres.length ? `<span class="small muted">${esc(m.genres.join(', '))}</span>` : ''}
+            ${m.synopsis ? `<span class="small muted film-search-synopsis">${esc(m.synopsis)}</span>` : ''}
+          </div>
         </div>`).join('')}</div>`;
     })
     .catch(e => {
