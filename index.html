@@ -1502,7 +1502,7 @@ body.kb-open .tabbar.on{display:none;}
    end up the same height, with the text bottom-aligned inside whichever one has room to spare.
    object-fit: contain (not cover) so the whole poster shows rather than cropping it to fill a
    fixed box. */
-.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px);}
+.film-sort-screen{display:flex; flex-direction:column; min-height:calc(100dvh - var(--bar-h,0px) - 28px); padding-bottom:56px;}
 .film-sort-center{flex:1; display:flex; flex-direction:column; justify-content:center;}
 .film-sort-arena{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; column-gap:14px;}
 .film-sort-poster-cell{grid-row:1; display:block; width:100%; border:1px solid var(--line); border-bottom:none;
@@ -1524,6 +1524,14 @@ body.kb-open .tabbar.on{display:none;}
 .film-sort-side-a{grid-column:1;}
 .film-sort-side-b{grid-column:2;}
 .film-sort-title-name{font-weight:700;}
+/* the game's overall completion, fixed to the bottom of the screen (same --bar-h stacking as
+   .add-bar) - how many films across every tied rating have been placed so far, not just the
+   current one, since a round can jump between ratings each time (see advanceFilmSort) */
+.film-sort-progress-wrap{position:fixed; left:0; right:0; bottom:var(--bar-h,0px); z-index:57;
+  padding:10px 16px; background:var(--paper); border-top:1px solid var(--line);}
+.film-sort-progress-label{text-align:center; margin:0 0 6px;}
+.film-sort-progress-bar{height:6px; border-radius:3px; background:var(--bg); overflow:hidden;}
+.film-sort-progress-fill{height:100%; background:var(--brand); border-radius:3px; transition:width .2s;}
 /* the "what do you want to add" screen the sticky button opens - three big tappable rows
    rather than the cramped inline buttons this replaced, each handing straight off to the
    exact same form/tab the old button did */
@@ -1761,8 +1769,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.0';
+const APP_VERSION = '2.83.1';
 const CHANGELOG = [
+  {version:'2.83.1', notes:[
+    "Added a progress bar to the bottom of Rank Ties, showing how many films across every tied rating have been placed so far."
+  ]},
   {version:'2.83.0', notes:[
     "Rank Ties now mixes every tied rating together instead of finishing one before starting the next - one round can be a 10 v 10, the next a 4 v 4, all in a random order. Fixed a saved run from an older version of the game leaving Continue Ranking unresponsive instead of resuming (any run saved before this update gets discarded rather than crashing on resume). Also moved the Leaderboard's Back to Top button to appear once you've scrolled about a tenth of the way down, instead of a quarter."
   ]},
@@ -8065,6 +8076,7 @@ function persistFilmSortState(){
 function filmSortStateValid(state){
   if(!state || typeof state.sortedByRating!=='object' || !Array.isArray(state.active)) return false;
   if(!Array.isArray(state.settledRatings) || typeof state.totalTiers!=='number') return false;
+  if(typeof state.totalToPlace!=='number') return false;
   const byId = new Map((DB.films||[]).map(f=>[f.id,f]));
   const idsMatchRating = (rating, ids) => ids.every(id => byId.has(id) && byId.get(id).rating===Number(rating));
   if(!Object.keys(state.sortedByRating).every(r => idsMatchRating(r, state.sortedByRating[r]))) return false;
@@ -8082,7 +8094,11 @@ function renderFilmSortGame(){
       sortedByRating[t.rating] = [t.ids[0]];
       t.ids.slice(1).forEach(id => active.push({id, rating:t.rating, loBound:null, hiBound:null}));
     });
-    FILM_SORT_STATE = {totalTiers: ties.length, sortedByRating, active, settledRatings: [], history: []};
+    // totalToPlace is fixed at however many films needed placing when the run started - the
+    // progress bar (see renderFilmSortRound) compares state.active's shrinking length against
+    // this fixed starting count, not against itself, so it actually fills up rather than always
+    // reading 0%
+    FILM_SORT_STATE = {totalTiers: ties.length, totalToPlace: active.length, sortedByRating, active, settledRatings: [], history: []};
   }
   advanceFilmSort();
 }
@@ -8163,6 +8179,8 @@ function renderFilmSortRound(){
   const {lo, hi} = filmSortBounds(state, current);
   const mid = (lo+hi) >> 1;
   const aId = current.id, bId = state.sortedByRating[current.rating][mid];
+  const placed = state.totalToPlace - state.active.length;
+  const pct = state.totalToPlace ? Math.round((placed/state.totalToPlace)*100) : 0;
   $('#app').innerHTML = `
     <div class="film-sort-screen">
       <div class="crumb">
@@ -8185,6 +8203,10 @@ function renderFilmSortRound(){
           <button type="button" class="btn sm ghost" onclick="App.filmSortUndo()"${state.history.length?'':' disabled'}>${fa('rotate-left')} Undo</button>
         </div>
       </div>
+    </div>
+    <div class="film-sort-progress-wrap">
+      <p class="small muted film-sort-progress-label">${placed} of ${state.totalToPlace} films placed &middot; ${pct}%</p>
+      <div class="film-sort-progress-bar"><div class="film-sort-progress-fill" style="width:${pct}%"></div></div>
     </div>`;
   window.scrollTo(0,0);
 }
