@@ -93,9 +93,22 @@ function itemId(block){
 const round2 = n => n==null ? null : Math.round(n*100)/100;
 
 /* wraps a failed BGG response with a snippet of its body - a bare status code (e.g. "400")
-   isn't enough to tell a bad request shape apart from a bad token apart from a BGG-side outage */
+   isn't enough to tell a bad request shape apart from a bad token apart from a BGG-side outage.
+   A 403/503 with an HTML body (BGG's own site shell, not an XML API error - see this file's top
+   comment) means the request never even reached the point of being treated as an API call, so
+   there's no useful detail buried in that markup to surface - showing it verbatim was just a
+   wall of "<!DOCTYPE html> <!--[if lt IE 7]>..." tag soup with nothing actionable in it. Swapped
+   for a plain explanation of what that shape of response means instead; the real body still goes
+   to the server log for anyone actually debugging it. */
 async function bggError(res){
-  const body = (await res.text().catch(()=>'')).slice(0,200).replace(/\s+/g,' ').trim();
+  const raw = await res.text().catch(()=>'');
+  if(/^\s*<(!doctype|html)/i.test(raw)){
+    console.error('BGG returned an HTML page instead of API data, status', res.status, '- first 300 chars:', raw.slice(0,300));
+    return new Error(`BoardGameGeek returned ${res.status} with a web page instead of game data - `
+      +'that means the request never reached its API at all (a block on their end, not a bad login). '
+      +'If this keeps happening, it may be worth checking BGG_API_TOKEN is still valid.');
+  }
+  const body = raw.slice(0,200).replace(/\s+/g,' ').trim();
   return new Error('BoardGameGeek returned '+res.status+(body ? ' ('+body+')' : ''));
 }
 async function bggIds(path, limit){
