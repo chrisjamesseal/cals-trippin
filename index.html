@@ -1788,8 +1788,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.84.2';
+const APP_VERSION = '2.84.3';
 const CHANGELOG = [
+  {version:'2.84.3', notes:[
+    "Board Games: the \"Couldn't load board games\" error at least reads properly now instead of dumping a wall of raw HTML tags - BoardGameGeek returning a whole web page instead of real game data means the request is being blocked before it even reaches their API, and that page's markup never had anything useful in it to show. Doesn't fix the underlying block itself, which still needs looking into on BoardGameGeek's side (or checking whether BGG_API_TOKEN has expired)."
+  ]},
   {version:'2.84.2', notes:[
     "A game's own page: the cover image is square now instead of a tall poster crop, the rating moved up to sit right under the trophy completion line instead of below the whole trophy breakdown, and rating itself is a tap-a-star row (whole numbers, 0-10) instead of a dropdown with half-steps - tapping the star that's already your rating clears it."
   ]},
