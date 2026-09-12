@@ -8,8 +8,18 @@
    registered application's Bearer token, regardless of which network it comes from. Moving to
    Vercel didn't fix it because there was nothing network-level to route around. See
    https://boardgamegeek.com/using_the_xml_api to register (free) and get a token, then set it
-   as the BGG_API_TOKEN environment variable on this Vercel project - see psn-proxy/README.md. */
-export const config = { runtime: 'edge' };
+   as the BGG_API_TOKEN environment variable on this Vercel project - see psn-proxy/README.md.
+
+   Later still: a 403 with an HTML body (BGG's own site shell, not an XML API error) instead of
+   the usual 401/JSON - that's the request getting stopped at BGG's own front door/WAF before the
+   Bearer token is even checked, not a token problem. Vercel's edge runtime's outbound traffic
+   looks different at the network level (its own fetch/TLS stack, running from a different IP
+   pool than a plain Node serverless function) - exactly the kind of thing a bot-detecting WAF
+   fingerprints, and exactly the same shape of problem the Cloudflare Worker move above was
+   chasing before that turned out to be a red herring. This time trying the other direction: the
+   plain nodejs runtime instead of edge, since the pattern (this exact endpoint, not the app's
+   other proxy calls) points at BGG reacting to something about how the request reaches it. */
+export const config = { runtime: 'nodejs' };
 
 function decodeEntities(s){
   return s.replace(/&lt;/g,'<').replace(/&gt;/g,'>')

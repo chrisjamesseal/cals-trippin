@@ -1782,8 +1782,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.11';
+const APP_VERSION = '2.83.12';
 const CHANGELOG = [
+  {version:'2.83.12', notes:[
+    "Board Games: tried a fix for \"Couldn't load board games\" (BoardGameGeek returning a 403 with a generic web-page error instead of real game data) - moved that one endpoint off Vercel's edge runtime to its plain Node.js one. A 403 with an HTML body means BoardGameGeek's own front door is blocking the request before it even gets to checking the app's API token, and edge functions reach the outside world over a distinctly different network path (their own fetch implementation, a different IP range) than a plain Node function does - exactly the kind of thing that trips a site's bot defences. Couldn't confirm this actually clears it without a live BoardGameGeek connection to test against, so if it's still failing after this, that's useful to know."
+  ]},
   {version:'2.83.11', notes:[
     "Itinerary: a time badge with nothing next to it on the same line (a flight's departure time wrapping onto its own line above a long route name, say) no longer leaves a bare dash sitting there by itself - the dash now travels with whatever it's introducing, so it's never stranded alone. Also found why the route map could come up completely blank for a trip whose only stop was a flight with no accommodation booked yet: airport names like \"Basel EuroAirport\" aren't real places a map geocoder recognises, and the fallback already built for this (used by the map's dashed flight lines) had never been wired into the numbered pins themselves - so the one pin that should've shown never resolved, and the map never had anything to frame."
   ]},
