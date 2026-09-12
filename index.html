@@ -251,9 +251,9 @@ a{color:var(--brand-dark);}
 .game-progress-bar.rag-green{background:var(--rag-green);}
 /* ---------- individual game page ---------- */
 .game-detail-card{display:flex; flex-direction:column; align-items:center; text-align:center;}
-.game-detail-icon{width:min(220px,58vw); aspect-ratio:2/3; height:auto; border-radius:var(--radius); object-fit:cover;
+.game-detail-icon{width:min(220px,58vw); aspect-ratio:1; height:auto; border-radius:var(--radius); object-fit:cover;
   background:var(--bg); margin-bottom:14px; font-size:3rem; box-shadow:var(--shadow);}
-.game-detail-icon.game-cover-fallback{width:min(220px,58vw); height:calc(min(220px,58vw) * 3 / 2);}
+.game-detail-icon.game-cover-fallback{width:min(220px,58vw); height:min(220px,58vw);}
 /* PS4 titles get wide (roughly 16:9) trophy art from Sony, not the portrait shape PS5's own
    detail icon assumes above - same reasoning as .game-cover-wrap.wide in the grid */
 .game-detail-icon.wide{width:min(360px,84vw); aspect-ratio:16/9; object-fit:contain;}
@@ -266,6 +266,13 @@ a{color:var(--brand-dark);}
 .game-tier-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line);}
 .game-tier-emoji{font-size:1.2rem; line-height:1;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+/* the rating row's own tap targets - one shape (fa-solid star) throughout, tinted rather than
+   swapped for an outline version to fill/empty it, same as .chip.pick.on and the Rank Ties
+   arrows' own green/red tints already do elsewhere rather than adding a second icon variant */
+.game-star-row{display:flex; justify-content:center; gap:2px;}
+.game-star{background:none; border:none; padding:5px 2px; cursor:pointer; font-size:1.3rem; color:var(--line-strong);}
+.game-star.on{color:var(--brand);}
+.game-star:hover,.game-star:focus-visible{color:var(--brand-dark);}
 /* ---------- individual board game page ---------- */
 .bg-detail-card{display:flex; flex-direction:column; align-items:center; text-align:center;}
 .bg-detail-cover{width:min(220px,58vw); aspect-ratio:1/1; height:auto; border-radius:var(--radius); object-fit:cover;
@@ -1781,8 +1788,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.84.1';
+const APP_VERSION = '2.84.2';
 const CHANGELOG = [
+  {version:'2.84.2', notes:[
+    "A game's own page: the cover image is square now instead of a tall poster crop, the rating moved up to sit right under the trophy completion line instead of below the whole trophy breakdown, and rating itself is a tap-a-star row (whole numbers, 0-10) instead of a dropdown with half-steps - tapping the star that's already your rating clears it."
+  ]},
   {version:'2.84.1', notes:[
     "Films Leaderboard: the Rank Ties button is a sticky bar pinned above the tab bar now, always in reach instead of scrolled away at the top the moment you're a few films down Top Films - and it's relabelled \"Rank Films 🏆\" whether you're starting fresh or resuming a run in progress, instead of switching between \"Rank Ties\" and \"Continue Ranking\"."
   ]},
@@ -6096,22 +6106,33 @@ function renderGameDetail(id){
       <div class="small muted game-detail-meta">${esc(g.platform||'')}${g.lastPlayed?' &middot; Last played '+esc(fmtDate(g.lastPlayed.slice(0,10))):''}</div>
       <div class="game-progress"><div class="game-progress-bar ${rag}" style="width:${pct}%"></div></div>
       <div class="small game-detail-pct ${rag}">${pct}% Complete &middot; ${e.total||0}/${d.total||0} Trophies</div>
+      ${gameRatingStarsHTML(g.id, rating)}
       <div class="game-tiers">
         ${tierRow('Platinum','🏆',e.platinum,d.platinum)}
         ${tierRow('Gold','🥇',e.gold,d.gold)}
         ${tierRow('Silver','🥈',e.silver,d.silver)}
         ${tierRow('Bronze','🥉',e.bronze,d.bronze)}
       </div>
-      <div class="field" style="text-align:left;margin-top:18px">
-        <label class="label" for="game-rating-select">Your Rating</label>
-        <select id="game-rating-select" onchange="App.rateGame('${esc(g.id)}', this.value)">
-          <option value=""${rating==null?' selected':''}>No rating</option>
-          ${FILM_SCORE_VALUES.map(v=>`<option value="${v}"${rating===v?' selected':''}>${filmScoreLabel(v)}/10</option>`).join('')}
-        </select>
-      </div>
       <div class="btn-row" style="margin-top:14px">
         <button class="btn sm ghost" style="flex:1" onclick="App.psnToggleHidden('${esc(g.id)}');location.hash='#/games'">${hidden?'Unhide':'Hide'} This Game</button>
       </div>
+    </div>`;
+}
+/* a tap-to-rate star row, 0-10 whole numbers (not Films' own half-steps - a dropdown is worth
+   it there to reach a scale twice as fine, but a plain tap target down the row is both quicker
+   and precise enough at half its resolution). Tapping the star that's already the current rating
+   clears it back to no rating instead of doing nothing, so the same row can also undo a rating
+   without a separate control for it. */
+function gameRatingStarsHTML(id, rating){
+  const stars = Array.from({length:10}, (_,i) => {
+    const n = i+1, filled = rating!=null && n<=rating;
+    return `<button type="button" class="game-star${filled?' on':''}" aria-label="Rate ${n} out of 10" onclick="App.rateGame('${esc(id)}', ${rating===n?"''":n})">${fa('star')}</button>`;
+  }).join('');
+  return `
+    <div class="field" style="margin-top:14px">
+      <label class="label">Your Rating</label>
+      <div class="game-star-row" role="radiogroup" aria-label="Rating out of 10">${stars}</div>
+      <p class="small muted" style="margin-top:2px">${rating!=null?rating+'/10':'Not rated yet'}</p>
     </div>`;
 }
 async function psnConnectImpl(){
@@ -10108,6 +10129,10 @@ App.rateGame = (id, raw) => {
   if(v==null) delete ratings[id]; else ratings[id] = v;
   saveGameRatings(ratings);
   toast(v==null ? 'Rating cleared' : 'Rating saved');
+  // re-renders the star row (and the game page as a whole) with the just-saved rating - this
+  // is a full-page re-render function, not something a single element swap could reasonably
+  // stand in for, and it's cheap since PSN_TITLES is already in memory
+  if(location.hash==='#/game/'+encodeURIComponent(id)) renderGameDetail(id);
 };
 /* crossing into a different rating on the way past its neighbour carries that neighbour's rating
    along with it, same reasoning as App.filmLeaderboardMove: the game's own number should agree
