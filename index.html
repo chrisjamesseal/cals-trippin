@@ -1782,8 +1782,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.13';
+const APP_VERSION = '2.83.14';
 const CHANGELOG = [
+  {version:'2.83.14', notes:[
+    "Itinerary route map now includes every planned Stop (Europa Park, Rulantica Water Park…), not just flights/accommodation/Locations - a trip built entirely out of day-by-day Stops with nothing else booked used to leave the map with only the two bookend flights to show (or, once its own destination got trimmed as \"just going home\", sometimes just one), zoomed in tight on whichever single pin that left. Now every named Stop numbers in along the route in date order, same as everything else already did."
+  ]},
   {version:'2.83.13', notes:[
     "Reverted the previous Board Games attempt - switching that endpoint to Vercel's plain Node.js runtime to dodge what looked like a BoardGameGeek bot-block turned a 403 into a bare 500 instead, meaning that runtime doesn't actually support this handler the same way. Back on the edge runtime it was on before. The underlying \"Couldn't load board games\" problem itself is still unresolved."
   ]},
@@ -12846,11 +12849,16 @@ function mapRouteStops(t){
   // so the map still shows something rather than going blank.
   const stops = routeStops(t).filter(s=>!s.gap);
   const checkinDates = new Set((t.accommodations||[]).map(a=>a.checkin).filter(Boolean));
-  const dedupJourneys = list => list.filter(s => !(s.journey && checkinDates.has(s.date)));
+  // .mode (flight/ferry/car) is what marks an actual transit leg here, not the more general
+  // journey:true every one of these non-accommodation stops carries (a planned Stop reuses it
+  // too - see routeStops) - both the "drop the trailing leg home" and "a same-day stay already
+  // covers this arrival" trims below are about transit specifically, and shouldn't also eat a
+  // day's own planned activity just for happening to share that same flag or fall on the same day
+  const dedupJourneys = list => list.filter(s => !(s.journey && s.mode && checkinDates.has(s.date)));
   let trimmed = stops.slice();
   // the flight home is never a stop worth numbering, whatever else is on the route - unlike the
   // outbound leg, its own destination (wherever you live) was never really "on the trip"
-  if(trimmed.length && trimmed[trimmed.length-1].journey) trimmed.pop();
+  if(trimmed.length && trimmed[trimmed.length-1].journey && trimmed[trimmed.length-1].mode) trimmed.pop();
   // an arrival flight/ferry/car-hire IS a real stop in its own right (it's where the trip
   // starts) unless something already covers the same ground - a stay checking in that same day
   // (see dedupJourneys) - so it's only dropped when it'd otherwise duplicate that stay's own pin,
@@ -14161,11 +14169,25 @@ function routeStops(t){
         when: a.checkout ? fmtRange(a.checkin, a.checkout) : fmtDate(a.checkin), nights};
     });
   const journeys = routeJourneys(t).map(j=>({...j, gap:false, journey:true, nights:0}));
+  // a planned Stop (App.planForm - "Europa Park", "Rulantica Water Park") is a real place on the
+  // route in its own right, not just a booking-derived one, for a trip built entirely out of day
+  // activities with no accommodation or Locations set up at all - without this the map had
+  // nothing but the two bookend flights to show, however many named stops the day list itself
+  // was full of. journey:true reuses the same "geocode this by name/address, no accommodation
+  // record behind it" path resolveRouteStopPins already has (see its own comment) - but marked
+  // apart from an actual transit leg (no `mode`) so the "drop the trailing return flight"/
+  // same-day-as-checkin dedup just below, both meant only for flights/ferries/car hires, don't
+  // also swallow a same-day activity or the trip's very last one. Only ever a same-page day
+  // ("date" set) trip can place these - a rough "day N" trip's stops carry a day OFFSET instead
+  // of a real one to sort or geocode against, so they're left out rather than guessed at.
+  const activities = (t.itinerary||[]).filter(s=>s.date && s.name).map(s=>
+    ({date:s.date, gap:false, journey:true, name:s.name, address:s.location||'', nights:0}));
   const gaps = stayGaps(t).map(g=>({date:g.firstNight, gap:true, journey:false, checkin:g.firstNight, checkout:g.checkout,
     when: g.nights===1 ? fmtDate(g.firstNight) : fmtRange(g.firstNight, g.checkout), nights:g.nights}));
   // ties (a flight landing the same day a stay starts) keep journeys first, then stays, then
-  // gaps - you land, then check in, then whatever's still not booked shows up last
-  return journeys.concat(stays, gaps).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+  // planned activities, then gaps - you land, then check in, then do whatever's planned, then
+  // whatever's still not booked shows up last
+  return journeys.concat(stays, activities, gaps).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
 }
 const JOURNEY_FORM = {flight:'App.flightForm', ferry:'App.ferryForm', car:'App.carForm'};
 
