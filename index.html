@@ -1782,8 +1782,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.10';
+const APP_VERSION = '2.83.11';
 const CHANGELOG = [
+  {version:'2.83.11', notes:[
+    "Itinerary: a time badge with nothing next to it on the same line (a flight's departure time wrapping onto its own line above a long route name, say) no longer leaves a bare dash sitting there by itself - the dash now travels with whatever it's introducing, so it's never stranded alone. Also found why the route map could come up completely blank for a trip whose only stop was a flight with no accommodation booked yet: airport names like \"Basel EuroAirport\" aren't real places a map geocoder recognises, and the fallback already built for this (used by the map's dashed flight lines) had never been wired into the numbered pins themselves - so the one pin that should've shown never resolved, and the map never had anything to frame."
+  ]},
   {version:'2.83.10', notes:[
     "Fixed Rank Ties' progress bar resetting to 0% after manually reordering a film on the Leaderboard. Moving a film across a rating boundary changes its own rating to match (so the number on the board agrees with where it's sitting), and a saved run used to treat any film's rating no longer matching where it had it as a reason to throw the whole run away. Now it just drops that one film from the run instead and keeps everything else - and the progress already made - exactly as it was."
   ]},
@@ -12209,8 +12212,8 @@ function planDaysHTML(t, ro, filterKeys){
     return `
     <div class="flight-strip itin-flight">
       <div class="flight-head">
-        ${f.depTime?`<span class="itin-time">${esc(f.depTime)} -</span>`:''}
-        <strong class="head-with-logo">${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(fromName)} → ${esc(toName)}</span></strong>
+        ${f.depTime?`<span class="itin-time">${esc(f.depTime)}</span>`:''}
+        <strong class="head-with-logo">${f.depTime?'- ':''}${logo}<span>${logo?'':secEmoji('✈️')+' '}${esc(fromName)} → ${esc(toName)}</span></strong>
         ${f.seats?`<span class="itin-seats"><i class="icon fa-solid fa-chair"${AIRLINE_COLORS[f.airline]?` style="color:${AIRLINE_COLORS[f.airline]}"`:''}></i>${esc(f.seats)}</span>`:''}
       </div>
       <div class="itin-amenities">${amenities.map(a=>
@@ -12270,8 +12273,8 @@ function planDaysHTML(t, ro, filterKeys){
     return `
     <div class="flight-strip itin-flight">
       <div class="flight-head">
-        <span class="itin-time">${primaryTime?esc(primaryTime)+' -':''}</span>
-        <strong class="head-with-logo">${logo}<span${ac.asTask?' class="text-undecided"':''}>${esc(titleText)}</span></strong>
+        <span class="itin-time">${primaryTime?esc(primaryTime):''}</span>
+        <strong class="head-with-logo">${primaryTime?'- ':''}${logo}<span${ac.asTask?' class="text-undecided"':''}>${esc(titleText)}</span></strong>
         ${nights?`<span class="itin-seats">${nights} Night${nights===1?'':'s'}</span>`:''}
       </div>
       ${ac.address && ac.address!==cityName?`<div class="itin-route-name">${esc(ac.address)}</div>`:''}
@@ -12398,8 +12401,8 @@ function planDaysHTML(t, ro, filterKeys){
     const head = `
       <div class="section-head" style="margin-bottom:${hasBelow||(time&&s.location)?'4px':'0'}">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0">
-          ${time?`<span class="itin-time">${esc(time)} -</span>`:''}
-          <h3>${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${!time&&s.location?' - '+esc(s.location):''}</h3>
+          ${time?`<span class="itin-time">${esc(time)}</span>`:''}
+          <h3>${time?'- ':''}${secEmoji(s.emoji || ideaEmojiFor(s.name))} ${esc(s.name)}${!time&&s.location?' - '+esc(s.location):''}</h3>
         </div>
         ${!hasImage ? mapIconLink : ''}
       </div>
@@ -12732,7 +12735,13 @@ function resolveRouteStopPins(t, numbered, onUpdate){
        particular stop is actually in. */
     const countryQualified = (t.countries||[]).map(c=>(countryByCode(c)||{}).name).filter(Boolean)
       .map(name => `${s.name}, ${name}`);
-    const cands = [...new Set([...override, ...countryQualified, s.name, ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())])];
+    // a flight stop's own name can be an airport-specific descriptor a place-name geocoder
+    // won't recognise ("Basel EuroAirport") - same fallback mapFlightLines/resolveFlightLineCoords
+    // already uses for the dashed flight line, just never wired into this, the numbered-pin
+    // resolver, so the pin (and therefore the whole map, if it was the only stop) went undrawn
+    const airportCity = (s.mode==='flight' && s.code) ? AIRPORT_CITY[String(s.code).toUpperCase()] : null;
+    const cands = [...new Set([...override, ...countryQualified, s.name, airportCity,
+      ...fromAddress.filter(c => c.toLowerCase() !== s.name.toLowerCase())].filter(Boolean))];
     const listKey = cands.join('|');
     const known = WX_LIST_GEO[listKey];
     if(known){ pins[idx] = known; settled++; onUpdate(pins, settled); return; }
@@ -14120,7 +14129,7 @@ function routeJourneys(t){
   (t.flights||[]).forEach((f,i)=>{
     if(!f.to || !f.date) return;
     const name = airportName(f.to)||f.to;
-    list.push({date:f.date, time:f.depTime||'', place:name, name, mode:'flight', label:'Flight', i});
+    list.push({date:f.date, time:f.depTime||'', place:name, name, mode:'flight', label:'Flight', i, code:f.to});
   });
   (t.ferries||[]).forEach((f,i)=>{
     if(!f.to || !f.date) return;
