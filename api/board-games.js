@@ -11,15 +11,14 @@
    as the BGG_API_TOKEN environment variable on this Vercel project - see psn-proxy/README.md.
 
    Later still: a 403 with an HTML body (BGG's own site shell, not an XML API error) instead of
-   the usual 401/JSON - that's the request getting stopped at BGG's own front door/WAF before the
-   Bearer token is even checked, not a token problem. Vercel's edge runtime's outbound traffic
-   looks different at the network level (its own fetch/TLS stack, running from a different IP
-   pool than a plain Node serverless function) - exactly the kind of thing a bot-detecting WAF
-   fingerprints, and exactly the same shape of problem the Cloudflare Worker move above was
-   chasing before that turned out to be a red herring. This time trying the other direction: the
-   plain nodejs runtime instead of edge, since the pattern (this exact endpoint, not the app's
-   other proxy calls) points at BGG reacting to something about how the request reaches it. */
-export const config = { runtime: 'nodejs' };
+   the usual 401/JSON pointed at BGG's own front door/WAF blocking the request before the Bearer
+   token was even checked. Tried switching this one endpoint from edge to the plain nodejs
+   runtime to dodge it (edge's outbound traffic looks different at the network level and seemed
+   like a plausible bot-defence trigger) - that made it worse, turning into a bare 500 with no
+   JSON body at all, meaning this handler's Web-standard Request/Response signature isn't
+   actually supported the same way under Vercel's nodejs runtime as it is under edge. Reverted
+   back to edge - whatever's actually blocking BGG's front door, it isn't the runtime. */
+export const config = { runtime: 'edge' };
 
 function decodeEntities(s){
   return s.replace(/&lt;/g,'<').replace(/&gt;/g,'>')

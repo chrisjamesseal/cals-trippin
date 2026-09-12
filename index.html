@@ -1782,8 +1782,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.12';
+const APP_VERSION = '2.83.13';
 const CHANGELOG = [
+  {version:'2.83.13', notes:[
+    "Reverted the previous Board Games attempt - switching that endpoint to Vercel's plain Node.js runtime to dodge what looked like a BoardGameGeek bot-block turned a 403 into a bare 500 instead, meaning that runtime doesn't actually support this handler the same way. Back on the edge runtime it was on before. The underlying \"Couldn't load board games\" problem itself is still unresolved."
+  ]},
   {version:'2.83.12', notes:[
     "Board Games: tried a fix for \"Couldn't load board games\" (BoardGameGeek returning a 403 with a generic web-page error instead of real game data) - moved that one endpoint off Vercel's edge runtime to its plain Node.js one. A 403 with an HTML body means BoardGameGeek's own front door is blocking the request before it even gets to checking the app's API token, and edge functions reach the outside world over a distinctly different network path (their own fetch implementation, a different IP range) than a plain Node function does - exactly the kind of thing that trips a site's bot defences. Couldn't confirm this actually clears it without a live BoardGameGeek connection to test against, so if it's still failing after this, that's useful to know."
   ]},
