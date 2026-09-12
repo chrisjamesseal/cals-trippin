@@ -1782,8 +1782,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.14';
+const APP_VERSION = '2.83.15';
 const CHANGELOG = [
+  {version:'2.83.15', notes:[
+    "Itinerary route map: the outbound and return flights bookending a trip now get their own dashed line too, same as a flight between two of the trip's own stops already did - a simple there-and-back trip (fly out, fly home, nothing in between) used to show no flight line at all. Doesn't affect how the map frames itself; that's still driven only by the numbered stops."
+  ]},
   {version:'2.83.14', notes:[
     "Itinerary route map now includes every planned Stop (Europa Park, Rulantica Water Park…), not just flights/accommodation/Locations - a trip built entirely out of day-by-day Stops with nothing else booked used to leave the map with only the two bookend flights to show (or, once its own destination got trimmed as \"just going home\", sometimes just one), zoomed in tight on whichever single pin that left. Now every named Stop numbers in along the route in date order, same as everything else already did."
   ]},
@@ -12878,16 +12881,19 @@ function mapRouteStops(t){
    wxResolve needs anyway. Carries the raw codes alongside the display names so
    resolveFlightLineCoords can fall back to AIRPORT_CITY when a display name alone doesn't
    geocode. */
-/* the outbound and return flights bookending the trip don't get their own dashed line - their
-   destination/origin is home, off in whatever direction, not really "on" the route the way a
-   flight between two of the trip's own stops would be. mapRouteStops already keeps the outbound
-   leg's own destination as stop 1 in its own right, so nothing about it goes undrawn by dropping
-   its line too; only a flight strictly between two other dated flights (a multi-leg trip) is
-   still a real journey worth its own line. */
+/* every dated flight gets its own dashed line, the outbound and return legs bookending the trip
+   included - home is off in whatever direction, but the trip still very much starts and ends
+   with actually getting there, and a line only as far as the frame already fits (see below)
+   shows that without pulling the view out to include home itself. This used to only draw a line
+   for a flight strictly between two other dated flights (a multi-leg trip), skipping the
+   bookends entirely on the reasoning that mapRouteStops already keeps the outbound leg's own
+   destination as stop 1 - true, but a numbered pin for where you land isn't the same as a line
+   showing you actually flew there from somewhere. redrawFlights below never feeds these lines'
+   coordinates into fitBounds, so drawing more of them still can't pull the framing out towards
+   home - only the numbered stops' own pins do that. */
 function mapFlightLines(t){
   const dated = (t.flights||[]).filter(f=>f.from && f.to && f.date).sort((a,b)=>a.date.localeCompare(b.date));
-  const inner = dated.length>2 ? dated.slice(1,-1) : [];
-  return inner.map(f=>({from: airportName(f.from)||f.from, to: airportName(f.to)||f.to, fromCode:f.from, toCode:f.to}));
+  return dated.map(f=>({from: airportName(f.from)||f.from, to: airportName(f.to)||f.to, fromCode:f.from, toCode:f.to}));
 }
 /* resolves each flight leg's two endpoints independently (rather than reusing
    resolveRouteStopPins, which is shaped around one place per numbered stop) and calls
