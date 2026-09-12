@@ -417,15 +417,14 @@ a{color:var(--brand-dark);}
    same click-to-filter destination either way. */
 .stat-overview-row{display:flex; gap:10px; margin-bottom:20px;}
 .stat-overview-row .dash-widget{flex:1;}
-.stats-chart{display:flex; align-items:flex-end; gap:5px; margin-bottom:22px; overflow-x:auto; padding-bottom:2px;}
-.stats-bar{flex:1; min-width:24px; display:flex; flex-direction:column; align-items:center;
+.stats-chart{display:flex; flex-direction:column; gap:7px; margin-bottom:22px;}
+.stats-bar{display:flex; align-items:center; gap:8px; width:100%;
   font:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer;}
-.stats-bar-track{display:flex; flex-direction:column; justify-content:flex-end; align-items:center;
-  width:100%; height:100px;}
-.stats-bar-count{font-size:.68rem; font-weight:700; color:var(--ink); margin-bottom:4px; white-space:nowrap;}
-.stats-bar-fill{width:100%; max-width:30px; background:var(--brand); border-radius:4px 4px 0 0; transition:background .12s;}
+.stats-bar-label{font-size:.72rem; color:var(--muted); width:34px; flex-shrink:0; text-align:right; white-space:nowrap;}
+.stats-bar-track{flex:1; height:16px; border-radius:4px; background:var(--bg); overflow:hidden;}
+.stats-bar-fill{display:block; height:100%; background:var(--brand); border-radius:4px; transition:background .12s;}
 .stats-bar:hover .stats-bar-fill,.stats-bar:focus-visible .stats-bar-fill{background:var(--brand-dark);}
-.stats-bar-label{font-size:.66rem; color:var(--muted); margin-top:6px; white-space:nowrap;}
+.stats-bar-count{font-size:.72rem; font-weight:700; color:var(--ink); width:30px; flex-shrink:0; white-space:nowrap;}
 
 /* ---------- home dashboard (masonry widgets) ---------- */
 /* Two explicit column divs (each tile's home decided in JS, see dashColAHTML/dashColBHTML)
@@ -1782,8 +1781,13 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.15';
+const APP_VERSION = '2.84.0';
 const CHANGELOG = [
+  {version:'2.84.0', notes:[
+    "Films Stats: the By Year/By Rating charts are horizontal bars now instead of vertical, so a diary spanning a lot of years reads as a longer list instead of a row of ever-thinner columns.",
+    "Games: your PS5/PS4 library can be rated 0.5-10 now (open a game's own page), and there's a new Leaderboard subtab ranking every rated game highest-first, reorderable by hand the same way Films' own Leaderboard is.",
+    "Theatre: shows move onto the same 0.5-10 rating scale Films and Games use, replacing the old 0.5-5 one (an existing rating is carried over, doubled, so a 4.5-star favourite reads as 9/10 rather than suddenly looking mediocre) - and gets its own Leaderboard subtab too, same as the other two."
+  ]},
   {version:'2.83.15', notes:[
     "Itinerary route map: the outbound and return flights bookending a trip now get their own dashed line too, same as a flight between two of the trip's own stops already did - a simple there-and-back trip (fly out, fly home, nothing in between) used to show no flight line at all. Doesn't affect how the map frames itself; that's still driven only by the numbered stops."
   ]},
@@ -5730,6 +5734,72 @@ function psnUrl(path){ return PSN_PROXY_URL.replace(/\/$/,'') + path; }
 /* hiding a game is a per-device preference, nothing to do with PSN itself */
 function psnHidden(){ try{ return new Set(JSON.parse(localStorage.getItem(PSN_HIDDEN_KEY)||'[]')); }catch(e){ return new Set(); } }
 function savePsnHidden(set){ try{ localStorage.setItem(PSN_HIDDEN_KEY, JSON.stringify([...set])); }catch(e){} }
+/* a game's own rating, 0.5-10 in half steps same as Films (FILM_SCORE_VALUES/filmScoreLabel,
+   reused as-is rather than a second copy of the same scale) - PSN_TITLES only ever lives in
+   memory for the session (see its own comment), so this is the one thing about a game this app
+   actually keeps: {gameId: rating}, synced to the cloud the same way board game marks are, since
+   PSN itself has nowhere to put an opinion about a game. */
+const GAME_RATINGS_KEY = 'calstrippin_game_ratings';
+function gameRatings(){ try{ return JSON.parse(localStorage.getItem(GAME_RATINGS_KEY)||'{}'); }catch(e){ return {}; } }
+function saveGameRatings(m){ try{ localStorage.setItem(GAME_RATINGS_KEY, JSON.stringify(m)); }catch(e){} pushGameRatings(); }
+function gameRatingOf(id){ const v = gameRatings()[id]; return v==null ? null : v; }
+function loadGameRatingsCloud(cb){
+  if(!fbRoot){ cb(gameRatings()); return; }
+  fbRoot.ref('gameRatings').once('value')
+    .then(snap => cb(snap.exists() ? snap.val() : gameRatings()))
+    .catch(() => cb(gameRatings()));
+}
+function pushGameRatings(){
+  if(!fbRoot) return;
+  fbRoot.ref('gameRatings').set(gameRatings())
+    .catch(err => console.error("My Trips, couldn't save game ratings:", err));
+}
+/* the Leaderboard's own manual order - same shape and same reason as filmLeaderboardOrder: a
+   fresh rating (or one never manually moved) defaults to highest-rated-first, but a tie, or just
+   a preference the number alone doesn't capture, can still be walked up/down by hand and that
+   stays put across reloads/devices. Keyed on the game's own PSN id, same as its rating. */
+const GAME_LB_ORDER_KEY = 'calstrippin_game_leaderboard_order';
+let GAME_LB_EDIT_SEQ = 0;
+function gameLeaderboardOrderRaw(){ try{ return JSON.parse(localStorage.getItem(GAME_LB_ORDER_KEY)||'[]'); }catch(e){ return []; } }
+function saveGameLeaderboardOrder(list){
+  GAME_LB_EDIT_SEQ++;
+  try{ localStorage.setItem(GAME_LB_ORDER_KEY, JSON.stringify(list)); }catch(e){}
+  if(!fbRoot) return;
+  fbRoot.ref('gameLeaderboardOrder').set(list)
+    .catch(err => console.error("My Trips, couldn't save the Games leaderboard order:", err));
+}
+function loadGameLeaderboardOrderCloud(cb){
+  const seq = GAME_LB_EDIT_SEQ;
+  if(!fbRoot){ cb(gameLeaderboardOrderRaw()); return; }
+  fbRoot.ref('gameLeaderboardOrder').once('value')
+    .then(snap => { if(seq!==GAME_LB_EDIT_SEQ) return; cb(snap.exists() ? snap.val() : gameLeaderboardOrderRaw()); })
+    .catch(() => { if(seq!==GAME_LB_EDIT_SEQ) return; cb(gameLeaderboardOrderRaw()); });
+}
+/* highest rating first, tiebroken by title - the order a freshly rated game (or one that's never
+   been manually moved) falls into, same shape as filmLeaderboardDefaultOrder */
+function gameLeaderboardDefaultOrder(ratedGames){
+  return ratedGames.slice()
+    .sort((a,b) => b._rating-a._rating || (a.name||'').localeCompare(b.name||''))
+    .map(g=>g.id);
+}
+/* the manual order, minus anything no longer rated and plus any newly-rated game appended in
+   default order - mirrors filmLeaderboardOrder's own reasoning exactly. Needs PSN_TITLES already
+   loaded to know each rated id's name/cover/platform; renderGameLeaderboard fetches that first if
+   it isn't (same as renderGameDetail already does for a direct link to one game). */
+function gameLeaderboardOrder(){
+  const ratings = gameRatings();
+  const byId = new Map(PSN_TITLES.map(g=>[g.id,g]));
+  const rated = Object.keys(ratings)
+    .filter(id => byId.has(id))
+    .map(id => ({...byId.get(id), _rating: ratings[id]}));
+  const ratedIds = new Set(rated.map(g=>g.id));
+  const seen = new Set();
+  const saved = gameLeaderboardOrderRaw().filter(id => ratedIds.has(id) && !seen.has(id) && seen.add(id));
+  const savedSet = new Set(saved);
+  const rest = gameLeaderboardDefaultOrder(rated).filter(id=>!savedSet.has(id));
+  const byRatedId = new Map(rated.map(g=>[g.id,g]));
+  return [...saved, ...rest].map(id=>byRatedId.get(id));
+}
 /* one retry on a stale access token: refresh, then replay the request once more */
 async function psnApi(path){
   const tok = psnTokens();
@@ -5759,16 +5829,17 @@ function renderGames(){
   // in) were both replaced - fall back for anything still holding one of those values
   if((CUR_GAMES_TAB==='board' && !BOARD_GAMES_ENABLED) || CUR_GAMES_TAB==='psn' || CUR_GAMES_TAB==='wishlist') CUR_GAMES_TAB = 'ps5';
   const tab = (k, label) => `<button class="subtab${CUR_GAMES_TAB===k?' on':''}" onclick="App.gamesTab('${k}')">${label}</button>`;
-  const showAdd = CUR_GAMES_TAB!=='board';
+  const showAdd = CUR_GAMES_TAB!=='board' && CUR_GAMES_TAB!=='leaderboard';
   $('#app').classList.toggle('has-sticky-add', showAdd);
   $('#app').innerHTML = `
     <div class="crumb"><div class="crumb-titlerow">
       <span class="crumb-here">Games</span>
     </div></div>
-    <div class="subtabs">${tab('ps5',fab('playstation')+' PS5')}${tab('ps4',fab('playstation')+' PS4')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
+    <div class="subtabs">${tab('ps5',fab('playstation')+' PS5')}${tab('ps4',fab('playstation')+' PS4')}${tab('leaderboard','🏆 Leaderboard')}${BOARD_GAMES_ENABLED?tab('board','🎲 Board Games'):''}</div>
     <div id="games-body"></div>
     ${showAdd?`<div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="App.wlAddOpen()">+ Add Game</button></div></div>`:''}`;
   if(CUR_GAMES_TAB==='board'){ renderBoardGames(); return; }
+  if(CUR_GAMES_TAB==='leaderboard'){ renderGameLeaderboard(); return; }
   renderPsnGames();
 }
 /* PSN's own trophyTitlePlatform comes back as a comma list ("PS4,PS5" for a cross-buy title,
@@ -5919,6 +5990,62 @@ function wishlistGameCardHTML(w){
       </div>
     </div>`;
 }
+/* Games' own Leaderboard - same shape as Films' (filmLeaderboardHTML): highest-rated first,
+   manually reorderable with up/down arrows for a tie or just a preference the number alone
+   doesn't capture (see gameLeaderboardOrder/App.gameLeaderboardMove). Needs PSN_TITLES loaded to
+   have a name/cover for each rated id, so a direct visit to this tab fetches it first, same as
+   renderGameDetail already does for a direct link to one game. */
+function renderGameLeaderboard(){
+  const body = $('#games-body'); if(!body) return;
+  if(!psnConfigured() || !psnTokens()){
+    body.innerHTML = `<div class="empty">Connect your PlayStation account (PS5 or PS4 tab) to rate and rank your games.</div>`;
+    return;
+  }
+  loadGameRatingsCloud(cloud => {
+    try{ localStorage.setItem(GAME_RATINGS_KEY, JSON.stringify(cloud||{})); }catch(e){}
+    if(CUR_GAMES_TAB==='leaderboard') drawGameLeaderboard();
+  });
+  loadGameLeaderboardOrderCloud(cloud => {
+    try{ localStorage.setItem(GAME_LB_ORDER_KEY, JSON.stringify(Array.isArray(cloud)?cloud:[])); }catch(e){}
+    if(CUR_GAMES_TAB==='leaderboard') drawGameLeaderboard();
+  });
+  if(PSN_TITLES_LOADED){ drawGameLeaderboard(); return; }
+  body.innerHTML = `<div class="empty">Loading your games…</div>`;
+  psnApi('/titles?limit=200').then(data => {
+    if(CUR_GAMES_TAB!=='leaderboard') return;
+    PSN_TITLES = data.titles||[];
+    PSN_TITLES_LOADED = true;
+    drawGameLeaderboard();
+  }).catch(e => {
+    if(CUR_GAMES_TAB!=='leaderboard') return;
+    body.innerHTML = `<div class="empty">Couldn't load your games.<br>${esc(e.message||'')}</div>`;
+  });
+}
+function drawGameLeaderboard(){
+  const body = $('#games-body'); if(!body) return;
+  body.innerHTML = gameLeaderboardHTML();
+}
+function gameLeaderboardHTML(){
+  const order = gameLeaderboardOrder();
+  if(!order.length) return `<div class="empty">Rate a game (from its own page) to start your leaderboard.</div>`;
+  return `<div class="dash-prefs-list">${order.map((g,i) => {
+    const href = '#/game/'+encodeURIComponent(g.id);
+    return `
+    <div class="dash-prefs-row">
+      <div class="film-leaderboard-info" role="button" tabindex="0" onclick="location.hash='${href}'"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
+        <span class="film-leaderboard-rank">#${i+1}</span>
+        ${g.iconUrl ? `<img class="film-search-thumb" src="${esc(g.iconUrl)}" alt="" loading="lazy">`
+                     : `<span class="film-search-thumb gig-cover-fallback" aria-hidden="true">${fa('gamepad')}</span>`}
+        <span class="dash-prefs-label">${esc(g.name||'Untitled')}<br><span class="muted small">${filmScoreLabel(g._rating)}/10</span></span>
+      </div>
+      <div class="dash-prefs-actions">
+        <button class="iconbtn" aria-label="Move ${esc(g.name||'Untitled')} up"${i===0?' disabled':''} onclick="App.gameLeaderboardMove('${esc(g.id)}',-1)">${fa('chevron-up')}</button>
+        <button class="iconbtn" aria-label="Move ${esc(g.name||'Untitled')} down"${i===order.length-1?' disabled':''} onclick="App.gameLeaderboardMove('${esc(g.id)}',1)">${fa('chevron-down')}</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
 /* the individual game's own page - trophy tiers broken down (Sony's API already returns
    bronze/silver/gold/platinum separately, /titles now keeps that instead of collapsing it to
    one number), rather than just the total gameCardHTML shows. PSN_TITLES only lives in memory
@@ -5944,6 +6071,7 @@ function renderGameDetail(id){
   const e = g.earnedTrophies||{}, d = g.definedTrophies||{};
   const hidden = psnHidden().has(g.id);
   const wide = !/ps5/i.test(g.platform||'');
+  const rating = gameRatingOf(g.id);
   const tierRow = (label, emoji, earnedN, totalN) => `
     <div class="game-tier-row">
       <span class="game-tier-emoji" aria-hidden="true">${emoji}</span>
@@ -5971,7 +6099,14 @@ function renderGameDetail(id){
         ${tierRow('Silver','🥈',e.silver,d.silver)}
         ${tierRow('Bronze','🥉',e.bronze,d.bronze)}
       </div>
-      <div class="btn-row" style="margin-top:18px">
+      <div class="field" style="text-align:left;margin-top:18px">
+        <label class="label" for="game-rating-select">Your Rating</label>
+        <select id="game-rating-select" onchange="App.rateGame('${esc(g.id)}', this.value)">
+          <option value=""${rating==null?' selected':''}>No rating</option>
+          ${FILM_SCORE_VALUES.map(v=>`<option value="${v}"${rating===v?' selected':''}>${filmScoreLabel(v)}/10</option>`).join('')}
+        </select>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
         <button class="btn sm ghost" style="flex:1" onclick="App.psnToggleHidden('${esc(g.id)}');location.hash='#/games'">${hidden?'Unhide':'Hide'} This Game</button>
       </div>
     </div>`;
@@ -7204,10 +7339,9 @@ function filmPickedHTML(){
 /* a plain dropdown rather than a star widget - individual stars (even the enlarged tap targets
    from an earlier pass) are still fiddly to hit precisely on a phone, especially telling a half
    star from its neighbour, where a select just needs one accurate tap to open and one to choose */
-function filmRatingLabel(v){ return '★'.repeat(Math.floor(v)) + (v%1!==0 ? '½' : ''); }
-/* Films' own rating scale - 0.5-10 in half steps, wider than Theatre's 0.5-5 stars
-   (FILM_RATING_VALUES/filmRatingLabel just above, which Theatre still uses) so a whole film can
-   actually place against another rather than everything decent alike clumping at "4.5 stars". */
+/* 0.5-10 in half steps - Theatre uses this same scale now too (see migrateTheatreScores), having
+   started on its own 0.5-5 one until it hit the same "everything decent alike clumps at 4.5
+   stars" ceiling Films' own diary already moved off of. */
 const FILM_SCORE_VALUES = Array.from({length:20}, (_,i) => 10 - i/2);
 function filmScoreLabel(v){ return v%1===0 ? String(v) : v.toFixed(1); }
 function filmRatingFieldHTML(value){
@@ -8007,25 +8141,23 @@ function filmsStatsByRating(){
   });
   return counts;
 }
-/* a bar per entry, height proportional to its count relative to the tallest bar - the count
-   sits above the bar itself rather than needing a hover/tap to read it, and the whole bar is the
-   click target (same filtered poster grid every row-style stat already drilled into). Height is
-   a percentage of .stats-bar-track's own fixed pixel height, not the button's, so the count
-   label sitting above it doesn't eat into that percentage's basis. */
+/* a horizontal bar per entry, its label on the left and count on the right so both stay readable
+   regardless of how many entries there are - the vertical layout this replaced was already
+   scrolling sideways once a diary spanned enough years, with narrower and narrower bars each
+   still needing their label/count crammed underneath. A row can just keep adding rows instead.
+   Width is a percentage of .stats-bar-track's own flexed width, the whole row is the click target
+   (same filtered poster grid every row-style stat already drilled into). */
 function statsBarChartHTML(entries, onclickFn){
   const max = Math.max(1, ...entries.map(e=>e.count));
   return `<div class="stats-chart">
     ${entries.map(e => `
       <button type="button" class="stats-bar" onclick="${onclickFn(e.key)}" aria-label="${esc(String(e.label))}: ${e.count} film${e.count===1?'':'s'}">
-        <span class="stats-bar-track">
-          <span class="stats-bar-count">${e.count}</span>
-          <span class="stats-bar-fill" style="height:${Math.round(Math.max(6, (e.count/max)*100))}%"></span>
-        </span>
         <span class="stats-bar-label">${esc(String(e.label))}</span>
+        <span class="stats-bar-track"><span class="stats-bar-fill" style="width:${Math.round(Math.max(4, (e.count/max)*100))}%"></span></span>
+        <span class="stats-bar-count">${e.count}</span>
       </button>`).join('')}
   </div>`;
 }
-const FILM_RATING_VALUES = [5,4.5,4,3.5,3,2.5,2,1.5,1,0.5];
 function renderFilmsStats(){
   const body = $('#films-body'); if(!body) return;
   drawFilmsStats();
@@ -8421,9 +8553,10 @@ function renderFilmsStatsFiltered(type, valueStr){
 }
 
 /* ---------- theatre (stage shows: seen + want to see) ----------
-   Mirrors Films' Diary/Watchlist split. Reuses Gigs' plain list-card look (no poster art suits a
-   stage show any better than a gig) and Films' half-star rating dropdown
-   (FILM_RATING_VALUES/filmRatingLabel are rating-agnostic - only the field's id is renamed). The
+   Mirrors Films' Diary/Watchlist/Leaderboard split. Reuses Gigs' plain list-card look (no poster
+   art suits a stage show any better than a gig) and Films' own rating dropdown/scale
+   (FILM_SCORE_VALUES/filmScoreLabel are rating-agnostic - only the field's id is renamed; Theatre
+   ran its own separate 0.5-5 scale until migrateTheatreScores moved it onto this same one). The
    title field searches Ticketmaster's Discovery API (via api/theatre-search.js, Arts & Theatre
    segment) the same optional-enhancement way Films' TMDb search works - typing by hand and
    uploading a photo manually both still always work regardless of whether search is set up. */
@@ -8467,21 +8600,110 @@ function pushTheatreWatchlist(){
 }
 function saveTheatreWatchlist(){ saveLocal(); pushTheatreWatchlist(); }
 
+/* Theatre's own Leaderboard - same shape as Films' (see filmLeaderboardOrder/-Move/-HTML just
+   above in the file, and pushFilmLeaderboardOrder's own comment on FILM_LB_EDIT_SEQ's race
+   guard, mirrored here as THEATRE_LB_EDIT_SEQ for the same reason). */
+let THEATRE_LB_EDIT_SEQ = 0;
+function loadTheatreLeaderboardOrderCloud(cb){
+  const seq = THEATRE_LB_EDIT_SEQ;
+  if(!fbRoot){ cb(DB.theatreLeaderboardOrder||[]); return; }
+  fbRoot.ref('theatreLeaderboardOrder').once('value')
+    .then(snap => { if(seq!==THEATRE_LB_EDIT_SEQ) return; cb(snap.exists() ? snap.val() : (DB.theatreLeaderboardOrder||[])); })
+    .catch(() => { if(seq!==THEATRE_LB_EDIT_SEQ) return; cb(DB.theatreLeaderboardOrder||[]); });
+}
+function pushTheatreLeaderboardOrder(){
+  if(!fbRoot) return;
+  fbRoot.ref('theatreLeaderboardOrder').set(DB.theatreLeaderboardOrder||[])
+    .catch(err => console.error("My Trips, couldn't save the Theatre leaderboard order:", err));
+}
+function saveTheatreLeaderboardOrder(list){ THEATRE_LB_EDIT_SEQ++; DB.theatreLeaderboardOrder = list; saveLocal(); pushTheatreLeaderboardOrder(); }
+function theatreLeaderboardDefaultOrder(shows){
+  return shows.filter(t=>t.rating!=null).slice()
+    .sort((a,b) => b.rating-a.rating || (b.date||'').localeCompare(a.date||'') || (a.title||'').localeCompare(b.title||''))
+    .map(t=>t.id);
+}
+function theatreLeaderboardOrder(){
+  const byId = new Map((DB.theatre||[]).map(t=>[t.id,t]));
+  const rated = (DB.theatre||[]).filter(t=>t.rating!=null);
+  const ratedIds = new Set(rated.map(t=>t.id));
+  const seen = new Set();
+  const saved = (DB.theatreLeaderboardOrder||[])
+    .filter(id => ratedIds.has(id) && !seen.has(id) && seen.add(id));
+  const savedSet = new Set(saved);
+  const rest = theatreLeaderboardDefaultOrder(rated).filter(id=>!savedSet.has(id));
+  return [...saved, ...rest].map(id=>byId.get(id));
+}
+function theatreLeaderboardHTML(){
+  const order = theatreLeaderboardOrder();
+  if(!order.length) return `<div class="empty">Rate a show to start your leaderboard.</div>`;
+  return `<div class="dash-prefs-list">${order.map((t,i) => `
+    <div class="dash-prefs-row">
+      <div class="film-leaderboard-info" role="button" tabindex="0" onclick="App.theatreForm(${(DB.theatre||[]).indexOf(t)})"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.theatreForm(${(DB.theatre||[]).indexOf(t)})}">
+        <span class="film-leaderboard-rank">#${i+1}</span>
+        ${t.image ? `<img class="theatre-cover" src="${esc(t.image)}" alt="" loading="lazy">`
+                   : `<span class="theatre-cover gig-cover-fallback" aria-hidden="true">🎭</span>`}
+        <span class="dash-prefs-label">${esc(t.title||'Untitled')}<br><span class="muted small">${filmScoreLabel(t.rating)}/10</span></span>
+      </div>
+      <div class="dash-prefs-actions">
+        <button class="iconbtn" aria-label="Move ${esc(t.title||'Untitled')} up"${i===0?' disabled':''} onclick="App.theatreLeaderboardMove('${esc(t.id)}',-1)">${fa('chevron-up')}</button>
+        <button class="iconbtn" aria-label="Move ${esc(t.title||'Untitled')} down"${i===order.length-1?' disabled':''} onclick="App.theatreLeaderboardMove('${esc(t.id)}',1)">${fa('chevron-down')}</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+function renderTheatreLeaderboard(){
+  const body = $('#theatre-body'); if(!body) return;
+  body.innerHTML = theatreLeaderboardHTML();
+  loadTheatreCloud(cloud => {
+    DB.theatre = Array.isArray(cloud) ? cloud : [];
+    const migrated = migrateTheatreScores(DB.theatre);
+    if(migrated) saveTheatre(); else saveLocal();
+    if(CUR_THEATRE_TAB==='leaderboard') body.innerHTML = theatreLeaderboardHTML();
+  });
+  loadTheatreLeaderboardOrderCloud(cloud => {
+    DB.theatreLeaderboardOrder = Array.isArray(cloud) ? cloud : [];
+    saveLocal();
+    if(CUR_THEATRE_TAB==='leaderboard') body.innerHTML = theatreLeaderboardHTML();
+  });
+}
+
 let CUR_THEATRE_TAB = 'diary';
 function renderTheatre(){
   const tab = (k, label) => `<button class="subtab${CUR_THEATRE_TAB===k?' on':''}" onclick="App.theatreTab('${k}')">${label}</button>`;
-  $('#app').classList.add('has-sticky-add');
+  const showAdd = CUR_THEATRE_TAB!=='leaderboard';
+  $('#app').classList.toggle('has-sticky-add', showAdd);
   $('#app').innerHTML = `
     <div class="crumb">
       <div class="crumb-titlerow">
         <span class="crumb-here">Theatre</span>
       </div>
     </div>
-    <div class="subtabs">${tab('diary','🎭 Seen')}${tab('watchlist','⭐ Want to See')}</div>
+    <div class="subtabs">${tab('diary','🎭 Seen')}${tab('watchlist','⭐ Want to See')}${tab('leaderboard','🏆 Leaderboard')}</div>
     <div id="theatre-body"></div>
-    <div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="${CUR_THEATRE_TAB==='diary'?'App.theatreForm(-1)':'App.theatreWatchlistForm(-1)'}">${CUR_THEATRE_TAB==='diary'?'+ Log Show':'+ Add Show'}</button></div></div>`;
+    ${showAdd?`<div class="add-bar"><div class="add-bar-row"><button class="btn primary" onclick="${CUR_THEATRE_TAB==='diary'?'App.theatreForm(-1)':'App.theatreWatchlistForm(-1)'}">${CUR_THEATRE_TAB==='diary'?'+ Log Show':'+ Add Show'}</button></div></div>`:''}`;
   if(CUR_THEATRE_TAB==='watchlist'){ renderTheatreWatchlist(); return; }
+  if(CUR_THEATRE_TAB==='leaderboard'){ renderTheatreLeaderboard(); return; }
   renderTheatreDiary();
+}
+/* one-time: Theatre's own rating scale moved from 0.5-5 (half-star) to 0.5-10, same change and
+   same reasoning Films' own diary went through first (see migrateFilmScores) - doubles an
+   already-rated show once so an old 4.5-star favourite reads as 9/10, not a middling 4.5/10.
+   Bundled with backfilling an id onto any show that predates the Leaderboard (see
+   theatreLeaderboardOrder) - shows before this were only ever addressed by their array index,
+   which shifts as the diary is edited, so the Leaderboard needs something stable to key on
+   instead. Both flags/fields live on the show itself, synced like the rest of it, so whichever
+   device opens the diary first migrates it for everyone. Returns whether anything changed. */
+function migrateTheatreScores(shows){
+  let changed = false;
+  (shows||[]).forEach(t=>{
+    if(!t.id){ t.id = uid(); changed = true; }
+    if(t.rating!=null && !t.scoreMigrated){
+      t.rating = Math.min(10, Math.round(t.rating*2*10)/10);
+      t.scoreMigrated = true;
+      changed = true;
+    }
+  });
+  return changed;
 }
 function renderTheatreDiary(){
   const body = $('#theatre-body'); if(!body) return;
@@ -8489,7 +8711,8 @@ function renderTheatreDiary(){
   drawTheatreList();
   loadTheatreCloud(cloud => {
     DB.theatre = Array.isArray(cloud) ? cloud : [];
-    saveLocal();
+    const migrated = migrateTheatreScores(DB.theatre);
+    if(migrated) saveTheatre(); else saveLocal();
     if(CUR_THEATRE_TAB==='diary') drawTheatreList();
   });
 }
@@ -8517,7 +8740,7 @@ function theatreCardHTML(t, i){
         <div class="gig-info">
           <div class="gig-name">${esc(t.title||'Untitled')}</div>
           ${facts?`<div class="gig-facts muted small">${esc(facts)}</div>`:''}
-          ${t.rating!=null?`<span class="film-stars">${filmRatingLabel(t.rating)}</span>`:''}
+          ${filmStarsHTML(t.rating)}
         </div>
         <div class="gig-actions">
           <button class="iconbtn edit" aria-label="Edit show" title="Edit" onclick="App.theatreForm(${i})">${ICONS.edit}</button>
@@ -8531,7 +8754,7 @@ function theatreRatingFieldHTML(value){
   return `<div class="field"><label class="label" for="theatre-rating">Rating</label>
     <select id="theatre-rating">
       <option value=""${value==null?' selected':''}>No rating</option>
-      ${FILM_RATING_VALUES.map(v=>`<option value="${v}"${value===v?' selected':''}>${filmRatingLabel(v)} (${v})</option>`).join('')}
+      ${FILM_SCORE_VALUES.map(v=>`<option value="${v}"${value===v?' selected':''}>${filmScoreLabel(v)}/10</option>`).join('')}
     </select>
   </div>`;
 }
@@ -8644,12 +8867,17 @@ function theatreFormImpl(i, prefill){
 function saveTheatreImpl(i){
   const title = ($('#theatre-title').value||'').trim();
   if(!title) return markErr('#theatre-title','Enter a title');
+  const existing = (i>=0 && (DB.theatre||[])[i]) || {};
   const ratingRaw = $('#theatre-rating').value;
   const show = {
+    id: existing.id || uid(),
     title,
     venue: $('#theatre-venue').value.trim(),
     date: $('#theatre-date').value,
     rating: ratingRaw===''?null:parseFloat(ratingRaw),
+    // a rating picked from this form is always already on the current 0.5-10 scale, same
+    // reasoning saveFilmImpl's own scoreMigrated flag already carries
+    scoreMigrated: true,
     image: THEATRE_FORM_IMAGE,
     notes: $('#theatre-notes').value.trim(),
   };
@@ -9866,6 +10094,31 @@ App.setWhenKind = setWhenKindImpl;
 App.psnConnect = psnConnectImpl;
 App.psnDisconnect = psnDisconnectImpl;
 App.psnToggleHidden = psnToggleHiddenImpl;
+App.rateGame = (id, raw) => {
+  const ratings = gameRatings();
+  const v = raw==='' ? null : parseFloat(raw);
+  if(v==null) delete ratings[id]; else ratings[id] = v;
+  saveGameRatings(ratings);
+  toast(v==null ? 'Rating cleared' : 'Rating saved');
+};
+/* crossing into a different rating on the way past its neighbour carries that neighbour's rating
+   along with it, same reasoning as App.filmLeaderboardMove: the game's own number should agree
+   with where it's actually sitting rather than the two quietly disagreeing. */
+App.gameLeaderboardMove = (id, dir) => {
+  const orderGames = gameLeaderboardOrder();
+  const order = orderGames.map(g=>g.id);
+  const i = order.indexOf(id); if(i<0) return;
+  const j = i+dir; if(j<0 || j>=order.length) return;
+  const moved = orderGames[i], neighbor = orderGames[j];
+  [order[i], order[j]] = [order[j], order[i]];
+  if(moved && neighbor && moved._rating!==neighbor._rating){
+    const ratings = gameRatings();
+    ratings[moved.id] = neighbor._rating;
+    saveGameRatings(ratings);
+  }
+  saveGameLeaderboardOrder(order);
+  drawGameLeaderboard();
+};
 /* both periods' breakdowns in one modal, rather than noteModal (which only takes a single
    plain-text body) - built by hand since it's just two short, static rows */
 App.branchBreakdown = () => {
@@ -10117,6 +10370,23 @@ App.fwGenreFilter = v => { CUR_FW_GENRE = v; drawFwMine(); };
 App.goTheatre = () => { location.hash = '#/theatre'; };
 App.goTheatreWatchlist = () => { CUR_THEATRE_TAB = 'watchlist'; location.hash = '#/theatre'; };
 App.theatreTab = k => { CUR_THEATRE_TAB = k; renderTheatre(); window.scrollTo(0,0); };
+App.theatreLeaderboardMove = (id, dir) => {
+  const orderShows = theatreLeaderboardOrder();
+  const order = orderShows.map(t=>t.id);
+  const i = order.indexOf(id); if(i<0) return;
+  const j = i+dir; if(j<0 || j>=order.length) return;
+  const moved = orderShows[i], neighbor = orderShows[j];
+  [order[i], order[j]] = [order[j], order[i]];
+  // same reasoning as App.filmLeaderboardMove: crossing into a different rating on the way past
+  // its neighbour carries that rating along with it, so the number and its position never
+  // quietly disagree
+  if(moved && neighbor && moved.rating!==neighbor.rating){
+    const showIdx = (DB.theatre||[]).findIndex(t=>t.id===moved.id);
+    if(showIdx>=0){ DB.theatre[showIdx].rating = neighbor.rating; saveTheatre(); }
+  }
+  saveTheatreLeaderboardOrder(order);
+  if(CUR_THEATRE_TAB==='leaderboard'){ const body = $('#theatre-body'); if(body) body.innerHTML = theatreLeaderboardHTML(); }
+};
 App.theatreForm = theatreFormImpl;
 App.theatreTitleInput = theatreTitleInputImpl;
 App.theatreTitlePick = theatreTitlePickImpl;
