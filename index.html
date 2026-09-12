@@ -1782,8 +1782,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.83.9';
+const APP_VERSION = '2.83.10';
 const CHANGELOG = [
+  {version:'2.83.10', notes:[
+    "Fixed Rank Ties' progress bar resetting to 0% after manually reordering a film on the Leaderboard. Moving a film across a rating boundary changes its own rating to match (so the number on the board agrees with where it's sitting), and a saved run used to treat any film's rating no longer matching where it had it as a reason to throw the whole run away. Now it just drops that one film from the run instead and keeps everything else - and the progress already made - exactly as it was."
+  ]},
   {version:'2.83.9', notes:[
     "Found the real cause of Rank Ties going unresponsive part-way through: Undo's history was saving a full snapshot of the entire remaining game on every single pick, and only clearing once a whole tied rating finished - in a large library that grows past the browser's storage limit before that happens, which broke the save right in the middle of a pick and froze the game on a stale screen, with every tap after that failing the exact same way. Undo now only keeps the last 20 picks, and its history is no longer saved to storage at all (it was never needed across a reload, and it was the one thing that could grow large)."
   ]},
@@ -8133,22 +8136,42 @@ function persistFilmSortState(){
   catch(e){ /* storage full/unavailable - the run just won't resume after a reload this time */ }
 }
 /* a saved run only resumes when its shape matches exactly what this version of the game writes
-   (sortedByRating/active/settledRatings - see renderFilmSortGame) AND every film it refers to
-   still exists with the same rating it had when the run was saved. Either check failing just
-   drops the stale run and starts fresh rather than trying to patch it up or - worse - crashing
-   partway through a resume with a shape an older or newer version of the game left behind. */
+   (sortedByRating/active/settledRatings - see renderFilmSortGame) - a mismatch here means an
+   older or newer version of the game left this behind, which this version has no business trying
+   to patch up (and crashing partway through a resume is worse), so it just gets dropped and
+   started fresh instead. A film's rating no longer matching where the run has it is NOT a shape
+   problem, and used to be treated as one - see filmSortReconcileState just below for why that
+   was wrong. */
 function filmSortStateValid(state){
   if(!state || typeof state.sortedByRating!=='object' || !Array.isArray(state.active)) return false;
   if(!Array.isArray(state.settledRatings) || typeof state.totalTiers!=='number') return false;
-  if(typeof state.totalToPlace!=='number') return false;
+  return typeof state.totalToPlace==='number';
+}
+/* a manual Leaderboard move that crosses a rating tier boundary carries that film's rating along
+   with it (see App.filmLeaderboardMove) - it's no longer "a 9.5 sitting among 9s", it just IS a 9
+   now. Reordering a couple of films that way used to invalidate the ENTIRE saved run outright
+   (any rating mismatch failed filmSortStateValid), silently discarding every pick made so far and
+   resetting the progress bar to 0% - all over one or two films whose position had already been
+   decided by hand anyway. This just drops those specific films from wherever the run has them
+   instead, leaving everything else - and the progress already made on it - alone. */
+function filmSortReconcileState(state){
   const byId = new Map((DB.films||[]).map(f=>[f.id,f]));
-  const idsMatchRating = (rating, ids) => ids.every(id => byId.has(id) && byId.get(id).rating===Number(rating));
-  if(!Object.keys(state.sortedByRating).every(r => idsMatchRating(r, state.sortedByRating[r]))) return false;
-  return state.active.every(item => idsMatchRating(item.rating, [item.id]));
+  const stillTied = (rating, id) => byId.has(id) && byId.get(id).rating===Number(rating);
+  let dropped = 0;
+  Object.keys(state.sortedByRating).forEach(r=>{
+    const before = state.sortedByRating[r].length;
+    state.sortedByRating[r] = state.sortedByRating[r].filter(id=>stillTied(r, id));
+    dropped += before - state.sortedByRating[r].length;
+  });
+  const beforeActive = state.active.length;
+  state.active = state.active.filter(item=>stillTied(item.rating, item.id));
+  dropped += beforeActive - state.active.length;
+  if(dropped) state.totalToPlace = Math.max(0, state.totalToPlace - dropped);
+  return state;
 }
 function renderFilmSortGame(){
   const saved = loadFilmSortState();
-  if(filmSortStateValid(saved)){ FILM_SORT_STATE = saved; }
+  if(filmSortStateValid(saved)){ FILM_SORT_STATE = filmSortReconcileState(saved); }
   else{
     const ties = filmTieGroups();
     if(!ties.length){ toast("No tied ratings left to sort"); App.goFilmsStats(); return; }
