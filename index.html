@@ -1788,8 +1788,11 @@ let CARTO_API_KEY = '';
 const APP_PIN = '1197';
 
 /* bump the version and add an entry (newest first) whenever a user-facing change ships */
-const APP_VERSION = '2.84.3';
+const APP_VERSION = '2.84.4';
 const CHANGELOG = [
+  {version:'2.84.4', notes:[
+    "Games: a rated game's grid card now shows its rating too, right above the progress bar - it was previously only visible on the game's own page."
+  ]},
   {version:'2.84.3', notes:[
     "Board Games: the \"Couldn't load board games\" error at least reads properly now instead of dumping a wall of raw HTML tags - BoardGameGeek returning a whole web page instead of real game data means the request is being blocked before it even reaches their API, and that page's markup never had anything useful in it to show. Doesn't fix the underlying block itself, which still needs looking into on BoardGameGeek's side (or checking whether BGG_API_TOKEN has expired)."
   ]},
@@ -5968,6 +5971,7 @@ function gameCardHTML(g, isHidden){
   const rag = ragClass(pct);
   const href = '#/game/'+encodeURIComponent(g.id);
   const wide = !/ps5/i.test(g.platform||'');
+  const rating = gameRatingOf(g.id);
   return `
     <div class="game-card${isHidden?' hidden-game':''}" role="button" tabindex="0" onclick="location.hash='${href}'"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.hash='${href}'}">
@@ -5977,6 +5981,7 @@ function gameCardHTML(g, isHidden){
       </div>
       <div class="game-info">
         <div class="game-name">${esc(g.name||'Untitled')}</div>
+        ${filmStarsHTML(rating)}
         <div class="game-progress"><div class="game-progress-bar ${rag}" style="width:${pct}%"></div></div>
         <div class="game-meta small ${rag}">${pct}% Complete</div>
       </div>
