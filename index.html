@@ -4807,7 +4807,7 @@ function dashPlacesBeenCount(range){
   }).length;
 }
 function dashPlacesBeenWidgetHTML(){
-  return dashStatTileHTML('🌍', dashPlacesBeenCount(CUR_DASH_SONG_RANGE), 'Places Been', "App.goPlaces('been')");
+  return dashStatTileHTML('🌍', dashPlacesBeenCount(CUR_DASH_SONG_RANGE), 'Places Been', "App.goPlaces()");
 }
 function dashNextGig(){
   const upcoming = (DB.gigs||[]).filter(g=>g.date && g.date>todayStr());
