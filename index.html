@@ -13624,11 +13624,13 @@ function readDayOrDate(p){
 }
 /* every place already named somewhere on this trip, so From/To on a travel leg (or a stop's own
    location field) can suggest a name you've already typed once rather than making you retype it
-   identically - a stay's own city, a flight's airports, a ferry's ports, a car hire's pickup/
-   drop-off, another travel leg's own from/to, alongside the stops and mood board ideas this
-   already covered. */
+   identically - the trip's own manually-defined Locations (App.locationForm) come first, since
+   those are often set up before anything else on the trip, alongside a stay's own city, a
+   flight's airports, a ferry's ports, a car hire's pickup/drop-off, another travel leg's own
+   from/to, and the stops and mood board ideas this already covered. */
 function tripLocations(t){
   const set = new Set();
+  (t.locations||[]).forEach(l=>{ if(l.name) set.add(l.name); });
   (t.itinerary||[]).forEach(s=>{
     if(s.location) set.add(s.location);
     if(s.kind==='travel'){ if(s.from) set.add(s.from); if(s.to) set.add(s.to); }
