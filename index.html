@@ -5445,17 +5445,24 @@ function placeCardHTML(co, tripStatus){
       ${act(`App.setPlaceStatus('${co.code}', ${status==='want'?'null':"'want'"})`)}>${fa('heart')}</span>`;
   /* on Country Finder, a country already on a booked trip has nothing left to toggle between
      Want to Go and Not Exploring - so instead of a fixed pill sitting apart from the switch,
-     Going joins it as a third option, styled the same as the other two but locked once it's
-     already true (there's no trip to un-book from here). Tapping Going on a country that isn't
-     yet is how you'd book one - it opens New Trip with that country already added. */
+     Going joins it as an option, styled the same as the others but locked once it's already true
+     (there's no trip to un-book from here). Tapping Going on a country that isn't yet is how
+     you'd book one - it opens New Trip with that country already added. Been joins the same way:
+     locked when a finished trip is what put it there (nothing to un-been from here either), but
+     still a plain tap - same manual tick the Been tab itself uses - when nothing's booked, so
+     marking a country visited doesn't require backfilling a whole trip for it first. */
   const goingLocked = status==='going';
-  const wantSwitch = `<div class="want-switch${goingLocked?' locked':''}" role="radiogroup" aria-label="${esc(co.name)}">
-      <span class="want-opt ${status==='want'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='want'}"
-            ${goingLocked?'aria-disabled="true"':act(`App.setPlaceStatus('${co.code}','want')`)}>Want to Go</span>
-      <span class="want-opt ${(!goingLocked && status!=='want')?'on':''}" role="radio" tabindex="0" aria-checked="${!goingLocked && status!=='want'}"
-            ${goingLocked?'aria-disabled="true"':act(`App.setPlaceStatus('${co.code}',null)`)}>Not Exploring</span>
+  const beenLocked = tripStatus==='been';
+  const locked = goingLocked || beenLocked;
+  const wantSwitch = `<div class="want-switch${locked?' locked':''}" role="radiogroup" aria-label="${esc(co.name)}">
+      <span class="want-opt ${status==='been'?'on':''}" role="radio" tabindex="0" aria-checked="${status==='been'}"
+            ${beenLocked?'aria-disabled="true"':act(`App.setPlaceStatus('${co.code}','been')`)}>Been</span>
+      <span class="want-opt ${(!locked && status==='want')?'on':''}" role="radio" tabindex="0" aria-checked="${!locked && status==='want'}"
+            ${locked?'aria-disabled="true"':act(`App.setPlaceStatus('${co.code}','want')`)}>Want to Go</span>
+      <span class="want-opt ${(!locked && status==='none')?'on':''}" role="radio" tabindex="0" aria-checked="${!locked && status==='none'}"
+            ${locked?'aria-disabled="true"':act(`App.setPlaceStatus('${co.code}',null)`)}>Not Exploring</span>
       <span class="want-opt ${goingLocked?'on':''}" role="radio" tabindex="0" aria-checked="${goingLocked}"
-            ${goingLocked?'aria-disabled="true"':act(`App.setPlaceGoing('${co.code}')`)}>Going</span>
+            ${locked?'aria-disabled="true"':act(`App.setPlaceGoing('${co.code}')`)}>Going</span>
     </div>`;
   const actions =
       view==='finder' ? wantSwitch
