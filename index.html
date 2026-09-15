@@ -10751,8 +10751,7 @@ App.newTrip = () => {
       <div class="chips" id="f-country-pills" style="margin-top:10px"></div>
     </div>
     ${whenFieldsHTML('f', null)}
-    <div class="field"><label class="label">Your name (organiser)</label><input type="text" id="f-org" placeholder="e.g. Cal"></div>
-    <div class="field"><label class="label">Other people (comma-separated, add more later)</label><input type="text" id="f-ppl" placeholder="e.g. Chris, Sam, Jordan"></div>
+    <div class="field"><label class="label">Who else is going?</label><input type="text" id="f-ppl" placeholder="e.g. Chris, Sam, Jordan"></div>
     <button class="btn primary" style="width:100%" onclick="App.createTrip()">Create Trip</button>`);
 };
 /* pills update in place so the other New Trip fields keep their values */
@@ -10780,7 +10779,7 @@ App.setPlaceGoing = code => {
 App.createTrip = () => {
   const name = $('#f-name').value.trim();
   if(!name){ noteModal('Name Needed', 'Give the trip a name first.'); return; }
-  const org = $('#f-org').value.trim() || 'Organiser';
+  const org = 'Organiser';
   const others = $('#f-ppl').value.split(',').map(s=>s.trim()).filter(Boolean);
   const w = readWhenFields('f');
   const t = {
