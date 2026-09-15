@@ -12983,14 +12983,15 @@ function keyWithinLocation(k, rough, loc){
   }
   return !!(loc.fromDate && loc.toDate) && k>=loc.fromDate && k<=loc.toDate;
 }
-/* the Itinerary's own day heading - a small "23rd September 2026" date line above a bold
-   "Day 1 - Travel to 🇬🇷 Corfu" (dropping the verb once you're just staying somewhere rather
-   than travelling to it that day - "Day 2 - 🇬🇷 Corfu"). An empty day says so once, in its own
-   "Nothing Planned" pill once opened - the heading itself no longer repeats it. Built fresh
-   here rather than going through planDayLabel,
-   which everywhere else it's used just wants a short "Day N" for something read out of
-   context - this is the one heading on the page itself, so it gets the full date and the
-   place along with it. */
+/* the Itinerary's own day heading - a small "Day 1 - 23rd September 2026" date line above a bold
+   "Travel to 🇬🇷 Corfu" (dropping the verb once you're just staying somewhere rather than
+   travelling to it that day - just "🇬🇷 Corfu"). Day N leads the date line rather than the bold
+   heading itself so a long place/activity name can wrap on its own without a "Day N - " prefix
+   eating into the width it wraps against. An empty day says so once, in its own "Nothing
+   Planned" pill once opened - the heading itself no longer repeats it. Built fresh here rather
+   than going through planDayLabel, which everywhere else it's used just wants a short "Day N"
+   for something read out of context - this is the one heading on the page itself, so it gets
+   the full date and the place along with it. */
 function dayNarrative(t, k, dayItems, rough){
   if(!k) return {dateLine:'', headingHTML:'Anytime'};
   const num = rough ? +k.slice(1)
@@ -13007,19 +13008,21 @@ function dayNarrative(t, k, dayItems, rough){
   // takes priority over one, since a gig you're actually going to reads as the main event of
   // the day even alongside other plans
   const gigItems = dayItems.filter(s=>s._autoGig);
-  const activityText = gigItems.length ? ` - ${esc(gigItems.map(g=>g.g.artist||'Gig').join(' & '))}`
-    : stops.length===1 ? ` - ${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
+  const activityText = gigItems.length ? esc(gigItems.map(g=>g.g.artist||'Gig').join(' & '))
+    : stops.length===1 ? `${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
   const travelEmoji = arriving && travelMode && TRAVEL_MODES[travelMode] ? TRAVEL_MODES[travelMode].emoji+' ' : '';
   // a non-arrival day (you're already there) drops the broader half of a "Palaiokastritsa,
   // Corfu"-style place - the arrival day's own "Travel to" heading already said which country/
   // region that specific place is in, so repeating it on every day after just adds noise
   const placeShown = arriving ? place : (place||'').split(',')[0].trim();
-  const placeText = place ? ` - ${arriving?travelEmoji+'Travel to ':''}${flag?flag+' ':''}${esc(placeShown)}` : '';
-  // a trip with real booking dates but no start date set yet (still being put together) has
-  // nothing to count "Day N" from - the date itself stands in for it, same as this heading
-  // would have shown before it grew a day number at all, rather than inventing a "Day ?"
-  const dayLabel = num ? `Day ${num}` : fmtDate(k);
-  return {dateLine: rough ? '' : fmtDateOrdinal(k), headingHTML: `${dayLabel}${placeText}${activityText}`};
+  const placeText = place ? `${arriving?travelEmoji+'Travel to ':''}${flag?flag+' ':''}${esc(placeShown)}` : '';
+  // "Day N" now leads the date line above (see dayRow) rather than this heading, so the bold
+  // second line is free to wrap on its own without a long day/date prefix eating into it - a
+  // trip with real booking dates but no start date set yet has nothing to count "Day N" from,
+  // so its date line carries the date alone rather than inventing a "Day ?"
+  const dayLabel = num ? `Day ${num}` : '';
+  const dateLine = rough ? dayLabel : (dayLabel ? `${dayLabel} - ${fmtDateOrdinal(k)}` : fmtDateOrdinal(k));
+  return {dateLine, headingHTML: [placeText, activityText].filter(Boolean).join(' - ')};
 }
 /* which stop/gap accordions are open - a UI-only choice, not trip data, so it's a plain
    module variable rather than anything saved or synced; resets on reload same as the rest of
@@ -13546,7 +13549,7 @@ function tabPlan(t, ro){
       <div class="route-body plan-click" role="button" tabindex="0" onclick="${toggleFn}" onkeydown="if(event.key==='Enter'||event.key===' '){${toggleFn}}">
         <div class="route-head-row${isOpen?' open':''}">
           <div style="min-width:0">
-            ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span></div>`:''}
+            ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}${rough?'':`<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span>`}</div>`:''}
             <strong>${headingHTML}${k===todayKey?`<span class="plan-day-badges"><span class="status-pill now">Today</span></span>`:''}</strong>
           </div>
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
