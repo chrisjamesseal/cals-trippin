@@ -5557,7 +5557,7 @@ function beenStatsHTML(list){
     ['📊', `${pctWorld}% of the World`, null],
     ['🗺️', `${continentsVisited} of ${CONTINENT_ORDER.length} Continents`, null],
   ];
-  if(longestDays) stats.push(['🏆', `${longestDays}-Day Longest Trip`, longestTripId]);
+  if(longestDays) stats.push(['🏆', `${longestDays} Day Trip`, longestTripId]);
   return `<div class="been-stats">${stats.map(([icon,text,tripId]) => {
     const open = tripId ? `location.hash='#/trip/${esc(tripId)}'` : '';
     return `<div class="been-stat-tile"${tripId?` role="button" tabindex="0" onclick="${open}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}"`:''}><span class="been-stat-icon" aria-hidden="true">${icon}</span><span class="been-stat-text">${esc(text)}</span></div>`;
