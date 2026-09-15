@@ -4835,6 +4835,7 @@ function dashGigWidgetHTML(){
                  : `<div class="dash-item-flags" aria-hidden="true">🎤</div>`}
       <div class="dash-item-title">${esc(g.artist||'Untitled')}</div>
       <div class="dash-item-sub">Next Gig</div>
+      ${gigPeopleLineHTML(g)}
       ${miniCountdownHTML(g.date)}
     </div>`;
 }
@@ -6640,6 +6641,7 @@ function wlCardHTML(g){
 let GIG_SEARCH_TIMER = null;
 let GIG_SEARCH_RESULTS = [];   // last search response, held so a click on a result doesn't refetch
 let GIG_PICKED = null;         // {id,name,image} once a search result's been chosen for the open form
+let GIG_FORM_PEOPLE = [];      // names typed onto the open form's People field, saved as gig.people
 
 /* ---------- Spotify user login (the Artists checklist) ----------
    Who you follow and how much you actually listen to them is personal library data - Spotify
@@ -6885,6 +6887,27 @@ function drawGigsList(){
   const ordered = gigs.map((g,i)=>({g,i})).sort((a,b)=>(b.g.date||'').localeCompare(a.g.date||''));
   body.innerHTML = `<div class="gig-list">${ordered.map(o=>gigCardHTML(o.g,o.i)).join('')}</div>`;
 }
+/* the trip a gig's date falls inside, if any - the same date-range match planDayGroups already
+   uses to fold a gig into that trip's own Itinerary day, reused here so a gig doesn't need its
+   own separate "which trip" field. Real dates only, same as planDayGroups: a rough "next summer"
+   trip has no calendar to match a gig's date against. */
+function tripForGig(g){
+  if(!g.date) return null;
+  return (DB.trips||[]).find(t => !hasRoughWhen(t) && t.startDate && t.endDate && g.date>=t.startDate && g.date<=t.endDate) || null;
+}
+/* who's going: whoever was typed onto the gig itself, plus - if its date falls inside a trip with
+   real dates - that trip's own travellers (t.participants), so going to a gig on a trip you're
+   already sharing with people doesn't mean retyping their names a second time. Worked out fresh
+   on every render rather than copied onto the gig once, since a trip's own participant list can
+   change after the gig's already logged. */
+function gigPeople(g){
+  const trip = tripForGig(g);
+  return [...new Set([...(g.people||[]), ...(trip ? trip.participants||[] : [])])];
+}
+function gigPeopleLineHTML(g){
+  const people = gigPeople(g);
+  return people.length ? `<div class="gig-facts muted small">${fa('users')} ${esc(people.join(', '))}</div>` : '';
+}
 function gigCardHTML(g, i){
   const facts = [g.city, g.date?fmtShortDate(g.date):''].filter(Boolean).join(' · ');
   return `
@@ -6895,6 +6918,7 @@ function gigCardHTML(g, i){
         <div class="gig-info">
           <div class="gig-name">${esc(g.artist||'Untitled')}</div>
           ${facts?`<div class="gig-facts muted small">${esc(facts)}</div>`:''}
+          ${gigPeopleLineHTML(g)}
         </div>
         <div class="gig-actions">
           <button class="iconbtn edit" aria-label="Edit gig" title="Edit" onclick="App.gigForm(${i})">${ICONS.edit}</button>
@@ -6924,19 +6948,54 @@ function gigPickedHTML(){
     <span>${esc(GIG_PICKED.name)}</span>
   </div>`;
 }
+/* the note under the People field pointing out who's already covered automatically - read off the
+   gig as it was when the form opened, not whatever's since been typed into the Date field, so it
+   won't shift under someone still mid-edit; reopening the form after a date change picks up the
+   new trip match same as everywhere else on a gig that reads it. */
+function gigAutoPeopleHintHTML(g){
+  const trip = tripForGig(g);
+  const extra = trip ? (trip.participants||[]).filter(p=>!(g.people||[]).includes(p)) : [];
+  if(!extra.length) return '';
+  return `<p class="muted small" style="margin-top:8px">Already going, from <strong>${esc(trip.name)}</strong>: ${esc(extra.join(', '))} - added automatically, no need to add them here too.</p>`;
+}
 function gigFormImpl(i, prefillArtist){
   const g = (i>=0 && (DB.gigs||[])[i])
     || (prefillArtist ? {artist:prefillArtist.name, artistId:prefillArtist.id, image:prefillArtist.image} : {});
   GIG_PICKED = g.artistId ? {id:g.artistId, name:g.artist, image:g.image} : null;
   GIG_SEARCH_RESULTS = [];
+  GIG_FORM_PEOPLE = [...(g.people||[])];
   openModal(`
     <h2>${i>=0?'Edit Gig':'Log a Gig'}</h2>
     ${gigArtistFieldHTML(g)}
     <div class="field"><label class="label" for="gig-city">Location</label><input id="gig-city" type="text" value="${esc(g.city||'')}"></div>
     <div class="field"><label class="label" for="gig-date">Date</label><input id="gig-date" type="date" value="${esc(g.date||'')}"></div>
+    <div class="field"><label class="label">People</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="gig-person" placeholder="Who's going"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();App.gigAddPerson()}">
+        <button class="btn" type="button" onclick="App.gigAddPerson()">+ Add</button>
+      </div>
+      <div class="chips" id="gig-people-pills" style="margin-top:10px"></div>
+      ${gigAutoPeopleHintHTML(g)}
+    </div>
     <button class="btn primary" style="width:100%" onclick="App.saveGig(${i>=0?i:-1})">${i>=0?'Save':'Add Gig'}</button>`);
   const picked = $('#gig-picked'); if(picked) picked.innerHTML = gigPickedHTML();
+  drawGigPeoplePills();
 }
+function drawGigPeoplePills(){
+  const el = $('#gig-people-pills'); if(!el) return;
+  el.innerHTML = GIG_FORM_PEOPLE.map((x,i)=>
+    `<span class="chip">${esc(x)}<button aria-label="Remove ${esc(x)}" onclick="App.gigDelPerson(${i})">${fa('xmark')}</button></span>`).join('');
+}
+App.gigAddPerson = () => {
+  const inp = $('#gig-person');
+  const name = (inp.value||'').trim();
+  if(!name) return markErr('#gig-person','Enter a name');
+  if(GIG_FORM_PEOPLE.includes(name)) return markErr('#gig-person','Already added');
+  GIG_FORM_PEOPLE.push(name);
+  inp.value=''; inp.focus(); drawGigPeoplePills();
+};
+App.gigDelPerson = i => { GIG_FORM_PEOPLE.splice(i,1); drawGigPeoplePills(); };
 /* each keystroke would hammer Spotify (via the proxy) on every letter, so this waits for a
    pause in typing before firing, same as Board Games' search */
 function gigArtistInputImpl(){
@@ -6989,7 +7048,8 @@ function saveGigImpl(i){
     artistId: (GIG_PICKED && GIG_PICKED.name===artist) ? GIG_PICKED.id : '',
     image: (GIG_PICKED && GIG_PICKED.name===artist) ? GIG_PICKED.image : '',
     city: $('#gig-city').value.trim(),
-    date: $('#gig-date').value
+    date: $('#gig-date').value,
+    people: [...GIG_FORM_PEOPLE]
   };
   DB.gigs = DB.gigs||[];
   if(i>=0 && DB.gigs[i]) DB.gigs[i] = gig; else DB.gigs.push(gig);
@@ -12648,6 +12708,7 @@ function planDaysHTML(t, ro, filterKeys){
           <div class="gig-info">
             <div class="gig-name">${esc(s.g.artist||'Untitled')}</div>
             ${s.g.city?`<div class="gig-facts muted small">${esc(s.g.city)}</div>`:''}
+            ${gigPeopleLineHTML(s.g)}
           </div>
         </div>
       </div>
