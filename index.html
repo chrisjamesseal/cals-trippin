@@ -12453,6 +12453,17 @@ function planDayGroups(t){
     (groups[k]=groups[k]||[]).push({kind:'task', title:task.title, notes:task.notes,
       time:task.time||'', period:task.period||'', unscheduled:false, ti});
   });
+  /* a gig you're going to (Music > Gigs) that falls inside this trip's own dates shows up here
+     too, automatically - Gigs is its own global log, not trip-scoped, so there's nothing to add
+     it as, it just belongs on whichever day it lands on. Real dates only: a rough "next summer"
+     trip has no calendar to match a gig's own date against. */
+  if(!rough && t.startDate && t.endDate){
+    (DB.gigs||[]).forEach((g,gi)=>{
+      if(g.date && g.date>=t.startDate && g.date<=t.endDate){
+        (groups[g.date]=groups[g.date]||[]).push({_autoGig:1, time:'', g, gi});
+      }
+    });
+  }
   const hasAny = Object.keys(groups).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
      something on them: a day nothing's been added to yet gets a dashed placeholder (same
@@ -12572,6 +12583,23 @@ function planDaysHTML(t, ro, filterKeys){
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.carForm(${s.ci})`)}>
       ${autoTag(secEmoji(s._autoCar==='pickup'?'🚗':'🅿️'), s._autoCar==='pickup'?'Car Hire Pick Up':'Car Hire Drop Off', s.time)}
       ${carStripHTML(s.c, s.ci, '')}
+    </div>`;
+  /* a gig from the Music > Gigs log that falls inside this trip's dates (see planDayGroups) -
+     same card look Gigs' own list uses, just wrapped as a plan-auto tapping through to that
+     gig's real edit form, same as every other auto card here */
+  const autoGigCard = s => `
+    <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.gigForm(${s.gi})`)}>
+      ${autoTag(secEmoji('🎤'), 'Gig')}
+      <div class="card gig-card">
+        <div class="gig-top">
+          ${s.g.image ? `<img class="gig-cover" src="${esc(s.g.image)}" alt="" loading="lazy">`
+                       : `<span class="gig-cover gig-cover-fallback" aria-hidden="true">${fa('microphone')}</span>`}
+          <div class="gig-info">
+            <div class="gig-name">${esc(s.g.artist||'Untitled')}</div>
+            ${s.g.city?`<div class="gig-facts muted small">${esc(s.g.city)}</div>`:''}
+          </div>
+        </div>
+      </div>
     </div>`;
   /* the accommodation's own rich card - full address, both ends of the stay with an icon
      each, its booking reference, and Google Maps/View Details buttons - shown once, on the
@@ -12755,6 +12783,7 @@ function planDaysHTML(t, ro, filterKeys){
     : s._autoFerry ? autoFerryCard(s)
     : s._autoCar ? autoCarCard(s)
     : s._autoStay ? autoStayCard(s)
+    : s._autoGig ? autoGigCard(s)
     : s.kind==='travel' ? travelCard(s)
     : s.kind==='task' ? taskCard(s)
     : stopCard(s);
@@ -12946,7 +12975,7 @@ function dayNarrative(t, k, dayItems, rough){
   // exactly one stop that day, since guessing which of several is the "main" one would be a
   // coin flip. Same routing dayItems already gets sorted into elsewhere (see `card` just below)
   // for what counts as a plain stop rather than an auto-generated travel/stay/task card.
-  const stops = dayItems.filter(s => !s._autoFlight && !s._autoFerry && !s._autoCar && !s._autoStay && s.kind!=='travel' && s.kind!=='task');
+  const stops = dayItems.filter(s => !s._autoFlight && !s._autoFerry && !s._autoCar && !s._autoStay && !s._autoGig && s.kind!=='travel' && s.kind!=='task');
   const activityText = stops.length===1 ? ` - ${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
   const travelEmoji = arriving && travelMode && TRAVEL_MODES[travelMode] ? TRAVEL_MODES[travelMode].emoji+' ' : '';
   // a non-arrival day (you're already there) drops the broader half of a "Palaiokastritsa,
