@@ -13618,11 +13618,20 @@ function dayOrDateFieldHTML(p, t, s){
       ${Array.from({length:len},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===cur?'selected':''}>Day ${n}</option>`).join('')}
     </select></div>`;
 }
-/* every date already on this trip, same idea as tripLocations just below - the trip's own
-   start/end, its manually-defined Locations, and every stop, stay, flight, ferry and car hire
-   already booked, so a date picker can offer a one-tap match to a day something else already
-   happens instead of scrolling the calendar back to find it. */
+/* every day of the trip, as one-tap chips, so a date picker never needs the calendar scrolled
+   back and forth to find a day within a trip that's already dated - see below for what stands
+   in for that range on a trip that doesn't have one yet. */
 function tripDates(t){
+  // a trip with real start/end dates offers every day in between, not just the ones something's
+  // already booked on - a gap day (like the 1st in a 30 Jun-3 Jul trip with only the 30th, 2nd
+  // and 3rd booked so far) still needs a one-tap way in
+  if(t.startDate && t.endDate && t.startDate <= t.endDate){
+    const out = [];
+    for(let d=t.startDate; d<=t.endDate; d=isoAddDays(d,1)) out.push(d);
+    return out;
+  }
+  // no full range yet (e.g. only a start date so far) - fall back to whatever real dates this
+  // trip already has, same sources tripLocations draws its own suggestions from
   const set = new Set();
   if(t.startDate) set.add(t.startDate);
   if(t.endDate) set.add(t.endDate);
