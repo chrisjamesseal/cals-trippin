@@ -13608,7 +13608,8 @@ function locationsSummaryHTML(t, ro, nested){
 function dayOrDateFieldHTML(p, t, s){
   if(!hasRoughWhen(t)){
     return `<div class="field"><label class="label" for="${p}-date">Date</label>
-      <input id="${p}-date" type="date" value="${esc((s&&s.date) || t.startDate || todayStr())}"></div>`;
+      <input id="${p}-date" type="date" value="${esc((s&&s.date) || t.startDate || todayStr())}">
+      ${dateQuickChipsHTML(p+'-date', t)}</div>`;
   }
   const len = Math.max(roughTripDays(t) || 14, (s&&s.day)||0);
   const cur = (s&&s.day) || 1;
@@ -13616,6 +13617,29 @@ function dayOrDateFieldHTML(p, t, s){
     <select id="${p}-day">
       ${Array.from({length:len},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===cur?'selected':''}>Day ${n}</option>`).join('')}
     </select></div>`;
+}
+/* every date already on this trip, same idea as tripLocations just below - the trip's own
+   start/end, its manually-defined Locations, and every stop, stay, flight, ferry and car hire
+   already booked, so a date picker can offer a one-tap match to a day something else already
+   happens instead of scrolling the calendar back to find it. */
+function tripDates(t){
+  const set = new Set();
+  if(t.startDate) set.add(t.startDate);
+  if(t.endDate) set.add(t.endDate);
+  (t.locations||[]).forEach(l=>{ if(l.fromDate) set.add(l.fromDate); if(l.toDate) set.add(l.toDate); });
+  (t.itinerary||[]).forEach(s=>{ if(s.date) set.add(s.date); });
+  (t.accommodations||[]).forEach(a=>{ if(a.checkin) set.add(a.checkin); if(a.checkout) set.add(a.checkout); });
+  (t.flights||[]).forEach(f=>{ if(f.date) set.add(f.date); });
+  (t.ferries||[]).forEach(f=>{ if(f.date) set.add(f.date); });
+  (t.carHire||[]).forEach(c=>{ if(c.pickupDate) set.add(c.pickupDate); if(c.dropoffDate) set.add(c.dropoffDate); });
+  return [...set].sort();
+}
+function dateQuickChipsHTML(fieldId, t){
+  const dates = tripDates(t);
+  if(!dates.length) return '';
+  return `<div class="location-chips loc-quick-chips">${dates.map(d=>
+    `<button type="button" class="chip location-chip" onclick="App.comboPick('${fieldId}','${jsArg(d)}')">${esc(fmtShortDate(d))}</button>`
+  ).join('')}</div>`;
 }
 /* whichever of the two the form is showing, as the fields an itinerary entry stores */
 function readDayOrDate(p){
