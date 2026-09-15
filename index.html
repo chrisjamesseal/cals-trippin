@@ -4980,6 +4980,35 @@ function dashTheatreSeenCount(range){
 function dashTheatreSeenWidgetHTML(){
   return dashStatTileHTML('🎭', dashTheatreSeenCount(CUR_DASH_SONG_RANGE), 'Shows Seen', 'App.goTheatre()');
 }
+/* a booked show, same idea as dashNextGig - Log a Show (theatreFormImpl) already lets its own
+   date sit in the future, so a "date" on a DB.theatre entry that hasn't happened yet just means
+   it's booked rather than seen, same distinction gigs already draw. This is deliberately not the
+   Watchlist's own "See Next" widget just above (theatreWatchNextWidgetHTML) - the Watchlist is
+   wishlist titles with no date at all, this is an actual ticket with a real one to count down to. */
+function dashNextShow(){
+  const upcoming = (DB.theatre||[]).filter(t=>t.date && t.date>todayStr());
+  upcoming.sort((a,b)=>a.date.localeCompare(b.date));
+  return upcoming[0]||null;
+}
+function dashShowWidgetHTML(){
+  const t = dashNextShow();
+  if(!t) return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.goTheatre()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.goTheatre()}">
+      <div class="dash-item-flags" aria-hidden="true">🎭</div>
+      <div class="dash-item-title">No Upcoming Shows</div>
+    </div>`;
+  const i = (DB.theatre||[]).indexOf(t);
+  return `
+    <div class="dash-widget dash-widget-item" role="button" tabindex="0" onclick="App.theatreForm(${i})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();App.theatreForm(${i})}">
+      ${t.image ? `<img class="dash-item-img-lg round" src="${esc(t.image)}" alt="" loading="lazy">`
+                 : `<div class="dash-item-flags" aria-hidden="true">🎭</div>`}
+      <div class="dash-item-title">${esc(t.title||'Untitled')}</div>
+      <div class="dash-item-sub">Next Show</div>
+      ${miniCountdownHTML(t.date)}
+    </div>`;
+}
 /* Board Games marks (bgMarks) carry no date, unlike the diary-backed stat tiles above, so this
    one has no time-range filter to apply - it's just a straight count of everything marked
    Played, regardless of when. */
@@ -5264,6 +5293,7 @@ const DASH_PREFS_KEY = 'calstrippin_dash_widgets';
 const DASH_WIDGET_DEFS = [
   {key:'trip', label:'Next Trip'},
   {key:'gig', label:'Next Gig'},
+  {key:'show', label:'Next Show'},
   {key:'game', label:'Next Release'},
   {key:'song', label:'Most Played'},
   {key:'watchnext', label:'Watch Next'},
@@ -5293,6 +5323,7 @@ function saveDashWidgetOrder(list){
 function dashWidgetHTML(key){
   if(key==='trip') return dashTripWidgetsHTML();
   if(key==='gig') return dashGigWidgetHTML();
+  if(key==='show') return dashShowWidgetHTML();
   if(key==='game') return `<div id="dash-games-current-slot" class="dash-slot">${dashNextReleaseSlotHTML()}</div>`;
   if(key==='song') return `<div id="dash-song-slot">${dashSongPlaceholderHTML()}</div>`;
   if(key==='watchnext') return `<div id="dash-watchnext-slot">${dashRandomWatchlistWidgetHTML()}</div>`;
