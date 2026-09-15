@@ -1118,6 +1118,11 @@ input[list]::-webkit-calendar-picker-indicator, input[list]::-webkit-list-button
 .been-stat-icon{font-size:1.3rem; line-height:1; flex-shrink:0;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
 .been-stat-text{font-size:.82rem; font-weight:700; color:var(--ink);}
+/* a stat tile or Been card only gets role="button" once it actually has a trip to open, so this
+   only ever styles the clickable ones - same lift-on-hover/focus the dashboard widgets use */
+.been-stat-tile[role="button"],.been-card[role="button"]{cursor:pointer; transition:transform .12s, box-shadow .12s;}
+.been-stat-tile[role="button"]:hover,.been-stat-tile[role="button"]:focus-visible,
+.been-card[role="button"]:hover,.been-card[role="button"]:focus-visible{transform:translateY(-2px); box-shadow:var(--shadow-lift); outline:none;}
 /* the world map: neutral grey for the untouched majority of the map, three fills already in
    the app's own palette for the rest (brand for Been, the accent purple already used for "now"
    states elsewhere for Going, and a light brand tint for Want to Go) rather than inventing new
@@ -4773,6 +4778,16 @@ function dashGigsStatWidgetHTML(){
    "when" is the most recent finished trip that visited it, so that's what the range picker
    filters on. A country marked Been by hand (no trip behind it at all) has no date to check, so
    it can only ever count under All Time - there's nothing here to say it was recent. */
+/* the trip a country's Been card opens when tapped - the most recent finished trip that visited
+   it, same trip placesLastVisitedDate already measures by; falls back to any trip naming the
+   country (e.g. one still upcoming) if none has finished yet. */
+function tripForCountry(code){
+  const matches = (DB.trips||[]).filter(t => (t.countries||[]).includes(code));
+  if(!matches.length) return null;
+  const finished = matches.filter(t => t.endDate && t.endDate < todayStr());
+  if(finished.length) return finished.reduce((a,b) => b.endDate > a.endDate ? b : a);
+  return matches[0];
+}
 function placesLastVisitedDate(code){
   let latest = null;
   (DB.trips||[]).forEach(t=>{
@@ -5531,20 +5546,22 @@ function beenMapHTML(trips){
 function beenStatsHTML(list){
   const pctWorld = COUNTRY_CODES.length ? Math.round(list.length / COUNTRY_CODES.length * 100) : 0;
   const continentsVisited = new Set(list.map(co => continentOf(co.code))).size;
-  let longestDays = 0;
+  let longestDays = 0, longestTripId = null;
   (DB.trips||[]).forEach(t=>{
     if(!t.startDate || !t.endDate) return;
     const days = Math.round((new Date(t.endDate) - new Date(t.startDate))/86400000) + 1;
-    if(days > longestDays) longestDays = days;
+    if(days > longestDays){ longestDays = days; longestTripId = t.id; }
   });
   const stats = [
-    ['🌍', `${list.length} ${list.length===1?'Country':'Countries'} Been`],
-    ['📊', `${pctWorld}% of the World`],
-    ['🗺️', `${continentsVisited} of ${CONTINENT_ORDER.length} Continents`],
+    ['🌍', `${list.length} ${list.length===1?'Country':'Countries'} Been`, null],
+    ['📊', `${pctWorld}% of the World`, null],
+    ['🗺️', `${continentsVisited} of ${CONTINENT_ORDER.length} Continents`, null],
   ];
-  if(longestDays) stats.push(['🏆', `${longestDays}-Day Longest Trip`]);
-  return `<div class="been-stats">${stats.map(([icon,text]) => `
-    <div class="been-stat-tile"><span class="been-stat-icon" aria-hidden="true">${icon}</span><span class="been-stat-text">${esc(text)}</span></div>`).join('')}</div>`;
+  if(longestDays) stats.push(['🏆', `${longestDays}-Day Longest Trip`, longestTripId]);
+  return `<div class="been-stats">${stats.map(([icon,text,tripId]) => {
+    const open = tripId ? `location.hash='#/trip/${esc(tripId)}'` : '';
+    return `<div class="been-stat-tile"${tripId?` role="button" tabindex="0" onclick="${open}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}"`:''}><span class="been-stat-icon" aria-hidden="true">${icon}</span><span class="been-stat-text">${esc(text)}</span></div>`;
+  }).join('')}</div>`;
 }
 /* Been can be read two ways: the order you went (one numbered run) or where in the world it
    was (grouped by continent). Same cards and the same numbers either way, just regrouped. */
@@ -5556,8 +5573,10 @@ function drawBeenSubtabs(){
   if(searchEl) searchEl.style.display = CUR_BEEN_VIEW==='map' ? 'none' : '';
 }
 function beenCardHTML(co, num){
+  const trip = tripForCountry(co.code);
+  const open = trip ? `location.hash='#/trip/${esc(trip.id)}'` : '';
   return `
-    <div class="place-card been-card" data-code="${co.code}">
+    <div class="place-card been-card" data-code="${co.code}"${trip?` role="button" tabindex="0" onclick="${open}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}"`:''}>
       <span class="been-num" aria-hidden="true">#${num}</span>
       <span class="flag">${co.flag}</span>
       <span class="place-name-text">${esc(co.name)}</span>
