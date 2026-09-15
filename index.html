@@ -4982,7 +4982,7 @@ function dashTheatreSeenCount(range){
   return (DB.theatre||[]).filter(t=>t.date && t.date<=todayStr() && (!cutoff || t.date>=cutoff)).length;
 }
 function dashTheatreSeenWidgetHTML(){
-  return dashStatTileHTML('🎭', dashTheatreSeenCount(CUR_DASH_SONG_RANGE), 'Shows Seen', 'App.goTheatre()');
+  return dashStatTileHTML('🎭', dashTheatreSeenCount(CUR_DASH_SONG_RANGE), 'Shows Diary', 'App.goTheatre()');
 }
 /* a booked show, same idea as dashNextGig - Log a Show (theatreFormImpl) already lets its own
    date sit in the future, so a "date" on a DB.theatre entry that hasn't happened yet just means
@@ -13036,10 +13036,14 @@ function dayNarrative(t, k, dayItems, rough){
     : stops.length===1 ? `${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
   const travelEmoji = arriving && travelMode && TRAVEL_MODES[travelMode] ? TRAVEL_MODES[travelMode].emoji+' ' : '';
   // a non-arrival day (you're already there) drops the broader half of a "Palaiokastritsa,
-  // Corfu"-style place - the arrival day's own "Travel to" heading already said which country/
+  // Corfu"-style place - the arrival day's own arrival heading already said which country/
   // region that specific place is in, so repeating it on every day after just adds noise
   const placeShown = arriving ? place : (place||'').split(',')[0].trim();
-  const placeText = place ? `${arriving?travelEmoji+'Travel to ':''}${flag?flag+' ':''}${esc(placeShown)}` : '';
+  // the mode emoji already says "you're travelling" (a plane/train/boat isn't sat still), so
+  // "Travel" itself is redundant next to one - only spelled out when there's no mode set yet
+  // (still "undecided") and so no emoji there to carry that meaning on its own
+  const arriveVerb = arriving ? (travelEmoji ? travelEmoji+'to ' : 'Travel to ') : '';
+  const placeText = place ? `${arriveVerb}${flag?flag+' ':''}${esc(placeShown)}` : '';
   // "Day N" now leads the date line above (see dayRow) rather than this heading, so the bold
   // second line is free to wrap on its own without a long day/date prefix eating into it - a
   // trip with real booking dates but no start date set yet has nothing to count "Day N" from,
