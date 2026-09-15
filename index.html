@@ -5583,11 +5583,14 @@ function beenCardHTML(co, num){
     </div>`;
 }
 /* a country whose trip is booked but hasn't happened yet. It sits in the same numbered run as
-   everywhere you've actually been, just faded and with nothing to tap: it's the next number in
-   the sequence, and it becomes a real entry the day the trip's dates pass. */
+   everywhere you've actually been, just faded - it's the next number in the sequence, and it
+   becomes a real (non-faded) entry the day the trip's dates pass. Still tappable through to the
+   upcoming trip itself, same as any other card with a trip behind it. */
 function beenUpcomingCardHTML(co, num){
+  const trip = tripForCountry(co.code);
+  const open = trip ? `location.hash='#/trip/${esc(trip.id)}'` : '';
   return `
-    <div class="place-card been-card been-upcoming" data-code="${co.code}">
+    <div class="place-card been-card been-upcoming" data-code="${co.code}"${trip?` role="button" tabindex="0" onclick="${open}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}"`:''}>
       <span class="been-num" aria-hidden="true">#${num}</span>
       <span class="flag">${co.flag}</span>
       <span class="place-name-text">${esc(co.name)}</span>
