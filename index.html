@@ -12463,7 +12463,10 @@ function planDayGroups(t){
       }
     });
   }
-  const hasAny = Object.keys(groups).length > 0;
+  // a Location counts as "something on the trip" too, even with nothing actually booked yet -
+  // without this, a trip that's only had its places/dates set up (no flights, accommodation,
+  // tasks or gigs) showed no days at all instead of the usual "Nothing Planned" placeholders
+  const hasAny = Object.keys(groups).length > 0 || (t.locations||[]).length > 0;
   /* once there's something on the trip, every day of it shows up, not just the ones with
      something on them: a day nothing's been added to yet gets a dashed placeholder (same
      treatment as an accommodation gap) instead of silently not appearing at all. Only once
