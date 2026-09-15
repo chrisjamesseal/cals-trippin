@@ -713,9 +713,13 @@ a{color:var(--brand-dark);}
    one) would otherwise show as a doubled-up line instead of the day's usual single divider */
 .route-head-row.open{padding-bottom:12px; border-bottom:1px solid var(--line);}
 /* shrinks to whatever width is left beside the chevron (flex-shrink:0 below) rather than forcing
-   the row wider than the card - a long "Travel to X" title wraps onto a second line instead of
-   running off the edge, with the chevron itself staying put on the right */
+   the row wider than the card - a long "Travel to X" title truncates with an ellipsis (see
+   .route-head-title) instead of running off the edge, with the chevron itself staying put on
+   the same line to its right */
 .route-head-row>div:first-child{flex:1 1 auto; min-width:0;}
+/* one line, ellipsised rather than wrapped - a long title still keeps the chevron on the same
+   row as the title instead of pushing it down onto its own line below a second wrapped one */
+.route-head-title{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 /* the date sat above a day's own title - a little extra air so the two don't read as one run-on
    line */
 .route-date-line{margin-bottom:4px;}
@@ -13570,7 +13574,7 @@ function tabPlan(t, ro){
         <div class="route-head-row${isOpen?' open':''}">
           <div style="min-width:0">
             ${dateLine?`<div class="muted small route-date-line">${esc(dateLine)}${rough?'':`<span class="wx-slot route-head-wx" data-wx-date="${esc(k)}"></span>`}</div>`:''}
-            <strong>${headingHTML}${k===todayKey?`<span class="plan-day-badges"><span class="status-pill now">Today</span></span>`:''}</strong>
+            <strong class="route-head-title">${headingHTML}${k===todayKey?`<span class="plan-day-badges"><span class="status-pill now">Today</span></span>`:''}</strong>
           </div>
           <span class="route-chevron${isOpen?' open':''}" aria-hidden="true">${fa('chevron-down')}</span>
         </div>
