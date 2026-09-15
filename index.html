@@ -881,6 +881,8 @@ a{color:var(--brand-dark);}
    reads as somewhere, and its own flag, once one of these date ranges covers it (see
    dayPlaceInfo's own fallback) rather than sitting blank the way an unbooked stretch used to. */
 .location-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;}
+.location-chips.loc-quick-chips{margin:8px 0 0; gap:6px;}
+.location-chips.loc-quick-chips .chip{padding:4px 10px; font-size:.78rem;}
 .chip.location-chip{cursor:pointer; font:inherit; background:#fff;}
 .chip.location-chip-add{color:var(--brand); border-color:var(--brand-tint); background:var(--brand-ghost);}
 /* the AI stop summary (aiSummaryHTML) - a tinted callout so it reads as an added extra sat
@@ -13603,7 +13605,7 @@ function readDayOrDate(p){
    identically - a stay's own city, a flight's airports, a ferry's ports, a car hire's pickup/
    drop-off, another travel leg's own from/to, alongside the stops and mood board ideas this
    already covered. */
-function locationDatalist(t){
+function tripLocations(t){
   const set = new Set();
   (t.itinerary||[]).forEach(s=>{
     if(s.location) set.add(s.location);
@@ -13617,7 +13619,21 @@ function locationDatalist(t){
   });
   (t.ferries||[]).forEach(f=>{ if(f.from) set.add(f.from); if(f.to) set.add(f.to); });
   (t.carHire||[]).forEach(c=>{ if(c.pickupLoc) set.add(c.pickupLoc); if(c.dropoffLoc) set.add(c.dropoffLoc); });
-  return `<datalist id="loc-list">${[...set].map(l=>`<option value="${esc(l)}">`).join('')}</datalist>`;
+  return [...set];
+}
+function locationDatalist(t){
+  return `<datalist id="loc-list">${tripLocations(t).map(l=>`<option value="${esc(l)}">`).join('')}</datalist>`;
+}
+/* one-tap buttons under a From/To field for every place already named on the trip, so picking
+   a repeat location doesn't mean retyping (or hunting the native datalist dropdown for) a name
+   already used elsewhere. Reuses App.comboPick, the same "fill this field and done" handler the
+   airline combobox uses. */
+function locQuickChipsHTML(fieldId, t){
+  const locs = tripLocations(t);
+  if(!locs.length) return '';
+  return `<div class="location-chips loc-quick-chips">${locs.map(l=>
+    `<button type="button" class="chip location-chip" onclick="App.comboPick('${fieldId}','${jsArg(l)}')">${esc(l)}</button>`
+  ).join('')}</div>`;
 }
 let PLAN_IMG = null;   // pending stop image while the form is open
 App.attachPlanImg = input => {
@@ -13797,9 +13813,11 @@ App.travelLegForm = (i, prefill) => {
     </div>
     <div class="grid2">
       <div class="field"><label class="label" for="tv-from">From</label>
-        <input id="tv-from" type="text" list="loc-list" value="${esc(s.from||'')}" placeholder="e.g. Corfu Town"></div>
+        <input id="tv-from" type="text" list="loc-list" value="${esc(s.from||'')}" placeholder="e.g. Corfu Town">
+        ${locQuickChipsHTML('tv-from', t)}</div>
       <div class="field"><label class="label" for="tv-to">To</label>
-        <input id="tv-to" type="text" list="loc-list" value="${esc(s.to||'')}" placeholder="e.g. Paleokastritsa"></div>
+        <input id="tv-to" type="text" list="loc-list" value="${esc(s.to||'')}" placeholder="e.g. Paleokastritsa">
+        ${locQuickChipsHTML('tv-to', t)}</div>
     </div>
     ${locationDatalist(t)}
     <div class="grid2">
