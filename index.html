@@ -12700,7 +12700,6 @@ function planDaysHTML(t, ro, filterKeys){
      gig's real edit form, same as every other auto card here */
   const autoGigCard = s => `
     <div class="plan-auto${!ro?' plan-click':''}" ${clickAttrs(`App.gigForm(${s.gi})`)}>
-      ${autoTag(secEmoji('🎤'), 'Gig')}
       <div class="card gig-card">
         <div class="gig-top">
           ${s.g.image ? `<img class="gig-cover" src="${esc(s.g.image)}" alt="" loading="lazy">`
