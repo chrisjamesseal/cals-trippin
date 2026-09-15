@@ -12975,7 +12975,12 @@ function dayNarrative(t, k, dayItems, rough){
   // coin flip. Same routing dayItems already gets sorted into elsewhere (see `card` just below)
   // for what counts as a plain stop rather than an auto-generated travel/stay/task card.
   const stops = dayItems.filter(s => !s._autoFlight && !s._autoFerry && !s._autoCar && !s._autoStay && !s._autoGig && s.kind!=='travel' && s.kind!=='task');
-  const activityText = stops.length===1 ? ` - ${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
+  // a gig that day (see planDayGroups) names the day too, same slot a single stop would - and
+  // takes priority over one, since a gig you're actually going to reads as the main event of
+  // the day even alongside other plans
+  const gigItems = dayItems.filter(s=>s._autoGig);
+  const activityText = gigItems.length ? ` - ${esc(gigItems.map(g=>g.g.artist||'Gig').join(' & '))}`
+    : stops.length===1 ? ` - ${secEmoji(stops[0].emoji || ideaEmojiFor(stops[0].name))} ${esc(stops[0].name)}` : '';
   const travelEmoji = arriving && travelMode && TRAVEL_MODES[travelMode] ? TRAVEL_MODES[travelMode].emoji+' ' : '';
   // a non-arrival day (you're already there) drops the broader half of a "Palaiokastritsa,
   // Corfu"-style place - the arrival day's own "Travel to" heading already said which country/
